@@ -6,7 +6,7 @@ Thank you for teaching at the RSNA 2026 Deep Learning Labs! This guide explains 
 
 > **Please have your complete materials (notebooks, slides, and updated README) merged into this repository no later than November 15, 2026.**
 
-This gives the Deep Learning Lab directors time to run every notebook as a participant would and flag issues before the meeting. After November 15, please limit changes to fixes identified during our review or critical bugs, and **please do not submit changes during the meeting itself**. Last-minute pull requests are very hard to review and merge while the labs are running.
+This gives the Deep Learning Lab director time to run every notebook as a participant would and flag issues before the meeting. After November 15, please limit changes to fixes identified during our review or critical bugs, and **please do not submit changes during the meeting itself**. Last-minute pull requests are very hard to review and merge while the labs are running.
 
 ## Your Lab Folder
 
@@ -72,4 +72,4 @@ GitHub rejects files larger than 100 MB, and large files slow down cloning for e
 
 ## Questions
 
-Please reach out to Pouria Rouzrokh or Walter Wiggins, Deep Learning Lab directors, with any questions.
+Please reach out to Pouria Rouzrokh, Director of the Deep Learning Labs, with any questions.
