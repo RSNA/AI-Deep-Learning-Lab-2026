@@ -12,8 +12,8 @@
 
 ## Faculty
 
-- **Moderator:** Kenneth Philbrick, PhD — Google
-- **Presenter:** Jason Klotzer — Google
+- **Moderator:** Jason Klotzer — Google
+- **Presenter:** Kenneth Philbrick, PhD — Google
 
 ## Overview
 
