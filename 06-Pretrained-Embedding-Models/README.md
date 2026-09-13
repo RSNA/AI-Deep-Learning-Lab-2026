@@ -12,7 +12,7 @@
 
 ## Faculty
 
-- **Moderator:** Rory Pilgrim — Google
+- **Moderator:** Kenneth Philbrick, PhD — Google
 - **Presenter:** Jason Klotzer — Google
 
 ## Overview
