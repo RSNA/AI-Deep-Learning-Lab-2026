@@ -20,7 +20,7 @@ Each lab has a dedicated folder, numbered in the order the labs are held. Please
 | 04 | [`04-Evaluating-Deep-Learning-Models-for-Deployment`](./04-Evaluating-Deep-Learning-Models-for-Deployment/) |
 | 05 | [`05-Vibe-Coding-101`](./05-Vibe-Coding-101/) |
 | 06 | [`06-Pretrained-Embedding-Models`](./06-Pretrained-Embedding-Models/) |
-| 07 | [`07-Fine-Tuning-Large-Language-Models`](./07-Fine-Tuning-Large-Language-Models/) |
+| 07 | [`07-Fine-Tuning-Vision-Language-Models`](./07-Fine-Tuning-Vision-Language-Models/) |
 | 08 | [`08-Sourcing-and-Preprocessing-Data-for-VLMs`](./08-Sourcing-and-Preprocessing-Data-for-VLMs/) |
 
 Each folder already contains a `README.md` with your lab's schedule, faculty, overview, and learning objectives. Please review it for accuracy, then update the **Materials** section with links to your notebook(s), slides, and any setup participants need to complete in advance.
