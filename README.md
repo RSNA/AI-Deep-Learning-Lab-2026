@@ -16,7 +16,7 @@ The Deep Learning Labs are one-hour, hands-on classes where you work with AI too
 | 04 | Mon, Nov 30 | 9:30 – 10:30 AM | [How to Evaluate a Deep Learning Model for Deployment in Real Practice](./04-Evaluating-Deep-Learning-Models-for-Deployment/) | Core | Shahriar Faghani, MD | Mana Moassefi, MD |
 | 05 | Tue, Dec 1 | 1:30 – 2:30 PM | [Vibe Coding 101: Building Radiology Applications Without Programming Experience](./05-Vibe-Coding-101/) | Core | Tugba Akinci D'Antonoli, MD | Keno Bressem; Walter Wiggins, MD PhD |
 | 06 | Tue, Dec 1 | 4:30 – 5:30 PM | [Leveraging Pretrained Embedding Models for Your Data and Use Cases](./06-Pretrained-Embedding-Models/) | Advanced | Jason Klotzer | Kenneth Philbrick, PhD |
-| 07 | Wed, Dec 2 | 8:00 – 9:00 AM | [How to Fine Tune a Large Language Model](./07-Fine-Tuning-Large-Language-Models/) | Advanced | Ali Ganjizadeh, MD MBA | Kalina Slavkova, PhD; Julie Bauml, MD |
+| 07 | Wed, Dec 2 | 8:00 – 9:00 AM | [How to Fine Tune a Vision-Language Model](./07-Fine-Tuning-Vision-Language-Models/) | Advanced | Ali Ganjizadeh, MD MBA | Kalina Slavkova, PhD; Julie Bauml, MD |
 | 08 | Wed, Dec 2 | 9:30 – 10:30 AM | [An Introduction to Sourcing and Preprocessing Medical Imaging Data for Vision-Language Models](./08-Sourcing-and-Preprocessing-Data-for-VLMs/) | Core | Felipe Kitamura, MD PhD | Imon Banerjee; Eduardo Farina, MD; Alessia Guarnera |
 
 ## The Labs
@@ -27,7 +27,7 @@ The Deep Learning Labs are one-hour, hands-on classes where you work with AI too
 4. **[How to Evaluate a Deep Learning Model for Deployment in Real Practice](./04-Evaluating-Deep-Learning-Models-for-Deployment/)**: Evaluating models beyond research metrics, covering data drift, calibration, uncertainty, and human-in-the-loop monitoring.
 5. **[Vibe Coding 101](./05-Vibe-Coding-101/)**: Prompt engineering and "vibe coding" to prototype radiology applications without prior programming experience.
 6. **[Leveraging Pretrained Embedding Models for Your Data and Use Cases](./06-Pretrained-Embedding-Models/)**: Adapting open-weight, radiology-specific pretrained models to your own use case, with attention to data curation, validation, and operating points.
-7. **[How to Fine Tune a Large Language Model](./07-Fine-Tuning-Large-Language-Models/)**: An end-to-end walkthrough of fine-tuning a vision-language model on a radiology dataset, from data preparation to failure analysis.
+7. **[How to Fine Tune a Vision-Language Model](./07-Fine-Tuning-Vision-Language-Models/)**: An end-to-end walkthrough of fine-tuning a vision-language model on a radiology dataset, from data preparation to failure analysis.
 8. **[Sourcing and Preprocessing Medical Imaging Data for Vision-Language Models](./08-Sourcing-and-Preprocessing-Data-for-VLMs/)**: Building image-report datasets from the ground up, covering cohort selection, DICOM retrieval with pynetdicom, de-identification, and quality control.
 
 ## How to Participate

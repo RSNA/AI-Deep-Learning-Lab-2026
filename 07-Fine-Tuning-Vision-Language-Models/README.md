@@ -1,4 +1,4 @@
-# Lab 07: How to Fine Tune a Large Language Model
+# Lab 07: How to Fine Tune a Vision-Language Model
 
 **RSNA 2026 Deep Learning Lab**
 
@@ -43,7 +43,7 @@ PRESENTERS: Replace the line above with links to your materials. For example:
 
 | Material | Link |
 | --- | --- |
-| Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/07-Fine-Tuning-Large-Language-Models/YOUR_NOTEBOOK.ipynb) |
+| Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/07-Fine-Tuning-Vision-Language-Models/YOUR_NOTEBOOK.ipynb) |
 | Slides | [Slides.pdf](./Slides.pdf) |
 
 Also add any setup participants must complete before the session (e.g., accounts, API keys, runtime type).
