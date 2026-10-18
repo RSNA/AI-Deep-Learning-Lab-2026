@@ -13,8 +13,8 @@
 ## Faculty
 
 - **Moderator:** Tugba Akinci D'Antonoli, MD — University Hospital Basel
-- **Presenter:** Keno Bressem — Technical University of Munich
-- **Presenter:** Walter Wiggins, MD PhD — Radiology Partners; Wake Forest School of Medicine
+- **Presenter:** Keno Bressem, MD — Technical University of Munich
+- **Presenter:** Walter Wiggins, MD PhD — Mosaic Clinical Technologies (Radiology Partners)
 
 ## Overview
 

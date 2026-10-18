@@ -13,9 +13,9 @@
 ## Faculty
 
 - **Moderator:** Felipe Kitamura, MD PhD — Eden
-- **Presenter:** Imon Banerjee — Mayo Clinic
+- **Presenter:** Imon Banerjee, PhD — Mayo Clinic
 - **Presenter:** Eduardo Farina, MD — Federal University of São Paulo (UNIFESP)
-- **Presenter:** Alessia Guarnera — UniCamillus International Medical University
+- **Presenter:** Alessia Guarnera, MD — UniCamillus International Medical University
 
 ## Overview
 
