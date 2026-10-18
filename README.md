@@ -14,10 +14,10 @@ The Deep Learning Labs are one-hour, hands-on classes where you work with AI too
 | 02 | Sun, Nov 29 | 2:30 – 3:30 PM | [Building Production-Ready Agentic AI Applications: A Review of the State of the Art in Radiology](./02-Production-Ready-Agentic-AI-Applications/) | Advanced | Pouria Rouzrokh, MD MPH MHPE | Melina Hosseiny, MD |
 | 03 | Mon, Nov 30 | 8:00 – 9:00 AM | [An Introduction to Foundation Models in Medical Imaging](./03-Introduction-to-Foundation-Models/) | Core | Judy Gichoya, MD FSIIM | Mohammadreza Chavoshi, MD; Frank Li, PhD |
 | 04 | Mon, Nov 30 | 9:30 – 10:30 AM | [How to Evaluate a Deep Learning Model for Deployment in Real Practice](./04-Evaluating-Deep-Learning-Models-for-Deployment/) | Core | Shahriar Faghani, MD | Mana Moassefi, MD |
-| 05 | Tue, Dec 1 | 1:30 – 2:30 PM | [Vibe Coding 101: Building Radiology Applications Without Programming Experience](./05-Vibe-Coding-101/) | Core | Tugba Akinci D'Antonoli, MD | Keno Bressem; Walter Wiggins, MD PhD |
+| 05 | Tue, Dec 1 | 1:30 – 2:30 PM | [Vibe Coding 101: Building Radiology Applications Without Programming Experience](./05-Vibe-Coding-101/) | Core | Tugba Akinci D'Antonoli, MD | Keno Bressem, MD; Walter Wiggins, MD PhD |
 | 06 | Tue, Dec 1 | 4:30 – 5:30 PM | [Leveraging Pretrained Embedding Models for Your Data and Use Cases](./06-Pretrained-Embedding-Models/) | Advanced | Jason Klotzer | Kenneth Philbrick, PhD |
 | 07 | Wed, Dec 2 | 8:00 – 9:00 AM | [How to Fine Tune a Vision-Language Model](./07-Fine-Tuning-Vision-Language-Models/) | Advanced | Ali Ganjizadeh, MD MBA | Kalina Slavkova, PhD; Julie Bauml, MD |
-| 08 | Wed, Dec 2 | 9:30 – 10:30 AM | [An Introduction to Sourcing and Preprocessing Medical Imaging Data for Vision-Language Models](./08-Sourcing-and-Preprocessing-Data-for-VLMs/) | Core | Felipe Kitamura, MD PhD | Imon Banerjee; Eduardo Farina, MD; Alessia Guarnera |
+| 08 | Wed, Dec 2 | 9:30 – 10:30 AM | [An Introduction to Sourcing and Preprocessing Medical Imaging Data for Vision-Language Models](./08-Sourcing-and-Preprocessing-Data-for-VLMs/) | Core | Felipe Kitamura, MD PhD | Imon Banerjee, PhD; Eduardo Farina, MD; Alessia Guarnera, MD |
 
 ## The Labs
 
