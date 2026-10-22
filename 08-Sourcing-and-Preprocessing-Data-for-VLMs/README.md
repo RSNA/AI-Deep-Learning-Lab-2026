@@ -15,7 +15,7 @@
 - **Moderator:** Felipe Kitamura, MD PhD — Eden
 - **Presenter:** Imon Banerjee, PhD — Mayo Clinic
 - **Presenter:** Eduardo Farina, MD — Federal University of São Paulo (UNIFESP)
-- **Presenter:** Alessia Guarnera, MD — UniCamillus International Medical University
+- **Presenter:** Alessia Guarnera, MD, PhD — UniCamillus, Rome, Italy
 
 ## Overview
 
