@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>DLL poster</title>
+<style>
+  @font-face { font-family: Bricolage; src: url(fonts/Bricolage.ttf); font-weight: 200 800; }
+  @font-face { font-family: Caveat; src: url(fonts/Caveat.ttf); font-weight: 400 700; }
+  @font-face { font-family: JetBrains; src: url(fonts/JetBrainsMono.ttf); font-weight: 100 800; }
+  html, body { margin: 0; background: #222; }
+  canvas { display: block; margin: 0 auto; max-width: 100vw; max-height: 100vh; }
+</style></head>
+<body><canvas id="cv" width="1080" height="1350"></canvas>
+<script src="lib/sketch.js"></script>
+<script src="lib/robot.js"></script>
+<script src="lib/xray.js"></script>
+<script src="lib/frame.js"></script>
+<script>window.SCENES = {};</script>
+<script src="scenes/lab01.js"></script>
+<script src="scenes/lab02.js"></script>
+<script src="scenes/lab04.js"></script>
+<script src="scenes/lab03.js"></script>
+<script src="scenes/lab05.js"></script>
+<script src="scenes/lab06.js"></script>
+<script src="scenes/lab07.js"></script>
+<script src="scenes/lab08.js"></script>
+<script src="scenes/lab00.js"></script>
+<script src="labs.js"></script>
+<script>
+(async function () {
+  const q = new URLSearchParams(location.search);
+  const lab = window.LABS[q.get('lab') || '01'];
+  const N = +(q.get('frames') || 96), FPS = +(q.get('fps') || 12);
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const img = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  await Promise.all(['800 40px Bricolage', '500 20px Bricolage', '700 30px Caveat', '700 20px JetBrains'].map((f) => document.fonts.load(f)));
+  // crop a logo to its non-transparent pixels so padding in the source file never shifts the layout
+  const trim = (im) => {
+    const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+    const c = cv.getContext('2d'); c.drawImage(im, 0, 0);
+    const d = c.getImageData(0, 0, cv.width, cv.height).data;
+    let x0 = cv.width, y0 = cv.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) return cv;
+    const out = document.createElement('canvas'); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    out.getContext('2d').drawImage(cv, -x0, -y0);
+    return out;
+  };
+  const A = {
+    lockup: trim(await img('assets/rsna2026_lockup_official.png')),
+    paper: SK.makePaper(1080, 1350, FRAME.PAL.paper),
+  };
+  const sk = new SK.Sketch(ctx, FRAME.PAL);
+  window.N = N;
+  window.renderFrame = (f) => { ctx.setTransform(1, 0, 0, 1, 0, 0); FRAME.drawPoster(ctx, sk, lab, f, N, A); return cv.toDataURL('image/png'); };
+  if (q.has('play')) {
+    let f = 0;
+    setInterval(() => { window.renderFrame(f); f = (f + 1) % N; }, 1000 / FPS);
+  } else if (q.has('f')) window.renderFrame(+q.get('f'));
+  window.ready = true;
+})();
+</script></body></html>
