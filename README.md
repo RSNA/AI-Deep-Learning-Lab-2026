@@ -44,6 +44,10 @@ Notebooks will be linked from each lab's folder with an **Open in Colab** button
 
 Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for instructions on uploading your materials, notebook guidelines, and key deadlines.
 
+## Promotional Social Media Posts
+
+The animated posters and the LinkedIn and X posts that promoted the 2026 labs can be found in [Promotional-Social-Media-Posts](./Promotional-Social-Media-Posts/), along with their source code and a style guide for making new ones.
+
 ## Previous Years
 
 - [RSNA AI Deep Learning Lab 2025](https://github.com/RSNA/AI-Deep-Learning-Lab-2025)
