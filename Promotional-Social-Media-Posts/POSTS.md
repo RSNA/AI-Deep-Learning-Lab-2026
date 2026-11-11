@@ -492,6 +492,7 @@ An end-to-end, hands-on walkthrough: you'll fine-tune an open-weight vision-lang
 🔸 Ali Ganjizadeh, MD MBA (HOPPR), moderator
 🔸 Kalina Slavkova, PhD (HOPPR)
 🔸 Julie Bauml, MD (HOPPR)
+🔸 Akash Pattnaik, facilitator
 
 💻 Advanced level. Basic Python helps, but advanced programming isn't required. Bring a laptop and a Google account.
 
@@ -520,7 +521,7 @@ You'll fine-tune an open-weight VLM on a radiology dataset, from preparing the d
 **3/3**
 
 ```text
-The lab is taught by Ali Ganjizadeh, Kalina Slavkova and Julie Bauml from HOPPR. It's Advanced level, and some basic Python helps. Bring a laptop and a Google account. Register here: https://www.rsna.org/annual-meeting/attendee-resources/pricing-and-registration
+The lab is taught by Ali Ganjizadeh, Kalina Slavkova and Julie Bauml from HOPPR, with Akash Pattnaik as a facilitator. It's Advanced level, and some basic Python helps. Bring a laptop and a Google account. Register here: https://www.rsna.org/annual-meeting/attendee-resources/pricing-and-registration
 ```
 
 

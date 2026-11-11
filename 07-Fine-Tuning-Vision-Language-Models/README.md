@@ -15,6 +15,7 @@
 - **Moderator:** Ali Ganjizadeh, MD MBA — HOPPR
 - **Presenter:** Kalina Slavkova, PhD — HOPPR
 - **Presenter:** Julie Bauml, MD — HOPPR
+- **Facilitator:** Akash Pattnaik
 
 ## Overview
 
