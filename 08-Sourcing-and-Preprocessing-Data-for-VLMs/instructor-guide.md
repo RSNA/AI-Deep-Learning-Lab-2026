@@ -6,22 +6,19 @@ Prepare examples for a VLM that receives a chest radiograph, age at examination,
 reason for visit, and drafts only the **findings**. Impression text is neither input nor target.
 We teach data acquisition and preparation, not model training or clinical performance evaluation.
 
-## Proposed 60-minute room schedule
+## Proposed faculty handoffs — December 2, 2026
 
 | Time (Central) | Lead | Content |
-| --- | --- | --- |
-| 9:30–9:35 | Felipe | Introduction and lab overview |
-| 9:35–9:50 | Eduardo | Sections 1–6: FHIR, authentication, patient/study selection, order and encounter context |
-| 9:50–10:05 | Imon | Sections 7–9: report–study matching, findings curation and QIDO/WADO retrieval |
-| 10:05–10:20 | Alessia | Sections 10–12: image preprocessing, visual inspection, training pair and cohort exercise if time permits |
-| 10:20–10:30 | Felipe | Wrap-up, questions, troubleshooting and catch-up |
+|---|---|---|
+| 9:30–9:35 | Felipe | Introduction and setup |
+| 9:35–9:50 | Eduardo | Sections 1–6: FHIR and clinical context |
+| 9:50–10:05 | Imon | Sections 7–9: RIS report matching, Findings curation and QIDO/WADO |
+| 10:05–10:20 | Alessia | Sections 10–12: pixels, visual inspection, training pair; cohort if time permits |
+| 10:20–10:30 | Felipe | Questions, troubleshooting and catch-up |
 
-**Preparation status (November 16, 2026):** the rehearsal hospital was taken offline after testing.
-Live FHIR/DICOMweb cells require the instructor to bring it online and supply a classroom token.
-The embedded recovery points support only the single-case report/image-processing demonstration.
-Fresh Google Colab validation remains pending. No participant credentials are included.
-
-Preserve the final catch-up period; skip the cohort exercise if setup or earlier sections run long.
+One notebook and one kernel throughout. Begin setup during the introduction; omit the cohort exercise
+if delays accumulate. Arena stays in the independent complementary notebook.
+See [integration notes](report-matching-notes.md) for Imon's CSV-to-FHIR adaptation.
 
 ## Teaching choices
 
@@ -68,8 +65,8 @@ the HTTPS host is available. Test a revoked token and a stopped host; verify the
 Review every image and report template before public release. Add concise facilitator slides, rehearse the existing cohort exercise, then
 benchmark a selected MedGemma processor/collator and optional training run near the event.
 
-This submission contains teaching materials only; the hospital source repository and cloud credentials remain private.
-Coordinate the report-matching exercise in PR #11 before the final faculty rehearsal.
+Freeze the final materials by November 15, 2026. Preserve upstream faculty and scheduling information during export.
+Keep the repository, clinical pack, credentials and review material private until publication is approved.
 
 ## Complementary material and access
 

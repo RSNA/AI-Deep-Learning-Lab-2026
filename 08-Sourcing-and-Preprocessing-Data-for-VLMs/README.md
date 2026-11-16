@@ -19,17 +19,20 @@
 
 ## Overview
 
-This interactive workshop focuses on the "data-first" engineering required to build medical imaging datasets from the ground up. The session goes beyond model training to teach the foundational skills of a medical AI researcher: selecting a cohort from EHR and radiology report data, fetching studies via DICOM networking (pynetdicom), and implementing professional anonymization and quality control pipelines.
-
-The workshop runs in a Colab notebook using public data and guides participants through transforming raw clinical inputs into structured, de-identified image-report pairs optimized for vision-language model (VLM) training. Attendees will leave with a framework for clinical data orchestration that can be adapted to any institution or research use case.
+Build a CXR training example through one continuous patient workflow: authenticate to the teaching
+hospital, retrieve patient and visit context through FHIR, match the correct report to the selected
+study, retrieve its image through DICOMweb, and prepare an image/context/Findings pair for a VLM.
+The RIS uses fictional clinical records and the PACS serves a small, attributed teaching image pack.
+The main lesson runs on a free Colab CPU runtime; model training is outside its scope.
 
 ## Learning Objectives
 
-By the end of this session, participants will be able to:
+1. Use authenticated FHIR requests to find patients, imaging studies, orders, encounters and reports.
+2. Match reports using accession and order identifiers, inspect distractors and extract Findings without Impression leakage.
+3. Retrieve matched DICOM images with QIDO/WADO, verify their identifiers, apply display transformations and resize proportionally to a maximum of 896 pixels.
+4. Assemble a multimodal training example with age, gender and reason for visit as context and Findings as the target.
 
-1. Demonstrate how to programmatically identify and select clinical cohorts by querying EHR databases and radiology reports, integrating disparate data sources into a unified research pipeline.
-2. Execute end-to-end imaging retrieval and sanitization using pynetdicom for PACS communication and DICOM de-identification protocols to ensure HIPAA compliance.
-3. Synthesize image-text pairs by applying NLP-based anonymization to free-text reports and synchronizing them with the corresponding imaging volumes.
+This demonstration does not implement institutional de-identification or establish regulatory compliance.
 
 ## Materials
 
@@ -56,16 +59,18 @@ Colab links target the official main branch and become available after this subm
 | 10:05–10:20 | Alessia | Sections 10–12: image preprocessing, visual inspection, training pair and cohort exercise if time permits |
 | 10:20–10:30 | Felipe | Wrap-up, questions, troubleshooting and catch-up |
 
-Imon's [PR #11](https://github.com/RSNA/AI-Deep-Learning-Lab-2026/pull/11) separately proposes a CSV-based
-report-matching notebook. Its exercise should be coordinated with sections 7–9 before the final rehearsal;
-this submission neither replaces that PR nor claims the two notebooks are already integrated.
-The primary lesson uses DICOMweb (QIDO/WADO); it does not implement the pynetdicom/de-identification
-objectives in the original overview above, which require faculty alignment before finalization.
+Imon Banerjee's matching and report-curation exercise from [PR #11](https://github.com/RSNA/AI-Deep-Learning-Lab-2026/pull/11)
+is integrated into sections 7–9. Her CSVs populate the teaching RIS and are retrieved through FHIR;
+participants do not upload CSVs or switch notebooks. See [adaptation and attribution notes](report-matching-notes.md)
+for preserved matching logic, CXR mapping and small correctness fixes. The selected CXR is aligned with
+an actual Orthanc study; historical RIS-only records are explicitly distinguished from available images.
 
-**Preparation status (November 16, 2026):** the rehearsal hospital was taken offline after testing.
-Live FHIR/DICOMweb cells require the instructor to bring it online and supply a classroom token.
-The embedded recovery points support only the single-case report/image-processing demonstration.
-Fresh Google Colab validation remains pending. No participant credentials are included.
+**Preparation status (November 16, 2026):** the [hospital](https://rsnalearninglab.eduardofarina.com)
+is online. Both notebooks passed in independent local kernels against local Docker and public HTTPS.
+A 40-student test completed 120 metadata requests and 40 DICOM downloads without errors.
+Fresh Google Colab rehearsal and faculty review remain pending. Arena is optional complementary
+material; successful live inference remains unverified after an earlier external GPU quota failure.
+The instructor supplies classroom tokens. Planned hospital access continues through March 2, 2027.
 
 ## Before the Session
 

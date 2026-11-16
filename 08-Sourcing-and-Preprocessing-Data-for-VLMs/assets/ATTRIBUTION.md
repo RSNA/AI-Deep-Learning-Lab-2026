@@ -44,6 +44,6 @@ Clark K, Vendt B, Smith K, et al. The Cancer Imaging Archive (TCIA): Maintaining
 
 IDC downloader: https://github.com/ImagingDataCommons/idc-index
 Exact series, source DOIs, source licenses, selected RSNA ZIP members, and source hashes are recorded in
-the hospital authoring repository’s `hospital/dataset-lock.json` (not included in this session export); the built pack manifest records every output hash and transformation.
+`hospital/dataset-lock.json`; the built pack manifest records every output hash and transformation.
 
 The embedded `recovery-case.json` contains only teaching study-001 (one RSNA-source CXR) and fictional clinical resources from the same pack. It is compressed for notebook recovery and follows the image-source attribution above.

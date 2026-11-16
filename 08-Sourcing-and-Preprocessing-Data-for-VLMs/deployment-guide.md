@@ -42,6 +42,13 @@ a prompt requesting findings only does not guarantee that every model obeys it.
 The normal notebook run scans and prepares the image without sending it externally. For the optional
 instructor demonstration set `RUN_ARENA = True`; it installs the pinned lightweight Gradio client.
 
+For local development:
+
+```bash
+uv sync --frozen --group arena
+RSNA_RUN_ARENA=1 uv run --group arena python tools/verify_notebook.py
+```
+
 Use the prepared public teaching images after instructor pixel review, not clinical patient images.
 The prepared PNG carries no DICOM metadata, but removing tags is not a burned-in text detector.
 Do not upload reference reports or identifiers. Inference may queue, exhaust quota or fail; do not
@@ -71,5 +78,3 @@ The local scan/preprocessing/default notebook run passes. The September 21 exter
 validated draft: MedGemma's backend requested 270 seconds of GPU beyond its allowed maximum, and a CheXOne
 request hit a write timeout. The adapter now sets a longer explicit HTTP timeout, but a successful live
 rehearsal is still required. Both failed attempts remain recorded for review; no automatic resubmission occurs.
-
-October 13 follow-up: the complementary notebook reached CheXOne but received a GPU-duration-limit error (270 seconds requested). No model draft was accepted. This remains optional, unvalidated external inference.
