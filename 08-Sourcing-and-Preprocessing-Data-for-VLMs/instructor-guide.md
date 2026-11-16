@@ -19,6 +19,12 @@ We teach data acquisition and preparation, not model training or clinical perfor
 One notebook and one kernel throughout. Begin setup during the introduction; omit the cohort exercise
 if delays accumulate. Arena stays in the independent complementary notebook.
 See [integration notes](report-matching-notes.md) for Imon's CSV-to-FHIR adaptation.
+In section 8, compare the original portable CXR (RPT-2006), CT (RPT-2001) and mammography (RPT-2004)
+reports. Ask which headings delimit sections versus remain inside Findings. Highlight CT organ headings,
+RIGHT/LEFT BREAST, separate Breast Composition and BI-RADS, and preserved uncertainty. These are text-only
+examples already in the RIS; the PACS has no mammograms, and these original reports are not paired to
+its images. Resume study-001 for DICOMweb. Keep this within Imon's 15-minute block; skip the optional cohort
+if discussion runs long.
 
 ## Teaching choices
 

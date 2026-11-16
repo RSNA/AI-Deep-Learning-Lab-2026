@@ -86,7 +86,7 @@ def extract_report_section(text, section="FINDINGS"):
     """Imon's section extraction, retaining organ subheadings within Findings."""
     if text is None or pd.isna(text):
         return None
-    headings = r"EXAM|CLINICAL HISTORY|HISTORY|COMPARISON|TECHNIQUE|FINDINGS|IMPRESSION|CONCLUSION|RECOMMENDATIONS|ADDENDUM"
+    headings = r"EXAM|CLINICAL HISTORY|HISTORY|COMPARISON|TECHNIQUE|FINDINGS|IMPRESSION|CONCLUSION|RECOMMENDATIONS|ADDENDUM|BREAST COMPOSITION|BI-RADS"
     # Require a colon or newline on terminating headings, while permitting inline headings.
     pattern = (
         rf"(?:^|\n)[ \t]*{re.escape(section)}(?:[ \t]*\(preliminary\))?[ \t]*(?::|\n)[ \t\r\n]*"
@@ -154,3 +154,34 @@ def fhir_report_rows(reports):
             "report_text",
         ],
     )
+
+
+def modality_extraction_examples(reports):
+    """Use three unchanged Imon reports for text-only comparison, never image pairing."""
+    examples = []
+    for modality, source_id in (("CXR", "RPT-2006"), ("CT", "RPT-2001"), ("Mammography", "RPT-2004")):
+        matches = [
+            r
+            for r in reports
+            if any(
+                i.get("system", "").endswith("/ris-source-report") and i.get("value") == source_id
+                for i in r.get("identifier", [])
+            )
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"Expected one original RIS report for {source_id}; review available records")
+        resource = matches[0]
+        text = base64.b64decode(resource["presentedForm"][0]["data"]).decode()
+        examples.append(
+            {
+                "modality": modality,
+                "source_report_id": source_id,
+                "fhir_report_id": resource["id"],
+                "original_report": text,
+                "findings": clean_report_text(extract_report_section(text, "FINDINGS")),
+                "impression": clean_report_text(extract_report_section(text, "IMPRESSION")),
+                "breast_composition": clean_report_text(extract_report_section(text, "BREAST COMPOSITION")),
+                "bi_rads": clean_report_text(extract_report_section(text, "BI-RADS")),
+            }
+        )
+    return examples

@@ -32,7 +32,7 @@ row `ACC-2026-00144` / `SR-1044`, whose report is `RPT-2003`. It maps to:
 The selected CXR report retains the hospital's existing label-derived Findings and Impression, rather than
 attaching the source CSV's clinical assertions or two-view acquisition description to an unrelated image.
 This is a documented teaching-data adaptation, not evidence that the original report describes our image.
-The remaining nine report texts are unchanged distractors. Dates are shifted consistently relative to the
+The remaining nine report texts are unchanged matching candidates; three also demonstrate extraction across modalities. Dates are shifted consistently relative to the
 selected CXR; historical encounters/orders are distinct. The three other CSV ImagingStudy records are
 `registered`, with zero imported series/instances and an explicit RIS-only description. Their source UIDs
 are not claimed to exist in Orthanc. Other report-only historical examinations have no invented image link.
@@ -57,3 +57,17 @@ are not claimed to exist in Orthanc. Other report-only historical examinations h
 The original CSV data and adapted records remain synthetic. The image sources are separately attributed
 in [assets/ATTRIBUTION.md](assets/ATTRIBUTION.md). The optional Arena demonstration remains in the
 complementary notebook; its image-only endpoint does not receive clinical context or hospital credentials.
+
+## Multimodality extraction revision requested by Imon
+
+Section 8 now explicitly compares three unchanged source reports retrieved through FHIR: portable CXR
+RPT-2006, chest CT RPT-2001 and bilateral mammography RPT-2004. Each source text is displayed alongside
+its extracted Findings, Impression, Breast Composition and BI-RADS (missing sections remain missing).
+The CT organ headings and mammography RIGHT/LEFT BREAST headings remain within Findings. Breast
+Composition and BI-RADS are major section boundaries, so BI-RADS is not appended to Impression.
+This is a short comparison within Imon's existing time allocation; the optional cohort can be skipped if needed.
+
+These are text-only teaching examples, not new image/report pairs. The Orthanc pack has CR, CT and MR
+images, but no MG images. The original reports used in this comparison are not matched to our PACS pixels.
+The following DICOMweb and image-processing cells retain the previously validated study-001 CXR pair.
+No original CSV or backend data change is needed: these reports were already served by the RIS.

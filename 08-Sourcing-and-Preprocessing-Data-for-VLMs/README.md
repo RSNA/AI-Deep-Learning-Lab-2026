@@ -62,13 +62,13 @@ Colab links target the official main branch and become available after this subm
 Imon Banerjee's matching and report-curation exercise from [PR #11](https://github.com/RSNA/AI-Deep-Learning-Lab-2026/pull/11)
 is integrated into sections 7–9. Her CSVs populate the teaching RIS and are retrieved through FHIR;
 participants do not upload CSVs or switch notebooks. See [adaptation and attribution notes](report-matching-notes.md)
-for preserved matching logic, CXR mapping and small correctness fixes. The selected CXR is aligned with
+for preserved matching logic, CXR mapping and small correctness fixes. Section 8 compares Imon’s original CXR, CT and mammography report structures, including organ/breast subheadings and separate BI-RADS. These are text-only examples already in the RIS; no mammography images are claimed to exist in the PACS. The selected CXR is aligned with
 an actual Orthanc study; historical RIS-only records are explicitly distinguished from available images.
 
 **Preparation status (November 16, 2026):** the [hospital](https://rsnalearninglab.eduardofarina.com)
 is online. Both notebooks passed in independent local kernels against local Docker and public HTTPS.
 A 40-student test completed 120 metadata requests and 40 DICOM downloads without errors.
-Fresh Google Colab rehearsal and faculty review remain pending. Arena is optional complementary
+The preceding revision passed a fresh Google Colab main-notebook run. The current multimodality revision passed both notebooks in fresh local kernels against public HTTPS; a new Colab rehearsal and faculty review remain pending. Arena is optional complementary
 material; successful live inference remains unverified after an earlier external GPU quota failure.
 The instructor supplies classroom tokens. Planned hospital access continues through March 2, 2027.
 
