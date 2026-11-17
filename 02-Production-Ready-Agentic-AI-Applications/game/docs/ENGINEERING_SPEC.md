@@ -136,14 +136,14 @@ that describe a pack with its keys therefore cannot reach client code.
 | Area | Choice |
 | --- | --- |
 | Runtime | Node 22, on the Mac and on the server |
-| Language | TypeScript, strict mode, ES modules |
+| Language | TypeScript 6.0, strict mode, ES modules. Not 7.0: typescript-eslint supports TypeScript below 6.1 (Step 3) |
 | Workspace | npm workspaces. No other package manager |
 | Schemas | Zod. YAML parsed with the `yaml` package |
 | HTTP and WebSocket | Fastify, with `ws` for the sockets |
 | Storage | SQLite through the built-in `node:sqlite` module, WAL mode. It runs without a flag on Node 22 and prints an experimental warning. If Step 3 finds a problem on the server, `better-sqlite3` replaces it behind the same small storage interface |
 | Client | React with Vite. Zustand for state. Plain CSS with custom properties |
 | Scene | PixiJS 8, one canvas |
-| Tests | Vitest for unit and integration tests. Playwright for browser tests, on the Mac only |
+| Tests | Vitest for unit and integration tests. Playwright for browser tests, on the Mac only, in the Chrome installed on the Mac so no browser is downloaded |
 | Server bundle | esbuild, one file, so the server needs no `npm install` |
 
 Use the latest stable release of each library at Step 3 and commit the lockfile.
@@ -244,6 +244,10 @@ A setting that has one implemented value is validated to hold that value. For ex
 
 `npm run check:content` loads the pack in `CONTENT_DIR` and prints every error and warning.
 
+The loader can load a subset of the health systems (`SYSTEMS`, section 7.9). A play check uses it
+while the private pack holds only some systems. The other folders still count toward the hash.
+A field named `source` is accepted anywhere, because every scored item cites one.
+
 ### 5.5 Schema reference
 
 The listings show the fields the code reads. `?` marks an optional field. `Text` is a plain
@@ -266,7 +270,7 @@ type Game = {
   }
   clock: { time_scale_default: number; warnings_seconds_left: number[]; idle_seconds?: number;
            auto_submit_at_zero: true; pause_freezes: 'all' }
-  run_of_show: { start: number; end: number; segment: string; driver: string }[]   // minutes
+  run_of_show: { start: number; end: number; segment: Segment; driver: string }[]   // minutes
   story_time?: {                         // display strings only, see below
     planning?: { span: Text; investigation_stands_for?: Record<number, Text> }   // by bandwidth level
     development?: { span: Text; pilot_run_stands_for?: Text }
@@ -290,6 +294,8 @@ type Game = {
   public_source_labels: Record<string, Text>     // by paper
 }
 type PhaseId = 'planning' | 'development' | 'maintaining'
+type Segment = 'join' | 'intro_slides' | 'planning' | 'help_slides_1' | 'development' | 'help_slides_2'
+             | 'maintaining' | 'help_slides_3' | 'reflection' | 'winners'   // each maps to stages (6.3)
 type Metric = 'validity' | 'reliability' | 'cost' | 'complexity'
 
 type PlanningRules = {
@@ -919,7 +925,10 @@ ranking.
   systems. A system's score is the sum over closed phases of the mean points of its players who
   acted in that phase. A player acted when the engine accepted one command or more from them.
 - Final rankings follow `leaderboards.tie_breaks`. A live column breaks ties by who reached the
-  value first.
+  value first. The keys are `total_points`, `points`, `planning_points`, `development_points`,
+  `maintaining_points`, `earlier_join`, `earlier_submit`, `fewer_pilot_runs`,
+  `higher_final_month_health` and `fewer_credits_spent`. The last one ties everyone in Phase 1,
+  which spends no credits. Join order breaks any tie that remains.
 - A player's view carries their own rank overall, in their system and in the current phase,
   and the top three. The big screen carries the top `big_screen_rows` of each column.
 - Every row carries the practice's name, avatar and health system.
@@ -975,7 +984,9 @@ session and closing.
 | `POST /api/host/session` | Host | Creates a session: label and mode |
 | `GET /api/host/sessions` | Host | Lists sessions |
 | `GET /api/host/export/:code` | Host | Results, commands and timing as JSON or CSV |
-| `GET /api/host/key` | Host, passcode entered again in the last 5 minutes | The answer key page, from the file in `ANSWER_KEY_FILE` |
+| `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log |
+| `POST /api/host/key-ticket` `{passcode}` | Host, passcode entered again | A ticket valid for 5 minutes |
+| `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
 | `GET /healthz` | Anyone | Build id, uptime, open sessions, stage of each |
 
 The root URL sends a visitor to the join page of the newest open session. The QR code holds
@@ -985,7 +996,13 @@ The root URL sends a visitor to the join page of the newest open session. The QR
 
 One endpoint, `/ws`. The first message must be `hello` and must arrive within 5 seconds.
 
-- Roles: `player`, `host`, `screen`. The token in `hello` decides the role.
+- Roles: `player`, `host`, `screen`. The token in `hello` decides the role. A host token is not
+  bound to a session, so a host's `hello` also names the session it drives.
+- A browser sends `build` as `web-<build id>`. When it differs from the server's build, the server
+  sends `reload`. A browser reloads at most once a minute, so a mismatch cannot loop. Bots send any
+  other name and are never asked to reload.
+- Close codes: 4001 unauthorized, 4002 superseded, 4003 removed, 4004 unknown or closed session,
+  4005 no `hello` in time, 4006 send buffer full. The client stops reconnecting on 4001 to 4004.
 - The server pings every 15 seconds and closes a socket that misses two.
 - A message is at most 16 KB. Compression is off, because the messages are small.
 - A second connection with the same player token takes over. The older one receives
@@ -1101,6 +1118,12 @@ the room.
 | `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
 | `LOG_LEVEL` | Log detail | `info` |
+| `SYSTEMS` | Load only these health systems, comma separated. For play checks while the pack is incomplete | all |
+| `CLIENT_DIR` | The client build to serve. The bundled server finds `../client` next to itself | none |
+| `BUILD_ID` | Set at build time by `deploy.sh`. The browser and the server compare it | `dev` |
+
+`npm run dev` runs the game server on port 3100, because 3000 is often taken on a laptop, and the
+client's dev server on 5173.
 
 ---
 
@@ -1123,7 +1146,7 @@ Client to server:
 
 | Message | Fields |
 | --- | --- |
-| `hello` | `token`, `build` (the client's build id) |
+| `hello` | `token`, `build` (the client's build id), `session` (a host only) |
 | `cmd` | `cid`, `type`, `payload`. The types are the commands of sections 6.5 to 6.7 |
 
 Server to client:
@@ -1138,6 +1161,9 @@ Server to client:
 | `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue`, `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter` |
 | `reload` | The client's build is not the server's | none. The client reloads the page |
 | `superseded` | The token connected elsewhere | none |
+
+The `tile` of a view uses camel case like every other protocol type (`xLabel`, `sampleSize`), and
+a quote carries its `lines` already split on `\n`.
 
 A `view` is always complete. A `moment` only tells the client to animate something that the
 view already holds, so a client that misses one loses nothing. A bot can ignore moments.
@@ -1263,7 +1289,9 @@ A host socket receives `host_view` at most once a second: the session, the clock
 its guide timer, the schedule against `run_of_show`, a row per player (name, avatar, system, connected,
 a one-line status for the phase, points, seconds since the last command), the leaderboard and
 the room statistics. A host sends `hostcmd` messages: the host commands of section 6.3, plus
-`rejoin_code`, `screen_scene`, `screen_theme`, `slide`, and `spotlight`. A host may also subscribe to one
+`rejoin_code`, `screen_scene`, `screen_theme`, `screen_filter` (the health system the big screen
+leaderboard shows), `slide`, `spotlight`, `spectate` and `set_scale` (lobby or paused, not in
+`event` mode). A host may also subscribe to one
 player's `PlayerView` to spectate.
 
 A screen socket receives `screen_view` on every beat and stage change: the stage, the clock,
@@ -1323,6 +1351,9 @@ cost of a single option, complexity points of a single option, monitor `upkeep`,
 `calibration`, source gists, and every `key` field not listed above.
 
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
+
+The leak scan of Step 3 checks moments per session stage. A tile is sent to its own player only,
+so Step 5 adds a check per player that no tile reaches anyone before their investigation ends.
 
 ### 9.3 Accepted limits
 
@@ -1399,6 +1430,13 @@ present in every phase, gives the game its place and shows what the numbers mean
 - **The player.** The practice's own character (`me.avatar`) stands in the room with a "You"
   tag and walks to whatever the player starts.
 - **Day and night.** The scene follows the theme (section 11.2).
+- **The room is pack art.** A pack may bring `art/room/` with `room_day.png`, `room_night.png` and
+  `scene.json` (size, posts of the cast in cast order, meeting table seats, the player's post, the
+  door, ambient people, the wall board). Without it the client draws the library of the demo
+  pack. `build_art.py --room reading` draws the radiology reading room for the private pack.
+- **Images decode on the main thread.** PixiJS decodes in a worker made from a blob URL, which the
+  content security policy blocks, so the client turns that off. If the art does not load within
+  8 seconds the still image takes over.
 
 Scene elements and what drives them:
 
@@ -1687,7 +1725,9 @@ change.
   the SIL Open Font License. Each third-party asset keeps its license file next to it, and
   `packages/client/ART.md` lists the source of every file.
 - The first art set is the CC0 RPG Urban Pack by Kenney for characters and street tiles, with
-  rooms drawn for this project in the same palette. A script builds the day and night scenes
+  rooms drawn for this project in the same palette. The reading room is drawn by us as well, so the
+  LimeZu interiors were not bought (Step 3). Each character of the sheet has an idle frame and two
+  walk frames in four directions. Twelve recolored characters serve as the avatars and the cast. A script builds the day and night scenes
   and the character images from the tile sheet, so a change of palette is one run.
 - Art under a license that does not allow redistribution never enters the repository. It can
   only come from the `art/` folder of a pack that lives outside the repository.
@@ -1794,9 +1834,11 @@ in a fresh one, the host console driving the stages, and the big screen followin
 
 ### 13.1 The event server
 
-A dedicated VPS with Ubuntu 24.04. `scripts/provision.sh`, run once from the Mac over SSH, sets
-it up: Node 22, Caddy as the reverse proxy with automatic TLS, a `lab02` user, a systemd unit,
-a firewall that opens 22, 80 and 443, and automatic security updates.
+A dedicated VPS with Ubuntu 26.04 LTS. `scripts/provision.sh <domain>`, run once from the Mac over
+SSH, sets it up: Node 22 from the official binaries (checksum verified), Caddy from Ubuntu as the
+reverse proxy with automatic TLS and a redirect from `www`, a `lab02` user, a systemd unit, a
+firewall that opens 22, 80 and 443 for IPv4 and IPv6, and automatic security updates. It
+generates the host passcode into `env` on the server; the passcode is never on the Mac.
 
 ```
 /opt/lab02/
@@ -1805,7 +1847,7 @@ a firewall that opens 22, 80 and 443, and automatic security updates.
   content/                the pack, readable only by the lab02 user
   private/answer-key.html
   data/                   the database
-  env                     passcode and settings, mode 600
+  env                     passcode and settings, root, mode 600 (systemd reads it before it drops to lab02)
 ```
 
 Neither the server's address nor any secret is in the repository. `deploy.sh` reaches the server
@@ -1816,7 +1858,8 @@ through the SSH host alias `lab02-event`.
 1. Runs `npm ci`, `npm run check` and `npm run check:no-private` on the Mac. Any failure stops.
 2. Builds the server bundle and the client.
 3. Copies the build to a new release folder. With `--content <folder>` it also copies a pack
-   and, when present, the answer key page.
+   and, when present, the answer key page (`review/answer-key.html` beside the pack). `--demo`
+   copies the demo pack. `SYSTEMS` in the environment is written to the server's `env`.
 4. Switches `current`, restarts the service, and waits for `/healthz` to report the new build.
 5. Keeps the last three releases. `--rollback` switches back to the one before.
 

@@ -1,0 +1,13 @@
+# Demo cast. Four people, shared by both library networks.
+- id: demo-mara
+  system: all
+  public: {name: Mara Voss, role: Head of circulation, portrait: demo-mara}
+- id: demo-idris
+  system: all
+  public: {name: Idris Cole, role: Weekend librarian, portrait: demo-idris}
+- id: demo-priya
+  system: all
+  public: {name: Priya Nand, role: Branch manager, portrait: demo-priya}
+- id: demo-tom
+  system: all
+  public: {name: Tom Okafor, role: Systems technician, portrait: demo-tom}

@@ -23,3 +23,4 @@ coverage/
 /content-private/
 /review/
 answer-key.html
+.e2e-data/

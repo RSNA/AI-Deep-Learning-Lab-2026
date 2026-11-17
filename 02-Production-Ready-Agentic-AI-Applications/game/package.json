@@ -1,0 +1,46 @@
+{
+  "name": "lab02-game",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12 <23"
+  },
+  "workspaces": [
+    "packages/content-schema",
+    "packages/protocol",
+    "packages/engine",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "node dist/server/server.mjs",
+    "build": "npm run build -w @lab02/client && node scripts/build-server.mjs",
+    "typecheck": "tsc -p packages/content-schema && tsc -p packages/protocol && tsc -p packages/engine && tsc -p packages/server && tsc -p packages/client && tsc -p scripts",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "check:content": "tsx scripts/check-content.ts",
+    "check:no-private": "tsx scripts/check-no-private.ts",
+    "test:parity": "vitest run --project parity",
+    "test:leak": "LEAK_PACK=1 vitest run packages/server/test/leak.test.ts",
+    "e2e": "npm run build -w @lab02/client && playwright test",
+    "simulate": "tsx scripts/simulate.ts",
+    "loadtest": "tsx scripts/loadtest.ts",
+    "art": "python3 packages/client/art-src/build_art.py"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.65.1",
+    "@types/node": "^22.20.5",
+    "esbuild": "0.28.2",
+    "eslint": "10.15.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "^17.14.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.73.0",
+    "vitest": "5.1.0"
+  }
+}
