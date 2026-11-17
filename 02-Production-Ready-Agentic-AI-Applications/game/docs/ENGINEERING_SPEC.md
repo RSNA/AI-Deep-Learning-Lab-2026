@@ -1520,6 +1520,10 @@ after this section. It asks for the following.
   its note. A problem card shows its whole description on a laptop and a tablet, where a
   description runs to about 26 words, and clamps it only on a phone. The play time has no room
   for a click on every card.
+- **Two inline marks.** The body and the note of a tile, a brief and a letter may carry
+  `**bold**` and `*italic*`, so that a player can skim for the number that matters. The client
+  renders these two marks and nothing else. Every other character is shown as text, and no
+  HTML is ever interpreted. A pack uses them on two to four places in a tile.
 - **Sizes to design for.** A headline has up to 10 words and a body up to 40. An `audit` tile
   has up to 7 findings with labels of up to 12 words and a note of up to 20 words. A `chart`
   tile has up to 3 series and up to 8 points in a series. An interview has 3 lines of up to 16
