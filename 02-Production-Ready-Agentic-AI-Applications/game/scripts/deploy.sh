@@ -63,8 +63,8 @@ fi
 echo "== checks on the Mac"
 npm ci --no-audit --no-fund
 env -u SYSTEMS npm run check
-PRIVATE="${PRIVATE_CONTENT_DIR:-$CONTENT}"
-if [ -n "$PRIVATE" ]; then CONTENT_DIR="$PRIVATE" npm run check:no-private; else npm run check:no-private; fi
+# The deploy stops here when check:no-private fails or no private pack is named.
+PRIVATE_CONTENT_DIR="${PRIVATE_CONTENT_DIR:-$CONTENT}" scripts/no-private-gate.sh
 if [ -n "$CONTENT" ]; then CONTENT_DIR="$CONTENT" npm run test:leak; fi
 if [ -n "$CONTENT" ]; then CONTENT_DIR="$CONTENT" npm run check:content; fi
 

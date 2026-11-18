@@ -96,6 +96,9 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   // Following the game, the intro opens the deck at its section, on the projector and on every player's screen.
   await expect(screen.getByText('You run a branch library')).toBeVisible()
   await expect(pp.getByText('The host is presenting.')).toBeVisible()
+  // The slide fills the player's screen under the top bar (section 10.9).
+  const vh = pp.viewportSize()!.height
+  expect((await pp.locator('.pslide').boundingBox())!.height).toBeGreaterThan(vh * 0.8)
   await next.click()
   await expect(screen.getByText('Phase 1 of 3 · Planning')).toBeVisible()
   await expect(pp.getByRole('button', { name: 'Start investigating' })).toBeVisible()

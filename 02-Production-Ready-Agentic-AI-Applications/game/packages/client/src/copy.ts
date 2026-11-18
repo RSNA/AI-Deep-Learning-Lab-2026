@@ -38,6 +38,7 @@ export const COPY = {
   eachPhase: 'Each phase is worth 1,000 points. Keep this page open.',
   yourSystem: 'Your health system',
   yourPractice: 'Your practice',
+  practiceOf: (system: string) => `Your practice · ${system}`,
   whatYouKnow: 'What you already know',
   people: 'People in your practice',
   sceneHint: 'Click anyone to say hello',

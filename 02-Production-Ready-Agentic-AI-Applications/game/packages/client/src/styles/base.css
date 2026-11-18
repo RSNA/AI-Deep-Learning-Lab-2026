@@ -310,16 +310,31 @@ input.field.bad { border-color: var(--bad); }
 .notes { font-size: 14px; padding: 6px 8px; background: var(--lav-bg); border: 2px solid var(--line); }
 @media (max-width: 1200px) { .console-grid { grid-template-columns: minmax(0, 1fr); } .newsess { grid-template-columns: 1fr 1fr; } }
 
-/* A slide mirrored to the player's screen */
-.pslide { padding: 16px; max-width: 980px; width: 100%; margin: 0 auto; }
-.pslide h1 { font-size: clamp(36px, 5vw, 60px); line-height: 1; font-weight: 400; }
-.pslide ul { margin: 0; padding-left: 26px; display: flex; flex-direction: column; gap: 10px; font-size: clamp(18px, 2.2vw, 24px); font-weight: 600; line-height: 1.3; }
-.pslide-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-@media (max-width: 700px) { .pslide-grid { grid-template-columns: minmax(0, 1fr); } }
-.pslide-side { display: flex; flex-direction: column; gap: 12px; }
-.pslide-side img { width: 100%; border: 3px solid var(--line); }
-.pstat { border: 3px solid var(--line); padding: 10px 14px; background: var(--inset); font-weight: 800; }
-.pstat .num { font-size: 56px; line-height: 1; }
+/* A slide mirrored to the player's screen: it fills the area under the top bar and its type
+   grows with that area, like the projector (section 10.9). --u is one projector pixel. */
+.pslide { flex: 1 1 auto; min-height: 0; display: flex; }
+.pslide-in { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column;
+  gap: calc(28 * var(--u)); padding: calc(48 * var(--u)) calc(96 * var(--u)) calc(32 * var(--u)); }
+.pslide-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-weight: 800; color: var(--muted);
+  font-size: max(13px, calc(24 * var(--u))); }
+.pslide h1 { font-size: max(30px, calc(104 * var(--u))); line-height: 1; font-weight: 400; }
+.pslide ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 0.5em;
+  font-size: max(17px, calc(44 * var(--u))); font-weight: 600; line-height: 1.25; }
+.pslide-one, .pslide-grid { flex-grow: 1; }
+.pslide-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: calc(56 * var(--u)); align-items: start; }
+.pslide-side { display: flex; flex-direction: column; gap: calc(24 * var(--u)); }
+.pslide-side img { width: 100%; max-height: calc(460 * var(--u)); object-fit: contain; border: 3px solid var(--line); background: var(--panel); }
+.pstat { border: 3px solid var(--line); padding: 0.4em 0.7em; background: var(--panel); box-shadow: 4px 4px 0 var(--shade); font-weight: 800;
+  font-size: max(15px, calc(30 * var(--u))); }
+.pstat .num { font-size: 3.6em; line-height: 1; }
+.pslide-back { align-self: flex-start; }
+.pslide.narrow .pslide-in { gap: 14px; padding: 16px; }
+.pslide.narrow .pslide-meta { font-size: 13px; }
+.pslide.narrow h1 { font-size: clamp(30px, 9vw, 56px); }
+.pslide.narrow ul { font-size: clamp(17px, 4.6vw, 24px); }
+.pslide.narrow .pslide-grid { grid-template-columns: minmax(0, 1fr); }
+.pslide.narrow .pslide-side img { max-height: none; }
+.pslide.narrow .pstat { font-size: 16px; }
 
 .hostwrap { min-height: 100%; display: flex; }
 .hostmain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -329,6 +344,7 @@ input.field.bad { border-color: var(--bad); }
 .barstage { font-family: var(--face); font-size: 24px; white-space: nowrap; }
 .barsys { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--bar-muted); white-space: nowrap; }
 .sessbar .chip.good { background: var(--go); color: var(--on); border-color: #1d2140; }
+.sessbar .chip.watch { background: var(--sun); color: var(--on); border-color: #1d2140; }
 .lostctl { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 16px; background: var(--bad-bg); color: var(--bad); border-bottom: 3px solid var(--line); font-weight: 800; }
 .stagectl { display: grid; grid-template-columns: repeat(4, auto); gap: 12px; align-items: start; }
 .stagectl .ctl { max-width: 190px; }
@@ -353,8 +369,18 @@ input.field.bad { border-color: var(--bad); }
 
 .psys { display: inline-flex; align-items: center; gap: 6px; max-width: 150px; }
 .psys > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pact { padding: 4px 0; min-width: 210px; }
-.pact > .btn { margin: 0 4px 4px 0; }
+.pact { padding: 4px 0; white-space: nowrap; }
+.pstatus { white-space: nowrap; font-size: 13px; }
+.pname { font-weight: 800; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ponline { font-weight: 800; white-space: nowrap; }
+.ptable .pnum { text-align: right; padding-right: 10px; white-space: nowrap; }
+.ptable th { white-space: nowrap; }
+.actmenu { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 170px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
+.actmenu button { text-align: left; padding: 8px 12px; min-height: 38px; font: inherit; font-weight: 800; font-size: 14px; background: none; border: 0; color: inherit; cursor: pointer; }
+.actmenu button + button { border-top: 2px solid var(--soft); }
+.actmenu button:hover:not(:disabled), .actmenu button:focus-visible { background: var(--sky-bg); }
+.actmenu button:disabled { color: var(--muted); cursor: default; }
+.actmenu button.danger:not(:disabled) { color: var(--bad); }
 
 /* The rank with its label, in the top bar */
 .rankbtn {

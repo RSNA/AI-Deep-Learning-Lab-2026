@@ -1,6 +1,6 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { COLUMNS, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
 import { usePlayer, forgetPlayer } from '../lib/player.ts'
@@ -22,6 +22,16 @@ function useWakeLock() {
     document.addEventListener('visibilitychange', get)
     return () => { document.removeEventListener('visibilitychange', get); void lock?.release().catch(() => {}) }
   }, [])
+}
+
+function useShort(px: number): boolean {
+  const [short, setShort] = useState(() => window.innerHeight < px)
+  useEffect(() => {
+    const on = () => setShort(window.innerHeight < px)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [px])
+  return short
 }
 
 function useNarrow(px = 768): boolean {
@@ -246,13 +256,31 @@ function CastPanel({ w, onPoke }: { w: Welcome; onPoke?: (id: string) => void })
   )
 }
 
-function RoomPanel({ w, title, maxHeight = 600, poke = null }: { w: Welcome; title?: string; maxHeight?: number; poke?: { id: string; n: number } | null }) {
+/** The practice scene. With `fit`, a room taller than the space left under it in the window is
+ * cropped a little at top and bottom, so a player who arrives sees all of it without a scroll. */
+function RoomPanel({ w, title, maxHeight = 600, poke = null, fit = false }: { w: Welcome; title?: string; maxHeight?: number; poke?: { id: string; n: number } | null; fit?: boolean }) {
   const view = usePlayer((s) => s.view)!
   const theme = useTheme()
+  const box = useRef<HTMLDivElement>(null)
+  const [crop, setCrop] = useState<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (!fit) return
+    const on = () => {
+      const el = box.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top + window.scrollY
+      setCrop(Math.max(360, Math.floor(window.innerHeight - top - 14)))
+    }
+    on()
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [fit])
   return (
     <section className="panel">
       <div className="panel-head lav">{title ?? COPY.yourPractice}<span className="sub">{COPY.sceneHint}</span></div>
-      <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} poke={poke} />
+      <div ref={box}>
+        <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} cropHeight={crop} focusY={96} poke={poke} />
+      </div>
     </section>
   )
 }
@@ -260,6 +288,7 @@ function RoomPanel({ w, title, maxHeight = 600, poke = null }: { w: Welcome; tit
 function Lobby({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
   const narrow = useNarrow(1024)
+  const short = useShort(820)
   const [poke, setPoke] = useState<{ id: string; n: number } | null>(null)
   const onPoke = (id: string) => setPoke((p) => ({ id, n: (p?.n ?? 0) + 1 }))
   const howTo = (
@@ -270,7 +299,7 @@ function Lobby({ w }: { w: Welcome }) {
   )
   return (
     <>
-      <TownStrip height={narrow ? 120 : 160}>
+      <TownStrip height={narrow ? 120 : short ? 96 : 160}>
         <div className="bubble" style={{ position: 'absolute', left: '50%', top: 14, transform: 'translateX(-50%)', width: 'min(320px, 86vw)' }}>
           <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.introWait : COPY.waitingHost}
         </div>
@@ -278,7 +307,7 @@ function Lobby({ w }: { w: Welcome }) {
       {narrow ? (
         <main className="lobby narrow">
           <SystemPanel w={w} />
-          <RoomPanel w={w} maxHeight={360} poke={poke} />
+          <RoomPanel w={w} title={COPY.practiceOf(w.system.name)} maxHeight={360} poke={poke} />
           <CastPanel w={w} onPoke={onPoke} />
           {howTo}
         </main>
@@ -288,9 +317,10 @@ function Lobby({ w }: { w: Welcome }) {
             {howTo}
             <CastPanel w={w} onPoke={onPoke} />
           </div>
+          {/* The scene first, so that a player who arrives sees the living room without a scroll (section 10.2). */}
           <div className="lobby-right">
+            <RoomPanel w={w} title={COPY.practiceOf(w.system.name)} poke={poke} fit />
             <SystemPanel w={w} />
-            <RoomPanel w={w} poke={poke} />
           </div>
         </main>
       )}
@@ -375,25 +405,36 @@ function Winners() {
 /** The slide the host mirrors to every screen. It follows the host; at a reveal the player can step back to the board. */
 function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
   const sl = usePlayer((s) => s.view!.slide)!
+  // The slide fills the area under the top bar, like the slide on the projector, and its type
+  // grows with the screen (section 10.9): every size is a share of the projector's 1920 x 1080.
+  const box = useRef<HTMLElement>(null)
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    ro.observe(el)
+    setSize({ w: el.clientWidth, h: el.clientHeight })
+    return () => ro.disconnect()
+  }, [])
+  const narrow = !!size && size.w < 700
+  const u = size ? Math.min(size.w / 1920, size.h / 1080) : 0.5
   return (
-    <main className="pslide">
-      <section className="panel">
-        <div className="panel-head lav"><span>{sl.section}</span><span className="sub">{COPY.slideOf(sl.index + 1, sl.count)}</span></div>
-        <div className="panel-body">
-          <h1 className="face">{sl.title}</h1>
-          <div className={sl.image || sl.stat ? 'pslide-grid' : ''}>
-            <ul>{sl.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
-            {(sl.image || sl.stat) && (
-              <div className="pslide-side">
-                {sl.image && <img className="px" src={sl.image} alt="" />}
-                {sl.stat && <div className="pstat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
-              </div>
-            )}
-          </div>
-          <p className="muted">{COPY.presenting}</p>
-          {onBack && <button type="button" className="btn go" style={{ alignSelf: 'flex-start' }} onClick={onBack}>{COPY.backToBoard}</button>}
+    <main ref={box} className={`pslide${narrow ? ' narrow' : ''}`} aria-label={COPY.presenting} style={{ '--u': `${u}px` } as React.CSSProperties}>
+      <div className="pslide-in">
+        <div className="pslide-meta"><span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span><span>{COPY.presenting}</span></div>
+        <h1 className="face">{sl.title}</h1>
+        <div className={sl.image || sl.stat ? 'pslide-grid' : 'pslide-one'}>
+          <ul>{sl.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
+          {(sl.image || sl.stat) && (
+            <div className="pslide-side">
+              {sl.image && <img className="px" src={sl.image} alt="" />}
+              {sl.stat && <div className="pstat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
+            </div>
+          )}
         </div>
-      </section>
+        {onBack && <button type="button" className="btn go pslide-back" onClick={onBack}>{COPY.backToBoard}</button>}
+      </div>
     </main>
   )
 }

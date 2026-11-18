@@ -94,6 +94,9 @@ describe('the screen by stage', () => {
     const v = project.screenView(s, pack, 'http://x')
     expect(v.scene).toBe('winners')
     expect(v.winners!.final).toBe(false)
+    // Standings so far name every health system of the session, also the one with no points.
+    expect(s.systems.length).toBeGreaterThan(1)
+    expect(v.winners!.topSystems.map((x) => x.id).sort()).toEqual([...s.systems].sort())
   })
 
   it('shows slides during a phase on the projector only, and mirrors them to players outside play', () => {

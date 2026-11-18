@@ -38,6 +38,11 @@ const Id = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, 'ids are lowercase letters,
 const OptId = z.union([Id, z.literal('n/a')])
 const Num = z.number().finite()
 const Int = z.number().int()
+// A rule of the pack that the loader does not read yet: the rulebook of Phases 2 and 3, and
+// rules that only the content tools read (tools/render_key.py and tools/lab_scoring.py of the
+// private side). Declaring it keeps check:content quiet on the real pack while a misspelled
+// field still warns. Each one gets its real type when the code that reads it is built.
+const Later = z.unknown().optional()
 const NonNeg = Num.min(0)
 const PosInt = Int.min(1)
 const SourceIds = z.array(z.string())
@@ -101,8 +106,9 @@ const PlanningRules = W({
     reachable_work: NonNeg,
     parallel: z.literal(true),
     cancel: z.literal('none'),
+    board_stays_usable_while_running: Later, methods: Later, method_mix: Later,
   }),
-  live_leaderboard: W({ metric: z.literal('progress'), label: Text }),
+  live_leaderboard: W({ metric: z.literal('progress'), label: Text, correctness_hidden: Later }),
   submission: W({
     draft_autosave: z.boolean().optional(),
     early_lock: z.string().optional(),
@@ -111,33 +117,42 @@ const PlanningRules = W({
     letter_empty_below: Int.min(0).optional(),   // fewer sorted problems than this: the letter's "empty" variant
   }).optional(),
   scoring: W({
-    classify: W({ exact: Num, adjacent: Num }),
-    flagship: W({ bonus: Num }),
+    classify: W({ exact: Num, adjacent: Num, other: Later, max: Later }),
+    flagship: W({ bonus: Num, max: Later }),
   }),
+  slot_seconds: Later, teaches: Later, traps_required: Later, evidence: Later,
 })
 export type PlanningRules = z.infer<typeof PlanningRules>
 
 const DevelopmentRules = W({
   label: Text, play_seconds: PosInt, reveal_seconds: NonNeg,
-  pilot: W({ runs: Int.min(0), seconds: PosInt, concurrent: z.literal(1) }),
+  pilot: W({ runs: Int.min(0), seconds: PosInt, concurrent: z.literal(1), board_stays_usable_while_running: Later, returns: Later }),
   offers: W({
     per_system: Int.min(0), announce_at_seconds: z.array(NonNeg),
-    claim_window_seconds: PosInt, claim_fraction: Num.min(0).max(1),
+    claim_window_seconds: PosInt, claim_fraction: Num.min(0).max(1), order: Later,
   }),
-  live_leaderboard: W({ label: Text }),
-  scoring: W({ pilot_weight: Num, heldout_weight: Num }),
+  live_leaderboard: W({ label: Text, metric: Later }),
+  scoring: W({ pilot_weight: Num, heldout_weight: Num, design_score: Later, sub_scores: Later, raw: Later }),
+  slot_seconds: Later, teaches: Later, slots: Later, choice_kinds: Later, decisions: Later,
+  resource_choices: Later, card_shows: Later, team: Later, delivery: Later, cost_horizon: Later,
+  cases: Later, traps_required: Later, submission: Later,
 })
 
 const MaintainingRules = W({
   label: Text, reveal_seconds: NonNeg,
   setup_seconds: PosInt, months: PosInt, month_seconds: PosInt, event_response_seconds: PosInt,
   credits: Int.min(0), actions_per_month: Int.min(0),
-  live_leaderboard: W({ label: Text }),
+  live_leaderboard: W({ label: Text, metric: Later }),
+  slot_seconds: Later, play_seconds: Later, teaches: Later, action_kinds: Later,
+  actions_per_system: Later, monitors_locked_after_setup: Later, events_per_system: Later,
+  max_events_revealed_per_month: Later, scoring: Later,
 })
 
 export const GameFile = W({
   version: Num,
+  status: Later, updated: Later, timing_model: Later,
   game: W({
+    design_capacity_players: Later, load_test_players: Later,
     title: Text.nullable(),
     phase_order: z.tuple([z.literal('planning'), z.literal('development'), z.literal('maintaining')]),
     health_systems: z.array(SystemId).min(1),
@@ -164,12 +179,14 @@ export const GameFile = W({
     idle_seconds: PosInt.optional(),
     auto_submit_at_zero: z.literal(true),
     pause_freezes: z.literal('all'),
+    unit: Later, host_controls: Later, disconnect: Later,
   }),
   run_of_show: z.array(W({ start: NonNeg, end: NonNeg, segment: z.enum(SEGMENTS), driver: z.string() })),
   story_time: W({
     planning: W({ span: Text, investigation_stands_for: z.record(z.string(), Text).optional() }).optional(),
     development: W({ span: Text, pilot_run_stands_for: Text.optional() }).optional(),
     maintaining: W({ span: Text, tick_stands_for: Text.optional() }).optional(),
+    rule: Later, no_idle_rule: Later,
   }).optional(),
   ladder: z.array(W({
     rung: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
@@ -177,9 +194,10 @@ export const GameFile = W({
   })).length(5),
   scoring: W({
     phase_max_points: PosInt,
-    normalization: W({ floor_points: NonNeg, max_points: PosInt }),
-    four_metric_score: W({ weights: S({ validity: Num, reliability: Num, cost: Num, complexity: Num }) }),
+    normalization: W({ floor_points: NonNeg, max_points: PosInt, method: Later, anchors_measured_by: Later }),
+    four_metric_score: W({ weights: S({ validity: Num, reliability: Num, cost: Num, complexity: Num }), cost_and_complexity_scaled_by: Later }),
     score_bands: z.array(W({ id: Id, min: Num, max: Num, label: Text.optional() })).min(1),   // label: the name a player may see
+    total_max_points: Later, carry_over: Later, rounding: Later,
   }),
   phases: W({ planning: PlanningRules, development: DevelopmentRules, maintaining: MaintainingRules }),
   leaderboards: W({
@@ -191,6 +209,8 @@ export const GameFile = W({
       development: z.array(TieKey), maintaining: z.array(TieKey),
     }),
     winners: W({ overall_top: PosInt, per_system_top: PosInt, top_system: PosInt }),
+    filters: Later, systems_strip: Later, live_column: Later, live_column_marked: Later,
+    planning_live: Later, overall_during_play: Later, player_sees: Later, system_score: Later,
   }),
   text_limits: z.record(z.string(), PosInt).optional(),
   sources: z.record(z.string(), W({ paper: z.string(), locator: Text, gist: Text })),

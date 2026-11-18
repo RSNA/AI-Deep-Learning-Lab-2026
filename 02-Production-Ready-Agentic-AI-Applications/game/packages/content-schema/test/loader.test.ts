@@ -115,4 +115,10 @@ describe('broken packs fail with the right path', () => {
     expect(r.ok).toBe(true)
     expect(r.warnings.map((w) => w.path)).toContain('author_note')
   })
+
+  it('a rule the loader does not read yet is quiet, and a misspelling of it still warns', () => {
+    const r = loadPack(broken('game.yaml', (t) => t.replace('version: 1', 'version: 1\nstatus: draft\ntiming_model: {a: 1}\nstatuss: draft')))
+    expect(r.ok).toBe(true)
+    expect(r.warnings.map((w) => w.path)).toEqual(['statuss'])
+  })
 })

@@ -187,11 +187,12 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     return reply.type(type).send(readFileSync(file))
   })
 
+  // Anyone can read this address, so it never carries a join code, a label or a name (section 7).
   fastify.get('/healthz', async () => ({
     build: config.build,
     uptime: Math.round((config.wallNow() - startedAt) / 1000),
     content: pack.hash.slice(0, 12),
-    sessions: [...manager.rooms.values()].filter((r) => !r.state.closed).map((r) => ({ code: r.code, stage: r.state.stage, players: r.state.order.length })),
+    sessions: [...manager.rooms.values()].filter((r) => !r.state.closed).map((r) => ({ stage: r.state.stage, players: r.state.order.length })),
   }))
 
   // ----------------------------------------------------------------------------------------

@@ -15,6 +15,52 @@ import { ScreenStage } from './Screen.tsx'
 import { ManualBody } from './Manual.tsx'
 import { H } from './hostCopy.ts'
 
+type RowAction = { label: string; run: () => void; off?: boolean; danger?: boolean }
+
+/** The actions of a players-table row behind one menu, so every action stays inside the table (section 10.8). */
+function RowActions({ label, items }: { label: string; items: RowAction[] }) {
+  const btn = useRef<HTMLButtonElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null)
+  useEffect(() => {
+    if (!at) return
+    const shut = (e: Event) => {
+      const t = e.target as Node
+      if (e.type === 'mousedown' && (menu.current?.contains(t) || btn.current?.contains(t))) return
+      setAt(null)
+    }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setAt(null); btn.current?.focus() } }
+    window.addEventListener('mousedown', shut)
+    window.addEventListener('resize', shut)
+    window.addEventListener('scroll', shut, true)
+    window.addEventListener('keydown', key)
+    menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    return () => {
+      window.removeEventListener('mousedown', shut)
+      window.removeEventListener('resize', shut)
+      window.removeEventListener('scroll', shut, true)
+      window.removeEventListener('keydown', key)
+    }
+  }, [at])
+  const open = () => {
+    const r = btn.current!.getBoundingClientRect()
+    setAt(at ? null : { top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) })
+  }
+  return (
+    <>
+      <button ref={btn} type="button" className="btn small text actbtn" aria-haspopup="menu" aria-expanded={!!at} aria-label={label} onClick={open}>{H.colActions} ▾</button>
+      {at && (
+        <div ref={menu} className="actmenu" role="menu" style={{ top: at.top, right: at.right }}>
+          {items.map((it) => (
+            <button key={it.label} type="button" role="menuitem" className={it.danger ? 'danger' : ''} disabled={it.off}
+              onClick={() => { setAt(null); it.run() }}>{it.label}</button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 type PackInfo = {
   title: string | null; hash: string; systems: string[]; systemNames?: string[]
   phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[]; placeholders?: number
@@ -473,7 +519,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
     c.on('welcome', (m) => setHv((m as unknown as { view: HostView }).view))
     c.on('host_view', (m) => { const v = (m as unknown as { view: HostView }).view; youRef.current = v.control.you; setHv(v) })
     c.on('clock', (m) => setClock({ clock: (m as unknown as { clock: Clock }).clock, at: performance.now() }))
-    // The console that lost control keeps a notice until it is closed.
+    // The console that lost control keeps a notice until it is closed, or until it holds control again.
     c.on('control', (m) => { const x = m as unknown as { from: string | null; to: string }; if (youRef.current && x.to !== name) setLost(H.tookControl(x.to)) })
     c.on('spectate', (m) => {
       const s = m as unknown as { playerId: string; view: PlayerView | null }
@@ -500,6 +546,8 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const ctl = hv.control
   const phase = phaseOfStage(t)
   const phaseName = phase ? `Phase ${PHASE_NUMBER[phase]}` : null
+  // A phase column shows once its phase has opened, so the table fits at 1280 px (section 10.8).
+  const shownPhases = (['planning', 'development', 'maintaining'] as const).filter((ph) => hv.board.columns[ph].state !== 'empty')
   const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else setTakeOpen(true) }
 
   return (
@@ -520,7 +568,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               const s = systems.find((y) => y.id === x.id)
               return <span key={x.id} className="barsys" title={s?.name}><SystemShape index={s?.index ?? 0} size={10} />{H.connections(x.players, x.connected)}</span>
             })}
-            <span className={`chip${ctl.you ? ' good' : ''}`}>{H.controlLine(ctl.holder, ctl.you)}</span>
+            <span className={`chip ${ctl.you ? 'good' : 'watch'}`} title={ctl.you ? undefined : H.controlLine(ctl.holder, false)}>{ctl.you ? H.youControl : H.viewOnly}</span>
             <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
           </div>
         </header>
@@ -531,7 +579,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
             <Refusal text={ref.map.take} />
           </div>
         )}
-        {lost && (
+        {lost && !ctl.you && (
           <div className="lostctl" role="alert">
             <span>{lost}</span>
             <button className="btn small" onClick={() => setLost(null)} aria-label={H.close}>✕</button>
@@ -606,30 +654,32 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                 <div style={{ overflowX: 'auto' }}>
                   <table className="ptable">
                     <thead><tr className="eyebrow">
-                      <th /><th>{H.colName}</th><th>{H.colSystem}</th><th>{H.colOnline}</th><th>{H.colStatus}</th><th>{H.colP1}</th><th>{H.colP2}</th><th>{H.colP3}</th><th>{H.colTotal}</th><th>{H.colLast}</th><th>{H.colActions}</th>
+                      <th /><th>{H.colName}</th><th title={H.colSystem} aria-label={H.colSystem}>{H.colSystemShort}</th><th>{H.colOnline}</th><th>{H.colStatus}</th>
+                      {shownPhases.map((ph) => <th key={ph} className="pnum" title={`Phase ${PHASE_NUMBER[ph]}`}>{H.colPhase(PHASE_NUMBER[ph])}</th>)}
+                      <th className="pnum">{H.colTotal}</th><th className="pnum">{H.colLast}</th><th>{H.colActions}</th>
                     </tr></thead>
                     <tbody>
-                      {rows.length === 0 && <tr><td colSpan={11} className="muted" style={{ padding: 12 }}>{H.noPlayers}</td></tr>}
+                      {rows.length === 0 && <tr><td colSpan={8 + shownPhases.length} className="muted" style={{ padding: 12 }}>{H.noPlayers}</td></tr>}
                       {rows.map((p) => {
                         const sys = systems.find((s) => s.id === p.system)
                         return (
                           <tr key={p.id}>
                             <td style={{ padding: '4px 8px' }}><Avatar id={p.avatar} size={28} /></td>
-                            <td style={{ fontWeight: 800, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
-                            <td><span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span>{sys?.name}</span></span></td>
-                            <td className={p.connected ? 'good' : 'bad'} style={{ fontWeight: 800 }}>{p.connected ? H.yes : H.no}</td>
-                            <td>{p.status}</td>
-                            <td className="num">{p.points.planning ?? '–'}</td>
-                            <td className="num">{p.points.development ?? '–'}</td>
-                            <td className="num">{p.points.maintaining ?? '–'}</td>
-                            <td className="num" style={{ fontSize: 18 }}>{p.points.total}</td>
-                            <td>{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
+                            <td className="pname" title={p.name}>{p.name}</td>
+                            <td><span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span className="sr-only">{sys?.name}</span></span></td>
+                            <td className={`ponline ${p.connected ? 'good' : 'bad'}`}><span aria-hidden="true">●</span> {p.connected ? H.yes : H.no}</td>
+                            <td className="pstatus">{p.status}</td>
+                            {shownPhases.map((ph) => <td key={ph} className="num pnum">{p.points[ph] ?? '–'}</td>)}
+                            <td className="num pnum" style={{ fontSize: 18 }}>{p.points.total}</td>
+                            <td className="pnum">{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
                             <td className="pact">
-                              <button className="btn small text" onClick={() => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) }}>{H.spectate}</button>{' '}
-                              <button className="btn small text" disabled={!ctl.you} onClick={async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) }}>{H.spotlight}</button>{' '}
-                              <button className="btn small text" disabled={!ctl.you} onClick={() => setRename({ id: p.id, name: p.name })}>{H.rename}</button>{' '}
-                              <button className="btn small text" onClick={async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) }}>{H.code}</button>{' '}
-                              <button className="btn small text danger" disabled={!ctl.you} onClick={() => setRemoving({ id: p.id, name: p.name })}>{H.remove}</button>
+                              <RowActions label={H.actionsFor(p.name)} items={[
+                                { label: H.spectate, run: () => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) } },
+                                { label: H.spotlight, off: !ctl.you, run: async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) } },
+                                { label: H.rename, off: !ctl.you, run: () => setRename({ id: p.id, name: p.name }) },
+                                { label: H.code, run: async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) } },
+                                { label: H.remove, off: !ctl.you, danger: true, run: () => setRemoving({ id: p.id, name: p.name }) },
+                              ]} />
                               {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}
                               <Refusal text={ref.map[`row:${p.id}`]} />
                             </td>

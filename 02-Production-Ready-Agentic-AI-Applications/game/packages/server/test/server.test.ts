@@ -214,6 +214,21 @@ describe('builds', () => {
   })
 })
 
+describe('health check', () => {
+  it('gives the stage and the number of players of each open session, never a join code, label or name', async () => {
+    const srv = await server()
+    const code = session(srv)
+    await joinBot(srv, code, 'Maple Branch')
+    const res = await fetch(`${srv.url}/healthz`)
+    const body = await res.json() as { build: string; sessions: Record<string, unknown>[] }
+    expect(body.sessions).toEqual([{ stage: 'lobby', players: 1 }])
+    const text = JSON.stringify(body)
+    expect(text).not.toContain(code)
+    expect(text).not.toContain('Test session')
+    expect(text).not.toContain('Maple Branch')
+  })
+})
+
 describe('limits', () => {
   it('refuses a wrong token, a missing hello and an oversized message', async () => {
     const srv = await server()

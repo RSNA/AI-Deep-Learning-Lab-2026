@@ -193,8 +193,14 @@ button.ibtn { cursor: pointer; }
 .warnbar { background: var(--sun); color: var(--on); }
 
 /* ---------------------------------------------------------------- reveal */
-.reveal { flex: 1; padding: 12px 14px 20px; display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 392px); gap: 14px; align-items: start; }
-.reveal-notice { grid-column: 1 / -1; padding: 6px 12px; background: var(--sun); color: var(--on); border: 3px solid var(--line); font-weight: 800; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.reveal { flex: 1; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* Row one: the letter (about two thirds) beside the score, both as tall as the taller one. */
+.reveal-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 14px; align-items: stretch; }
+.reveal-top.solo { grid-template-columns: minmax(0, 1fr); }
+.reveal-top > .panel { min-width: 0; }
+.reveal-top .panel-body { flex-grow: 1; }
+.reveal-top .score .bigpts { margin-top: auto; }
+.reveal-notice { padding: 6px 12px; background: var(--sun); color: var(--on); border: 3px solid var(--line); font-weight: 800; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .reveal-notice .btn { margin-left: auto; }
 .reveal-board .panel-head .sub { font-family: var(--text); font-size: 13px; font-weight: 800; }
 .reveal-board .panel-body { gap: 12px; }
@@ -211,7 +217,7 @@ button.ibtn { cursor: pointer; }
 .agentrow .two p { font-size: 14.5px; line-height: 1.5; }
 .costbox { border: 3px solid var(--line); background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .costbox .note { color: var(--muted); font-size: 13px; font-weight: 700; }
-.rthree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.rthree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
 .rbin { border: 3px solid var(--line); background: var(--panel); min-width: 0; }
 .rprob { padding: 7px 10px 8px; border-bottom: 2px solid var(--soft); display: flex; flex-direction: column; gap: 4px; }
 .rprob:last-child { border-bottom: 0; }
@@ -234,7 +240,6 @@ button.ibtn { cursor: pointer; }
 .srow2 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--soft); font-weight: 800; }
 .srow2 .muted { font-size: 12.5px; font-weight: 700; }
 .srow2 .num { font-size: 26px; }
-.reveal-side { display: flex; flex-direction: column; gap: 16px; }
 .letter p { font-size: 15px; line-height: 1.5; }
 .bigpts { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .bigpts .num { font-size: 64px; line-height: 1; }
@@ -243,7 +248,8 @@ button.ibtn { cursor: pointer; }
 .brief-text p { font-size: 16px; line-height: 1.5; }
 
 @media (max-width: 1023px) {
-  .reveal { grid-template-columns: minmax(0, 1fr); padding: 10px 10px 20px; }
+  .reveal { padding: 10px 10px 20px; }
+  .reveal-top { grid-template-columns: minmax(0, 1fr); }
   .rthree { grid-template-columns: minmax(0, 1fr); }
   .agentrow .two { grid-template-columns: minmax(0, 1fr); }
 }

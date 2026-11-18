@@ -369,14 +369,16 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
   let winners: ScreenView['winners'] = null
   if (showWinners && s.closedPhases.length > 0) {
     const all = boardView(s, pack, { system: null, rows: w.overall_top })
+    const final = s.closedPhases.includes('maintaining')
     winners = {
-      final: s.closedPhases.includes('maintaining'),
+      final,
       overall: all.columns.overall.rows,
       perSystem: s.systems.map((id) => ({
         system: id,
         row: boardView(s, pack, { system: id, rows: w.per_system_top }).columns.overall.rows[0] ?? null,
       })),
-      topSystems: all.systems.slice(0, w.top_system),
+      // Standings so far name every health system, also one with no points yet (section 6.13).
+      topSystems: final ? all.systems.slice(0, w.top_system) : all.systems,
     }
   }
   return {
@@ -454,12 +456,13 @@ function playerStatus(s: SessionState, p: PlayerState): string {
   if (p.removed) return 'Removed'
   const ph = phaseOfStage(s.stage)
   if (!ph) return s.stage === 'lobby' ? 'In the lobby' : 'Watching the big screen'
-  if (s.closedPhases.includes(ph)) return `Phase result: ${p.results[ph]?.points ?? 0} points`
+  // One short line for the players table (section 10.8).
+  if (s.closedPhases.includes(ph)) return `Scored · ${p.results[ph]?.points ?? 0} points`
   if (ph === 'planning') {
     const st = p.planning
     if (!st) return 'Planning'
-    const sent = st.submittedAtMs !== null ? ', board sent' : ''
-    return `${st.done.length} insights, ${st.running.length} running, ${Object.keys(st.picks).length} sorted${sent}`
+    const sent = st.submittedAtMs !== null ? ' · sent' : ''
+    return `${st.done.length} insights · ${st.running.length} running · ${Object.keys(st.picks).length} sorted${sent}`
   }
   return ph === 'development' ? 'Designing' : 'Running the year'
 }

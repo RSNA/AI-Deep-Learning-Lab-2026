@@ -188,7 +188,7 @@ test('the phone: three tabs, the same assessment, a full class, the evidence and
   s.close()
 })
 
-test('the lobby: the people in a list, pixel portraits, a click that makes a person speak', async ({ page }) => {
+test('the lobby: the people in a list, pixel portraits, a click that makes a person speak', async ({ page }, info) => {
   const s = await setup(page, 'E2E lobby')
   await joinPicked(page, s.code, 'Lobby Tester', /Riverbend/)
   await expect(page.getByText('People in your practice')).toBeVisible()
@@ -196,6 +196,8 @@ test('the lobby: the people in a list, pixel portraits, a click that makes a per
   await expect(page.locator('.cast-row')).toHaveCount(5)
   await expect(page.locator('.cast-row .portrait img')).toHaveCount(5)
   await expect(page.locator('.initials')).toHaveCount(0)
+  // On a laptop the scene comes first in the right area, titled with the health system (section 10.2).
+  if (info.project.name === 'laptop') await expect(page.locator('.lobby-right > .panel').first().locator('.panel-head')).toContainText('Your practice · Riverbend')
   // A row of the list: that person says one of their click lines in the scene.
   await page.locator('.cast-row').filter({ hasText: 'Ola Berg' }).click()
   await expect(page.locator('.say-bubble')).toContainText('Ola')
@@ -233,6 +235,8 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await expect(p2.getByText('You have control').first()).toBeVisible()
   await expect(page.getByText("Sam's laptop took control")).toBeVisible()
   await expect(page.getByRole('button', { name: /^Next:/ })).toBeDisabled()
+  // A watching console says so in its top bar.
+  await expect(page.locator('.sessbar .chip.watch')).toHaveText('Watching')
 
   // The pin banner and the slides, outside a phase: the console asks about players' screens.
   await p2.getByRole('button', { name: 'Lobby', exact: true }).click()
@@ -257,5 +261,11 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await expect(p2.locator('.manual-side h1')).toHaveText('Host manual')
   await noErrorNames(p2)
   await noOverflow(p2)
+  // Maya takes control back: the notice that Sam took control goes away by itself.
+  await page.getByRole('button', { name: 'Take control' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Take control' }).click()
+  await expect(page.locator('.sessbar .chip.good')).toHaveText('You have control')
+  await expect(page.getByText("Sam's laptop took control")).toHaveCount(0)
+  await expect(p2.getByText("Maya's laptop took control")).toBeVisible()
   await ctx2.close()
 })

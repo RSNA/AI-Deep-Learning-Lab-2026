@@ -1,6 +1,7 @@
-// The Phase 1 reveal (engineering spec, section 10.4): the corrected assessment with the agent
-// project across the full row, its reasoning and its cost side by side, the other three classes
-// in a row under it, the letter and the score at the side. No part is left empty.
+// The Phase 1 reveal (engineering spec, section 10.4). Three rows, each as wide as the page, so
+// no column can end before its neighbor: the letter beside the score at the same height; the
+// corrected assessment, with the agent project across it and the other three classes in equal
+// columns; the closing line. On a phone the same parts stack in that order.
 import { useState } from 'react'
 import type { PlanningContent, PlanningView, Welcome } from '@lab02/protocol'
 import { Portrait } from '../components/ui.tsx'
@@ -86,6 +87,37 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
   return (
     <main className="reveal">
       <div className="reveal-notice">{P1.timeUp}{inBreak ? ` ${P1.lookAtScreen}` : ''}{onSlides && <button type="button" className="btn small" onClick={onSlides}>{P1.backToSlides}</button>}</div>
+      <div className={`reveal-top${letter ? '' : ' solo'}`}>
+        {letter && (
+          <section className="panel letter">
+            <div className="panel-head sun"><span>{P1.letter}</span></div>
+            <div className="panel-body">
+              {from && (
+                <div className="speaker">
+                  <Portrait c={from} cast={w.system.cast} index={fromIdx} size={60} />
+                  <div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div>
+                </div>
+              )}
+              <Paragraphs text={letter.text} />
+            </div>
+          </section>
+        )}
+        <section className="panel score">
+          <div className="panel-head"><span>{P1.score}</span></div>
+          <div className="panel-body">
+            <div className="srow2"><div><div>{P1.classify}</div><div className="muted">{empty ? P1.mark.unsorted : P1.rightCount(right, near, rv.problems.length)}</div></div><span className="num">{rv.classify}</span></div>
+            <div className="srow2"><div><div>{P1.flagshipPart}</div><div className="muted">{rv.flagship > 0 ? P1.found : P1.missed}</div></div><span className="num">{rv.flagship}</span></div>
+            {pts && pts.points !== board && <div className="srow2"><div>{P1.boardScore}</div><span className="num">{board}</span></div>}
+            {pts && (
+              <div className="bigpts">
+                <span className="num">{pts.points}</span><span className="face">{pts.points === board ? P1.points : P1.phasePoints}</span>
+                {pts.band && <span className="chip sun">{pts.band}</span>}
+              </div>
+            )}
+            {pts && pts.points !== board && <div className="hint">{P1.oneScale}</div>}
+          </div>
+        </section>
+      </div>
       <section className="panel reveal-board">
         <div className="panel-head lav"><span>{P1.corrected}</span>{!empty && <span className="sub">{P1.rightCount(right, near, rv.problems.length)}</span>}</div>
         <div className="panel-body">
@@ -125,38 +157,7 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
           </div>
         </div>
       </section>
-      <div className="reveal-side">
-        {letter && (
-          <section className="panel letter">
-            <div className="panel-head sun"><span>{P1.letter}</span></div>
-            <div className="panel-body">
-              {from && (
-                <div className="speaker">
-                  <Portrait c={from} cast={w.system.cast} index={fromIdx} size={60} />
-                  <div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div>
-                </div>
-              )}
-              <Paragraphs text={letter.text} />
-            </div>
-          </section>
-        )}
-        <section className="panel score">
-          <div className="panel-head"><span>{P1.score}</span></div>
-          <div className="panel-body">
-            <div className="srow2"><div><div>{P1.classify}</div><div className="muted">{empty ? P1.mark.unsorted : P1.rightCount(right, near, rv.problems.length)}</div></div><span className="num">{rv.classify}</span></div>
-            <div className="srow2"><div><div>{P1.flagshipPart}</div><div className="muted">{rv.flagship > 0 ? P1.found : P1.missed}</div></div><span className="num">{rv.flagship}</span></div>
-            {pts && pts.points !== board && <div className="srow2"><div>{P1.boardScore}</div><span className="num">{board}</span></div>}
-            {pts && (
-              <div className="bigpts">
-                <span className="num">{pts.points}</span><span className="face">{pts.points === board ? P1.points : P1.phasePoints}</span>
-                {pts.band && <span className="chip sun">{pts.band}</span>}
-              </div>
-            )}
-            {pts && pts.points !== board && <div className="hint">{P1.oneScale}</div>}
-          </div>
-        </section>
-        {flagship && <div className="buildnext">{P1.buildNext(content.problems.find((p) => p.id === flagship.id)?.title ?? '')}</div>}
-      </div>
+      {flagship && <div className="buildnext">{P1.buildNext(content.problems.find((p) => p.id === flagship.id)?.title ?? '')}</div>}
     </main>
   )
 }

@@ -90,7 +90,98 @@ type Actor = {
 // ------------------------------------------------------------------------------------------
 type Floor = { w: number; h: number; ok: Uint8Array }
 
-function readRoom(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; screens: [number, number, number, number][]; boardBg: number | null; wall: string } | null {
+/**
+ * The backdrop beside a room that is narrower than its panel (section 10.2): the wall color beside
+ * the wall and the floor color beside the floor, with the tint of the image on show. Above the
+ * wall line each row continues the edge of the wall (its main color in the 16 outermost pixels,
+ * so a moulding runs on). Below it each row takes the mean of the floor pixels near that edge, so
+ * a desk or a plant at the edge never streaks across the band. The result is a 2 x H image: the
+ * left column, then the right column.
+ */
+type Bands = { url: string; fill: string }
+type Pixels = { W: number; H: number; data: Uint8ClampedArray }
+function pixelsOf(img: HTMLImageElement): Pixels | null {
+  const W = img.naturalWidth, H = img.naturalHeight
+  if (!W || !H) return null
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0)
+  try { return { W, H, data: ctx.getImageData(0, 0, W, H).data } } catch { return null }
+}
+/** The main colors of the floor, from under the player's own spot. */
+function floorColors(px: Pixels, you: [number, number]): number[][] {
+  const { W, H, data } = px
+  const counts = new Map<number, number>()
+  for (let y = you[1] + 8; y < Math.min(H, you[1] + 22); y++) for (let x = Math.max(0, you[0] - 4); x < Math.min(W, you[0] + 20); x++) {
+    const i = (y * W + x) * 4
+    const k = (data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  // A color counts only when it covers a good share: a dark seam between tiles is not the floor.
+  const total = [...counts.values()].reduce((a, n) => a + n, 0)
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).filter(([, n]) => n >= Math.max(6, total * 0.2)).map(([k]) => [k >> 16, (k >> 8) & 255, k & 255])
+}
+const near = (cols: number[][], r: number, g: number, b: number, tol: number) => cols.some((f) => Math.abs(f[0]! - r) + Math.abs(f[1]! - g) + Math.abs(f[2]! - b) < tol)
+/** The wall line: the first of eight rows in a row where the floor takes a good part of the
+ * width. A single line of the wall in the floor's color (the rim of a panel) does not count. */
+function wallLine(px: Pixels, floor: number[][]): number {
+  const { W, H, data } = px
+  let run = 0
+  for (let y = 0; y < H; y++) {
+    let n = 0
+    for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (near(floor, data[i]!, data[i + 1]!, data[i + 2]!, 20)) n++ }
+    run = n >= W * 0.3 ? run + 1 : 0
+    if (run === 8) return y - 7
+  }
+  return Math.floor(H / 3)
+}
+function edgeBands(px: Pixels, floor: number[][], split: number): Bands | null {
+  const { W, H, data } = px
+  const out = document.createElement('canvas')
+  out.width = 2
+  out.height = H
+  const octx = out.getContext('2d')
+  if (!octx) return null
+  const od = octx.createImageData(2, H)
+  const mean = floor.length ? floor.reduce((a, f) => [a[0]! + f[0]! / floor.length, a[1]! + f[1]! / floor.length, a[2]! + f[2]! / floor.length], [0, 0, 0]) : [128, 128, 128]
+  for (let side = 0; side < 2; side++) {
+    let carry = mean
+    for (let y = 0; y < H; y++) {
+      let col: number[]
+      if (y < split) {
+        const counts = new Map<number, number>()
+        let r = 0, g = 0, b = 0
+        const strip = Math.min(16, W)
+        for (let k = 0; k < strip; k++) {
+          const i = (y * W + (side === 0 ? k : W - 1 - k)) * 4
+          r += data[i]!; g += data[i + 1]!; b += data[i + 2]!
+          const key = (data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!
+          counts.set(key, (counts.get(key) ?? 0) + 1)
+        }
+        const [top, n] = [...counts.entries()].sort((p, q) => q[1] - p[1])[0]!
+        col = n >= strip * 0.6 ? [top >> 16, (top >> 8) & 255, top & 255] : [r / strip, g / strip, b / strip]
+      } else {
+        let r = 0, g = 0, b = 0, n = 0
+        for (let k = 0; k < Math.min(48, W); k++) {
+          const i = (y * W + (side === 0 ? k : W - 1 - k)) * 4
+          if (near(floor, data[i]!, data[i + 1]!, data[i + 2]!, 24)) { r += data[i]!; g += data[i + 1]!; b += data[i + 2]!; n++ }
+        }
+        if (n >= 6) carry = [r / n, g / n, b / n]
+        col = carry
+      }
+      const o = (y * 2 + side) * 4
+      od.data[o] = Math.round(col[0]!); od.data[o + 1] = Math.round(col[1]!); od.data[o + 2] = Math.round(col[2]!); od.data[o + 3] = 255
+    }
+  }
+  octx.putImageData(od, 0, 0)
+  const m = (Math.floor(Math.min(split, H) * 0.4) * 2) * 4
+  return { url: out.toDataURL(), fill: `rgb(${od.data[m]},${od.data[m + 1]},${od.data[m + 2]})` }
+}
+
+function readRoom(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; screens: [number, number, number, number][]; boardBg: number | null } | null {
   const [W, H] = layout.size
   const c = document.createElement('canvas')
   c.width = W
@@ -149,8 +240,7 @@ function readRoom(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; s
   }
   let boardBg: number | null = null
   if (board) { const [r, g, b] = at(board[0] + 3, board[1] + 3); boardBg = (r << 16) | (g << 8) | b }
-  const [wr, wg, wb] = at(Math.floor(W / 2), Math.floor(H * 0.12))
-  return { floor: { w, h, ok: ok2 }, screens: layout.monitors ?? screens.slice(0, 16), boardBg, wall: `rgb(${wr},${wg},${wb})` }
+  return { floor: { w, h, ok: ok2 }, screens: layout.monitors ?? screens.slice(0, 16), boardBg }
 }
 
 /** A path for the feet from one spot to another on the floor, as turning points. */
@@ -272,7 +362,7 @@ export function Room({
   const [width, setWidth] = useState(0)
   const [layout, setLayout] = useState<SceneLayout | null>(null)
   const [fallback, setFallback] = useState(false)
-  const [wall, setWall] = useState<string | null>(null)
+  const [bands, setBands] = useState<{ day: Bands | null; night: Bands | null }>({ day: null, night: null })
   const base = art?.room ? `${art.base}room/` : '/art/room/'
   const tagsRef = useRef<HTMLDivElement>(null)
   const actorsRef = useRef<Actor[]>([])
@@ -298,6 +388,28 @@ export function Room({
     setWidth(Math.floor(el.clientWidth))
     return () => ro.disconnect()
   }, [])
+
+  // The backdrop beside the room, from both images, so that a change of theme keeps it right.
+  // The wall line comes from the day image and holds for the night image too.
+  const you = layout?.you
+  useEffect(() => {
+    if (!you) return
+    let live = true
+    const load = (name: string) => new Promise<Pixels | null>((res) => {
+      const img = new Image()
+      img.onload = () => res(pixelsOf(img))
+      img.onerror = () => res(null)
+      img.src = `${base}${name}`
+    })
+    void Promise.all([load('room_day.png'), load('room_night.png')]).then(([day, night]) => {
+      if (!live || !day) return
+      const at: [number, number] = [you[0], you[1]]
+      const dayFloor = floorColors(day, at)
+      const split = wallLine(day, dayFloor)
+      setBands({ day: edgeBands(day, dayFloor, split), night: night ? edgeBands(night, floorColors(night, at), split) : null })
+    })
+    return () => { live = false }
+  }, [base, you])
 
   useEffect(() => {
     let live = true
@@ -466,13 +578,12 @@ export function Room({
         const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('art timeout')), 8000))
         const [dayTex, nightTex, sheet] = await Promise.race([textures, timeout])
         if (destroyed) { app.destroy(true); return }
-        // The floor, the screens and the wall colour, read once from the day image.
+        // The floor and the screens, read once from the day image.
         const img = new Image()
         img.src = `${base}room_day.png`
         await img.decode().catch(() => {})
         const read = img.complete ? readRoom(img, layout) : null
         floorRef.current = read?.floor ?? null
-        if (read) setWall(read.wall)
         host.current?.setAttribute('data-ready', 'scene')
         const world = new PIXI.Container()
         world.scale.set(scale)
@@ -684,8 +795,15 @@ export function Room({
   const shownPerson = shown ? cast.find((c) => c.id === shown.key) : undefined
   const shownIdx = shownPerson ? cast.indexOf(shownPerson) : 0
   const sheetUrls = useMemo(() => new Map(cast.map((c) => [c.id, fallback ? spriteSheet(c.id, looks.get(c.id)!).toDataURL() : ''])), [cast, looks, fallback])
+  const band = theme === 'dark' ? bands.night : bands.day
   return (
-    <div ref={host} className="room" role="group" aria-label={label} style={{ position: 'relative', width: '100%', height: viewH || undefined, overflow: 'hidden', background: wall ?? 'var(--inset)' }}>
+    <div ref={host} className="room" role="group" aria-label={label} style={{ position: 'relative', width: '100%', height: viewH || undefined, overflow: 'hidden', background: band?.fill ?? 'var(--inset)' }}>
+      {band && offsetX > 0 && (['left', 'right'] as const).map((side) => (
+        <div key={side} className="px room-band" aria-hidden="true" style={{
+          position: 'absolute', top: offsetY, height: rh * scale, ...(side === 'left' ? { left: 0, width: offsetX } : { right: 0, width: viewW - offsetX - rw * scale }),
+          backgroundImage: `url(${band.url})`, backgroundSize: '200% 100%', backgroundPosition: side === 'left' ? '0 0' : '100% 0', backgroundRepeat: 'no-repeat', imageRendering: 'pixelated',
+        }} />
+      ))}
       {fallback || !layout ? (
         layout && (
           <div style={{ position: 'absolute', left: offsetX, top: offsetY, width: rw * scale, height: rh * scale }}>
