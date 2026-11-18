@@ -1,13 +1,43 @@
-# Demo cast. Four people, shared by both library networks.
+# Demo cast. Four people shared by both library networks, and one extra in each.
+# look: free words that the client's sprite builder reads (hair, hair_style, skin, top, detail).
 - id: demo-mara
   system: all
   public: {name: Mara Voss, role: Head of circulation, portrait: demo-mara}
+  look: {hair: auburn, hair_style: long, skin: light, top: teal cardigan, detail: glasses}
+  click_lines:
+    - The returns cart is full again. It is always full.
+    - I can tell you the hold queue from memory. Ask me.
+    - If it beeps, it is the self-checkout. If it sighs, it is me.
 - id: demo-idris
   system: all
   public: {name: Idris Cole, role: Weekend librarian, portrait: demo-idris}
+  look: {hair: black, hair_style: short, skin: brown, top: mustard sweater, detail: lanyard}
+  click_lines:
+    - Saturdays are quiet until they are not.
+    - Somebody asked me for a book about a blue cover. Just that.
+    - I shelve by colour when nobody is looking. Kidding.
 - id: demo-priya
   system: all
   public: {name: Priya Nand, role: Branch manager, portrait: demo-priya}
+  look: {hair: black, hair_style: bun, skin: medium, top: navy blazer}
+  click_lines:
+    - My door is open. The draft from it too.
+    - Budgets are stories with numbers in them.
+    - I read every request. Even the ones in crayon.
 - id: demo-tom
   system: all
   public: {name: Tom Okafor, role: Systems technician, portrait: demo-tom}
+  look: {hair: grey, hair_style: buzz, skin: dark, top: green polo, detail: beard}
+  click_lines:
+    - Have you tried turning the kiosk off and on again?
+    - The printer and I have an understanding. It does not understand.
+    - Every cable here has a name. Do not ask me the names.
+- id: demo-ola
+  system: all
+  extra: true
+  public: {name: Ola Berg, role: Volunteer reader, portrait: demo-ola}
+  look: {hair: blonde, hair_style: ponytail, skin: fair, top: red jumper, detail: headphones}
+  click_lines:
+    - Story time is at four. I do the voices.
+    - The dragon book again? Excellent choice.
+    - I only volunteer here. I have opinions anyway.

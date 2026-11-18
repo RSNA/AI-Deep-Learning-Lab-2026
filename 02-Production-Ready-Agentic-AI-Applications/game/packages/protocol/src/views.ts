@@ -14,7 +14,16 @@ const Int = z.number().int()
 export const Rung = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
 export type Rung = z.infer<typeof Rung>
 
-export const Character = S({ id: z.string(), name: Text, role: Text, portrait: z.string() })
+/** How a person's pixel character looks: free words from the pack, read by the sprite builder. */
+export const Look = S({ hair: Text.optional(), hairStyle: Text.optional(), skin: Text.optional(), top: Text.optional(), detail: Text.optional() })
+export type Look = z.infer<typeof Look>
+
+export const Character = S({
+  id: z.string(), name: Text, role: Text, portrait: z.string(),
+  look: Look,
+  extra: z.boolean(),               // lives in the scene, has no interview and no letter
+  clickLines: z.array(Text),        // what the person says when clicked
+})
 export type Character = z.infer<typeof Character>
 
 export const SystemPublic = S({
@@ -23,7 +32,8 @@ export const SystemPublic = S({
   name: Text, setting: Text, premise: Text,
   practiceProfile: z.array(S({ label: Text, value: z.union([Text, z.number()]) })),
   baseline: z.array(S({ label: Text, value: z.union([Text, z.number()]), unit: Text.optional() })),
-  cast: z.array(Character),
+  cast: z.array(Character),         // everyone in the practice, extras included
+  banter: z.array(S({ id: z.string(), lines: z.array(S({ speaker: z.string(), text: Text })) })),
 })
 export type SystemPublic = z.infer<typeof SystemPublic>
 
@@ -54,7 +64,8 @@ export const Tile = z.discriminatedUnion('type', [
 ])
 export type Tile = z.infer<typeof Tile>
 
-export const PhasePoints = S({ points: Int, band: z.string(), provisional: z.boolean() })
+/** A phase's points as a player sees them: the band by its label, never its id or a raw score. */
+export const PhasePoints = S({ points: Int, band: Text.nullable() })   // band: its label from game.yaml, null without one
 export type PhasePoints = z.infer<typeof PhasePoints>
 
 // ------------------------------------------------------------------------------------------
@@ -86,6 +97,20 @@ export const PhaseContent = z.discriminatedUnion('phase', [PlanningContent])
 export type PhaseContent = z.infer<typeof PhaseContent>
 
 // ------------------------------------------------------------------------------------------
+// Slides (one deck per session). A slide reaches a browser only while it is shown.
+// ------------------------------------------------------------------------------------------
+export const SlideView = S({
+  id: z.string(),
+  index: Int, count: Int,           // "Slide 2 of 6", across the whole deck
+  section: Text,
+  title: Text,
+  bullets: z.array(Text),
+  image: z.string().nullable(),     // URL under the pack's art
+  stat: S({ label: Text, value: Text }).nullable(),
+})
+export type SlideView = z.infer<typeof SlideView>
+
+// ------------------------------------------------------------------------------------------
 // The player view (always complete)
 // ------------------------------------------------------------------------------------------
 export const PlanningView = S({
@@ -100,7 +125,7 @@ export const PlanningView = S({
       burden: S({ kind: z.string(), size: z.string(), note: Text }).optional(),
     })),
     graded: z.array(S({ problem: z.string(), picked: z.string().nullable(), points: z.number() })),   // every problem, in pack order
-    classify: z.number(), flagship: z.number(), raw: z.number(),
+    classify: z.number(), flagship: z.number(),      // the two parts of the score
   }).nullable(),
 })
 export type PlanningView = z.infer<typeof PlanningView>
@@ -124,6 +149,7 @@ export const PlayerView = S({
   maintaining: z.null(),            // Step 9 defines MaintainingView
   inbox: z.array(InboxItem),
   reportCard: z.null(),             // Step 9 defines the report card
+  slide: SlideView.nullable(),      // the slide the host mirrors to every player, outside play
 })
 export type PlayerView = z.infer<typeof PlayerView>
 
@@ -202,7 +228,9 @@ export const ScreenView = S({
     histogram: z.array(Int),        // practices per tenth of the points, 0-99 up to 900-1000
     systems: z.array(S({ id: z.string(), players: Int, meanPoints: z.number(), flagshipHits: Int })),
   }).nullable(),
+  slide: SlideView.nullable(),      // only while the scene is 'slides'
   winners: S({
+    final: z.boolean(),             // every phase is scored. Before that: the standings so far, no podium
     overall: z.array(BoardRow),
     perSystem: z.array(S({ system: z.string(), row: BoardRow.nullable() })),
     topSystems: z.array(SystemStanding),

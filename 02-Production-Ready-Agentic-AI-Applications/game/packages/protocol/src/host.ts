@@ -2,7 +2,7 @@
 // receive these.
 import { z } from 'zod'
 import { AvatarId, ErrorCode, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
-import { Board, Clock, PlayerView, SessionInfo, Text } from './views.ts'
+import { Board, Clock, PlayerView, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Int = z.number().int()
@@ -18,13 +18,16 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('reset_stage'), payload: S({ confirm: z.string() }) }),
   S({ type: z.literal('close'), payload: S({ confirm: z.string() }) }),
   S({ type: z.literal('rejoin_code'), payload: S({ playerId: z.string() }) }),
-  S({ type: z.literal('screen_scene'), payload: S({ scene: SceneId }) }),
+  S({ type: z.literal('screen_scene'), payload: S({ scene: SceneId, mirror: z.boolean().optional() }) }),
+  S({ type: z.literal('screen_mirror'), payload: S({ mirror: z.boolean() }) }),
+  S({ type: z.literal('slide_to'), payload: S({ index: Int.min(0) }) }),
   S({ type: z.literal('screen_theme'), payload: S({ theme: Theme }) }),
   S({ type: z.literal('screen_filter'), payload: S({ system: z.string().nullable() }) }),
   S({ type: z.literal('slide'), payload: S({ delta: Int }) }),
   S({ type: z.literal('spotlight'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('spectate'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('set_scale'), payload: S({ scale: z.number().positive().max(100) }) }),
+  S({ type: z.literal('take_control'), payload: S({}) }),
 ])
 export type HostCommand = z.infer<typeof HostCommand>
 
@@ -59,7 +62,21 @@ export const HostView = S({
   players: z.array(HostPlayerRow),
   counts: S({ total: Int, connected: Int, bySystem: z.array(S({ id: z.string(), players: Int, connected: Int })) }),
   board: Board,
-  screen: S({ scene: SceneId, theme: Theme, slide: Int, spotlight: z.string().nullable(), filter: z.string().nullable(), screens: Int }),
+  screen: S({
+    scene: SceneId, theme: Theme, slide: Int, spotlight: z.string().nullable(), filter: z.string().nullable(), screens: Int,
+    shown: SceneId,                 // what the projector shows now: the scene, or what 'auto' resolves to
+    mirror: z.boolean(),            // the slides are on every player's screen too
+    available: S({ play: z.boolean(), winners: z.boolean(), slides: z.boolean() }),
+  }),
+  preview: ScreenView,              // exactly what the projector draws, for the small live preview
+  deck: S({
+    count: Int,
+    sections: z.array(S({ id: z.string(), title: Text, stage: StageId, start: Int, count: Int })),
+    current: S({ slide: SlideView, notes: Text.nullable(), placeholder: z.boolean() }).nullable(),
+    next: S({ slide: SlideView, notes: Text.nullable(), placeholder: z.boolean() }).nullable(),
+  }),
+  /** Which console holds control. Filled per console by the server. */
+  control: S({ you: z.boolean(), holder: Text.nullable(), watchers: z.array(Text) }),
   answerKey: z.boolean(),
   phaseLive: PhaseId.nullable(),
   pickModes: z.array(Mode),         // session modes in which a player may pick the health system
@@ -71,8 +88,11 @@ export const HostViewMsg = S({ t: z.literal('host_view'), view: HostView })
 export const HostAck = S({ t: z.literal('ack'), cid: z.string(), ok: z.boolean(), error: ErrorCode.optional(), data: z.unknown().optional() })
 export const SpectateMsg = S({ t: z.literal('spectate'), playerId: z.string(), view: PlayerView.nullable() })
 
+/** Control of the session moved from one console to another. */
+export const ControlMsg = S({ t: z.literal('control'), from: Text.nullable(), to: Text })
+
 export const HostServerMessage = z.discriminatedUnion('t', [
-  HostWelcome, HostViewMsg, HostAck, SpectateMsg,
+  HostWelcome, HostViewMsg, HostAck, SpectateMsg, ControlMsg,
   S({ t: z.literal('clock'), clock: Clock }),
   S({ t: z.literal('reload') }),
   S({ t: z.literal('error'), error: ErrorCode, message: Text.optional() }),

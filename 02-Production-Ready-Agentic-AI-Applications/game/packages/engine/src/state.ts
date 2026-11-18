@@ -60,9 +60,10 @@ export type BoardState = {
 export type ScreenState = {
   scene: SceneId
   theme: Theme
-  slide: number
+  slide: number                     // the slide shown last, across the whole deck
   spotlight: PlayerId | null
   filter: string | null
+  mirror?: boolean                  // the slides are on every player's screen too (outside play only)
 }
 
 export type SessionState = {

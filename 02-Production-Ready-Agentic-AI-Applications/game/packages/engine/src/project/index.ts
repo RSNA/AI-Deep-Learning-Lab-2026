@@ -3,8 +3,8 @@
 // spreads, passes through or strips a pack object.
 import type { Pack, Tile as PackTile } from '@lab02/content-schema'
 import type {
-  Board, BoardColumn, BoardRow, Clock, ColumnId, LadderRung, Moment, PackArt, PhaseId,
-  PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo, Standing, StageId,
+  Board, BoardColumn, BoardRow, Character, Clock, ColumnId, LadderRung, Moment, PackArt, PhaseId,
+  PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo, SlideView, Standing, StageId,
   SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
 import type { HostPlayerRow, HostView } from '@lab02/protocol/host'
@@ -12,7 +12,8 @@ import { COLUMNS, PHASES, phaseOfStage } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree } from '../phases/planning.ts'
-import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf } from '../session.ts'
+import { deckSlides } from '../deck.ts'
+import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
 import type { GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
 
 // ------------------------------------------------------------------------------------------
@@ -45,10 +46,32 @@ export function systemPublic(s: SessionState, pack: Pack, systemId: string): Sys
     premise: sys.premise,
     practiceProfile: sys.practice_profile.map((r) => ({ label: r.label, value: r.value })),
     baseline: sys.baseline.map((r) => (r.unit === undefined ? { label: r.label, value: r.value } : { label: r.label, value: r.value, unit: r.unit })),
-    cast: sys.cast.map((id) => {
-      const c = pack.characters.find((x) => x.id === id)!
-      return { id: c.id, name: c.public.name, role: c.public.role, portrait: c.public.portrait }
-    }),
+    cast: peopleOf(pack, systemId).map(characterView),
+    banter: (pack.systems[systemId]!.story?.banter ?? []).map((b) => ({
+      id: b.id, lines: b.lines.map((l) => ({ speaker: l.speaker, text: l.text })),
+    })),
+  }
+}
+
+/** Everyone in a practice: the cast of system.yaml, then the extras of the system. */
+function peopleOf(pack: Pack, systemId: string): Pack['characters'][number][] {
+  const ids = pack.systems[systemId]!.system.public.cast
+  const cast = ids.map((id) => pack.characters.find((x) => x.id === id)!)
+  const extras = pack.characters.filter((c) => c.extra && (c.system === systemId || c.system === 'all') && !ids.includes(c.id))
+  return [...cast, ...extras]
+}
+
+function characterView(c: Pack['characters'][number]): Character {
+  const look: Character['look'] = {}
+  const l = c.look
+  if (l?.hair !== undefined) look.hair = l.hair
+  if (l?.hair_style !== undefined) look.hairStyle = l.hair_style
+  if (l?.skin !== undefined) look.skin = l.skin
+  if (l?.top !== undefined) look.top = l.top
+  if (l?.detail !== undefined) look.detail = l.detail
+  return {
+    id: c.id, name: c.public.name, role: c.public.role, portrait: c.public.portrait,
+    look, extra: !!c.extra, clickLines: [...(c.click_lines ?? [])],
   }
 }
 
@@ -169,7 +192,7 @@ function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView
         return out
       }),
       graded: st.result.graded.map((g) => ({ problem: g.problem, picked: g.picked, points: g.points })),
-      classify: st.result.classify, flagship: st.result.flagship, raw: st.result.raw,
+      classify: st.result.classify, flagship: st.result.flagship,
     }
   }
   const picks: Record<string, string> = {}
@@ -218,7 +241,7 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
   const p = s.players[playerId]!
   const pts = (ph: PhaseId) => {
     const r = p.results[ph]
-    return r ? { points: r.points, band: r.band, provisional: r.provisional } : null
+    return r ? { points: r.points, band: pack.game.scoring.score_bands.find((b) => b.id === r.band)?.label ?? null } : null
   }
   return {
     rev: p.rev,
@@ -237,7 +260,51 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
       return item
     }),
     reportCard: null,
+    slide: slidesMirrored(s, pack) ? slideView(s, pack, s.screen.slide) : null,
   }
+}
+
+// ------------------------------------------------------------------------------------------
+// Slides
+// ------------------------------------------------------------------------------------------
+/** A figure of the room that a slide may show live (`live_stat`). Unknown names show nothing. */
+function liveStat(s: SessionState, pack: Pack, name: string): SlideView['stat'] {
+  const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
+  const m = /^(planning|development|maintaining)_(mean|flagship)$/.exec(name)
+  if (name === 'players') return { label: 'Players in the room', value: String(active.length) }
+  if (m) {
+    const phase = m[1] as PhaseId
+    const done = active.filter((p) => p.results[phase] && p.acted[phase])
+    if (!done.length) return null
+    if (m[2] === 'mean') {
+      const mean = Math.round(done.reduce((n, p) => n + p.results[phase]!.points, 0) / done.length)
+      return { label: `Mean points in ${pack.game.phases[phase].label}`, value: String(mean) }
+    }
+    if (phase !== 'planning') return null
+    const hits = done.filter((p) => (p.planning?.result?.flagship ?? 0) > 0).length
+    return { label: 'Found the agent project', value: `${Math.round((100 * hits) / done.length)}%` }
+  }
+  return null
+}
+
+export function slideView(s: SessionState, pack: Pack, index: number): SlideView | null {
+  const all = deckSlides(pack)
+  const x = all[Math.max(0, Math.min(all.length - 1, index))]
+  if (!x) return null
+  return {
+    id: x.slide.id, index: x.index, count: all.length,
+    section: x.section.title, title: x.slide.title, bullets: [...x.slide.bullets],
+    image: x.slide.image ? `${packArt(pack).base}${x.slide.image}` : null,
+    stat: x.slide.live_stat ? liveStat(s, pack, x.slide.live_stat) : null,
+  }
+}
+
+function hostSlide(s: SessionState, pack: Pack, index: number): HostView['deck']['current'] {
+  const all = deckSlides(pack)
+  const x = all[index]
+  const view = x ? slideView(s, pack, index) : null
+  if (!x || !view) return null
+  return { slide: view, notes: x.slide.notes ?? null, placeholder: !!x.slide.placeholder }
 }
 
 // ------------------------------------------------------------------------------------------
@@ -299,19 +366,9 @@ export function standing(s: SessionState, pack: Pack, playerId: PlayerId): Stand
 // ------------------------------------------------------------------------------------------
 // Big screen
 // ------------------------------------------------------------------------------------------
-export function autoScene(stage: StageId): ScreenView['scene'] {
-  if (stage === 'lobby') return 'lobby'
-  if (stage === 'intro') return 'intro'
-  if (stage.endsWith('.reveal')) return 'reveal'
-  if (stage.startsWith('break.')) return 'help'
-  if (stage === 'reflection') return 'reflection'
-  if (stage === 'winners' || stage === 'closed') return 'winners'
-  return 'play'
-}
-
 export function screenView(s: SessionState, pack: Pack, publicUrl: string): ScreenView {
   const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
-  const scene = s.screen.scene === 'auto' ? autoScene(s.stage) : s.screen.scene
+  const scene = shownScene(s, pack)
   const rowsN = pack.game.leaderboards.big_screen_rows
   const sp = s.screen.spotlight ? s.players[s.screen.spotlight] : undefined
   const w = pack.game.leaderboards.winners
@@ -320,6 +377,7 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
   if (showWinners && s.closedPhases.length > 0) {
     const all = boardView(s, pack, { system: null, rows: w.overall_top })
     winners = {
+      final: s.closedPhases.includes('maintaining'),
       overall: all.columns.overall.rows,
       perSystem: s.systems.map((id) => ({
         system: id,
@@ -345,6 +403,7 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       },
       tiles: sp.planning?.done.length ?? 0,
     } : null,
+    slide: scene === 'slides' ? slideView(s, pack, s.screen.slide) : null,
     winners,
   }
 }
@@ -467,7 +526,23 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
     players,
     counts,
     board: boardView(s, pack, { system: null, rows: pack.game.leaderboards.big_screen_rows }),
-    screen: { scene: s.screen.scene, theme: s.screen.theme, slide: s.screen.slide, spotlight: s.screen.spotlight, filter: s.screen.filter, screens: x.screens },
+    screen: {
+      scene: s.screen.scene, theme: s.screen.theme, slide: s.screen.slide, spotlight: s.screen.spotlight, filter: s.screen.filter, screens: x.screens,
+      shown: shownScene(s, pack),
+      mirror: slidesMirrored(s, pack),
+      available: { play: s.opened.length > 0, winners: s.closedPhases.length > 0, slides: deckSlides(pack).length > 0 },
+    },
+    preview: screenView(s, pack, x.publicUrl),
+    deck: {
+      count: deckSlides(pack).length,
+      sections: (pack.deck?.sections ?? []).map((sec) => {
+        const first = deckSlides(pack).find((d) => d.section.id === sec.id)!
+        return { id: sec.id, title: sec.title, stage: sec.stage as StageId, start: first.index, count: sec.slides.length }
+      }),
+      current: hostSlide(s, pack, s.screen.slide),
+      next: hostSlide(s, pack, s.screen.slide + 1),
+    },
+    control: { you: false, holder: null, watchers: [] },
     answerKey: x.answerKey,
     phaseLive: live,
     pickModes: [...(pack.game.join.choose_system_in_modes ?? [])],

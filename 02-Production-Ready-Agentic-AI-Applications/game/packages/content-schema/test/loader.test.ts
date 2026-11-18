@@ -77,6 +77,13 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['an unknown class in the order', 'game.yaml', (t) => t.replace('class_order: [not_real, no_ai, single_model, agentic]', 'class_order: [not_real, no_ai, one_model, agentic]'), /unknown class "one_model"/],
   ['a flagship class that is not last', 'game.yaml', (t) => t.replace('class_order: [not_real, no_ai, single_model, agentic]', 'class_order: [not_real, no_ai, agentic, single_model]'), /must come last/],
   ['a live column that does not exist', 'game.yaml', (t) => t.replace('metric: progress', 'metric: points'), /live_leaderboard\.metric/],
+  // Round 8: the deck, banter, the empty letter
+  ['a deck section at a stage that does not exist', 'teaching/deck.yaml', (t) => t.replace('    stage: intro', '    stage: opening'), /sections\[0\]\.stage.*unknown stage "opening"/],
+  ['two slides with one id', 'teaching/deck.yaml', (t) => t.replace('      - id: welcome-2', '      - id: welcome-1'), /duplicate id "welcome-1"|welcome-1/],
+  ['a slide without bullets', 'teaching/deck.yaml', (t) => t.replace(/ {8}bullets:\n {10}- Each of you[^\n]*\n {10}- Two library[^\n]*\n/, ''), /slides\[0\]\.bullets/],
+  ['a banter line by someone who is not in the system', `${RB}/story.yaml`, (t) => t.replace('{speaker: demo-mara, text: Who moved', '{speaker: demo-nobody, text: Who moved'), /banter\[0\]\.lines\[0\]\.speaker/],
+  ['an exchange of one line', `${RB}/story.yaml`, (t) => t.replace(/ {6}- \{speaker: demo-tom, text: It was evidence[^\n]*\n/, ''), /banter\[0\]\.lines/],
+  ['a letter variant for a band that does not exist', `${RB}/story.yaml`, (t) => t.replace('      empty: You sent', '      hollow: You sent'), /unknown band "hollow"/],
 ]
 
 describe('broken packs fail with the right path', () => {
@@ -89,6 +96,12 @@ describe('broken packs fail with the right path', () => {
       expect(text).toMatch(pattern)
     })
   }
+
+  it('a person with fewer than three click lines, or no look, is a warning', () => {
+    const r = loadPack(broken('characters.yaml', (t) => t.replace(/ {2}look: \{hair: auburn[^\n]*\n/, '').replace(/ {4}- If it beeps[^\n]*\n/, '')))
+    expect(r.ok).toBe(true)
+    expect(r.warnings.map((w) => w.path)).toEqual(expect.arrayContaining(['[0].look', '[0].click_lines']))
+  })
 
   it('an unknown field outside the strict areas is a warning, not an error', () => {
     const r = loadPack(broken('game.yaml', (t) => t.replace('version: 1', 'version: 1\nauthor_note: hello')))

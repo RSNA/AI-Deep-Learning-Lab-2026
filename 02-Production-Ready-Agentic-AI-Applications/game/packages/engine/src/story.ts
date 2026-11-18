@@ -42,13 +42,16 @@ export function openStory(pack: Pack, p: PlayerState, phase: PhaseId, at: GameMs
   return fireDialogue(pack, p, phase, 'start', at)
 }
 
-/** A phase closes for a player: the letter for their band, and the reveal lines. */
-export function closeStory(pack: Pack, p: PlayerState, phase: PhaseId, points: number, at: GameMs): EngineEvent[] {
+/**
+ * A phase closes for a player: the letter for their band, and the reveal lines. A board that was
+ * left (nearly) empty gets the letter's `empty` variant in place of the band's.
+ */
+export function closeStory(pack: Pack, p: PlayerState, phase: PhaseId, points: number, at: GameMs, empty = false): EngineEvent[] {
   const out: EngineEvent[] = []
   const letter = pack.systems[p.system]?.story?.letters?.[LETTER_OF[phase]]
   if (letter) {
     const band = bandOf(points, pack.game.scoring.score_bands)
-    const variant = letter.variants[band]
+    const variant = (empty ? letter.variants.empty : undefined) ?? letter.variants[band]
     const text = variant ? `${letter.always}\n\n${variant}` : letter.always
     p.inbox = p.inbox.filter((m) => m.id !== `${phase}:letter`)
     p.inbox.push({ id: `${phase}:letter`, kind: 'letter', from: letter.from, text, atMs: at })

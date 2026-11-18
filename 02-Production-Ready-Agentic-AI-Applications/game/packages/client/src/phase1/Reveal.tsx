@@ -27,6 +27,8 @@ export function Reveal({ w, content, pv, inBreak }: { w: Welcome; content: Plann
     if (g.picked === truth) return 'right'
     return g.points > 0 ? 'near' : 'wrong'
   }
+  // A board sent empty is said once, at the top, and the rows carry no marks.
+  const empty = rv.graded.every((g) => g.picked === null)
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const flagTitle = flagship ? content.problems.find((p) => p.id === flagship.id)?.title : undefined
 
@@ -36,7 +38,7 @@ export function Reveal({ w, content, pv, inBreak }: { w: Welcome; content: Plann
       <section className="panel reveal-board">
         <div className="panel-head sky"><span>{P1.corrected}</span></div>
         <div className="panel-body">
-          <p className="muted">{P1.correctedHint}</p>
+          {empty ? <div className="empty-board">{P1.emptyBoard}</div> : <p className="muted">{P1.correctedHint}</p>}
           <div className="rbins">
             {classes.map((c, i) => (
               <div key={c.id} className="rbin">
@@ -48,18 +50,20 @@ export function Reveal({ w, content, pv, inBreak }: { w: Welcome; content: Plann
                   const picked = g?.picked ? classes.find((x) => x.id === g.picked)?.short ?? g.picked : null
                   const isOpen = open.has(p.id)
                   return (
-                    <div key={p.id} className={`rprob mark-${mark}${p.flagship ? ' flag' : ''}`}>
+                    <div key={p.id} className={`rprob ${empty ? 'mark-none' : `mark-${mark}`}${p.flagship ? ' flag' : ''}`}>
                       <button type="button" className="rprob-head" aria-expanded={isOpen} onClick={() => toggle(p.id)}>
-                        <span className="rmark" aria-label={P1.mark[mark]}>{MARK_ICON[mark]}</span>
+                        {!empty && <span className="rmark" aria-label={P1.mark[mark]}>{MARK_ICON[mark]}</span>}
                         <span className="rtitle">{pr?.title}{p.flagship && <span className="tagchip flagtag">{P1.flagship}</span>}</span>
-                        <span className="rpick">
-                          <span>{picked ? P1.youPicked(picked) : P1.mark.unsorted}</span>
-                          <span className="num">{P1.pts(g?.points ?? 0)}</span>
-                        </span>
+                        {!empty && (
+                          <span className="rpick">
+                            <span>{picked ? P1.youPicked(picked) : P1.mark.unsorted}</span>
+                            <span className="num">{P1.pts(g?.points ?? 0)}</span>
+                          </span>
+                        )}
                       </button>
                       {isOpen && (
                         <div className="rprob-body">
-                          <div className="rmarkline">{P1.mark[mark]}</div>
+                          {!empty && <div className="rmarkline">{P1.mark[mark]}</div>}
                           <p>{p.rationale}</p>
                           {p.burden && <p className="note"><b>{P1.burden}:</b> {p.burden.note}</p>}
                           <p className="note">{p.tier !== null ? P1.rung(p.tier, w.ladder.find((r) => r.rung === p.tier)?.label ?? '') : P1.noRung}</p>
@@ -80,7 +84,7 @@ export function Reveal({ w, content, pv, inBreak }: { w: Welcome; content: Plann
             <div className="panel-body">
               {from && (
                 <div className="speaker">
-                  <Portrait c={from} art={w.art} index={fromIdx} systemIndex={w.system.index} size={48} />
+                  <Portrait c={from} cast={w.system.cast} index={fromIdx} size={60} />
                   <div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div>
                 </div>
               )}
@@ -93,12 +97,10 @@ export function Reveal({ w, content, pv, inBreak }: { w: Welcome; content: Plann
           <div className="panel-body">
             <div className="kv"><span>{P1.classify}</span><span className="v">{rv.classify}</span></div>
             <div className="kv"><span>{P1.flagshipPart}</span><span className="v">{rv.flagship}</span></div>
-            <div className="kv"><span>{P1.raw}</span><span className="v">{rv.raw}</span></div>
             {pts && (
               <div className="bigpts">
                 <span className="num">{pts.points}</span><span className="face">{P1.points}</span>
-                <span className="chip sun" style={{ textTransform: 'capitalize' }}>{pts.band}</span>
-                {pts.provisional && <span className="chip">Provisional</span>}
+                {pts.band && <span className="chip sun">{pts.band}</span>}
               </div>
             )}
           </div>

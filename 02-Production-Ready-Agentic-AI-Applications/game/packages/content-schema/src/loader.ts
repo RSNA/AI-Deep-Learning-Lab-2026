@@ -5,7 +5,7 @@ import { join, relative } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { z } from 'zod'
 import {
-  BuildFile, CharactersFile, GameFile, HelpSlidesFile, InsightsFile, MaintainFile, MonitorsFile,
+  BuildFile, CharactersFile, DeckFile, GameFile, InsightsFile, MaintainFile, MonitorsFile,
   PaletteFile, PHASES, ProblemsFile, ReportCardFile, StoryFile, SystemFile, setCollectWarnings,
   type Condition, type PhaseId,
 } from './schema.ts'
@@ -33,7 +33,8 @@ export type Pack = {
   /** Health systems in play, in the order of `game.health_systems`. */
   readonly systemIds: readonly string[]
   readonly systems: Readonly<Record<string, SystemPack>>
-  readonly helpSlides: HelpSlidesFile | null
+  /** The deck of the session (teaching/deck.yaml), or null. */
+  readonly deck: DeckFile | null
   readonly reportCard: ReportCardFile | null
   readonly phasesAvailable: Readonly<Record<PhaseId, boolean>>
   /** Files under `art/`, relative to it. */
@@ -146,7 +147,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   const characters = validate(ctx, 'characters.yaml', CharactersFile, readYaml(ctx, 'characters.yaml', true))
   const palette = validate(ctx, 'palette.yaml', PaletteFile, readYaml(ctx, 'palette.yaml', false))
   const monitors = validate(ctx, 'monitors.yaml', MonitorsFile, readYaml(ctx, 'monitors.yaml', false))
-  const helpSlides = validate(ctx, 'teaching/help-slides.yaml', HelpSlidesFile, readYaml(ctx, 'teaching/help-slides.yaml', false))
+  const deck = validate(ctx, 'teaching/deck.yaml', DeckFile, readYaml(ctx, 'teaching/deck.yaml', false))
   const reportCard = validate(ctx, 'teaching/report-card.yaml', ReportCardFile, readYaml(ctx, 'teaching/report-card.yaml', false))
 
   if (!game) return { ok: false, errors: ctx.errors, warnings: ctx.warnings }
@@ -191,7 +192,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   }
 
   if (ctx.errors.length === 0 && characters) {
-    checkReferences(ctx, game, characters, palette, monitors, systems, systemIds, helpSlides, reportCard)
+    checkReferences(ctx, game, characters, palette, monitors, systems, systemIds, deck, reportCard)
     checkCounts(ctx, game, systems)
   }
   if (ctx.errors.length > 0 || !characters) return { ok: false, errors: ctx.errors, warnings: ctx.warnings }
@@ -210,7 +211,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 
   const pack: Pack = {
     dir, hash: contentHash(ctx.raw), game, palette, monitors, characters,
-    systemIds, systems, helpSlides, reportCard, phasesAvailable,
+    systemIds, systems, deck, reportCard, phasesAvailable,
     artFiles: listFiles(join(dir, 'art')), provisional,
   }
   return { ok: true, pack: deepFreeze(pack), warnings: ctx.warnings }
@@ -219,12 +220,21 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 // ------------------------------------------------------------------------------------------
 // Layer 2: references
 // ------------------------------------------------------------------------------------------
+/** The stages a deck section may open at (the stage ids of the engine, section 6.3). */
+const DECK_STAGES = [
+  'lobby', 'intro', 'planning.play', 'planning.reveal', 'break.planning',
+  'development.play', 'development.reveal', 'break.development',
+  'maintaining.setup', 'maintaining.year', 'maintaining.reveal', 'break.maintaining',
+  'reflection', 'winners', 'closed',
+] as const
+
 function checkReferences(
   ctx: Ctx, game: GameFile, characters: CharactersFile, palette: PaletteFile | null,
   monitors: MonitorsFile | null, systems: Record<string, SystemPack>, systemIds: string[],
-  helpSlides: HelpSlidesFile | null, reportCard: ReportCardFile | null,
+  deck: DeckFile | null, reportCard: ReportCardFile | null,
 ) {
   const err = (file: string, path: string, message: string) => ctx.errors.push({ file, path, message })
+  const warn = (file: string, path: string, message: string) => ctx.warnings.push({ file, path, message })
   const allSystems = game.game.health_systems
   const seen = new Map<string, string>()
   const unique = (id: string, file: string, path: string) => {
@@ -241,6 +251,8 @@ function checkReferences(
     unique(c.id, 'characters.yaml', `[${i}].id`)
     charIds.set(c.id, c.system)
     if (c.system !== 'all' && !allSystems.includes(c.system)) err('characters.yaml', `[${i}].system`, `unknown health system "${c.system}"`)
+    if (c.click_lines !== undefined && c.click_lines.length < 3) warn('characters.yaml', `[${i}].click_lines`, 'a person needs three or more click lines')
+    if (c.look === undefined) warn('characters.yaml', `[${i}].look`, 'no look: the sprite falls back to one made from the id')
   })
   const charOk = (id: string, sys: string) => charIds.has(id) && (charIds.get(id) === 'all' || charIds.get(id) === sys)
 
@@ -305,10 +317,14 @@ function checkReferences(
       const caseIds = new Set((sp.build?.cases ?? []).map((x) => x.id))
       const offerIds = new Set((sp.build?.offers ?? []).map((x) => x.id))
       for (const [phase, b] of Object.entries((st.briefs ?? {}) as Record<string, { from: string } | undefined>)) if (b && !charOk(b.from, sid)) err(f('story'), `briefs.${phase}.from`, `unknown character "${b.from}"`)
+      st.banter?.forEach((b, i) => {
+        unique(b.id, f('story'), `banter[${i}].id`)
+        b.lines.forEach((l, j) => { if (!charOk(l.speaker, sid)) err(f('story'), `banter[${i}].lines[${j}].speaker`, `unknown character "${l.speaker}"`) })
+      })
       for (const [k, l] of Object.entries((st.letters ?? {}) as Record<string, { from: string; variants: Record<string, string> } | undefined>)) {
         if (!l) continue
         if (!charOk(l.from, sid)) err(f('story'), `letters.${k}.from`, `unknown character "${l.from}"`)
-        for (const band of Object.keys(l.variants)) if (!game.scoring.score_bands.some((b) => b.id === band)) err(f('story'), `letters.${k}.variants.${band}`, `unknown band "${band}"`)
+        for (const band of Object.keys(l.variants)) if (band !== 'empty' && !game.scoring.score_bands.some((b) => b.id === band)) err(f('story'), `letters.${k}.variants.${band}`, `unknown band "${band}"`)
       }
       st.dialogue?.forEach((d, i) => {
         prefixed(d.id, f('story'), `dialogue[${i}].id`)
@@ -326,7 +342,14 @@ function checkReferences(
     }
   }
 
-  if (helpSlides) Object.entries(helpSlides.breaks as Record<string, { id: string }[] | undefined>).forEach(([k, slides]) => slides?.forEach((s, i) => unique(s.id, 'teaching/help-slides.yaml', `breaks.${k}[${i}].id`)))
+  deck?.sections.forEach((sec, i) => {
+    unique(sec.id, 'teaching/deck.yaml', `sections[${i}].id`)
+    if (!(DECK_STAGES as readonly string[]).includes(sec.stage)) err('teaching/deck.yaml', `sections[${i}].stage`, `unknown stage "${sec.stage}"`)
+    sec.slides.forEach((sl, j) => {
+      unique(sl.id, 'teaching/deck.yaml', `sections[${i}].slides[${j}].id`)
+      if (sl.image !== undefined && !/^[a-z0-9_/-]+\.(png|webp)$/.test(sl.image)) err('teaching/deck.yaml', `sections[${i}].slides[${j}].image`, 'an image is a path under art/, ending in .png or .webp')
+    })
+  })
   reportCard?.sections.forEach((s, i) => unique(s.id, 'teaching/report-card.yaml', `sections[${i}].id`))
 
   // Every `source` list names ids of the source registry.

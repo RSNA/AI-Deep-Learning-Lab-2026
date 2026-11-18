@@ -17,6 +17,7 @@ letters:
       request takes its own path through catalogs, emails and shipping. The Monday desk needs a
       second person, and the bounced notices need a rule that asks for a fresh address.
     variants:
+      empty: You sent me an almost empty board. Next time, sort what you can, even if you are unsure.
       rough: Your board followed the loudest voices. Look again at what the numbers said.
       steady: You saw through part of the noise. Check the problems you gave more than they needed.
       strong: A sound board. You counted first and kept the big project for the work that needs it.
@@ -39,3 +40,18 @@ dialogue:
     speaker: demo-mara
     text: So we get a second person on Mondays?
     trigger: {phase: planning, on: reveal}
+
+banter:
+  - id: rb-b-coffee
+    lines:
+      - {speaker: demo-mara, text: Who moved the good mug?}
+      - {speaker: demo-tom, text: It was evidence. I needed it for a test.}
+  - id: rb-b-printer
+    lines:
+      - {speaker: demo-idris, text: The printer says it is out of cyan.}
+      - {speaker: demo-tom, text: We only print in black.}
+      - {speaker: demo-idris, text: That is what makes it so sad.}
+  - id: rb-b-story
+    lines:
+      - {speaker: demo-ola, text: Can I borrow the big chair for story time?}
+      - {speaker: demo-priya, text: Only if the dragon gives it back.}

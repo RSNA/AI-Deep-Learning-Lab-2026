@@ -24,7 +24,12 @@ export type Sock = {
   role: 'player' | 'host' | 'screen'
   playerId?: string
   spectating?: string | null
+  hostName?: string
+  hostSeq?: number
 }
+
+/** Host commands a console may send without holding control: they change nothing in the session. */
+const VIEW_ONLY_OK = new Set(['take_control', 'spectate', 'rejoin_code'])
 
 export type Deps = { pack: Pack; db: Storage; config: Config; log: Logger }
 type ClockState = { gameMs: number; running: boolean; scale: number; wallAt: number }
@@ -39,6 +44,9 @@ export class Room {
   private clock: ClockState
   private readonly players = new Map<PlayerId, Sock>()
   private readonly hosts = new Set<Sock>()
+  /** The one console that drives the session. The others watch until they take control. */
+  private controller: Sock | null = null
+  private hostSeqN = 0
   private readonly screens = new Set<Sock>()
   private readonly dedup = new Map<string, Map<string, AckRecord>>()
   private rejoinCodes: Map<PlayerId, string>
@@ -293,9 +301,18 @@ export class Room {
     })
   }
 
+  private controlFor(sock: Sock) {
+    const c = this.controller
+    return {
+      you: sock === c,
+      holder: c?.hostName ?? null,
+      watchers: [...this.hosts].filter((h) => h !== c).map((h) => h.hostName ?? ''),
+    }
+  }
+
   private sendHostViews(): void {
-    const msg = { t: 'host_view', view: this.hostView() }
-    for (const h of this.hosts) this.sendHostMsg(h, msg)
+    const base = this.hostView()
+    for (const h of this.hosts) this.sendHostMsg(h, { t: 'host_view', view: { ...base, control: this.controlFor(h) } })
     this.hostDirty = false
     this.lastHostSend = this.deps.config.wallNow()
   }
@@ -348,16 +365,34 @@ export class Room {
       this.players.delete(sock.playerId)
       this.hostDirty = true
     }
-    this.hosts.delete(sock)
+    if (this.hosts.delete(sock)) {
+      this.hostDirty = true
+      if (this.controller === sock) {
+        // Control passes to the console that has been here longest.
+        const next = [...this.hosts].sort((a, b) => (a.hostSeq ?? 0) - (b.hostSeq ?? 0))[0] ?? null
+        this.controller = next
+        if (next) this.moveControl(sock.hostName ?? null, next)
+      }
+    }
     if (this.screens.delete(sock)) this.hostDirty = true
   }
 
-  attachHost(sock: Sock): void {
+  attachHost(sock: Sock, name = ''): void {
     sock.role = 'host'
     sock.spectating = null
+    sock.hostName = name.trim().slice(0, 40) || 'Host console'
+    sock.hostSeq = ++this.hostSeqN
     this.hosts.add(sock)
-    this.sendHostMsg(sock, { t: 'welcome', protocol: PROTOCOL_VERSION, build: this.deps.config.build, role: 'host', view: this.hostView() })
+    if (!this.controller) this.controller = sock
+    this.sendHostMsg(sock, { t: 'welcome', protocol: PROTOCOL_VERSION, build: this.deps.config.build, role: 'host', view: { ...this.hostView(), control: this.controlFor(sock) } })
     this.sendHostMsg(sock, this.clockMsg())
+    this.hostDirty = true
+  }
+
+  /** Tell every console that control moved, then send them their views at once. */
+  private moveControl(from: string | null, to: Sock): void {
+    for (const h of this.hosts) this.sendHostMsg(h, { t: 'control', from, to: to.hostName ?? '' })
+    this.sendHostViews()
   }
 
   attachScreen(sock: Sock): void {
@@ -468,8 +503,18 @@ export class Room {
     if (seen) return ack(seen)
     const { pack, db, config } = this.deps
     const p = (payload ?? {}) as Record<string, unknown>
+    if (!VIEW_ONLY_OK.has(type) && sock !== this.controller) return ack({ ok: false, error: 'not_in_control' })
     // Commands that act on the clock or the sockets, not on the engine.
     switch (type) {
+      case 'take_control': {
+        const prev = this.controller
+        if (prev === sock) return ack({ ok: true })
+        this.controller = sock
+        db.logEvent(this.code, 'control', this.now(), config.wallNow(), { from: prev?.hostName ?? null, to: sock.hostName ?? '' })
+        ack({ ok: true })
+        this.moveControl(prev?.hostName ?? null, sock)
+        return
+      }
       case 'pause':
         if (!this.clock.running || this.state.closed) return ack({ ok: false, error: 'wrong_stage' })
         this.setClock(false)
@@ -484,7 +529,7 @@ export class Room {
         const scale = Number(p.scale)
         if (!(scale > 0 && scale <= 100)) return ack({ ok: false, error: 'bad_message' })
         if (this.state.mode === 'event') return ack({ ok: false, error: 'not_available' })
-        if (this.state.stage !== 'lobby' && this.clock.running) return ack({ ok: false, error: 'wrong_stage' })
+        if (this.state.stage !== 'lobby' && this.clock.running) return ack({ ok: false, error: 'pause_first' })
         this.setClock(this.clock.running, scale)
         return ack({ ok: true })
       }

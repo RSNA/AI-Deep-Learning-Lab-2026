@@ -241,10 +241,10 @@ function CastPanel({ w }: { w: Welcome }) {
   return (
     <section className="panel">
       <div className="panel-head sun">{COPY.people}</div>
-      <div className="panel-body">
+      <div className="panel-body cast-list">
         {w.system.cast.map((c, i) => (
-          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Portrait c={c} art={w.art} index={i} systemIndex={w.system.index} />
+          <div key={c.id} className="cast-row">
+            <Portrait c={c} cast={w.system.cast} index={i} size={60} />
             <div><div style={{ fontSize: 16, fontWeight: 800 }}>{c.name}</div><div className="muted" style={{ fontSize: 14 }}>{c.role}</div></div>
           </div>
         ))}
@@ -253,13 +253,13 @@ function CastPanel({ w }: { w: Welcome }) {
   )
 }
 
-function RoomPanel({ w, title }: { w: Welcome; title?: string }) {
+function RoomPanel({ w, title, maxHeight = 400 }: { w: Welcome; title?: string; maxHeight?: number }) {
   const view = usePlayer((s) => s.view)!
   const theme = useTheme()
   return (
     <section className="panel">
-      <div className="panel-head lav">{title ?? 'Your practice'}</div>
-      <Room art={w.art} cast={w.system.cast} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={400} />
+      <div className="panel-head lav">{title ?? COPY.yourPractice}<span className="sub">{COPY.sceneHint}</span></div>
+      <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} />
     </section>
   )
 }
@@ -267,6 +267,12 @@ function RoomPanel({ w, title }: { w: Welcome; title?: string }) {
 function Lobby({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
   const narrow = useNarrow(1024)
+  const howTo = (
+    <section className="panel">
+      <div className="panel-head">{COPY.howToPlay}</div>
+      <div className="panel-body"><HowToPlay /></div>
+    </section>
+  )
   return (
     <>
       <TownStrip height={narrow ? 120 : 160}>
@@ -274,17 +280,25 @@ function Lobby({ w }: { w: Welcome }) {
           <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.lookAtScreen : COPY.waitingHost}
         </div>
       </TownStrip>
-      <main style={{ padding: 16, display: 'grid', gap: 18, gridTemplateColumns: narrow ? '1fr' : '330px minmax(0, 1fr) 320px', alignItems: 'start' }}>
-        <section className="panel">
-          <div className="panel-head">{COPY.howToPlay}</div>
-          <div className="panel-body"><HowToPlay /></div>
-        </section>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+      {narrow ? (
+        <main className="lobby narrow">
+          <RoomPanel w={w} maxHeight={360} />
+          {howTo}
           <SystemPanel w={w} />
-          <RoomPanel w={w} />
-        </div>
-        <CastPanel w={w} />
-      </main>
+          <CastPanel w={w} />
+        </main>
+      ) : (
+        <main className="lobby">
+          <div className="lobby-left">
+            {howTo}
+            <CastPanel w={w} />
+          </div>
+          <div className="lobby-right">
+            <RoomPanel w={w} maxHeight={560} />
+            <SystemPanel w={w} />
+          </div>
+        </main>
+      )}
     </>
   )
 }
@@ -322,8 +336,7 @@ function Results({ w, phase, note }: { w: Welcome; phase: PhaseId | null; note: 
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
               <span className="num" style={{ fontSize: 64, lineHeight: 1 }}>{pts.points}</span>
               <span className="face" style={{ fontSize: 24 }}>{COPY.points}</span>
-              <span className="chip sun" style={{ textTransform: 'capitalize' }}>{pts.band}</span>
-              {pts.provisional && <span className="chip">{COPY.provisional}</span>}
+              {pts.band && <span className="chip sun">{pts.band}</span>}
             </div>
           )}
           <PointsTable />
@@ -364,9 +377,42 @@ function Winners() {
   )
 }
 
+/** The slide the host mirrors to every screen. It follows the host; at a reveal the player can step back to the board. */
+function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
+  const sl = usePlayer((s) => s.view!.slide)!
+  return (
+    <main className="pslide">
+      <section className="panel">
+        <div className="panel-head lav"><span>{sl.section}</span><span className="sub">{COPY.slideOf(sl.index + 1, sl.count)}</span></div>
+        <div className="panel-body">
+          <h1 className="face">{sl.title}</h1>
+          <div className={sl.image || sl.stat ? 'pslide-grid' : ''}>
+            <ul>{sl.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
+            {(sl.image || sl.stat) && (
+              <div className="pslide-side">
+                {sl.image && <img className="px" src={sl.image} alt="" />}
+                {sl.stat && <div className="pstat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
+              </div>
+            )}
+          </div>
+          <p className="muted">{COPY.slideFollows}</p>
+          {onBack && <button type="button" className="btn go" style={{ alignSelf: 'flex-start' }} onClick={onBack}>{COPY.backToBoard}</button>}
+        </div>
+      </section>
+    </main>
+  )
+}
+
 function StageBody({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
+  const [hidden, setHidden] = useState<string | null>(null)
   const st = view.stage
+  // A mirrored slide takes the screen. Where the player has a board to read, they may step back
+  // to it until the host moves to another slide.
+  if (view.slide && hidden !== view.slide.id) {
+    const canLeave = st !== 'lobby' && st !== 'intro'
+    return <MirroredSlide onBack={canLeave ? () => setHidden(view.slide!.id) : null} />
+  }
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
   if (st === 'winners' || st === 'closed') return <Winners />
   const phase = phaseOfStage(st)

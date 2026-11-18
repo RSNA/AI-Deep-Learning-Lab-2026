@@ -239,6 +239,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
       sessions: out,
       pack: {
         title: pack.game.game.title, hash: pack.hash.slice(0, 12), systems: pack.systemIds,
+        systemNames: pack.systemIds.map((id) => pack.systems[id]!.system.public.name),
         phasesAvailable: pack.phasesAvailable, provisional: pack.provisional,
         pickModes: pack.game.join.choose_system_in_modes ?? [],
       },
@@ -248,10 +249,22 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   fastify.post('/api/host/session', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const body = CreateSessionBody.safeParse(req.body)
-    if (!body.success) return bad(reply, 400, 'bad_message')
+    if (!body.success) {
+      // Name the field that is wrong, so the console can say so beside it.
+      const field = body.error.issues[0]?.path[0]
+      return bad(reply, 400, field === 'code' ? 'code_invalid' : field === 'label' ? 'label_invalid' : 'bad_message')
+    }
     const r = manager.create(body.data.label, body.data.mode, body.data.code)
-    if (!r.ok) return bad(reply, 409, r.error, r.error === 'provisional_anchors' ? 'An event session needs measured anchors. Use rehearsal or test mode.' : 'That code is in use.')
+    if (!r.ok) return bad(reply, 409, r.error)
     return { code: r.room.code }
+  })
+
+  fastify.delete<{ Params: { code: string } }>('/api/host/session/:code', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const r = manager.remove(normalizeCode(req.params.code))
+    if (r === 'unknown_session') return bad(reply, 404, r)
+    if (r === 'session_open') return bad(reply, 409, r)
+    return { ok: true }
   })
 
   fastify.post('/api/host/screen-link', async (req, reply) => {
@@ -315,7 +328,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (room) return reply.redirect(`/j/${room.code}`)
     return sendIndex(reply)
   })
-  for (const route of ['/j/:code', '/play', '/host', '/screen', '/rejoin']) fastify.get(route, async (_req, reply) => sendIndex(reply))
+  for (const route of ['/j/:code', '/play', '/host', '/host/manual', '/screen', '/rejoin']) fastify.get(route, async (_req, reply) => sendIndex(reply))
 
   // The key page keeps its own scripts, so it gets a looser policy than the game.
   fastify.addHook('onSend', async (_req, reply, payload) => {
@@ -396,7 +409,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
           const room = h.session ? manager.get(h.session) : undefined
           if (!room) return refuse(CLOSE.closed, 'unknown_session')
           conn.room = room
-          room.attachHost(sock)
+          room.attachHost(sock, h.name ?? '')
           return
         }
         const room = row.code ? manager.get(row.code) : undefined

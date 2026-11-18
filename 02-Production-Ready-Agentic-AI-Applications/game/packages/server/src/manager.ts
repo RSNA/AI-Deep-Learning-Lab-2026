@@ -43,6 +43,20 @@ export class Manager {
     }
   }
 
+  /** Delete a closed or broken session for good. An open session is refused. */
+  remove(code: string): 'ok' | 'unknown_session' | 'session_open' {
+    const row = this.deps.db.session(code)
+    if (!row) return 'unknown_session'
+    const room = this.rooms.get(code)
+    if (room && !room.state.closed) return 'session_open'
+    room?.closeAll(1000)
+    this.rooms.delete(code)
+    this.broken.delete(code)
+    this.deps.db.deleteSession(code)
+    this.deps.log.info('session deleted', { code })
+    return 'ok'
+  }
+
   get(code: string): Room | undefined {
     return this.rooms.get(code.toUpperCase())
   }

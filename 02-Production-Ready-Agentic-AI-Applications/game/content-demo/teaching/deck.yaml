@@ -1,0 +1,65 @@
+# The demo deck: one deck for the session, in sections. A section opens at its stage when the
+# big screen follows the game. Notes reach only the host console.
+sections:
+  - id: welcome
+    title: Welcome
+    stage: intro
+    slides:
+      - id: welcome-1
+        title: You run a branch library
+        bullets:
+          - Each of you is the digital services director of one branch.
+          - Two library networks play side by side.
+        live_stat: players
+        notes: Wait until most people have joined. Point at the code on the big screen.
+      - id: welcome-2
+        title: Three phases, one season each
+        bullets:
+          - Plan what the branch needs.
+          - Build it, then keep it working.
+        notes: Keep this short. The game explains itself.
+        placeholder: true
+  - id: after-planning
+    title: After Phase 1
+    stage: break.planning
+    slides:
+      - id: planning-1
+        title: What the room found
+        bullets:
+          - Most requests were smaller than they sounded.
+          - Only one needed a system that plans its own steps.
+        live_stat: planning_flagship
+        notes: Ask one player who found the big project to say what gave it away.
+      - id: planning-2
+        title: Counts beat complaints
+        bullets:
+          - A loud complaint is one data point.
+          - A tally of a month is many.
+        live_stat: planning_mean
+  - id: after-development
+    title: After Phase 2
+    stage: break.development
+    slides:
+      - id: development-1
+        title: Trials before trust
+        bullets:
+          - Every design was tried on a week of requests.
+        placeholder: true
+  - id: after-maintaining
+    title: After Phase 3
+    stage: break.maintaining
+    slides:
+      - id: maintaining-1
+        title: Systems drift
+        bullets:
+          - What worked in spring needed care by winter.
+        placeholder: true
+  - id: closing
+    title: Reflection
+    stage: reflection
+    slides:
+      - id: closing-1
+        title: What will you try on Monday?
+        bullets:
+          - Pick one problem at your own work and count it first.
+        notes: Two or three answers from the room, then the winners.

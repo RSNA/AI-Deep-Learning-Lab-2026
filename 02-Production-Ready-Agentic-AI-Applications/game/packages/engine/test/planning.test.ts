@@ -188,9 +188,12 @@ describe('the live column and the reveal', () => {
     expect(rv.problems.find((p) => p.flagship)!.class).toBe(rules.flagship_class)
     expect(rv.graded.length).toBe(rules.candidates)
     expect(rv.flagship).toBe(rules.scoring.flagship.bonus)
-    expect(rv.classify + rv.flagship).toBe(rv.raw)
+    expect(rv.classify + rv.flagship).toBe(s.players.p1!.results.planning!.raw)
+    // A player never receives the raw score or a band id, only the band's label.
+    expect(Object.keys(rv)).not.toContain('raw')
+    const band = s.players.p1!.results.planning!.band
+    expect(v.points.planning!.band).toBe(pack.game.scoring.score_bands.find((b) => b.id === band)!.label ?? null)
     const letter = v.inbox.find((m) => m.kind === 'letter')!
-    const band = v.points.planning!.band
     expect(letter.text).toContain(RB.story!.letters!.planning_reveal!.always)
     expect(letter.text).toContain(RB.story!.letters!.planning_reveal!.variants[band]!)
   })

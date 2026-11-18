@@ -19,8 +19,8 @@ function write(key: string, value: unknown): void {
 export const store = {
   player: () => read<PlayerAuth>('lab02.player'),
   setPlayer: (a: PlayerAuth | null) => write('lab02.player', a),
-  host: () => read<{ token: string }>('lab02.host'),
-  setHost: (a: { token: string } | null) => write('lab02.host', a),
+  host: () => read<{ token: string; name?: string }>('lab02.host'),
+  setHost: (a: { token: string; name?: string } | null) => write('lab02.host', a),
   screen: () => read<{ token: string }>('lab02.screen'),
   setScreen: (a: { token: string } | null) => write('lab02.screen', a),
   theme: () => read<'light' | 'dark'>('lab02.theme'),

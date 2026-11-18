@@ -3,9 +3,10 @@
 import type { Pack } from '@lab02/content-schema'
 import { HostCommand } from '@lab02/protocol/host'
 import {
-  AVATARS, PHASES, STAGES, phaseOfStage,
-  type AvatarId, type ErrorCode, type Mode, type PhaseId, type StageId,
+  AVATARS, PHASES, PLAY_STAGES, STAGES, phaseOfStage,
+  SCENES, type AvatarId, type ErrorCode, type Mode, type PhaseId, type SceneId, type StageId,
 } from '@lab02/protocol'
+import { deckSlides, sectionStartFor } from './deck.ts'
 import { computeBoard } from './leaderboard.ts'
 import { checkName } from './names.ts'
 import { PHASE_MODULES } from './phases/index.ts'
@@ -109,7 +110,7 @@ export function createSession(pack: Pack, opts: CreateOptions): SessionState {
     board: { atMs: now, live: null, order: { overall: [], planning: [], development: [], maintaining: [] },
              values: { overall: {}, planning: {}, development: {}, maintaining: {} }, systems: [] },
     nextBeatMs: now + pack.game.leaderboards.refresh_seconds * 1000,
-    screen: { scene: 'auto', theme: 'light', slide: 0, spotlight: null, filter: null },
+    screen: { scene: 'auto', theme: 'light', slide: 0, spotlight: null, filter: null, mirror: false },
     closed: false,
   }
   s.board = computeBoard(s, pack, now)
@@ -220,6 +221,13 @@ function openPhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): Eng
   return events
 }
 
+/** Whether the player sorted fewer problems than `submission.letter_empty_below` (Phase 1 only). */
+function emptyBoard(pack: Pack, p: PlayerState, phase: PhaseId): boolean {
+  if (phase !== 'planning') return false
+  const below = pack.game.phases.planning.submission?.letter_empty_below
+  return below !== undefined && Object.keys(p.planning?.picks ?? {}).length < below
+}
+
 function closePhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): EngineEvent[] {
   const norm = pack.game.scoring.normalization
   const events: EngineEvent[] = []
@@ -230,7 +238,7 @@ function closePhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): En
     const cal = pack.systems[p.system]!.system.calibration[phase]
     const { points, provisional } = pointsOf(raw, cal, norm)
     p.results[phase] = { raw, points, band: bandOf(points, pack.game.scoring.score_bands), provisional }
-    if (PHASE_MODULES[phase].implemented) events.push(...closeStory(pack, p, phase, points, at))
+    if (PHASE_MODULES[phase].implemented) events.push(...closeStory(pack, p, phase, points, at, emptyBoard(pack, p, phase)))
   }
   if (!s.closedPhases.includes(phase)) s.closedPhases.push(phase)
   return events
@@ -249,6 +257,11 @@ function enterStage(s: SessionState, pack: Pack, stage: StageId, at: GameMs): Ou
   s.stageLog.push({ stage, atMs: at })
   for (const ph of PHASES) if (FIRST_STAGE[ph] === stage) story.push(...openPhase(s, pack, ph, at))
   if (stage === 'closed') s.closed = true
+  // Slides never reach a player's screen while a phase is played. Following the game, the deck
+  // opens at the section of the stage.
+  if (PLAY_STAGES.includes(stage)) s.screen.mirror = false
+  const start = s.screen.scene === 'auto' ? sectionStartFor(pack, stage) : null
+  if (start !== null) s.screen.slide = start
   touchAll(s)
   s.board = computeBoard(s, pack, at)
   const events: EngineEvent[] = [{ kind: 'stage', stage, atMs: at }, ...story]
@@ -398,7 +411,7 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
     }
     case 'reset_stage': {
       if (s.mode === 'event') return fail('not_available')
-      if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('bad_message')
+      if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
       const phase = phaseOfStage(s.stage)
       if (!phase) return fail('wrong_stage')
       for (const p of activePlayers(s)) {
@@ -411,17 +424,46 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
       return { ok: true, ...enterStage(s, pack, FIRST_STAGE[phase], now) }
     }
     case 'close': {
-      if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('bad_message')
+      if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
       if (s.stage === 'closed') return fail('wrong_stage')
       return { ok: true, ...enterStage(s, pack, 'closed', now) }
     }
-    case 'screen_scene': s.screen.scene = cmd.payload.scene; break
+    case 'screen_scene': {
+      const scene = cmd.payload.scene
+      if (scene === 'winners' && s.closedPhases.length === 0) return fail('no_scores_yet')
+      if (scene === 'play' && s.opened.length === 0) return fail('no_scores_yet')
+      if (scene === 'slides' && deckSlides(pack).length === 0) return fail('no_deck')
+      if (scene === 'spotlight' && !s.screen.spotlight) return fail('unknown_player')
+      if (cmd.payload.mirror && (scene !== 'slides' || PLAY_STAGES.includes(s.stage))) return fail('not_during_play')
+      s.screen.scene = scene
+      s.screen.mirror = scene === 'slides' && !!cmd.payload.mirror
+      break
+    }
+    case 'screen_mirror': {
+      if (cmd.payload.mirror && (PLAY_STAGES.includes(s.stage) || shownScene(s, pack) !== 'slides')) return fail('not_during_play')
+      s.screen.mirror = cmd.payload.mirror
+      touchAll(s)
+      s.rev++
+      return done({ dirty: 'all', events: [{ kind: 'screen', atMs: now }] })
+    }
+    case 'slide_to': {
+      const n = deckSlides(pack).length
+      if (n === 0) return fail('no_deck')
+      if (cmd.payload.index >= n) return fail('unknown_id')
+      s.screen.slide = cmd.payload.index
+      break
+    }
     case 'screen_theme': s.screen.theme = cmd.payload.theme; break
     case 'screen_filter':
       if (cmd.payload.system !== null && !s.systems.includes(cmd.payload.system)) return fail('unknown_id')
       s.screen.filter = cmd.payload.system
       break
-    case 'slide': s.screen.slide = Math.max(0, s.screen.slide + cmd.payload.delta); break
+    case 'slide': {
+      const n = deckSlides(pack).length
+      if (n === 0) return fail('no_deck')
+      s.screen.slide = Math.max(0, Math.min(n - 1, s.screen.slide + cmd.payload.delta))
+      break
+    }
     case 'spotlight': {
       const id = cmd.payload.playerId
       if (id !== null && (!s.players[id] || s.players[id]!.removed)) return fail('unknown_player')
@@ -435,7 +477,31 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
       return fail('bad_message')
   }
   s.rev++
+  // A mirrored slide is part of every player's view.
+  if (s.screen.mirror || cmd.type === 'screen_scene') {
+    touchAll(s)
+    return done({ dirty: 'all', events: [{ kind: 'screen', atMs: now }] })
+  }
   return done({ events: [{ kind: 'screen', atMs: now }] })
+}
+
+/** What the projector shows: the scene the host picked, or what following the game resolves to. */
+export function shownScene(s: SessionState, pack: Pack): SceneId {
+  const sc = s.screen.scene as string
+  if (sc !== 'auto' && (SCENES as readonly string[]).includes(sc)) return sc as SceneId
+  const st = s.stage
+  if (st === 'lobby') return 'lobby'
+  if (sectionStartFor(pack, st) !== null) return 'slides'
+  if (st === 'intro') return 'intro'
+  if (st.endsWith('.reveal')) return 'reveal'
+  if (st === 'reflection') return 'reflection'
+  if (st === 'winners' || st === 'closed') return 'winners'
+  return 'play'
+}
+
+/** Whether every player's screen shows the current slide now. */
+export function slidesMirrored(s: SessionState, pack: Pack): boolean {
+  return !!s.screen.mirror && !PLAY_STAGES.includes(s.stage) && shownScene(s, pack) === 'slides' && deckSlides(pack).length > 0
 }
 
 /** Apply one command at game time `now`. The caller has already called `advance(s, pack, now)`. */
@@ -454,5 +520,5 @@ export function apply(s: SessionState, pack: Pack, command: Command, now: GameMs
 /** Host commands that the engine applies (the rest act on the server's clock or sockets). */
 export const ENGINE_HOST_COMMANDS = new Set([
   'next', 'extend', 'end_now', 'rename_player', 'remove_player', 'reset_stage', 'close',
-  'screen_scene', 'screen_theme', 'screen_filter', 'slide', 'spotlight',
+  'screen_scene', 'screen_mirror', 'slide_to', 'screen_theme', 'screen_filter', 'slide', 'spotlight',
 ])

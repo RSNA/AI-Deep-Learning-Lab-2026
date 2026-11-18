@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlanningContent } from '@lab02/protocol'
 import { usePlayer } from '../lib/player.ts'
-import { dropInClass, dropOnSpot, picksOf, reconcile, replaceIn, unsort, whereIs, type Layout } from './model.ts'
+import { dropInClass, picksOf, reconcile, replaceIn, unsort, whereIs, type Layout } from './model.ts'
 
 const KEY = (player: string) => `lab02.layout.${player}`
 
@@ -79,7 +79,6 @@ export function useBoard(content: PlanningContent) {
     picks: picksOf(layout),
     where: (pid: string) => whereIs(layout, pid),
     toClass,
-    toSpot: (pid: string, cls: string, spot: number) => commit(dropOnSpot(layout, pid, cls, spot)),
     unsort: (pid: string) => commit(unsort(layout, pid)),
     replace: (pid: string, leaving: string) => { commit(replaceIn(layout, pid, leaving)); setAsk(null) },
     cancelAsk: () => setAsk(null),

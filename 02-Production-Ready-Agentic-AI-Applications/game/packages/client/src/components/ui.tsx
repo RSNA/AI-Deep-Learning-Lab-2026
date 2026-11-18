@@ -1,6 +1,7 @@
 // Shared components (engineering spec, section 10.1).
 import { useEffect, useRef, type ReactNode } from 'react'
-import type { BoardColumn, BoardRow, Character, ColumnId, PackArt, SystemRef } from '@lab02/protocol'
+import type { BoardColumn, BoardRow, Character, ColumnId, SystemRef } from '@lab02/protocol'
+import { portraitUrl, practiceLooks, type Parsed } from '../scene/people.ts'
 import { COPY } from '../copy.ts'
 import { fmt, secondsLeft, useTick, type ClockRef } from '../lib/clock.ts'
 
@@ -39,24 +40,27 @@ export function Avatar({ id, size = 32, alt = '' }: { id: string; size?: number;
 
 const TINTS = ['var(--go-bg)', 'var(--sky-bg)', 'var(--sun-bg)', 'var(--lav-bg)', 'var(--bad-bg)']
 
-const TITLES = new Set(['dr', 'mr', 'mrs', 'ms', 'mx', 'prof', 'sir', 'dame'])
+const looksCache = new Map<string, Map<string, Parsed>>()
 
-/** Initials of a name, without titles ("Dr.") or credentials after a comma (", RN"). */
-export function initials(name: string): string {
-  const parts = (name.split(',')[0] ?? '').replace(/[^\p{L}\s'-]/gu, ' ').split(/\s+/).filter(Boolean)
-    .filter((w, i, all) => !(TITLES.has(w.toLowerCase()) && all.length > 1 && i === 0))
-  if (!parts.length) return '?'
-  return ((parts[0]![0] ?? '') + (parts.length > 1 ? parts.at(-1)![0] ?? '' : parts[0]![1] ?? '')).toUpperCase()
+/** The parsed looks of a whole practice, made unlike each other (see scene/people.ts). */
+export function looksOf(cast: Character[]): Map<string, Parsed> {
+  const key = cast.map((c) => `${c.id}:${JSON.stringify(c.look)}`).join('|')
+  let m = looksCache.get(key)
+  if (!m) { m = practiceLooks(cast); looksCache.set(key, m) }
+  return m
 }
 
-/** A cast portrait from the pack, or the initials on a tile when the pack has no file. */
-export function Portrait({ c, art, index = 0, systemIndex = 0, size = 56 }: { c: Character; art: PackArt; index?: number; systemIndex?: number; size?: number }) {
-  const has = art.portraits.includes(c.portrait)
+/**
+ * A person of the practice: their own pixel character seen from the front, head and shoulders,
+ * drawn large and crisp. Never initials. `cast` is the whole practice, so that two people never
+ * look alike.
+ */
+export function Portrait({ c, cast, index = 0, size = 56 }: { c: Character; cast: Character[]; index?: number; size?: number }) {
+  const p = looksOf(cast.some((x) => x.id === c.id) ? cast : [...cast, c]).get(c.id)!
+  const inner = Math.floor((size - 6) / 12) * 12
   return (
-    <div className="portrait" style={{ width: size, height: size, background: has ? TINTS[index % TINTS.length] : `var(--sys-${systemIndex % 4})` }}>
-      {has
-        ? <img src={`${art.base}portraits/${c.portrait}.png`} alt="" style={{ width: size - 8, height: size - 8 }} />
-        : <span className="initials" aria-hidden="true">{initials(c.name)}</span>}
+    <div className="portrait" style={{ width: size, height: size, background: TINTS[index % TINTS.length] }}>
+      <img className="px" src={portraitUrl(c.id, p, inner)} alt="" width={inner} height={inner} style={{ width: inner, height: inner }} />
     </div>
   )
 }

@@ -87,10 +87,10 @@ scoring:
   four_metric_score:
     weights: {validity: 0.30, reliability: 0.20, cost: 0.25, complexity: 0.25}
   score_bands:
-    - {id: rough,       min: 0,   max: 399}
-    - {id: steady,      min: 400, max: 649}
-    - {id: strong,      min: 650, max: 849}
-    - {id: outstanding, min: 850, max: 1000}
+    - {id: rough,       min: 0,   max: 399,  label: Early days}
+    - {id: steady,      min: 400, max: 649,  label: On your way}
+    - {id: strong,      min: 650, max: 849,  label: Sharp reader}
+    - {id: outstanding, min: 850, max: 1000, label: Top of the branch}
 
 phases:
   planning:
@@ -144,6 +144,7 @@ phases:
       parallel: true
       cancel: none
     live_leaderboard: {metric: progress, label: Progress}
+    submission: {letter_empty_below: 2}
     scoring:
       classify: {exact: 125, adjacent: 40}
       flagship: {bonus: 250}

@@ -75,6 +75,12 @@ export class Storage {
   closeSession(code: string, wall: number): void {
     this.db.prepare('UPDATE session SET closed = ? WHERE code = ?').run(wall, code)
   }
+  /** Remove a session and everything stored for it. */
+  deleteSession(code: string): void {
+    this.transaction(() => {
+      for (const t of ['command', 'snapshot', 'event_log', 'clock', 'auth', 'session']) this.db.prepare(`DELETE FROM ${t} WHERE code = ?`).run(code)
+    })
+  }
 
   // Clock ----------------------------------------------------------------------------------
   writeClock(code: string, gameMs: number, running: boolean, scale: number): void {

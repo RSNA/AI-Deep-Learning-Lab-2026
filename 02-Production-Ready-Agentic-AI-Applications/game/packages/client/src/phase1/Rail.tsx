@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanningContent, PlanningView, Welcome } from '@lab02/protocol'
 import { gameNow, useTick } from '../lib/clock.ts'
+import { plainError } from '../lib/errors.ts'
 import { usePlayer, type Bubble } from '../lib/player.ts'
 import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
@@ -36,9 +37,10 @@ function useBubble(said: Bubble[]): Bubble | null {
   return shown
 }
 
-export function useInvestigate() {
+/** Starts an investigation. A refusal comes back as one plain sentence for the row. */
+export function useInvestigate(onRefused?: (id: string, text: string) => void) {
   const send = usePlayer((s) => s.send)
-  return (id: string) => { void send('planning.investigate', { id }) }
+  return (id: string) => { void send('planning.investigate', { id }).then((r) => { if (!r.ok) onRefused?.(id, plainError(r.error)) }) }
 }
 
 export function Blocks({ n, held = n }: { n: number; held?: number }) {
@@ -49,7 +51,8 @@ export function InvestigationList({ content, pv, onShowCard }: { content: Planni
   useTick(250)
   const clock = usePlayer((s) => s.clock)
   const welcome = usePlayer((s) => s.welcome)!
-  const investigate = useInvestigate()
+  const [refused, setRefused] = useState<{ id: string; text: string } | null>(null)
+  const investigate = useInvestigate((id, text) => { setRefused({ id, text }); setTimeout(() => setRefused((r) => (r?.id === id ? null : r)), 6000) })
   const now = clock ? gameNow(clock) : 0
   const done = new Set(pv.tiles.map((t) => t.investigation))
   const playing = pv.status === 'playing'
@@ -88,6 +91,7 @@ export function InvestigationList({ content, pv, onShowCard }: { content: Planni
                   {playing ? P1.needs(inv.bandwidth) : '–'}
                 </div>
               )}
+              {refused?.id === inv.id && <div className="err irefused" role="alert">{refused.text}</div>}
             </div>
           )
         })}
@@ -130,7 +134,7 @@ export function PlanningRoom({ w, content, pv, cropHeight, maxHeight = 400 }: { 
   }
   return (
     <div className="scene-box">
-      <Room art={w.art} cast={w.system.cast} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} cropHeight={cropHeight}
+      <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} cropHeight={cropHeight}
         focusX={152} focusY={104} meeting={meeting} bubble={bubble} available={available} onPick={pick} />
     </div>
   )

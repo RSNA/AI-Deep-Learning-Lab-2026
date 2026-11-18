@@ -1,7 +1,7 @@
 // Server tests (engineering spec, section 12.4).
 import WebSocket from 'ws'
 import { afterEach, describe, expect, it } from 'vitest'
-import { STAGES } from '@lab02/protocol'
+import { GameConnection, STAGES } from '@lab02/protocol'
 import { needsReload } from '../src/index.ts'
 import { attach, hostConn, hostToken, joinBot, playPlanning, sleep, startServer, step, until, type Bot } from './helpers.ts'
 
@@ -319,5 +319,77 @@ describe('picking a health system', () => {
     // pick; the event rule is covered in the engine tests. Here the route says null when not allowed.
     const info = await srv.api.session(code)
     expect(info.ok && info.data.pickSystem).not.toBeNull()
+  })
+})
+
+describe('host consoles', () => {
+  const named = (srv: Srv, token: string, code: string, name: string) =>
+    new GameConnection({ url: srv.ws, token, build: 'bot', session: code, name, commandFrame: 'hostcmd', minDelayMs: 20, maxDelayMs: 100 })
+  const views = (c: GameConnection) => {
+    const got: { view?: { control: { you: boolean; holder: string | null; watchers: string[] } }; control: { from: string | null; to: string }[] } = { control: [] }
+    c.on('welcome', (m) => { got.view = (m as unknown as { view: NonNullable<typeof got.view> }).view })
+    c.on('host_view', (m) => { got.view = (m as unknown as { view: NonNullable<typeof got.view> }).view })
+    c.on('control', (m) => got.control.push(m as unknown as { from: string | null; to: string }))
+    return got
+  }
+
+  it('lets one console control at a time: the first in, then whoever takes control, then the oldest left', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const code = session(srv)
+    const token = await hostToken(srv.url)
+    const a = named(srv, token, code, 'Lectern')
+    const av = views(a)
+    await until(() => a.status === 'open' && !!av.view)
+    const b = named(srv, token, code, 'Back row')
+    const bv = views(b)
+    cleanups.push(() => { a.close(); b.close() })
+    await until(() => b.status === 'open' && !!bv.view)
+    expect(av.view!.control).toMatchObject({ you: true, holder: 'Lectern' })
+    expect(bv.view!.control).toMatchObject({ you: false, holder: 'Lectern' })
+    await until(() => av.view!.control.watchers.includes('Back row'), 5000, 'watcher listed')
+
+    // A view-only console is refused, except for what changes nothing.
+    expect(await b.command('next')).toMatchObject({ ok: false, error: 'not_in_control' })
+    expect(await b.command('screen_theme', { theme: 'dark' })).toMatchObject({ ok: false, error: 'not_in_control' })
+    expect((await b.command('spectate', { playerId: null })).ok).toBe(true)
+
+    // Taking control: the former controller learns at once.
+    expect((await b.command('take_control')).ok).toBe(true)
+    await until(() => av.control.length > 0 && av.view!.control.you === false, 5000, 'control moved')
+    expect(av.control.at(-1)).toMatchObject({ from: 'Lectern', to: 'Back row' })
+    expect(bv.view!.control.you).toBe(true)
+    expect(await a.command('next')).toMatchObject({ ok: false, error: 'not_in_control' })
+    expect((await b.command('next')).ok).toBe(true)
+
+    // The controller leaves: control passes to the console that has been here longest.
+    b.close()
+    await until(() => av.view!.control.you === true, 5000, 'control returned')
+    expect((await a.command('screen_theme', { theme: 'light' })).ok).toBe(true)
+  })
+
+  it('names the wrong field of a new session, and deletes a session only once it has ended', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const token = await hostToken(srv.url)
+    const post = (body: unknown) => fetch(`${srv.url}/api/host/session`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
+    expect(await (await post({ label: 'X', mode: 'test', code: 'AB' })).json()).toEqual({ error: 'code_invalid' })
+    expect(await (await post({ label: '', mode: 'test' })).json()).toEqual({ error: 'label_invalid' })
+    expect(await (await post({ label: 'X', mode: 'event' })).json()).toEqual({ error: 'provisional_anchors' })
+    const made = (await (await post({ label: 'X', mode: 'test', code: 'KEEP1' })).json()) as { code: string }
+    expect(made.code).toBe('KEEP1')
+    expect(await (await post({ label: 'Y', mode: 'test', code: 'keep1' })).json()).toEqual({ error: 'code_taken' })
+
+    const del = (c: string) => fetch(`${srv.url}/api/host/session/${c}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } })
+    expect(await (await del('KEEP1')).json()).toEqual({ error: 'session_open' })
+    const host = hostConn(srv.ws, token, 'KEEP1')
+    cleanups.push(() => host.close())
+    await until(() => host.status === 'open')
+    expect((await host.command('close', { confirm: 'nope' }))).toMatchObject({ ok: false, error: 'confirm_mismatch' })
+    expect((await host.command('close', { confirm: 'keep1' })).ok).toBe(true)
+    expect((await del('KEEP1')).status).toBe(200)
+    expect(srv.app.db.session('KEEP1')).toBeUndefined()
+    expect(srv.app.manager.get('KEEP1')).toBeUndefined()
+    expect(await (await del('KEEP1')).json()).toEqual({ error: 'unknown_session' })
   })
 })

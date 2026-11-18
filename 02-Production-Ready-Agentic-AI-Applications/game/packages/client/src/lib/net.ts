@@ -8,16 +8,16 @@ export function socketUrl(): string {
   return `${proto}://${location.host}/ws`
 }
 
-export function connect(token: string, opts: { session?: string; host?: boolean } = {}): GameConnection {
+export function connect(token: string, opts: { session?: string; host?: boolean; name?: string } = {}): GameConnection {
   return new GameConnection({
-    url: socketUrl(), token, build: BUILD, session: opts.session, commandFrame: opts.host ? 'hostcmd' : 'cmd',
+    url: socketUrl(), token, build: BUILD, session: opts.session, name: opts.name, commandFrame: opts.host ? 'hostcmd' : 'cmd',
   })
 }
 
-export async function hostFetch<T>(token: string, path: string, body?: unknown): Promise<{ ok: true; data: T } | { ok: false; status: number; error: string; message?: string }> {
+export async function hostFetch<T>(token: string, path: string, body?: unknown, method?: string): Promise<{ ok: true; data: T } | { ok: false; status: number; error: string; message?: string }> {
   try {
     const res = await fetch(path, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body),
     })

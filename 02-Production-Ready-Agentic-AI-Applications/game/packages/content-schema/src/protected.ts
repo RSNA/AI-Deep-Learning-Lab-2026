@@ -18,8 +18,12 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
 
   for (const [k, s] of Object.entries(pack.game.sources)) add(s.gist, 'never', `game.sources.${k}.gist`)
   pack.characters.forEach((c) => {
-    for (const [k, v] of Object.entries(c)) if (k !== 'id' && k !== 'system' && k !== 'public') add(v, 'never', `characters.${c.id}.${k}`)
+    // The name, the role, the look and the lines a person says when clicked are public.
+    const open = ['id', 'system', 'public', 'extra', 'click_lines', 'look']
+    for (const [k, v] of Object.entries(c)) if (!open.includes(k)) add(v, 'never', `characters.${c.id}.${k}`)
   })
+  // Slide notes are for the host console only.
+  pack.deck?.sections.forEach((sec) => sec.slides.forEach((sl) => add(sl.notes, 'never', `deck.${sl.id}.notes`)))
   pack.palette?.components.forEach((c) => add(c.key, 'never', `palette.${c.id}.key`))
   pack.monitors?.monitors.forEach((m) => add(m.key, 'never', `monitors.${m.id}.key`))
 

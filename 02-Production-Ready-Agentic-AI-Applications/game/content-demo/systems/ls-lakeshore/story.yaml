@@ -14,6 +14,7 @@ letters:
       The grant project goes to the grant reports, which pull numbers from many systems and chase
       what is missing. The room bookings need a rule, and the bus needs a better timetable.
     variants:
+      empty: You sent me an almost empty board. Next time, sort what you can, even if you are unsure.
       rough: Your board took the complaints at their word. Look again at the counts.
       steady: Part of your board holds up. Check the problems you gave more than they needed.
       strong: A sound board, with the big project where it belongs.
@@ -28,3 +29,18 @@ dialogue:
     speaker: demo-priya
     text: Let us get the grant reports off our desks.
     trigger: {phase: planning, on: reveal}
+
+banter:
+  - id: ls-b-coffee
+    lines:
+      - {speaker: demo-mara, text: Who moved the good mug?}
+      - {speaker: demo-tom, text: It was evidence. I needed it for a test.}
+  - id: ls-b-printer
+    lines:
+      - {speaker: demo-idris, text: The printer says it is out of cyan.}
+      - {speaker: demo-tom, text: We only print in black.}
+      - {speaker: demo-idris, text: That is what makes it so sad.}
+  - id: ls-b-story
+    lines:
+      - {speaker: demo-ola, text: Can I borrow the big chair for story time?}
+      - {speaker: demo-priya, text: Only if the dragon gives it back.}

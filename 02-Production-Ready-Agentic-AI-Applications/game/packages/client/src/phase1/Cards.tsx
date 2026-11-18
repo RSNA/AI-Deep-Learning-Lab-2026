@@ -170,7 +170,7 @@ export function AuditBars({ data }: { data: Extract<Tile, { type: 'audit' }>['da
   )
 }
 
-export function TileBody({ tile, cast, art, systemIndex, large = false }: { tile: Tile; cast: Character[]; art: PackArt; systemIndex: number; large?: boolean }) {
+export function TileBody({ tile, cast, large = false }: { tile: Tile; cast: Character[]; art?: PackArt; systemIndex?: number; large?: boolean }) {
   const body = <p className="body"><Marks text={tile.body} /></p>
   switch (tile.type) {
     case 'stat': {
@@ -210,7 +210,7 @@ export function TileBody({ tile, cast, art, systemIndex, large = false }: { tile
         <>
           {c && (
             <div className="speaker">
-              <Portrait c={c} art={art} index={idx} systemIndex={systemIndex} size={large ? 56 : 44} />
+              <Portrait c={c} cast={cast} index={idx} size={large ? 60 : 48} />
               <div><div className="nm">{c.name}</div><div className="rl">{c.role}</div></div>
             </div>
           )}

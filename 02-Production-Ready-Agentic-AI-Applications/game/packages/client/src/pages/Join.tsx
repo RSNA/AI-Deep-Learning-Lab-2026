@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { AVATARS, normalizeCode, type SessionPublic } from '@lab02/protocol'
 import { COPY } from '../copy.ts'
+import { plainError } from '../lib/errors.ts'
 import { api } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
@@ -19,8 +20,11 @@ export function TownStrip({ height = 208, children }: { height?: number; childre
 }
 
 function errorText(error: string): string {
-  return COPY.errors[error] ?? COPY.errors.fallback!
+  return plainError(error, COPY.errors)
 }
+
+/** Where a join refusal is shown: at the name, at the health system, or at the button. */
+const errorAt = (e: string): 'name' | 'system' | 'form' => (e === 'name_taken' || e === 'name_invalid' ? 'name' : e === 'unknown_system' ? 'system' : 'form')
 
 export function JoinPage({ code: rawCode, go }: { code: string; go: (path: string) => void }) {
   const code = normalizeCode(rawCode)
@@ -118,7 +122,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
               <input id="practice" className="field" autoComplete="off" maxLength={rule.max + 8} value={name}
                 onChange={(e) => setName(e.target.value)} aria-describedby="name-hint name-err" />
               <div id="name-hint" className="hint">{COPY.nameHint(rule.min, rule.max)}</div>
-              {err && <div id="name-err" className="err" role="alert">{errorText(err)}</div>}
+              {err && errorAt(err) === 'name' && <div id="name-err" className="err" role="alert">{errorText(err)}</div>}
               {err === 'name_taken' && <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('rejoin'); setErr(null) }}>{COPY.rejoinLink}</button>}
             </div>
             {info?.pickSystem && (
@@ -141,10 +145,12 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
                   })}
                 </div>
                 <div className="hint">{COPY.pickOnlyInTest}</div>
+                {err && errorAt(err) === 'system' && <div className="err" role="alert">{errorText(err)}</div>}
               </fieldset>
             )}
             <button className="btn go big" type="submit" disabled={busy || !!closed || name.trim().length < rule.min}>{busy ? COPY.joining : COPY.join}</button>
             {closed && <div className="err">{COPY.errors.join_closed}</div>}
+            {err && errorAt(err) === 'form' && !closed && <div className="err" role="alert">{errorText(err)}</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 14 }}>
               <span className="muted">{COPY.practicesIn(total)}</span>
               <button type="button" className="linkbtn" onClick={() => { setMode('rejoin'); setErr(null) }}>{COPY.rejoinLink}</button>
@@ -171,6 +177,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
 
 export function NoSessionPage({ go }: { go: (path: string) => void }) {
   const [code, setCode] = useState('')
+  const [bad, setBad] = useState(false)
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <TownStrip />
@@ -178,9 +185,15 @@ export function NoSessionPage({ go }: { go: (path: string) => void }) {
         <div className="eyebrow" style={{ fontSize: 13 }}>{COPY.eyebrow}</div>
         <h2>{COPY.noSession}</h2>
         <p className="muted">{COPY.noSessionHint}</p>
-        <form onSubmit={(e) => { e.preventDefault(); if (code.trim()) go(`/j/${normalizeCode(code)}`) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <form onSubmit={(e) => {
+          e.preventDefault()
+          const c = normalizeCode(code)
+          if (!/^[A-Z0-9]{4,8}$/.test(c)) { setBad(true); return }
+          go(`/j/${c}`)
+        }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <label className="lbl" htmlFor="code">{COPY.sessionCode}</label>
-          <input id="code" className="field code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={8} autoComplete="off" />
+          <input id="code" className="field code" value={code} onChange={(e) => { setCode(e.target.value); setBad(false) }} maxLength={8} autoComplete="off" aria-describedby="code-err" />
+          {bad && <div id="code-err" className="err" role="alert">{COPY.codeRule}</div>}
           <button className="btn go" type="submit">{COPY.go}</button>
         </form>
       </main>

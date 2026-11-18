@@ -35,6 +35,8 @@ export type GameConnectionOptions = {
   build: string
   /** A host names the session it drives. */
   session?: string
+  /** A host console's name, shown to the other consoles. */
+  name?: string
   /** 'cmd' for players, 'hostcmd' for hosts. */
   commandFrame?: 'cmd' | 'hostcmd'
   WebSocketImpl?: WsCtor
@@ -59,7 +61,7 @@ export class GameConnection {
   private timer: ReturnType<typeof setTimeout> | null = null
   private stopped = false
   private welcomed = false
-  private readonly opts: Required<Omit<GameConnectionOptions, 'session' | 'WebSocketImpl'>> & Pick<GameConnectionOptions, 'session' | 'WebSocketImpl'>
+  private readonly opts: Required<Omit<GameConnectionOptions, 'session' | 'name' | 'WebSocketImpl'>> & Pick<GameConnectionOptions, 'session' | 'name' | 'WebSocketImpl'>
 
   constructor(opts: GameConnectionOptions) {
     this.opts = { commandFrame: 'cmd', minDelayMs: 500, maxDelayMs: 5000, random: Math.random, ...opts }
@@ -119,6 +121,7 @@ export class GameConnection {
     ws.onopen = () => {
       const hello: Record<string, unknown> = { t: 'hello', token: this.opts.token, build: this.opts.build }
       if (this.opts.session) hello.session = this.opts.session
+      if (this.opts.name) hello.name = this.opts.name
       ws.send(JSON.stringify(hello))
     }
     ws.onmessage = (ev) => {

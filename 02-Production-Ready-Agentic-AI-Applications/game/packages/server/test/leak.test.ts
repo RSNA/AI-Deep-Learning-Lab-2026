@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { loadPack, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
 import { STAGES, type StageId } from '@lab02/protocol'
+import { deckSlides, shownScene, slidesMirrored } from '@lab02/engine'
 import { DEMO, attach, hostConn, hostToken, joinBot, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
 import type { Room } from '../src/room.ts'
 
@@ -74,7 +75,14 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       if (!r.ok) throw new Error(r.error)
       const code = r.room.code
       const room = r.room
-      const records: { stage: StageId; text: string }[] = []
+      const records: { stage: StageId; text: string; slide: string | null }[] = []
+      const flat = deckSlides(loaded.pack)
+      // The slide that the projector (or, for a player, their own screen) shows at this moment.
+      const visible = (player: boolean) => {
+        const shown = shownScene(room.state, loaded.pack) === 'slides' && (!player || slidesMirrored(room.state, loaded.pack))
+        return shown ? flat[room.state.screen.slide]?.slide.id ?? null : null
+      }
+      const shownEver = new Set<string>()
       const tileLeaks: string[] = []
       const open = publicTexts(loaded.pack)
       let tilesSeen = 0
@@ -87,7 +95,7 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         const b = await joinBot(srv, code, `Leak Bot ${i}`)
         b.conn.on('*', (m) => {
           const text = JSON.stringify(m)
-          records.push({ stage: room.state.stage, text })
+          records.push({ stage: room.state.stage, text, slide: visible(true) })
           // A tile reaches its own player only, and only when their investigation has ended.
           if (text.includes('"tiles":[{')) tilesSeen++
           for (const x of forbiddenFor(room, loaded.pack, b.playerId, open)) {
@@ -100,23 +108,35 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const scrLink = await fetch(`${srv.url}/api/host/screen-link`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ code }) })
       const screenToken = ((await scrLink.json()) as { path: string }).path.split('#')[1]!
       const screen = attach(srv.ws, screenToken)
-      screen.conn.on('*', (m) => records.push({ stage: room.state.stage, text: JSON.stringify(m) }))
+      screen.conn.on('*', (m) => records.push({ stage: room.state.stage, text: JSON.stringify(m), slide: visible(false) }))
       await until(() => bots.every((b) => b.status === 'open') && screen.status === 'open')
+      // Slides in the lobby, on every screen, then the next one. Later the screen follows the game.
+      if (flat.length > 1) {
+        expect((await host.command('screen_scene', { scene: 'slides', mirror: true })).ok).toBe(true)
+        shownEver.add(flat[0]!.slide.id)
+        await new Promise((r) => setTimeout(r, 300))
+        expect((await host.command('slide', { delta: 1 })).ok).toBe(true)
+        shownEver.add(flat[1]!.slide.id)
+        await new Promise((r) => setTimeout(r, 300))
+        expect((await host.command('screen_scene', { scene: 'auto' })).ok).toBe(true)
+      }
+      const watchSlides = setInterval(() => { const v = visible(false); if (v) shownEver.add(v) }, 20)
 
       while (room.state.stage !== 'closed') {
         const before = room.state.stage
         for (const b of bots) {
           for (const phase of ['planning', 'development', 'maintaining']) {
             const res = await fetch(`${srv.url}/api/content/${phase}`, { headers: { authorization: `Bearer ${b.token}` } })
-            records.push({ stage: room.state.stage, text: await res.text() })
+            records.push({ stage: room.state.stage, text: await res.text(), slide: visible(true) })
           }
         }
         const sess = await fetch(`${srv.url}/api/session/${code}`)
-        records.push({ stage: room.state.stage, text: await sess.text() })
+        records.push({ stage: room.state.stage, text: await sess.text(), slide: visible(true) })
         // Phase 1 runs on its own clock, so the bots earn their tiles. Later phases are stubs.
         if (before !== 'planning.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
         await until(() => room.state.stage !== before, 40_000, `leaving ${before}`)
       }
+      clearInterval(watchSlides)
       for (const b of bots) b.conn.close()
       screen.conn.close()
       host.close()
@@ -136,6 +156,18 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const early = records.filter((r) => idx(r.stage) < idx('planning.reveal'))
       const fields = ['"tier":', '"rationale":', '"burden":', '"graded":', '"justification"', '"class":"']
       const structural = fields.filter((f) => early.some((r) => r.text.includes(f)))
+      // A slide reaches a browser only while it is shown there. Notes never do (they are protected).
+      const slideLeaks: string[] = []
+      for (const f of flat) {
+        const texts = [f.slide.title, ...f.slide.bullets].filter((x) => x.length >= 12)
+        for (const rec of records) {
+          if (rec.slide === f.slide.id) continue
+          const hit = texts.find((x) => rec.text.includes(JSON.stringify(x).slice(1, -1)))
+          if (hit) { slideLeaks.push(`slide ${f.slide.id} reached a browser during ${rec.stage} while ${rec.slide ?? 'no slide'} was shown`); break }
+        }
+      }
+      expect(slideLeaks).toEqual([])
+      if (flat.length > 1) expect(records.some((r) => r.slide !== null)).toBe(true)
       expect(records.length).toBeGreaterThan(100)
       expect(tilesSeen).toBeGreaterThan(0)
       expect(structural).toEqual([])

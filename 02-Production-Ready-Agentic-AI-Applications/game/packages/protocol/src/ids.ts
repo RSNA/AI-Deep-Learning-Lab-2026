@@ -41,17 +41,22 @@ export const ERROR_CODES = [
   'action_used', 'removed',
   // Host and join
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
+  // Host console
+  'not_in_control', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
 ] as const
 export const ErrorCode = z.enum(ERROR_CODES)
 export type ErrorCode = z.infer<typeof ErrorCode>
 
-export const SCENES = ['auto', 'lobby', 'intro', 'play', 'reveal', 'help', 'reflection', 'winners', 'spotlight'] as const
+export const SCENES = ['auto', 'lobby', 'intro', 'play', 'reveal', 'slides', 'reflection', 'winners', 'spotlight'] as const
 export const SceneId = z.enum(SCENES)
 export type SceneId = z.infer<typeof SceneId>
 
 export const THEMES = ['light', 'dark'] as const
 export const Theme = z.enum(THEMES)
 export type Theme = z.infer<typeof Theme>
+
+/** Stages in which a phase is being played. Slides never reach a player's screen then. */
+export const PLAY_STAGES: readonly StageId[] = ['planning.play', 'development.play', 'maintaining.setup', 'maintaining.year']
 
 /** The phase a stage belongs to, if any. */
 export function phaseOfStage(stage: StageId): PhaseId | null {

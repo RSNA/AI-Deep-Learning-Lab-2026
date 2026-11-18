@@ -18,16 +18,16 @@ export const COPY = {
   rejoinHint: 'Type the six-character code you got when you joined. It brings your practice back on any device.',
   rejoin: 'Rejoin',
   backToJoin: 'Join as a new practice',
-  practicesIn: (n: number) => `${n} ${n === 1 ? 'practice is' : 'practices are'} in. No account needed.`,
+  practicesIn: (n: number) => `${players(n)} ${n === 1 ? 'is' : 'are'} in. No account needed.`,
   errors: {
-    name_taken: 'A practice with this name is already in the game. If it is yours, rejoin it with its code. Otherwise pick another name.',
+    name_taken: 'A player with this name is already in the game. If it is yours, rejoin it with its code. Otherwise pick another name.',
     name_invalid: 'Pick another name. It must fit the length, and the room will see it.',
     join_closed: 'Joining is closed for this session.',
     session_full: 'The session is full.',
     unknown_session: 'This session does not exist or has ended.',
-    unknown_player: 'No practice has that code in this session.',
+    unknown_player: 'No player has that code in this session.',
     unknown_system: 'That health system is not in this session.',
-    removed: 'The host removed this practice.',
+    removed: 'The host removed this player from the session.',
     rate_limited: 'Too many people at once. Try again in a moment.',
     network: 'The server cannot be reached. Check the Wi-Fi and try again.',
     fallback: 'Something went wrong. Try again.',
@@ -35,6 +35,7 @@ export const COPY = {
   noSession: 'No session is open right now.',
   noSessionHint: 'Scan the code on the big screen, or type the session code.',
   sessionCode: 'Session code',
+  codeRule: 'A session code is 4 to 8 letters or digits. It is on the big screen.',
   go: 'Go',
   keepCode: 'Keep this code. It brings your practice back on any device.',
   youAreIn: 'You are in',
@@ -51,7 +52,8 @@ export const COPY = {
   yourSystem: 'Your health system',
   yourPractice: 'Your practice',
   whatYouKnow: 'What you already know',
-  people: 'People you will meet',
+  people: 'People in your practice',
+  sceneHint: 'Click anyone to say hello',
   rejoinCode: 'Rejoin code',
   reconnecting: 'Reconnecting…',
   superseded: 'This practice is open on another device or tab.',
@@ -59,6 +61,9 @@ export const COPY = {
   removed: 'The host removed this practice from the session.',
   signedOut: 'This browser no longer holds the practice. Rejoin it with its code.',
   menu: 'Menu',
+  slideOf: (i: number, n: number) => `Slide ${i} of ${n}`,
+  slideFollows: 'The host moves the slides. Your screen follows.',
+  backToBoard: 'Back to my board',
   ladder: 'The automation ladder',
   theme: 'Theme',
   light: 'Day',
@@ -69,16 +74,20 @@ export const COPY = {
   rankSystem: 'In your health system',
   rankPhase: 'This phase',
   systemsTitle: 'Health systems',
-  systemsSub: 'Mean points of their practices',
+  systemsSub: 'Mean points of their players',
   stubTitle: (phase: string) => `${phase} opens here`,
   stubText: 'This phase is being built. The clock and the leaderboard already run.',
   results: (phase: string) => `${phase} results`,
   points: 'points',
-  provisional: 'Provisional',
   total: 'Total',
   finalTitle: 'Thank you for playing',
   closed: 'The session has ended.',
   you: 'You',
+}
+
+/** "1 player", "12 players": the count of people in a session, on every screen. */
+export function players(n: number): string {
+  return `${n} ${n === 1 ? 'player' : 'players'}`
 }
 
 export const STAGE_TITLE: Record<StageId, string> = {

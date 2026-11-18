@@ -103,6 +103,13 @@ const PlanningRules = W({
     cancel: z.literal('none'),
   }),
   live_leaderboard: W({ metric: z.literal('progress'), label: Text }),
+  submission: W({
+    draft_autosave: z.boolean().optional(),
+    early_lock: z.string().optional(),
+    unsorted_allowed: z.boolean().optional(),
+    auto_submit: z.boolean().optional(),
+    letter_empty_below: Int.min(0).optional(),   // fewer sorted problems than this: the letter's "empty" variant
+  }).optional(),
   scoring: W({
     classify: W({ exact: Num, adjacent: Num }),
     flagship: W({ bonus: Num }),
@@ -172,7 +179,7 @@ export const GameFile = W({
     phase_max_points: PosInt,
     normalization: W({ floor_points: NonNeg, max_points: PosInt }),
     four_metric_score: W({ weights: S({ validity: Num, reliability: Num, cost: Num, complexity: Num }) }),
-    score_bands: z.array(W({ id: Id, min: Num, max: Num })).min(1),
+    score_bands: z.array(W({ id: Id, min: Num, max: Num, label: Text.optional() })).min(1),   // label: the name a player may see
   }),
   phases: W({ planning: PlanningRules, development: DevelopmentRules, maintaining: MaintainingRules }),
   leaderboards: W({
@@ -219,10 +226,17 @@ export const MonitorsFile = W({
 })
 export type MonitorsFile = z.infer<typeof MonitorsFile>
 
+/** How a person's pixel character looks. Free words, read by the client's sprite builder. */
+export const Look = W({ hair: Text.optional(), hair_style: Text.optional(), skin: Text.optional(), top: Text.optional(), detail: Text.optional() })
+export type Look = z.infer<typeof Look>
+
 export const CharactersFile = z.array(W({
   id: Id,
   system: z.union([SystemId, z.literal('all')]),
   public: S({ name: Text, role: Text, portrait: z.string() }),
+  extra: z.boolean().optional(),         // a person with no interview and no letter, who still lives in the scene
+  click_lines: z.array(Text).optional(), // what the person says when clicked
+  look: Look.optional(),
   key: K({}).optional(),                 // authoring notes (voice, portrait prompt), never read
 }))
 export type CharactersFile = z.infer<typeof CharactersFile>
@@ -434,6 +448,7 @@ export const StoryFile = W({
     id: Id, phase: PhaseId, offer: Id.optional(), at_seconds: NonNeg.nullable().optional(),
     from: Id, text: Text,
   })).optional(),
+  banter: z.array(W({ id: Id, lines: z.array(S({ speaker: Id, text: Text })).min(2).max(3) })).optional(),
 })
 export type StoryFile = z.infer<typeof StoryFile>
 
@@ -451,6 +466,16 @@ export const HelpSlidesFile = W({
   reflection_prompts: z.array(Text).optional(),
 })
 export type HelpSlidesFile = z.infer<typeof HelpSlidesFile>
+
+/** teaching/deck.yaml: the one deck of the session, in sections. */
+export const DeckSlide = W({
+  id: Id, title: Text, bullets: z.array(Text),
+  image: z.string().optional(), live_stat: z.string().optional(), notes: Text.optional(), placeholder: z.boolean().optional(),
+})
+export const DeckFile = W({
+  sections: z.array(W({ id: Id, title: Text, stage: z.string(), slides: z.array(DeckSlide).min(1) })).min(1),
+})
+export type DeckFile = z.infer<typeof DeckFile>
 
 export const ReportCardFile = W({
   sections: z.array(W({

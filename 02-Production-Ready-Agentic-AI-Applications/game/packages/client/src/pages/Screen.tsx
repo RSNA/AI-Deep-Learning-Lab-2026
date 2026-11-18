@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { COLUMNS, phaseOfStage, type Clock, type ScreenView } from '@lab02/protocol'
-import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
+import { COPY, PHASE_NUMBER, players } from '../copy.ts'
 import type { ClockRef } from '../lib/clock.ts'
 import { connect, reloadForNewBuild } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
@@ -56,7 +56,7 @@ function Header({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
         </div>
         <div style={{ padding: '6px 18px', background: '#fff', color: '#1d2140', border: '4px solid #1d2140', textAlign: 'center' }}>
           <div className="face" style={{ fontSize: 48, lineHeight: 1 }}>{v.counts.total}</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>practices</div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{v.counts.total === 1 ? 'player' : 'players'}</div>
         </div>
       </div>
     </div>
@@ -115,7 +115,7 @@ function Reveal({ v }: { v: ScreenView }) {
             </div>
           ))}
         </div>
-        <div style={{ padding: '0 28px 18px', fontSize: 20, fontWeight: 700 }} className="muted">{`Points of the ${total} practices that played, in steps of 100`}</div>
+        <div style={{ padding: '0 28px 18px', fontSize: 20, fontWeight: 700 }} className="muted">{`Points of the ${players(total)} who played, in steps of 100`}</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {r.systems.map((x) => {
@@ -171,7 +171,7 @@ function Lobby({ v }: { v: ScreenView }) {
                 </div>
               )
             })}
-            {!v.arrivals.length && <div className="muted" style={{ fontSize: 24 }}>Waiting for the first practice…</div>}
+            {!v.arrivals.length && <div className="muted" style={{ fontSize: 24 }}>Waiting for the first player…</div>}
           </div>
         </div>
       </div>
@@ -189,18 +189,47 @@ function TitleCard({ v, text }: { v: ScreenView; text: string }) {
   )
 }
 
+function Podium({ rows, v }: { rows: ScreenView['board']['columns']['overall']['rows']; v: ScreenView }) {
+  // Second, first, third: the winner stands in the middle, highest.
+  const order = [rows[1], rows[0], rows[2]]
+  const heights = [200, 280, 150]
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 24, flexGrow: 1, padding: '0 24px 8px' }}>
+      {order.map((r, i) => {
+        if (!r) return <div key={i} style={{ width: 300 }} />
+        const ref = v.session.systems.find((x) => x.id === r.system)
+        return (
+          <div key={i} style={{ width: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <Avatar id={r.avatar} size={i === 1 ? 128 : 96} />
+            <div style={{ fontSize: 28, fontWeight: 800, textAlign: 'center', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 20, fontWeight: 700 }} className="muted"><SystemShape index={ref?.index ?? 0} size={16} />{ref?.name}</div>
+            <div style={{ width: '100%', height: heights[i], background: i === 1 ? 'var(--sun)' : 'var(--sky)', border: '4px solid var(--line)', boxShadow: '6px 6px 0 var(--shade)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--on)' }}>
+              <div className="face" style={{ fontSize: 96, lineHeight: 1 }}>{r.rank}</div>
+              <div className="face" style={{ fontSize: 40 }}>{Math.round(r.value)}</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** The winners once every phase is scored, with a podium. Before that: the standings so far. */
 function Winners({ v }: { v: ScreenView }) {
   const w = v.winners
-  if (!w) return <TitleCard v={v} text="Winners appear when the phases close." />
+  if (!w) return <TitleCard v={v} text="The winners appear once Phase 1 is scored." />
   return (
-    <div style={{ flexGrow: 1, padding: '32px 48px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 40, minHeight: 0 }}>
+    <div style={{ flexGrow: 1, padding: '28px 48px', display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 40, minHeight: 0 }}>
       <div className="panel" style={{ borderWidth: 4 }}>
-        <div className="panel-head sun" style={{ fontSize: 40, borderBottomWidth: 4 }}>Top practices</div>
-        <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}><BoardRows rows={w.overall} systems={v.session.systems} big /></div>
+        <div className="panel-head sun" style={{ fontSize: 40, borderBottomWidth: 4 }}>{w.final ? 'The winners' : 'Standings so far'}</div>
+        {w.final
+          ? <Podium rows={w.overall} v={v} />
+          : <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}><BoardRows rows={w.overall} systems={v.session.systems} big /></div>}
+        {!w.final && <div className="muted" style={{ padding: '10px 20px', fontSize: 22, fontWeight: 700 }}>Not every phase is scored yet. These are the totals so far.</div>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div className="panel" style={{ borderWidth: 4 }}>
-          <div className="panel-head sky" style={{ fontSize: 32, borderBottomWidth: 4 }}>Best of each health system</div>
+          <div className="panel-head sky" style={{ fontSize: 32, borderBottomWidth: 4 }}>{w.final ? 'Best of each health system' : 'Leading each health system'}</div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {w.perSystem.map((p) => {
               const ref = v.session.systems.find((x) => x.id === p.system)
@@ -218,6 +247,35 @@ function Winners({ v }: { v: ScreenView }) {
         </div>
         <SystemsStrip systems={v.session.systems} standings={w.topSystems} big />
       </div>
+    </div>
+  )
+}
+
+/** One slide of the deck, as large as the room needs it. */
+export function Slide({ v }: { v: ScreenView }) {
+  const sl = v.slide
+  if (!sl) return <TitleCard v={v} text="No slide to show." />
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '48px 96px 32px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 1, color: 'var(--muted)' }}>{sl.section.toUpperCase()}</div>
+      <div className="face" style={{ fontSize: 104, lineHeight: 1 }}>{sl.title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: sl.image || sl.stat ? 'minmax(0, 1.4fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 56, flexGrow: 1, minHeight: 0, alignItems: 'start' }}>
+        <ul style={{ margin: 0, paddingLeft: 48, display: 'flex', flexDirection: 'column', gap: 22, fontSize: 44, lineHeight: 1.25, fontWeight: 600 }}>
+          {sl.bullets.map((b, i) => <li key={i}>{b}</li>)}
+        </ul>
+        {(sl.image || sl.stat) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'stretch' }}>
+            {sl.image && <img className="px" src={sl.image} alt="" style={{ width: '100%', maxHeight: 460, objectFit: 'contain', border: '4px solid var(--line)', background: 'var(--panel)' }} />}
+            {sl.stat && (
+              <div className="panel" style={{ borderWidth: 4, padding: '20px 28px', boxShadow: '6px 6px 0 var(--shade)' }}>
+                <div className="face" style={{ fontSize: 120, lineHeight: 1 }}>{sl.stat.value}</div>
+                <div style={{ fontSize: 30, fontWeight: 800 }}>{sl.stat.label}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--muted)', textAlign: 'right' }}>{`Slide ${sl.index + 1} of ${sl.count}`}</div>
     </div>
   )
 }
@@ -273,25 +331,36 @@ export function ScreenPage() {
 
   if (!token) return <div style={{ padding: 40 }}><h2>Open the big screen from the host console.</h2></div>
   if (!v) return <div className="banner">{status === 'unauthorized' ? 'This big screen link is no longer valid. Open it again from the host console.' : COPY.reconnecting}</div>
+  return (
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--bg)' }}>
+      <div style={{ position: 'absolute', left: (window.innerWidth - 1920 * scale) / 2, top: (window.innerHeight - 1080 * scale) / 2 }}>
+        <ScreenStage v={v} clock={clock} scale={scale} />
+      </div>
+      {status !== 'open' && <div className="banner">{COPY.reconnecting}</div>}
+    </div>
+  )
+}
+
+/** What the projector draws, 1920 x 1080 at a scale. The host console's preview uses it too. */
+export function ScreenStage({ v, clock, scale, themed = false }: { v: ScreenView; clock: ClockRef | null; scale: number; themed?: boolean }) {
   let body: React.ReactNode
   switch (v.scene) {
     case 'lobby': body = <Lobby v={v} />; break
     case 'intro': body = <TitleCard v={v} text="The game starts in a moment." />; break
     case 'reflection': body = <TitleCard v={v} text="What did your practice learn?" />; break
-    case 'help': body = <TitleCard v={v} text={`${STAGE_TITLE[v.stage]} · Help slides`} />; break
+    case 'slides': body = <Slide v={v} />; break
     case 'winners': body = <Winners v={v} />; break
     case 'spotlight': body = <Spotlight v={v} />; break
     case 'reveal': body = <Reveal v={v} />; break
     default: body = <Leaderboard v={v} />
   }
   return (
-    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--bg)' }}>
-      <div style={{ width: 1920, height: 1080, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', left: (window.innerWidth - 1920 * scale) / 2, top: (window.innerHeight - 1080 * scale) / 2, display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--ink)' }}>
+    <div style={{ width: 1920 * scale, height: 1080 * scale, overflow: 'hidden' }}>
+      <div className={themed ? `theme-${v.theme}` : undefined} style={{ width: 1920, height: 1080, transform: `scale(${scale})`, transformOrigin: 'top left', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--ink)' }}>
         <Header v={v} clock={clock} />
         {body}
         <Street theme={v.theme} />
       </div>
-      {status !== 'open' && <div className="banner">{COPY.reconnecting}</div>}
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { store } from '../lib/storage.ts'
 import { P1 } from './copy.ts'
 import { InvestigationList, PlanningRoom, Rail, Transcript } from './Rail.tsx'
 import { Reveal } from './Reveal.tsx'
-import { PhoneSort, SortBoard } from './Sorting.tsx'
+import { Assessment } from './Sorting.tsx'
 import { useBoard } from './useBoard.ts'
 import { Wall } from './Wall.tsx'
 
@@ -35,7 +35,7 @@ export function BriefSheet({ w, onClose }: { w: Welcome; onClose: () => void }) 
     <Sheet title={brief.title ?? P1.brief} head="sun" onClose={onClose}>
       {c && (
         <div className="speaker">
-          <Portrait c={c} art={w.art} index={idx} systemIndex={w.system.index} size={56} />
+          <Portrait c={c} cast={w.system.cast} index={idx} size={60} />
           <div><div className="nm">{c.name}</div><div className="rl">{c.role}</div></div>
         </div>
       )}
@@ -116,7 +116,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
             </div>
           )}
           {tab === 'evidence' && <Wall w={w} content={content} pv={pv} phone focusCard={focusCard} backTo={backTo} />}
-          {tab === 'sort' && <PhoneSort board={board} content={content} focus={sortFocus} onEvidence={(pid) => { setFromProblem(pid); setTab('evidence'); setEvidenceBadge(0) }} />}
+          {tab === 'sort' && <Assessment board={board} content={content} focus={sortFocus} onEvidence={(pid) => { setFromProblem(pid); setTab('evidence'); setEvidenceBadge(0) }} />}
         </div>
         <nav className="ptabs" aria-label="Phase 1">
           {(['room', 'evidence', 'sort'] as const).map((t) => {
@@ -141,7 +141,10 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
         <Rail w={w} content={content} pv={pv} folded={folded} setFolded={setFolded} onShowCard={showCard} />
         <Wall w={w} content={content} pv={pv} focusCard={focusCard} />
       </div>
-      <SortBoard board={board} content={content} />
+      <section className="sortcol" aria-label={P1.assessment}>
+        <div className="coltitle"><h2>{P1.assessment}</h2></div>
+        <Assessment board={board} content={content} />
+      </section>
       {(warning || notice) && <div className="toast warnbar" role="status">{warning ?? notice}</div>}
       {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
     </div>

@@ -110,3 +110,18 @@
     color-scheme: dark;
   }
 }
+
+/* A theme for one part of a page, whatever the page's own theme: the big screen preview on the
+   host console. */
+.theme-light {
+  --bg: #e6e9fb; --panel: #ffffff; --inset: #f1f2fc; --ink: #2b2d4f; --muted: #5c6278; --line: #2b2d4f;
+  --soft: #c9cdea; --shade: #a09cca; --bar: #3a3c6e; --go: #2ec4a6; --sun: #ffb93c; --sky: #4fb4dc;
+  --lav: #a09cca; --good: #177a66; --bad: #b83a36; --go-bg: #d5f5ec; --sun-bg: #fff0cf; --sky-bg: #dbf1fa;
+  --lav-bg: #ebe9fa; --bad-bg: #ffe1dc;
+}
+.theme-dark {
+  --bg: #17172e; --panel: #262748; --inset: #1d1e3a; --ink: #f1f0ff; --muted: #b3b2d6; --line: #8f8cc4;
+  --soft: #3c3d68; --shade: #0b0b1c; --bar: #0f0f24; --go: #38cbab; --sun: #ffc145; --sky: #64c0e1;
+  --lav: #8f8cc4; --good: #42dfab; --bad: #ff8a80; --go-bg: #173f3c; --sun-bg: #453618; --sky-bg: #1c3a52;
+  --lav-bg: #30315a; --bad-bg: #4a2530;
+}

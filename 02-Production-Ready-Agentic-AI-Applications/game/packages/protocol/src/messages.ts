@@ -26,6 +26,7 @@ export const Hello = S({
   token: z.string().min(10).max(200),
   build: z.string().max(80),
   session: z.string().max(16).optional(),   // a host names the session it drives
+  name: z.string().max(40).optional(),      // a host console's name, shown to the other consoles
 })
 export type Hello = z.infer<typeof Hello>
 
