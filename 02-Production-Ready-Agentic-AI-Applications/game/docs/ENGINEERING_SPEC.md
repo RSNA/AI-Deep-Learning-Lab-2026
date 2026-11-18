@@ -2048,12 +2048,13 @@ and a switch between them. It does not scroll away with the cards.
 - **"Reading room"** shows the living scene of section 10.3, with its people, bubbles and
   clicks. The scale is picked as in the lobby: the smallest whole-number scale that covers the
   panel's width with a crop of 10 percent at most, else the scale below on a backdrop. The
-  panel is 260 px high on a screen under 800 px high and 360 px from there on, and the camera
-  crops the room to that height around the meeting table.
+  panel is about 215 px high on a screen under 800 px high (a bar of 34 px and a view of 180 px,
+  as in the mockups, so that a full row of cards still shows under it at 1280 x 720) and up to
+  300 px from there on, and the camera crops the room to that height around the meeting table.
 - **"Practice facts"** lists every line of `practice_profile` and `baseline` with its unit, in
   two columns, at the same height, and scrolls inside itself. Some evidence is read against one
   of these lines, so the facts stay one click away for the whole phase.
-- **Collapse.** One control folds the panel to a bar of 40 px that keeps the switch and the
+- **Collapse.** One control folds the panel to a bar of 34 px that keeps the switch and the
   control. With the panel collapsed the player sees only the cards. Picking a view on the bar
   opens the panel again on that view.
 - The panel never changes its view or its state by itself. The browser remembers both. The
