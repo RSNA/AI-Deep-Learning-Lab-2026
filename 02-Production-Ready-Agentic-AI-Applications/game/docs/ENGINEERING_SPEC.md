@@ -426,6 +426,9 @@ type Tile =
 ```
 
 The `tile` is mechanics until the investigation completes. Then it is sent to that player.
+Only an interview fixes its tile type (`quote`). Every other method may give any tile type. An
+`audit` tile also serves as the tally of an observation, and its findings may then count
+different things, each with its own denominator in the label.
 
 **`build.yaml`**
 
@@ -1543,6 +1546,40 @@ reported but not real, real but missed) and the rationale on opening. The flagsh
 marked. A closing line names the problem that everyone builds for next. The same screen stays
 during the break, with a note to look at the big screen.
 
+**Notes from the first full-size pack (Step 4).** The first real Phase 1 content was written
+after this section. It asks for the following.
+
+- **Practice numbers stay in reach.** Some evidence is read against a line of the practice
+  profile or the baseline. During Phase 1 both are one tap away. On a laptop a "Practice" card
+  sits at the top of the Evidence column, closed to its title until opened. On a phone it is the
+  first card of the Evidence tab. The card lists every line of `practice_profile` and `baseline`
+  with its unit. The wall board in the scene does not replace it.
+- **Nothing a player needs is clamped.** A tile always shows its whole body, its findings and
+  its note. A problem card shows its whole description on a laptop and a tablet, where a
+  description runs to about 26 words, and clamps it only on a phone. The play time has no room
+  for a click on every card.
+- **Two inline marks.** The body and the note of a tile, a brief and a letter may carry
+  `**bold**` and `*italic*`, so that a player can skim for the number that matters. The client
+  renders these two marks and nothing else. Every other character is shown as text, and no
+  HTML is ever interpreted. A pack uses them on two to four places in a tile.
+- **Sizes to design for.** A headline has up to 10 words and a body up to 40. An `audit` tile
+  has up to 7 findings with labels of up to 12 words and a note of up to 20 words. A `chart`
+  tile has up to 3 series and up to 8 points in a series. An interview has 3 lines of up to 16
+  words. An investigation row has a title of up to 9 words and a teaser of up to 13.
+- **`audit` tiles.** The bars are scaled to the largest count on the tile and never to
+  `sample_size`, because the findings of a tally can count different things. The sample size is
+  a caption. A label wraps and is never cut.
+- **`chart` tiles.** The x values are often text, such as quarters or the names of groups. A bar
+  chart with several series is drawn as grouped bars with the value on each bar. A line chart
+  starts its y axis at zero, and on a phone it may show every second x label. The note sits
+  under the chart in body text.
+- **`quote` tiles.** The body is one or two sentences about the speaker and comes before the
+  lines. A bubble in the scene wraps a line of 16 words to three rows at most at the phone crop.
+  The transcript strip always holds every line.
+- **Reveal.** A rationale runs to about 90 words and a burden note to about 40. The corrected
+  report keeps both behind the opening of a row and opens the row of the flagship problem by
+  default.
+
 ### 10.5 Phase 2 screens (outline)
 
 - **The dev board.** The nodes and slots of `board.flow` from left to right on a laptop and top
@@ -1949,7 +1986,7 @@ report.
 
 | Step | Adds |
 | --- | --- |
-| 4 | Any Phase 1 screen note that the first real content calls for |
+| 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5 |
 | 6 | Section 10.5 in full, and the final `DevelopmentView` |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
