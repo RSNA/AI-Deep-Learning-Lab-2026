@@ -1,7 +1,7 @@
 // Wire messages of the player and screen sockets (engineering spec, section 8.2).
 import { z } from 'zod'
 import { ErrorCode, PhaseId } from './ids.ts'
-import { Board, Clock, LadderRung, PackArt, PlayerView, Rung, ScreenView, SessionInfo, Standing, SystemPublic, Text } from './views.ts'
+import { Board, Clock, LadderRung, PackArt, PlayerView, ScreenView, SessionInfo, Standing, SystemPublic, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 

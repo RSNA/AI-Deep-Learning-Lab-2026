@@ -5,7 +5,7 @@
     title: Ask Mara about the desk
     teaser: The head of circulation sees every queue first.
   bandwidth: 1
-  seconds: 20
+  seconds: 10
   tile:
     type: quote
     headline: Mara on the weekly rhythm
@@ -20,7 +20,7 @@
     title: Pull the desk queue by weekday
     teaser: How long patrons wait at the desk on each day.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: chart
     headline: Desk wait by weekday
@@ -42,7 +42,7 @@
     title: Count partner requests
     teaser: How partner requests end.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: stat
     headline: Partner requests that end in a loan
@@ -55,7 +55,7 @@
     title: Audit the shelves
     teaser: Walk the stacks with a scanner.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: audit
     headline: Shelf audit of 1,000 books
@@ -73,7 +73,7 @@
     title: Watch the floor for a day
     teaser: Shadow the desk and the phones from open to close.
   bandwidth: 3
-  seconds: 45
+  seconds: 20
   tile:
     type: stat
     headline: Questions at the desk and on the phone

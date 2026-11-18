@@ -9,6 +9,9 @@ import { setTheme, useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
 import { TownStrip } from './Join.tsx'
+import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
+import { Blocks } from '../phase1/Rail.tsx'
+import { P1 } from '../phase1/copy.ts'
 
 function useWakeLock() {
   useEffect(() => {
@@ -47,13 +50,23 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const title = phase ? `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}` : STAGE_TITLE[view.stage]
   const rank = standing?.ranks.phase ?? standing?.ranks.overall
   const timed = clock?.clock.stageEndsAtMs !== null && clock?.clock.stageEndsAtMs !== undefined
+  const content = usePlayer((s) => s.content.planning)
+  const pv = view.stage === 'planning.play' ? view.planning : null
+  const total = content?.phase === 'planning' ? content.rules.bandwidth : null
+  const bandwidth = pv && total !== null ? (
+    <span className="bw" aria-label={`${P1.bandwidth}: ${P1.free(pv.bandwidthFree)}`}>
+      {!narrow && <span className="bwl">{P1.bandwidth}</span>}
+      <Blocks n={total} held={total - pv.bandwidthFree} />
+      <span className="bwl">{P1.free(pv.bandwidthFree)}</span>
+    </span>
+  ) : null
   return (
     <header className="topbar" style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto', padding: '6px 10px' } : undefined}>
       <div className="who">
         <Avatar id={view.me.avatar} size={32} />
         {!narrow && <span className="name">{view.me.name}</span>}
         {sys && <span className="sysbadge"><SystemShape index={sys.index} size={10} />{narrow ? '' : sys.name}</span>}
-        {narrow && <span className="phase" style={{ fontSize: 20 }}>{title}</span>}
+        {narrow && !bandwidth && <span className="phase" style={{ fontSize: 20 }}>{title}</span>}
       </div>
       {!narrow && (
         <div className="mid">
@@ -62,6 +75,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
         </div>
       )}
       <div className="right">
+        {bandwidth}
         {narrow && timed && <Countdown clock={clock} />}
         <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />
         <button className="iconbtn" onClick={onStandings} aria-label={COPY.standings}>{rank ? `#${rank}` : '#–'}</button>
@@ -71,12 +85,14 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
+function MenuSheet({ w, onClose, onBrief }: { w: Welcome; onClose: () => void; onBrief: () => void }) {
   const view = usePlayer((s) => s.view)!
   const theme = useTheme()
   const [open, setOpen] = useState<number | null>(null)
+  const brief = view.inbox.find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
+      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={onBrief}>{P1.brief}: {brief.title}</button>}
       <div className="eyebrow">{COPY.rejoinCode}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className="codebox" style={{ fontSize: 36 }}>{view.me.rejoinCode}</span>
@@ -96,7 +112,8 @@ function MenuSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
             <button onClick={() => setOpen(open === r.rung ? null : r.rung)} aria-expanded={open === r.rung}
               style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, padding: '4px 10px', background: 'var(--inset)', border: 0, cursor: 'pointer', textAlign: 'left' }}>
               <span className="num" style={{ fontSize: 24, width: 18 }}>{r.rung}</span>
-              <span style={{ fontWeight: 800 }}>{r.label}</span>
+              <span style={{ fontWeight: 800, flexGrow: 1 }}>{r.label}</span>
+              <span className="chip" style={{ fontSize: 12 }}>{r.classShort}</span>
             </button>
             {open === r.rung && (
               <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
@@ -141,7 +158,7 @@ function StandingsSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
                 {columnTag(col) && <span className="chip" style={{ fontSize: 12, padding: '0 6px', background: '#fff', color: '#1d2140', borderColor: '#1d2140' }}>{columnTag(col)}</span>}
               </div>
               <div className="hint" style={{ padding: '4px 10px 0' }}>{col.state === 'empty' ? '' : col.label}</div>
-              <BoardRows rows={col.rows} systems={w.session.systems} />
+              <BoardRows rows={col.rows} systems={w.session.systems} of={col.of} />
             </div>
           )
         })}
@@ -353,6 +370,7 @@ function StageBody({ w }: { w: Welcome }) {
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
   if (st === 'winners' || st === 'closed') return <Winners />
   const phase = phaseOfStage(st)
+  if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning w={w} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
   if (st.startsWith('break.')) return <Results w={w} phase={st.split('.')[1] as PhaseId} note={COPY.lookAtScreen} />
   if (st === 'reflection') return <Results w={w} phase={null} note={COPY.lookAtScreen} />
@@ -367,6 +385,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const { status, welcome, view, start, stop } = usePlayer()
   const [menu, setMenu] = useState(false)
   const [standings, setStandings] = useState(false)
+  const [brief, setBrief] = useState(false)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
   useWakeLock()
 
@@ -396,8 +415,9 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   }
   if (!welcome || !view) return <div className="banner">{COPY.reconnecting}</div>
 
+  const fill = view.stage === 'planning.play' && !!view.planning
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
       {status !== 'open' && <div className="banner" role="status">{COPY.reconnecting}</div>}
       <StageBody w={welcome} />
@@ -413,7 +433,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button className="btn go big" autoFocus onClick={() => { store.setFlag(`seen-code-${view.me.id}`); setCodeSeen(true) }}>{COPY.gotIt}</button>
         </Sheet>
       )}
-      {menu && <MenuSheet w={welcome} onClose={() => setMenu(false)} />}
+      {menu && <MenuSheet w={welcome} onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} />}
+      {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} />}
       {standings && <StandingsSheet w={welcome} onClose={() => setStandings(false)} />}
     </div>
   )

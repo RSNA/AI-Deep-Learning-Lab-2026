@@ -60,7 +60,7 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['an unknown character in a cast', `${RB}/system.yaml`, (t) => t.replace('cast: [demo-mara,', 'cast: [demo-nobody,'), /public\.cast\[0\]/],
   ['two flagships', `${RB}/problems.yaml`, (t) => t.replace('    flagship: false\n    rationale: The Monday', '    flagship: true\n    rationale: The Monday'), /exactly one problem/],
   ['the wrong number of problems', `${RB}/problems.yaml`, (t) => t.slice(0, t.indexOf('- id: rb-q-shelf')), /holds 5 problems/],
-  ['seconds that do not match the level', `${RB}/insights.yaml`, (t) => t.replace('  bandwidth: 1\n  seconds: 20', '  bandwidth: 1\n  seconds: 25'), /\[0\]\.seconds/],
+  ['seconds that do not match the level', `${RB}/insights.yaml`, (t) => t.replace('  bandwidth: 1\n  seconds: 10', '  bandwidth: 1\n  seconds: 25'), /\[0\]\.seconds/],
   ['a method on a level it may not use', `${RB}/insights.yaml`, (t) => t.replace('  method: interview\n  character: demo-mara', '  method: observation\n  character: demo-mara'), /\[0\]/],
   ['an unknown source', `${RB}/problems.yaml`, (t) => t.replace('source: [DEMO-1]', 'source: [NOPE-9]'), /unknown source/],
   ['an id without the system prefix', `${RB}/insights.yaml`, (t) => t.replace('- id: rb-look-mara', '- id: look-mara'), /must start with "rb-"/],

@@ -82,7 +82,7 @@ function Leaderboard({ v }: { v: ScreenView }) {
                 {columnTag(col) && <span style={{ padding: '2px 12px', background: '#fff', border: '3px solid #1d2140', fontSize: 24, color: '#1d2140' }}>{columnTag(col)}</span>}
               </div>
               <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <BoardRows rows={col.rows} systems={v.session.systems} big emptyText={c === 'overall' ? 'Fills when Phase 1 closes.' : 'Opens with its phase.'} />
+                <BoardRows rows={col.rows} systems={v.session.systems} big of={col.of} emptyText={c === 'overall' ? 'Fills when Phase 1 closes.' : 'Opens with its phase.'} />
               </div>
             </div>
           )
@@ -91,6 +91,49 @@ function Leaderboard({ v }: { v: ScreenView }) {
       <div style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
         <div><div className="face" style={{ fontSize: 32 }}>Health systems</div><div className="muted" style={{ fontSize: 17 }}>{COPY.systemsSub}</div></div>
         <SystemsStrip systems={v.session.systems} standings={v.board.systems} big />
+      </div>
+    </div>
+  )
+}
+
+/** The results of the phase that closed, for the room: how points spread, and each health system. */
+function Reveal({ v }: { v: ScreenView }) {
+  const r = v.reveal
+  if (!r) return <Leaderboard v={v} />
+  const max = Math.max(1, ...r.histogram)
+  const total = r.histogram.reduce((a, b) => a + b, 0)
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '28px 48px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 40 }}>
+      <div className="panel" style={{ borderWidth: 4, boxShadow: '6px 6px 0 var(--shade)' }}>
+        <div className="panel-head sky" style={{ fontSize: 36, borderBottomWidth: 4 }}>{`Phase ${PHASE_NUMBER[r.phase]} · How the room scored`}</div>
+        <div style={{ flexGrow: 1, display: 'flex', alignItems: 'flex-end', gap: 14, padding: '24px 28px 12px' }}>
+          {r.histogram.map((n, i) => (
+            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'flex-end' }}>
+              <div className="face" style={{ fontSize: 30 }}>{n || ''}</div>
+              <div style={{ width: '100%', height: `${(78 * n) / max}%`, minHeight: n ? 6 : 0, background: 'var(--sky)', border: n ? '3px solid var(--line)' : 0 }} />
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--muted)' }}>{i * 100}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '0 28px 18px', fontSize: 20, fontWeight: 700 }} className="muted">{`Points of the ${total} practices that played, in steps of 100`}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {r.systems.map((x) => {
+          const ref = v.session.systems.find((s) => s.id === x.id)
+          return (
+            <div key={x.id} className="panel" style={{ borderWidth: 4, boxShadow: '6px 6px 0 var(--shade)' }}>
+              <div className="panel-head" style={{ fontSize: 32, borderBottomWidth: 4, background: 'var(--panel)', color: 'var(--ink)', justifyContent: 'flex-start', gap: 14 }}>
+                <SystemShape index={ref?.index ?? 0} size={26} />{ref?.name}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, padding: '16px 22px' }}>
+                <div><div className="face" style={{ fontSize: 64, lineHeight: 1 }}>{Math.round(x.meanPoints)}</div><div style={{ fontSize: 20, fontWeight: 700 }} className="muted">mean points</div></div>
+                {r.phase === 'planning' && (
+                  <div><div className="face" style={{ fontSize: 64, lineHeight: 1 }}>{x.players ? `${Math.round((100 * x.flagshipHits) / x.players)}%` : '–'}</div><div style={{ fontSize: 20, fontWeight: 700 }} className="muted">{`found the agent project (${x.flagshipHits} of ${x.players})`}</div></div>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -238,6 +281,7 @@ export function ScreenPage() {
     case 'help': body = <TitleCard v={v} text={`${STAGE_TITLE[v.stage]} · Help slides`} />; break
     case 'winners': body = <Winners v={v} />; break
     case 'spotlight': body = <Spotlight v={v} />; break
+    case 'reveal': body = <Reveal v={v} />; break
     default: body = <Leaderboard v={v} />
   }
   return (

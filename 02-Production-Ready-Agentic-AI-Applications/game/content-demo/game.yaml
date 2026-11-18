@@ -131,15 +131,15 @@ phases:
       per_system: 5
       bandwidth: 3
       levels:
-        - {bandwidth: 1, seconds: 20}
-        - {bandwidth: 2, seconds: 30}
-        - {bandwidth: 3, seconds: 45}
+        - {bandwidth: 1, seconds: 10}
+        - {bandwidth: 2, seconds: 15}
+        - {bandwidth: 3, seconds: 20}
       method_levels:
         interview: [1]
         data_pull: [2]
         audit: [2, 3]
         observation: [3]
-      total_work: {min: 300, max: 400}
+      total_work: {min: 100, max: 200}
       reachable_work: 260
       parallel: true
       cancel: none

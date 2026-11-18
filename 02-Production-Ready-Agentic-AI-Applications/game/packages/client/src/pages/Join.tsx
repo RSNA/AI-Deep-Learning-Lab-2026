@@ -5,7 +5,7 @@ import { COPY } from '../copy.ts'
 import { api } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
-import { Avatar } from '../components/ui.tsx'
+import { Avatar, SystemShape } from '../components/ui.tsx'
 
 export function TownStrip({ height = 208, children }: { height?: number; children?: React.ReactNode }) {
   const theme = useTheme()
@@ -29,6 +29,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
   const [mode, setMode] = useState<'join' | 'rejoin'>(location.hash === '#rejoin' ? 'rejoin' : 'join')
   const [avatar, setAvatar] = useState<string>(AVATARS[0])
   const [name, setName] = useState('')
+  const [system, setSystem] = useState<string | null>(null)
   const [rejoinCode, setRejoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -55,7 +56,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
     if (busy) return
     setBusy(true)
     setErr(null)
-    const r = await api.join({ code, name, avatar })
+    const r = await api.join(system ? { code, name, avatar, system } : { code, name, avatar })
     setBusy(false)
     if (!r.ok) { setErr(r.error); return }
     store.setPlayer({ session: r.data.session, token: r.data.token, playerId: r.data.playerId, rejoinCode: r.data.rejoinCode })
@@ -120,6 +121,28 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
               {err && <div id="name-err" className="err" role="alert">{errorText(err)}</div>}
               {err === 'name_taken' && <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('rejoin'); setErr(null) }}>{COPY.rejoinLink}</button>}
             </div>
+            {info?.pickSystem && (
+              <fieldset className="syspick" style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <legend className="lbl" style={{ marginBottom: 6, fontWeight: 800, padding: 0 }}>{COPY.pickSystem}</legend>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[{ id: null, index: -1, name: COPY.assignMe, setting: COPY.assignMeHint }, ...info.pickSystem].map((x) => {
+                    const on = system === x.id
+                    return (
+                      <button key={x.id ?? 'assign'} type="button" aria-pressed={on} onClick={() => setSystem(x.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '6px 12px', cursor: 'pointer', textAlign: 'left',
+                          border: `3px solid ${on ? 'var(--line)' : 'var(--soft)'}`, background: on ? 'var(--sun)' : 'var(--panel)',
+                          color: on ? 'var(--on)' : 'var(--ink)', boxShadow: on ? '3px 3px 0 var(--shade)' : 'none',
+                        }}>
+                        {x.index >= 0 ? <SystemShape index={x.index} size={16} /> : <span style={{ width: 16, textAlign: 'center', fontWeight: 900 }}>?</span>}
+                        <span><span style={{ fontWeight: 800, display: 'block' }}>{x.name}</span><span style={{ fontSize: 13, opacity: 0.85 }}>{x.setting}</span></span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="hint">{COPY.pickOnlyInTest}</div>
+              </fieldset>
+            )}
             <button className="btn go big" type="submit" disabled={busy || !!closed || name.trim().length < rule.min}>{busy ? COPY.joining : COPY.join}</button>
             {closed && <div className="err">{COPY.errors.join_closed}</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 14 }}>

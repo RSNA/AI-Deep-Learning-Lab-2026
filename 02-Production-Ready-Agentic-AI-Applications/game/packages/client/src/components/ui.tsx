@@ -117,7 +117,7 @@ export function columnTag(col: BoardColumn): string {
   return col.state === 'live' ? 'Live' : col.state === 'final' ? 'Final' : col.state === 'sum' ? 'So far' : ''
 }
 
-export function BoardRows({ rows, systems, emptyText = 'Opens with its phase.', big = false }: { rows: BoardRow[]; systems: SystemRef[]; emptyText?: string; big?: boolean }) {
+export function BoardRows({ rows, systems, emptyText = 'Opens with its phase.', big = false, of }: { rows: BoardRow[]; systems: SystemRef[]; emptyText?: string; big?: boolean; of?: number }) {
   if (!rows.length) return <div className="lb-empty">{emptyText}</div>
   return (
     <div className="lb">
@@ -129,7 +129,7 @@ export function BoardRows({ rows, systems, emptyText = 'Opens with its phase.', 
             <Avatar id={r.avatar} size={big ? 48 : 32} />
             <SystemShape index={sys?.index ?? 0} size={big ? 18 : 14} />
             <span className="nm" style={big ? { fontSize: 24 } : undefined}>{r.name}{r.me ? ` (${COPY.you})` : ''}</span>
-            <span className="val" style={big ? { fontSize: 32 } : undefined}>{Math.round(r.value)}</span>
+            <span className="val" style={big ? { fontSize: 32 } : undefined}>{Math.round(r.value)}{of !== undefined && <span className="of" style={{ fontSize: big ? 20 : 14, opacity: 0.7 }}> of {of}</span>}</span>
           </div>
         )
       })}

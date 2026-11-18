@@ -9,7 +9,7 @@ import type { ClockRef } from '../lib/clock.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
 import { SystemsStrip } from './Play.tsx'
 
-type PackInfo = { title: string | null; hash: string; systems: string[]; phasesAvailable: Record<string, boolean>; provisional: boolean }
+type PackInfo = { title: string | null; hash: string; systems: string[]; phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[] }
 
 function Login({ onToken }: { onToken: (t: string) => void }) {
   const [pass, setPass] = useState('')
@@ -83,6 +83,13 @@ function Sessions({ token, open, signOut }: { token: string; open: (code: string
             <select id="mode" className="field" value={mode} onChange={(e) => setMode(e.target.value as Mode)}>{MODES.map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
           <div><label className="lbl" htmlFor="scode">Code (optional)</label><input id="scode" className="field" value={code} maxLength={8} onChange={(e) => setCode(e.target.value)} /></div>
           <button className="btn go" disabled={!label.trim()}>Create</button>
+          {pack && (
+            <div className="hint" style={{ gridColumn: '1 / -1', fontSize: 14 }}>
+              {(pack.pickModes ?? []).includes(mode)
+                ? `In ${mode} mode each player may pick the health system on the join page, or be assigned.`
+                : `In ${mode} mode the game assigns the health systems in turn. Nobody picks.`}
+            </div>
+          )}
           {err && <div className="err" style={{ gridColumn: '1 / -1' }}>{err}</div>}
         </div>
       </form>
@@ -294,7 +301,7 @@ function Console({ token, code, back }: { token: string; code: string; back: () 
                   return (
                     <details key={c} open={c === (hv.phaseLive ?? 'overall')}>
                       <summary style={{ cursor: 'pointer', fontWeight: 800, minHeight: 32 }}>{COLUMN_TITLE[c].title} {columnTag(col) && <span className="chip" style={{ fontSize: 11 }}>{columnTag(col)}</span>}</summary>
-                      <BoardRows rows={col.rows.slice(0, 5)} systems={systems} />
+                      <BoardRows rows={col.rows.slice(0, 5)} systems={systems} of={col.of} />
                     </details>
                   )
                 })}

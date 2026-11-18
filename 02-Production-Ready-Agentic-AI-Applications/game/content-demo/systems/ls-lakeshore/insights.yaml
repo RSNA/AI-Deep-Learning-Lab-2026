@@ -5,7 +5,7 @@
     title: Ask Priya about the grant
     teaser: The branch manager signs every report.
   bandwidth: 1
-  seconds: 20
+  seconds: 10
   tile:
     type: quote
     headline: Priya on the monthly report
@@ -20,7 +20,7 @@
     title: Pull staff time sheets
     teaser: Where the hours of the week go.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: chart
     headline: Staff hours by task, last month
@@ -39,7 +39,7 @@
     title: Count room bookings
     teaser: How bookings are made and kept.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: stat
     headline: Bookings that clash
@@ -52,7 +52,7 @@
     title: Audit checkout problems
     teaser: Watch which books fail at the scanner.
   bandwidth: 2
-  seconds: 30
+  seconds: 15
   tile:
     type: audit
     headline: Checkout audit of 600 loans
@@ -70,7 +70,7 @@
     title: Ride the bus on Friday
     teaser: Follow the Friday route from first to last stop.
   bandwidth: 3
-  seconds: 45
+  seconds: 20
   tile:
     type: quote
     headline: The driver on the Friday route

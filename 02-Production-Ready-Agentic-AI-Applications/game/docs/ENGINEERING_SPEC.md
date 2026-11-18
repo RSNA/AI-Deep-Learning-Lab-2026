@@ -1240,7 +1240,7 @@ Server to client:
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
 | `standing` | On each leaderboard beat | The player's ranks and the top three per column |
-| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue`, `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter` |
+| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter`. The engine announces a moment by reference and the projection builds it |
 | `reload` | The client's build is not the server's | none. The client reloads the page |
 | `superseded` | The token connected elsewhere | none |
 
@@ -1378,6 +1378,9 @@ leaderboard shows), `slide`, `spotlight`, `spectate` and `set_scale` (lobby or p
 `event` mode). A host may also subscribe to one
 player's `PlayerView` to spectate.
 
+A host view also carries `pickModes`, the session modes in which players may pick their health
+system, so that the console can say so when a session is created.
+
 A screen socket receives `screen_view` on every beat and stage change: the stage, the clock,
 the scene to show and its theme, the leaderboard, the counts per health system, and what the scene needs
 (the slide and its statistic, the results of a reveal, the winners, or the view of the player
@@ -1438,7 +1441,9 @@ not listed above.
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
 
 The leak scan of Step 3 checks moments per session stage. A tile is sent to its own player only,
-so Step 5 adds a check per player that no tile reaches anyone before their investigation ends.
+so Step 5 added a check per player that no text of a tile reaches anyone before their
+investigation ends (an interview line only from its scheduled time), and a check that no class,
+tier, rationale, burden or graded board reaches anyone before the Phase 1 reveal.
 
 ### 9.3 Accepted limits
 
@@ -1552,7 +1557,10 @@ interviews at once put two or three people at the table. When the wait
 ends, the character walks back and the tile lands on the dashboard. The same lines appear in a
 transcript strip under the scene, in the body font, for reading and for screen readers.
 
-A bubble holds one line of dialogue. The scene queues bubbles so that two never overlap.
+A bubble holds one line of dialogue. The scene queues bubbles so that two never overlap. Since
+Step 5 the bubble sits at the top of the scene with the speaker's initials, because over the
+speaker it was cut off by the crop of the rail. Each line stays at least 2.8 seconds. The name
+tag of a character with an interview to give carries a "!" and is a button.
 
 ### 10.4 Phase 1 screens
 
@@ -1580,13 +1588,15 @@ an insight is clamped.
 └────────────────┴──────────────────────────────────────────┴─────────────────────────────┘
 ```
 
-- **The rail**, on the left, 340 px: the reading room scene, the transcript strip and the
+- **The rail**, on the left, 330 px: the reading room scene, the transcript strip and the
   investigations list. One control at its top folds it to a strip of 44 px that still shows how
   many investigations are running, with their seconds left, and how many are not started. The
   rail folds by itself once every investigation is done, with a short notice, and the same
   control opens it again.
 - **The evidence wall**, in the centre, takes all the width that is left.
-- **The sorting board**, on the right, 340 px.
+- **The sorting board**, on the right, from 390 to 450 px (31 percent of the width). At
+  1280 × 720 every spot is on screen with ten chips in place, and the Unsorted tray takes what
+  is left and scrolls inside itself.
 
 Each area scrolls by itself. The page never scrolls sideways.
 
@@ -1618,10 +1628,11 @@ while it is open.
 
 **The evidence wall.** A grid of insight cards.
 
-- **Columns.** As many as fit at the minimum card width. A size control in the header of the
-  wall has two positions: "More" with a minimum of 260 px, which is the default, and "Larger"
-  with a minimum of 380 px. On a 1280 px screen "More" gives two columns with the rail open and
-  three with it folded, and wider screens give more. The control is remembered in the browser.
+- **Columns.** A control in the header of the wall, "Cards per row", sets one, two or three
+  columns (Step 5, at the lab director's request, in place of a size control). By default the
+  wall shows as many as fit at a minimum card width of 224 px, up to three: on a 1280 px screen
+  two with the rail open and three with it folded. A choice that would make cards narrower than
+  the minimum is disabled. The choice is remembered in the browser.
 - **A card shows everything at reading size**: a colored strip with the method and the title of
   the investigation it came from, the headline, the chart or the findings or the speech bubbles
   or the number, then the body and the note with their bold and italic marks. Nothing is
@@ -1651,7 +1662,10 @@ while it is open.
 
 **The sorting board.** The header shows how many problems are sorted and the Send button. The
 board asks one thing of the player and says it in a line under the header, built from the
-classes: "Find the 3 problems that are not real, the 3 that need no AI, the 3 that need one
+classes and their capacities. A class is named by the ladder rungs it covers, which are the
+game's own: no rungs "are not real", rungs up to 2 "need no AI", up to 4 "need one AI model",
+rung 5 "needs an agentic system". Two classes that would read alike fall back to their short
+names. In a full pack: "Find the 3 problems that are not real, the 3 that need no AI, the 3 that need one
 model and the 1 that needs an agentic system."
 
 - **Ten spots.** Four bins in `class_order`, each with the `label` of its class and as many
@@ -1672,7 +1686,7 @@ model and the 1 that needs an agentic system."
   class, labelled with the `short` name, and a way to clear it. It is the only way on a phone
   and the keyboard path on a laptop: with a card in focus the keys 1 to 4 pick the class in
   `class_order` and 0 clears it. A chip in a bin opens its card, with the description and the
-  same control, in place.
+  same control, in place. The card opens as a panel over the bins, so no spot moves (Step 5).
 - **A full class.** A class never holds more problems than it has spots. Dropping a problem on
   a filled spot swaps the two: the problem that was there takes the place the new one came
   from (its old spot, or Unsorted). Dropping it on the header of a full bin, or picking a full
@@ -1819,7 +1833,7 @@ chooses a scene.
 | Lobby | The QR code, the join link, the game title, practices appearing by health system, the count |
 | Intro | The title card |
 | Play | The countdown, the four-column leaderboard, the health system strip, and a line of room activity |
-| Reveal | The results of the phase for the room: the distribution of points and the first statistics |
+| Reveal | The results of the phase for the room: the points of the practices that played, in steps of 100, and per health system the mean points and, after Phase 1, the share that found the flagship (`ScreenView.reveal`) |
 | Help slides | The slides of the break from `help-slides.yaml`, one at a time, with their live statistic |
 | Reflection | The reflection prompts |
 | Winners | The top practices overall, the top practice of each health system, the top health system |
@@ -1945,7 +1959,7 @@ change.
 | `npm run check` | Type check, lint, unit and integration tests on the demo pack | Mac, before every merge |
 | `npm run e2e` | Playwright on the demo pack, at laptop and phone size | Mac |
 | `npm run check:content` | The loader on `CONTENT_DIR` | Mac |
-| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR` | Mac, with the private pack |
+| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer | Mac, with the private pack |
 | `npm run test:leak` | The leak scan on `CONTENT_DIR` | Mac, with the private pack |
 | `npm run check:no-private` | Scans the repository for text of the private pack | Mac, before every merge |
 | `npm run simulate` | Headless games with scripted strategies | Mac |
@@ -2048,6 +2062,9 @@ For the board of Phase 1 it also checks, at both sizes unless said otherwise:
 
 The fixture is a neutral pack of full size (10 problems, 12 investigations, texts at their word
 limits) that lives with the tests, so that the layout is proven without the private pack.
+Step 5 ran these checks on the demo pack (`e2e/phase1.spec.ts`) and checked the layout of the
+full-size private pack at 1280 × 720, 1440 × 900 and 390 × 844 in both themes with a script
+kept outside the repository. The full-size fixture is still to be written.
 
 ### 12.7 Load and timing
 
