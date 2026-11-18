@@ -1107,7 +1107,9 @@ and per health system: `flagship_hit_rate`, `most_reported_decoy` (the problem t
 put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
-`live_stat`. Each is a small typed object that the big screen knows how to draw. Step 11 fixes
+`live_stat`. Each is a small typed object that the big screen knows how to draw. Until Step 11
+only `flagship_hit_rate` is drawn, as the share of the room that found the agent project, and the
+others show nothing. Step 11 fixes
 their exact shapes.
 
 ### 6.11 Story hooks
@@ -1896,7 +1898,8 @@ and a person answers a click.
   came at join. Two players never see the same walk, and nothing depends on it.
 - **Scale.** The scene is drawn at 320 × 180 with 16 px tiles and shown at a whole-number
   scale. The lobby and the Phase 1 panel say how the scale is picked (sections 10.2 and 10.4).
-  On a phone the camera crops to the active area instead of shrinking the room.
+  On a phone the camera crops to the active area instead of shrinking the room: below 640 px
+  the scale is 2 at least, and the room is cropped around the meeting table.
 - **People.** Every person of the health system is in the room. The cast stand at the `posts`
   of the room in cast order. The extras take the posts that are left and then the reading
   stations. Each person is drawn with their own sprite (section 11.4), so no two people of a
@@ -1910,6 +1913,10 @@ and a person answers a click.
   door, the reading stations under `ambient`, the wall board, and optionally `places`, a list
   of points people may walk to). Without it the client draws the library of the demo pack. `build_art.py --room
   reading` draws the radiology reading room for the private pack.
+  Where `scene.json` lists no `monitors`, the client finds the screens in the day image (small
+  rectangles of one dark or lit color). It also reads the floor from the day image, from the
+  colors under the player's post, and walks people only on floor cells, so nobody crosses a
+  desk or the meeting table. The reading room of the private pack needs no new field.
 - **Images decode on the main thread.** PixiJS decodes in a worker made from a blob URL, which the
   content security policy blocks, so the client turns that off. If the art does not load within
   8 seconds the still image takes over.

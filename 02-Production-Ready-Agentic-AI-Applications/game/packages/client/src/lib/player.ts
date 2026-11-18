@@ -43,7 +43,7 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
     const conn = connect(token)
     const fetchContent = (stage: string, opened: boolean) => {
       const phase = stage.split('.')[0]!
-      if (!opened || get().content[phase]) return
+      if (!opened || get().content[phase] || !['planning', 'development', 'maintaining'].includes(phase)) return
       void api.content(token, phase).then((r) => {
         if (r.ok) set((s) => ({ content: { ...s.content, [phase]: r.data } }))
       })

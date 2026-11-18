@@ -111,8 +111,9 @@ export function Wall({ w, content, pv, phone = false, focusCard, backTo }: {
   const lastFocus = useRef<string | null>(null)
   const { fresh, offscreen } = useFresh(cards, grid)
 
+  // Two cards per row when the column is 560 px wide or more (section 10.4).
   useLayoutEffect(() => {
-    const el = grid.current
+    const el = scroller.current?.closest('.colbox') as HTMLElement | null
     if (!el) return
     const ro = new ResizeObserver(() => setWidth(el.clientWidth))
     ro.observe(el)

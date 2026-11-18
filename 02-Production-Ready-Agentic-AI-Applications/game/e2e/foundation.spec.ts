@@ -82,18 +82,20 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   const screen = await screenCtx.newPage()
   await screen.goto(await api.screenPath(code))
   await expect(screen.getByText('Just arrived')).toBeVisible()
-  await expect(screen.getByText('Screen Tester')).toBeVisible()
+  await expect(screen.getByText('Screen Tester').first()).toBeVisible()
 
   await page.goto('/host')
-  await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t })), api.token)
+  await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: 'E2E laptop' })), api.token)
   await page.goto(`/host?s=${code}`)
   await expect(page.getByText('Now on stage')).toBeVisible()
-  await expect(page.getByText('Screen Tester')).toBeVisible()
+  await expect(page.getByText('Screen Tester').first()).toBeVisible()
   await noOverflow(page)
 
   const next = page.getByRole('button', { name: /^Next:/ })
   await next.click()
-  await expect(screen.getByText('The game starts in a moment.')).toBeVisible()
+  // Following the game, the intro opens the deck at its section, on the projector and on every player's screen.
+  await expect(screen.getByText('You run a branch library')).toBeVisible()
+  await expect(pp.getByText('The host is presenting.')).toBeVisible()
   await next.click()
   await expect(screen.getByText('Phase 1 of 3 · Planning')).toBeVisible()
   await expect(pp.getByRole('button', { name: 'Start investigating' })).toBeVisible()
@@ -103,7 +105,7 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible()
   await page.getByRole('button', { name: 'Resume' }).click()
   await page.getByRole('button', { name: 'End now' }).click()
-  await expect(pp.getByText('The corrected board')).toBeVisible()
+  await expect(pp.getByText('The corrected assessment')).toBeVisible()
   const stageTitle = page.getByText('Now on stage').locator('xpath=following-sibling::*[1]')
   for (let i = 0; i < 14; i++) {
     const before = await stageTitle.textContent()
@@ -116,7 +118,7 @@ test('the host drives every stage and the big screen follows', async ({ page, br
     await btn.click({ force: true })
     await expect(stageTitle).not.toHaveText(before ?? '')
   }
-  await expect(screen.getByText('Top practices')).toBeVisible()
+  await expect(screen.getByText('The winners')).toBeVisible()
   await expect(pp.getByText('Thank you for playing')).toBeVisible()
   await screenCtx.close()
   await player.close()

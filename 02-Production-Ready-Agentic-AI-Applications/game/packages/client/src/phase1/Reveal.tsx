@@ -57,8 +57,8 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
     const g = graded(flagship.id)
     const mark = markOf(flagship.id, flagship.class)
     return (
-      <div className={`agentrow ${classTone(classes.length - 1)}`}>
-        <div className="rhead"><span>{flagCls.label}</span><span className="num">{rv.problems.filter((p) => p.class === flagCls.id).length}</span></div>
+      <div className="agentrow">
+        <div className={`rhead ${classTone(classes.length - 1)}`}><span>{flagCls.label}</span><span className="num">{rv.problems.filter((p) => p.class === flagCls.id).length}</span></div>
         <div className="agentbody">
           <div className="agenttop">
             <div className="agenttitle"><h3>{pr?.title}</h3><span className="tagchip flagtag">{P1.flagship}</span></div>

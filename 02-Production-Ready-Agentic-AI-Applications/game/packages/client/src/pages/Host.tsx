@@ -616,7 +616,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                           <tr key={p.id}>
                             <td style={{ padding: '4px 8px' }}><Avatar id={p.avatar} size={28} /></td>
                             <td style={{ fontWeight: 800, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
-                            <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><SystemShape index={sys?.index ?? 0} size={12} />{sys?.name}</span></td>
+                            <td><span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span>{sys?.name}</span></span></td>
                             <td className={p.connected ? 'good' : 'bad'} style={{ fontWeight: 800 }}>{p.connected ? H.yes : H.no}</td>
                             <td>{p.status}</td>
                             <td className="num">{p.points.planning ?? '–'}</td>
@@ -624,7 +624,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                             <td className="num">{p.points.maintaining ?? '–'}</td>
                             <td className="num" style={{ fontSize: 18 }}>{p.points.total}</td>
                             <td>{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
-                            <td style={{ whiteSpace: 'nowrap', padding: '4px 0' }}>
+                            <td className="pact">
                               <button className="btn small text" onClick={() => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) }}>{H.spectate}</button>{' '}
                               <button className="btn small text" disabled={!ctl.you} onClick={async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) }}>{H.spotlight}</button>{' '}
                               <button className="btn small text" disabled={!ctl.you} onClick={() => setRename({ id: p.id, name: p.name })}>{H.rename}</button>{' '}

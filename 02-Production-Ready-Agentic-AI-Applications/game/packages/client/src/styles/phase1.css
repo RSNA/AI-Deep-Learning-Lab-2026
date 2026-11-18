@@ -77,15 +77,14 @@ button.ibtn { cursor: pointer; }
 .eview { overflow: hidden; position: relative; background: var(--inset); }
 .eview .facts { height: 100%; overflow-y: auto; }
 .facts { padding: 8px 14px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
-.facts .kv { font-size: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
-.facts .kv .v { font-size: 14px; font-weight: 800; text-align: right; white-space: normal; line-height: 1.2; }
+.facts .kv { font-size: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 10px; align-items: baseline; padding: 3px 0; }
+.facts .kv .v { font-family: var(--text); font-size: 14px; font-weight: 800; text-align: right; white-space: normal; line-height: 1.25; }
 .scene-bubble { position: absolute; left: 6px; right: 6px; top: 6px; max-width: none; font-size: 14px; z-index: 2; }
 @keyframes nudge { 0%, 100% { margin-top: 0; } 50% { margin-top: -3px; } }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
 .newchip { min-height: 30px; padding: 0 10px; background: #fff; color: var(--on); border: 2px solid var(--on); font-weight: 800; font-size: 13px; cursor: pointer; }
 .cards { display: grid; gap: 12px; align-items: start; }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
-.newchip { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3; min-height: 36px; padding: 0 14px; background: var(--sun); color: var(--on); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); font-weight: 800; cursor: pointer; }
 
 .card { background: var(--panel); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); min-width: 0; cursor: pointer; outline: none; transition: box-shadow .15s; }
 .card:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
@@ -277,6 +276,7 @@ button.ahbtn { cursor: pointer; }
 .acard .at { font-size: 15px; font-weight: 800; line-height: 1.25; }
 .acard.sorted { padding: 4px 7px 6px; border-width: 2px; }
 .acard.sorted .four button { font-size: 11.5px; }
+.acard.sorted .four button small { display: none; }
 .acard.sorted .four .clr { font-size: 11.5px; }
 .acard.sorted .at { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; background: none; border: 0; padding: 2px 0; text-align: left; cursor: pointer; color: var(--ink); font-size: 14px; min-height: 28px; font-family: var(--text); }
 .acard.sorted .four { margin-top: 3px; }
@@ -290,3 +290,5 @@ button.ahbtn { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .acard.fresh { animation: none; outline: 3px solid var(--go); } }
 .p1-phone .assess .four button { min-height: 44px; font-size: 13.5px; }
 .p1-phone .assess .acard.sorted .four button { min-height: 40px; }
+.agentrow > .rhead { background: var(--go); }
+.agentrow, .agentrow .agentbody { color: var(--ink); }

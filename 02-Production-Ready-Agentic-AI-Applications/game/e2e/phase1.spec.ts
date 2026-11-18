@@ -1,6 +1,7 @@
-// The board of Phase 1 on the demo pack (engineering spec, section 12.6): the spots and the line
-// that names the split, dragging, the class control and the keys, a swap, a full class that asks
-// who leaves, a refresh, an insight card opened large, and the pick of a health system.
+// Phase 1 and the round 8 screens on the demo pack (engineering spec, section 12.6): the three
+// columns, the assessment of five sections with the class buttons and a full class, a refresh,
+// a card opened large, the reveal; the phone tabs; the lobby and the living scene; the host
+// console with two windows, the pin banner, the slides and the manual; refusals in plain words.
 import { createRequire } from 'node:module'
 import { expect, test, type Page } from '@playwright/test'
 
@@ -14,7 +15,7 @@ async function setup(page: Page, label: string) {
   const base = new URL('http://127.0.0.1:3200')   // the e2e server of playwright.config.ts
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token, build: 'bot', session: code })))
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token, build: 'bot', session: code, name: 'Test bot', console: 'bot' })))
     ws.on('message', (raw) => { if ((JSON.parse(String(raw)) as { t: string }).t === 'welcome') resolve() })
   })
   let n = 0
@@ -24,7 +25,7 @@ async function setup(page: Page, label: string) {
     ws.on('message', on)
     ws.send(JSON.stringify({ t: 'hostcmd', cid, type, payload }))
   })
-  return { code, host, close: () => ws.close() }
+  return { code, token, host, close: () => ws.close() }
 }
 
 async function joinPicked(page: Page, code: string, name: string, system: RegExp) {
@@ -42,137 +43,219 @@ async function noOverflow(page: Page) {
   expect(w[0]).toBeLessThanOrEqual(w[1]!)
 }
 
-const trayTitles = (page: Page) => page.locator('.tray .pcard .pt').allTextContents()
-const binTitles = (page: Page, i: number) => page.locator('.bin').nth(i).locator('.schip .ct').allTextContents()
-
-async function drag(page: Page, from: ReturnType<Page['locator']>, to: ReturnType<Page['locator']>) {
-  const a = (await from.boundingBox())!
-  const b = (await to.boundingBox())!
-  await page.mouse.move(a.x + 30, a.y + 10)
-  await page.mouse.down()
-  for (let s = 1; s <= 10; s++) await page.mouse.move(a.x + 30 + ((b.x + b.width / 2 - a.x - 30) * s) / 10, a.y + 10 + ((b.y + b.height / 2 - a.y - 10) * s) / 10)
-  await page.mouse.up()
+/** No error name with an underscore is on the page. */
+async function noErrorNames(page: Page) {
+  const names = await page.evaluate(() => document.body.innerText.match(/\b[a-z]+_[a-z_]+\b/g) ?? [])
+  expect(names).toEqual([])
 }
 
-test('the laptop board: spots, dragging, keys, a swap, a full class, a refresh and a card opened large', async ({ page }, info) => {
+const unsortedTitles = (page: Page) => page.locator('.asec.unsorted .acard .at').allTextContents()
+const classTitles = (page: Page, i: number) => page.locator('.asec[data-class]').nth(i).locator('.acard .at > span:first-child').allTextContents()
+
+test('the laptop screen: three columns, the assessment, a full class, a refresh, a card opened large, the reveal', async ({ page }, info) => {
   test.skip(info.project.name !== 'laptop', 'laptop only')
   const s = await setup(page, 'E2E board laptop')
   await joinPicked(page, s.code, 'Board Laptop', /Lakeshore/)
   await expect(page.locator('.sysbadge')).toContainText('Lakeshore')
   await s.host('next'); await s.host('next')
+  // The opening letter pops up once, and stays as the first card.
+  await expect(page.getByText('A letter for you')).toBeVisible()
   await page.getByRole('button', { name: 'Start investigating' }).click()
-
-  // One spot for every problem, in the split of the classes, and the line that names it.
-  await expect(page.locator('.spot')).toHaveCount(6)
+  await expect(page.locator('.colhead h2')).toHaveText(['Investigations', 'Evidence', 'Your assessment'])
+  await expect(page.locator('.cards .card').first()).toHaveAttribute('data-card', 'letter')
   await expect(page.locator('.ask')).toHaveText('Find the 2 problems that are not real, the 2 that need no AI, the 1 that needs one AI model and the 1 that needs an agentic system.')
-  await expect(page.locator('.tray .pcard')).toHaveCount(6)
+  await expect(page.locator('.asec.unsorted .acard')).toHaveCount(6)
+  await expect(page.locator('.asec[data-class]')).toHaveCount(4)
+  await expect(page.locator('.spot, [draggable="true"]')).toHaveCount(0)
   await noOverflow(page)
 
-  // Drag into an empty spot, to another bin, and back to Unsorted.
-  const first = (await trayTitles(page))[0]!
-  await drag(page, page.locator('.tray .pcard').first(), page.locator('[data-spot="not_real:0"]'))
-  await expect.poll(() => binTitles(page, 0)).toEqual([first])
-  await drag(page, page.locator('.bin').nth(0).locator('.schip').first(), page.locator('[data-spot="no_ai:1"]'))
-  await expect.poll(() => binTitles(page, 1)).toEqual([first])
-  await drag(page, page.locator('.bin').nth(1).locator('.schip').first(), page.locator('.tray .tlist'))
-  await expect.poll(() => trayTitles(page)).toContain(first)
+  // A press moves the card into its section, at the end. Back to Unsorted keeps pack order.
+  const all = await unsortedTitles(page)
+  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
+  await expect.poll(() => classTitles(page, 0)).toEqual([all[0]])
+  await expect(page.locator('.asec[data-class]').nth(0).locator('.ahead')).toContainText('1 of 2')
+  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
+  await expect.poll(() => classTitles(page, 0)).toEqual([all[0], all[1]])
+  // Straight to another class, then back to Unsorted.
+  await page.locator('.asec[data-class]').nth(0).locator('.acard').first().locator('.four button').nth(1).click()
+  await expect.poll(() => classTitles(page, 1)).toEqual([all[0]])
+  await page.locator('.asec[data-class]').nth(1).locator('.acard').first().getByRole('button', { name: 'Back to Unsorted' }).click()
+  await expect.poll(() => unsortedTitles(page)).toEqual(all.filter((t) => t !== all[1]))
 
-  // The keys: 1 to 4 pick a class, 0 clears.
-  const card = page.locator('.tray .pcard').first()
-  const t1 = (await card.locator('.pt').textContent())!
+  // The keys: 1 to 4 pick a class, 0 sends back.
+  const card = page.locator('.asec.unsorted .acard').first()
+  const t1 = (await card.locator('.at').textContent())!
   await card.focus()
   await page.keyboard.press('4')
-  await expect.poll(() => binTitles(page, 3)).toEqual([t1])
-  await page.locator('.bin').nth(3).locator('.schip').first().focus()
-  await page.keyboard.press('0')
-  await expect.poll(() => trayTitles(page)).toContain(t1)
-
-  // The class control, then a full class that asks who leaves.
-  const a = page.locator('.tray .pcard').nth(0)
-  const ta = (await a.locator('.pt').textContent())!
-  await a.locator('.four button').nth(3).click()
-  const b = page.locator('.tray .pcard').nth(0)
-  const tb = (await b.locator('.pt').textContent())!
-  await expect(b.locator('.four button').nth(3)).toHaveClass(/full/)
-  await b.locator('.four button').nth(3).click()
-  await expect(page.getByText(/is full/)).toBeVisible()
-  await page.getByRole('button', { name: new RegExp(ta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click()
-  await expect.poll(() => binTitles(page, 3)).toEqual([tb])
-  await expect.poll(() => trayTitles(page)).toContain(ta)
-
-  // A drop on a filled spot swaps the two problems.
-  const c = page.locator('.tray .pcard').nth(0)
-  const tc = (await c.locator('.pt').textContent())!
-  await c.locator('.four button').nth(0).click()
-  await expect.poll(() => binTitles(page, 0)).toEqual([tc])
-  await drag(page, page.locator('.bin').nth(3).locator('.schip').first(), page.locator('.bin').nth(0).locator('.schip').first())
-  await expect.poll(() => binTitles(page, 0)).toEqual([tb])
-  await expect.poll(() => binTitles(page, 3)).toEqual([tc])
-  // No path leaves a class with more problems than spots.
+  await expect.poll(() => classTitles(page, 3)).toEqual([t1])
+  // A full class asks which problem goes back to Unsorted.
+  const next = page.locator('.asec.unsorted .acard').first()
+  const t2 = (await next.locator('.at').textContent())!
+  await next.locator('.four button').nth(3).click()
+  await expect(page.getByText('Agentic is full. Which problem goes back to Unsorted?')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: new RegExp(t1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click()
+  await expect.poll(() => classTitles(page, 3)).toEqual([t2])
+  await expect.poll(() => unsortedTitles(page)).toContain(t1)
+  // A sorted card is compact and opens on a click.
+  const sorted = page.locator('.asec[data-class]').nth(3).locator('.acard').first()
+  await expect(sorted.locator('.ad')).toHaveCount(0)
+  await sorted.locator('button.at').click()
+  await expect(sorted.locator('.ad')).toHaveCount(1)
   for (let i = 0; i < 4; i++) {
-    const spots = await page.locator('.bin').nth(i).locator('.spot').count()
-    expect((await binTitles(page, i)).length).toBeLessThanOrEqual(spots)
+    const spots = Number(((await page.locator('.strip > div').nth(i).locator('.n').textContent()) ?? '').split(' of ')[1])
+    expect((await classTitles(page, i)).length).toBeLessThanOrEqual(spots)
   }
 
-  // A refresh brings the same board back.
+  // A refresh brings the same assessment back, and the letter does not pop up again.
   await page.waitForTimeout(800)
   await page.reload()
-  await expect.poll(() => binTitles(page, 0)).toEqual([tb])
-  await expect.poll(() => binTitles(page, 3)).toEqual([tc])
+  await expect.poll(() => classTitles(page, 3)).toEqual([t2])
+  await expect(page.getByText('A letter for you')).toHaveCount(0)
 
-  // An interview, its card on the wall, opened large; the board still sorts beside it.
+  // The panel: the practice facts, then collapsed.
+  await page.locator('.ebar button', { hasText: 'Practice facts' }).click()
+  await expect(page.locator('.eview .facts')).toBeVisible()
+  await page.locator('.ebar .hide').click()
+  await expect(page.locator('.eview')).toHaveCount(0)
+  await page.locator('.ebar button', { hasText: 'Reading room' }).click()
+  await expect(page.locator('.eview .room')).toBeVisible()
+
+  // An interview, its lines under its row, its card on the wall, opened large.
   await page.locator('.irow:has(.m-int) .ibtn.start').first().click()
+  await expect(page.locator('.irow.run .iline').first()).toBeVisible({ timeout: 15_000 })
   await expect(page.locator('.cards .card')).toHaveCount(2, { timeout: 20_000 })
-  const tile = page.locator('.cards .card').nth(1)
-  await tile.click()
+  await page.locator('.cards .card').nth(1).click()
   await expect(page.locator('.overlay')).toBeVisible()
   await expect(page.locator('.ovcount')).toHaveText('Card 2 of 2')
   await page.keyboard.press('ArrowLeft')
   await expect(page.locator('.ovcount')).toHaveText('Card 1 of 2')
-  await page.locator('.tray .pcard').first().locator('.four button').nth(1).click()
-  await expect.poll(async () => (await binTitles(page, 1)).length).toBe(1)
+  // The assessment stays free beside the overlay.
+  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(1).click()
   await page.locator('.ovbox').focus()
   await page.keyboard.press('Escape')
   await expect(page.locator('.overlay')).toHaveCount(0)
-  await expect(page.locator('.cards .card').first()).toBeFocused()
-  await page.locator('.cards .card').nth(1).focus()
-  await page.keyboard.press('Enter')
-  await expect(page.locator('.overlay')).toBeVisible()
-  await page.keyboard.press('Escape')
-  // No text on a card is smaller than 14 px.
   const small = await page.evaluate(() => [...document.querySelectorAll('.cards .card p, .cards .card .say, .cards .card .lab')].filter((e) => parseFloat(getComputedStyle(e).fontSize) < 14).length)
   expect(small).toBe(0)
   await noOverflow(page)
+  await noErrorNames(page)
 
-  // The reveal: the corrected board with a mark on every problem.
+  // The reveal: the agent project across the row, every problem marked, the score in words.
   await s.host('end_now')
-  await expect(page.getByText('The corrected board')).toBeVisible()
-  await expect(page.locator('.rprob')).toHaveCount(6)
-  await expect(page.locator('.rprob.flag .rprob-body')).toBeVisible()
+  await expect(page.getByText('The corrected assessment')).toBeVisible()
+  await expect(page.locator('.agentrow .costbox')).toBeVisible()
+  await expect(page.locator('.rthree .rprob')).toHaveCount(5)
+  await expect(page.getByText('Raw score')).toHaveCount(0)
+  await expect(page.getByText(/provisional/i)).toHaveCount(0)
+  await noErrorNames(page)
   s.close()
 })
 
-test('the phone board: the class control alone, a full class, and the tabs', async ({ page }, info) => {
+test('an empty assessment is said once at the top, and the letter has its empty line', async ({ page }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const s = await setup(page, 'E2E empty')
+  await joinPicked(page, s.code, 'Empty Laptop', /Riverbend/)
+  await s.host('next'); await s.host('next')
+  await page.getByRole('button', { name: 'Start investigating' }).click()
+  await s.host('end_now')
+  await expect(page.getByText('You sent an empty assessment, so no problem scored.')).toBeVisible()
+  await expect(page.locator('.rpick')).toHaveCount(0)
+  await expect(page.getByText('You sent me an almost empty board.', { exact: false })).toBeVisible()
+  s.close()
+})
+
+test('the phone: three tabs, the same assessment, a full class, the evidence and back', async ({ page }, info) => {
   test.skip(info.project.name !== 'phone', 'phone only')
   const s = await setup(page, 'E2E board phone')
   await joinPicked(page, s.code, 'Board Phone', /Riverbend/)
   await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).tap()
-  await page.locator('.ptabs button', { hasText: 'Sort' }).tap()
-  await expect(page.locator('.phcard')).toHaveCount(6)
-  await expect(page.locator('.pstrip > div')).toHaveCount(4)
-  await page.locator('.phcard').nth(0).locator('.four button').nth(3).tap()
-  await expect(page.locator('.pstrip > div').nth(3)).toContainText('1 of 1')
-  await page.locator('.phcard').nth(1).locator('.four button').nth(3).tap()
-  await expect(page.getByText(/is full/)).toBeVisible()
+  await expect(page.locator('.ptabs button .tl')).toHaveText(['Investigations', 'Evidence', 'Assessment'])
+  await expect(page.locator('.bwrow')).toBeVisible()
+  await page.locator('.ptabs button', { hasText: 'Assessment' }).tap()
+  await expect(page.locator('.asec.unsorted .acard')).toHaveCount(6)
+  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(3).tap()
+  await expect(page.locator('.strip > div').nth(3)).toContainText('1 of 1')
+  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(3).tap()
+  await expect(page.getByText(/is full/).first()).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).tap()
-  await page.locator('.phcard').nth(0).locator('.four .clr').tap()
-  await expect(page.locator('.pstrip > div').nth(3)).toContainText('0 of 1')
-  // From a problem to the evidence and back.
-  await page.locator('.phcard').nth(2).getByRole('button', { name: /Evidence/ }).tap()
+  // From a problem to the evidence and back. The panel starts collapsed on a phone.
+  await page.locator('.asec.unsorted .acard').nth(1).getByRole('button', { name: /Evidence/ }).tap()
+  await expect(page.locator('.eview')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Back to:/ })).toBeVisible()
   await page.getByRole('button', { name: /Back to:/ }).tap()
-  await expect(page.locator('.phcard')).toHaveCount(6)
+  await expect(page.locator('.asec.unsorted .acard')).toHaveCount(5)
   await noOverflow(page)
   s.close()
+})
+
+test('the lobby: the people in a list, pixel portraits, a click that makes a person speak', async ({ page }, info) => {
+  const s = await setup(page, 'E2E lobby')
+  await joinPicked(page, s.code, 'Lobby Tester', /Riverbend/)
+  await expect(page.getByText('People in your practice')).toBeVisible()
+  // The whole cast, extras included, each with their own portrait and no initials.
+  await expect(page.locator('.cast-row')).toHaveCount(5)
+  await expect(page.locator('.cast-row .portrait img')).toHaveCount(5)
+  await expect(page.locator('.initials')).toHaveCount(0)
+  // A row of the list: that person says one of their click lines in the scene.
+  await page.locator('.cast-row').filter({ hasText: 'Ola Berg' }).click()
+  await expect(page.locator('.say-bubble')).toContainText('Ola')
+  await noOverflow(page)
+  s.close()
+})
+
+test('the host console: two windows, one in control, the pin banner, the slides, the manual, plain refusals', async ({ page, browser }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
+  // The first page: a join code that breaks the rule is said at the field, in words.
+  await page.goto('/host')
+  await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Maya's laptop" })), token)
+  await page.goto('/host')
+  await page.getByLabel('Label').fill('E2E two hosts')
+  await page.getByLabel('Join code').fill('AB')
+  await expect(page.getByText('A join code needs 4 to 8 letters or digits.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled()
+  await noErrorNames(page)
+  await page.getByLabel('Join code').fill('')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText('Now on stage')).toBeVisible()
+  await expect(page.getByText('You have control').first()).toBeVisible()
+
+  // A second console watches, and takes control after a confirmation.
+  const ctx2 = await browser.newContext()
+  const p2 = await ctx2.newPage()
+  await p2.goto('/host')
+  await p2.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Sam's laptop" })), token)
+  await p2.goto(page.url())
+  await expect(p2.getByText("Controlled from Maya's laptop. You are watching.")).toBeVisible()
+  await expect(p2.getByRole('button', { name: /^Next:/ })).toBeDisabled()
+  await p2.getByRole('button', { name: 'Take control' }).click()
+  await p2.getByRole('dialog').getByRole('button', { name: 'Take control' }).click()
+  await expect(p2.getByText('You have control').first()).toBeVisible()
+  await expect(page.getByText("Sam's laptop took control")).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Next:/ })).toBeDisabled()
+
+  // The pin banner and the slides, outside a phase: the console asks about players' screens.
+  await p2.getByRole('button', { name: 'Lobby', exact: true }).click()
+  await expect(p2.getByText('Pinned to Lobby. The projector will not follow the game.')).toBeVisible()
+  await p2.getByRole('button', { name: 'Slides', exact: true }).click()
+  await expect(p2.getByText("Show the slides on every player's screen too?")).toBeVisible()
+  await p2.getByRole('button', { name: 'Yes, on every screen' }).click()
+  await expect(p2.getByText("The slides are on every player's screen too.")).toBeVisible()
+  await expect(p2.getByText('Slide 1 of 7')).toBeVisible()
+  await p2.locator('body').press('ArrowRight')
+  await expect(p2.getByText('Slide 2 of 7')).toBeVisible()
+  await expect(p2.locator('.notes')).toContainText('Keep this short')
+  await p2.getByRole('button', { name: 'Previous' }).click()
+  await expect(p2.locator('.notes')).toContainText('Wait until most people have joined')
+  // Leaderboard and Winners are unavailable before any score, and say why.
+  await expect(p2.getByText('No scores yet. The leaderboard opens with Phase 1.')).toBeVisible()
+  await expect(p2.getByText('No phase has been scored yet.')).toBeVisible()
+  await p2.getByRole('button', { name: 'Follow the game' }).first().click()
+  await expect(p2.getByText(/^Pinned to/)).toHaveCount(0)
+  // The manual opens beside the console.
+  await p2.getByRole('button', { name: 'Host manual' }).first().click()
+  await expect(p2.locator('.manual-side h1')).toHaveText('Host manual')
+  await noErrorNames(p2)
+  await noOverflow(p2)
+  await ctx2.close()
 })
