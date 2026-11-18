@@ -1,0 +1,25 @@
+id: rb
+slug: riverbend
+public:
+  name: Riverbend Public Libraries
+  setting: A city network of nine branches. You direct digital services at one of them.
+  premise: >-
+    Riverbend lends more books every year with the same staff. The board has money for one new
+    project per branch and wants a plan from each director. Your branch is busy, a little worn,
+    and full of opinions about what is broken.
+  practice_profile:
+    - {label: Staff, value: 11}
+    - {label: Loans per year, value: "140,000"}
+    - {label: Open hours per week, value: 62}
+  baseline:
+    - {label: Holds waiting on Monday, value: 310}
+    - {label: Partner requests per month, value: 85}
+    - {label: Kiosk tickets last month, value: 3}
+  cast: [demo-mara, demo-idris, demo-priya, demo-tom]
+key:
+  flagship_problem: rb-q-partner
+  summary: Requests from partner libraries need a different path every time, which is agent work.
+calibration:
+  planning:    {zero: 0, floor: 150, ceiling: 850, provisional: true}
+  development: {zero: null, floor: null, ceiling: null, provisional: true}
+  maintaining: {zero: null, floor: null, ceiling: null, provisional: true}

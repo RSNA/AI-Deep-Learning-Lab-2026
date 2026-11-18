@@ -1,0 +1,24 @@
+[Unit]
+Description=Lab 02 game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=lab02
+Group=lab02
+WorkingDirectory=/opt/lab02/current
+EnvironmentFile=/opt/lab02/env
+ExecStart=/usr/local/bin/node /opt/lab02/current/server/server.mjs
+Restart=always
+RestartSec=1
+KillSignal=SIGTERM
+TimeoutStopSec=20
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/lab02/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,112 @@
+/* Themes and type (engineering spec, sections 11.2 and 11.3). */
+@font-face {
+  font-family: 'Jersey 25';
+  src: url('/fonts/jersey25-latin.woff2') format('woff2');
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Jersey 25';
+  src: url('/fonts/jersey25-latin-ext.woff2') format('woff2');
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20AB, U+20AD-20C4, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/nunito-latin.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/nunito-latin-ext.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20AB, U+20AD-20C4, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  --bg: #e6e9fb;
+  --panel: #ffffff;
+  --inset: #f1f2fc;
+  --ink: #2b2d4f;
+  --muted: #5c6278;
+  --line: #2b2d4f;
+  --soft: #c9cdea;
+  --shade: #a09cca;
+  --bar: #3a3c6e;
+  --bar-ink: #ffffff;
+  --bar-muted: #cdc9e7;
+  --go: #2ec4a6;
+  --sun: #ffb93c;
+  --sky: #4fb4dc;
+  --lav: #a09cca;
+  --good: #177a66;
+  --bad: #b83a36;
+  --on: #1d2140;
+  --go-bg: #d5f5ec;
+  --sun-bg: #fff0cf;
+  --sky-bg: #dbf1fa;
+  --lav-bg: #ebe9fa;
+  --bad-bg: #ffe1dc;
+  --fail: #e2605a;
+  --sys-0: #4f8fe6;
+  --sys-1: #f08a3c;
+  --sys-2: #e0609e;
+  --sys-3: #3fb58f;
+
+  --face: 'Jersey 25', 'Nunito', system-ui, sans-serif;
+  --text: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #17172e;
+  --panel: #262748;
+  --inset: #1d1e3a;
+  --ink: #f1f0ff;
+  --muted: #b3b2d6;
+  --line: #8f8cc4;
+  --soft: #3c3d68;
+  --shade: #0b0b1c;
+  --bar: #0f0f24;
+  --go: #38cbab;
+  --sun: #ffc145;
+  --sky: #64c0e1;
+  --lav: #8f8cc4;
+  --good: #42dfab;
+  --bad: #ff8a80;
+  --go-bg: #173f3c;
+  --sun-bg: #453618;
+  --sky-bg: #1c3a52;
+  --lav-bg: #30315a;
+  --bad-bg: #4a2530;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #17172e;
+    --panel: #262748;
+    --inset: #1d1e3a;
+    --ink: #f1f0ff;
+    --muted: #b3b2d6;
+    --line: #8f8cc4;
+    --soft: #3c3d68;
+    --shade: #0b0b1c;
+    --bar: #0f0f24;
+    --go: #38cbab;
+    --sun: #ffc145;
+    --sky: #64c0e1;
+    --lav: #8f8cc4;
+    --good: #42dfab;
+    --bad: #ff8a80;
+    --go-bg: #173f3c;
+    --sun-bg: #453618;
+    --sky-bg: #1c3a52;
+    --lav-bg: #30315a;
+    --bad-bg: #4a2530;
+    color-scheme: dark;
+  }
+}

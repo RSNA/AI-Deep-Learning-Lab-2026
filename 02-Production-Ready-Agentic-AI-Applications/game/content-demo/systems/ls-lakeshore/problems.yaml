@@ -1,0 +1,72 @@
+- id: ls-q-grant
+  public:
+    title: Grant reports eat the week
+    description: Each month someone gathers numbers from six places, chases the missing ones and writes them up.
+  key:
+    real: true
+    class: agentic
+    tier: 5
+    flagship: true
+    rationale: The sources and the missing pieces differ every month, so the work needs an agent that picks its tools.
+    burden: {kind: staff_time, size: large, note: Twenty-two hours a month.}
+    source: [DEMO-2]
+- id: ls-q-room
+  public:
+    title: The reading room is double-booked
+    description: Two groups arrive for the same room at the same hour.
+  key:
+    real: true
+    class: no_ai
+    tier: 2
+    flagship: false
+    rationale: A booking form that refuses an overlap fixes it.
+    burden: {kind: complaints, size: moderate, note: Four clashes a week.}
+    source: [DEMO-1]
+- id: ls-q-bus
+  public:
+    title: The bus runs late on Fridays
+    description: The Friday route has two more stops than the driver can make in time.
+  key:
+    real: true
+    class: no_ai
+    tier: 1
+    flagship: false
+    rationale: Moving two stops to Thursday fixes it. No software is needed.
+    burden: {kind: lost_patrons, size: moderate, note: Friday stops wait forty minutes.}
+    source: [DEMO-1]
+- id: ls-q-covers
+  public:
+    title: Worn barcodes stop checkout
+    description: Old books with faded barcodes have to be typed in by hand.
+  key:
+    real: true
+    class: single_model
+    tier: 3
+    flagship: false
+    rationale: Reading a faded barcode from a photo is one narrow task of seeing.
+    burden: {kind: staff_time, size: moderate, note: One book in twelve at checkout.}
+    source: [DEMO-2]
+- id: ls-q-printer
+  public:
+    title: The public printer jams
+    description: Patrons complain that printing takes forever.
+  key:
+    real: false
+    class: not_real
+    tier: null
+    flagship: false
+    rationale: The printer was replaced in the summer. Two calls last month.
+    burden: {kind: complaints, size: none, note: Two calls a month.}
+    source: [DEMO-1]
+- id: ls-q-wifi
+  public:
+    title: Patrons want faster Wi-Fi
+    description: Someone writes about the Wi-Fi on every comment card.
+  key:
+    real: false
+    class: not_real
+    tier: null
+    flagship: false
+    rationale: The district network team owns the Wi-Fi, and an upgrade is already scheduled.
+    burden: {kind: complaints, size: small, note: Five cards a month.}
+    source: [DEMO-1]

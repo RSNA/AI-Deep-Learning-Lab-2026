@@ -1,0 +1,41 @@
+# Demo story text. Nothing here affects a score.
+briefs:
+  planning:
+    from: demo-priya
+    title: Six requests, one big project
+    text: >-
+      Welcome to Riverbend. The staff sent me six requests, and each one asks for new software.
+      The network will fund **one** large project. Sort all six for me. Some are not real
+      problems, some need a schedule or a rule, one needs one model, and one deserves the big
+      project. *Count before you believe.*
+
+letters:
+  planning_reveal:
+    from: demo-priya
+    always: >-
+      Thank you for the report. The big project goes to the partner requests, because every
+      request takes its own path through catalogs, emails and shipping. The Monday desk needs a
+      second person, and the bounced notices need a rule that asks for a fresh address.
+    variants:
+      rough: Your board followed the loudest voices. Look again at what the numbers said.
+      steady: You saw through part of the noise. Check the problems you gave more than they needed.
+      strong: A sound board. You counted first and kept the big project for the work that needs it.
+      outstanding: This is the board I hoped for. Every problem got the smallest fix that works.
+
+dialogue:
+  - id: rb-d-start
+    speaker: demo-mara
+    text: The director is here. Quick, look busy.
+    trigger: {phase: planning, on: start}
+  - id: rb-d-queue
+    speaker: demo-idris
+    text: Told you. Mondays.
+    trigger: {phase: planning, on: insight:rb-look-queue}
+  - id: rb-d-idle
+    speaker: demo-tom
+    text: The kiosk logs are on my desk if anyone wants them.
+    trigger: {phase: planning, on: idle}
+  - id: rb-d-reveal
+    speaker: demo-mara
+    text: So we get a second person on Mondays?
+    trigger: {phase: planning, on: reveal}

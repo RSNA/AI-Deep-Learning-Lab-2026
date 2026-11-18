@@ -1,0 +1,7 @@
+{
+  "name": "@lab02/protocol",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./host": "./src/host.ts" },
+  "dependencies": { "zod": "4.6.7" }
+}

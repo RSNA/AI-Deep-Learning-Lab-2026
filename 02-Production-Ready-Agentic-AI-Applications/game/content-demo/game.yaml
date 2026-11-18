@@ -1,0 +1,197 @@
+# Demo pack: global rules and numbers. Short timers, so a whole game takes a few minutes.
+version: 1
+
+game:
+  title: Branch Director
+  phase_order: [planning, development, maintaining]
+  health_systems: [rb, ls]
+
+join:
+  assignment: balanced
+  tie_order: [rb, ls]
+  choose_system_in_modes: [test, rehearsal]
+  practice_name:
+    min_chars: 3
+    max_chars: 24
+    unique_per_session: true
+    filter_profanity: true
+    host_can_rename: true
+    host_can_remove: true
+  reconnect: token
+  late_join:
+    open_until: {phase: maintaining, month: 3}
+    missed_phase_points: 0
+    mid_phase: full_budget_remaining_clock
+    maintaining_after_setup: inherit_do_nothing
+
+clock:
+  time_scale_default: 1
+  warnings_seconds_left: [60, 20]
+  idle_seconds: 30
+  auto_submit_at_zero: true
+  pause_freezes: all
+
+run_of_show:
+  - {start: 0,  end: 2,  segment: join,          driver: big_screen}
+  - {start: 2,  end: 3,  segment: intro_slides,  driver: presenter}
+  - {start: 3,  end: 6,  segment: planning,      driver: game}
+  - {start: 6,  end: 7,  segment: help_slides_1, driver: presenter}
+  - {start: 7,  end: 10, segment: development,   driver: game}
+  - {start: 10, end: 11, segment: help_slides_2, driver: presenter}
+  - {start: 11, end: 14, segment: maintaining,   driver: game}
+  - {start: 14, end: 15, segment: help_slides_3, driver: presenter}
+  - {start: 15, end: 17, segment: reflection,    driver: presenter}
+  - {start: 17, end: 18, segment: winners,       driver: big_screen}
+
+story_time:
+  planning:
+    span: one season
+    investigation_stands_for: {1: an afternoon, 2: a week, 3: two weeks}
+  development:
+    span: four months
+    pilot_run_stands_for: a one-week trial
+  maintaining:
+    span: one year
+    tick_stands_for: one month
+
+ladder:
+  - rung: 1
+    id: no-software
+    label: Change how people work
+    fits_when: A change of staffing, schedule or house rule fixes it.
+    example: Move one librarian from the quiet Tuesday desk to the busy Monday one.
+  - rung: 2
+    id: rule
+    label: A fixed rule in software
+    fits_when: Every step can be written down in advance. No judgment is needed.
+    example: Send a reminder three days before a loan is due.
+  - rung: 3
+    id: narrow-model
+    label: One narrow model
+    fits_when: One well-defined task of seeing or sorting, the same every time.
+    example: Read the barcode on a worn book cover.
+  - rung: 4
+    id: language-model
+    label: A language model on its own
+    fits_when: A task in words, done in one call or a few fixed steps. The model picks no tools.
+    example: Answer a question about opening hours from the branch handbook.
+  - rung: 5
+    id: agentic
+    label: A system of agents
+    fits_when: A goal with many steps whose path changes from case to case. The system picks its own tools until the goal is met.
+    example: Track down a rare book across partner libraries and arrange the loan.
+
+scoring:
+  phase_max_points: 1000
+  normalization: {floor_points: 270, max_points: 1000}
+  four_metric_score:
+    weights: {validity: 0.30, reliability: 0.20, cost: 0.25, complexity: 0.25}
+  score_bands:
+    - {id: rough,       min: 0,   max: 399}
+    - {id: steady,      min: 400, max: 649}
+    - {id: strong,      min: 650, max: 849}
+    - {id: outstanding, min: 850, max: 1000}
+
+phases:
+  planning:
+    label: Planning
+    play_seconds: 150
+    reveal_seconds: 30
+    candidates: 6
+    classes:
+      - id: not_real
+        label: Not a real problem at this branch
+        short: Not real
+        fits_when: The numbers do not back the complaint, it was fixed already, or it is too small to act on.
+        rungs: []
+        capacity: 2
+      - id: no_ai
+        label: Real, and fixed without any AI
+        short: No AI
+        fits_when: A change of staffing, schedule or house rule fixes it, or a rule in software.
+        rungs: [1, 2]
+        capacity: 2
+      - id: single_model
+        label: Real, and one AI model does it
+        short: One model
+        fits_when: A single task of seeing, sorting or writing, done the same way every time.
+        rungs: [3, 4]
+        capacity: 1
+      - id: agentic
+        label: Real, and it takes an agentic system
+        short: Agentic
+        fits_when: A goal with many steps whose path changes from case to case.
+        rungs: [5]
+        capacity: 1
+    class_order: [not_real, no_ai, single_model, agentic]
+    class_mix: {not_real: 2, no_ai: 2, single_model: 1, agentic: 1}
+    flagship_class: agentic
+    show_class_mix: true
+    investigations:
+      per_system: 5
+      bandwidth: 3
+      levels:
+        - {bandwidth: 1, seconds: 10}
+        - {bandwidth: 2, seconds: 15}
+        - {bandwidth: 3, seconds: 20}
+      method_levels:
+        interview: [1]
+        data_pull: [2]
+        audit: [2, 3]
+        observation: [3]
+      total_work: {min: 100, max: 200}
+      reachable_work: 260
+      parallel: true
+      cancel: none
+    live_leaderboard: {metric: progress, label: Progress}
+    scoring:
+      classify: {exact: 125, adjacent: 40}
+      flagship: {bonus: 250}
+  development:
+    label: Development
+    play_seconds: 150
+    reveal_seconds: 30
+    pilot: {runs: 6, seconds: 8, concurrent: 1}
+    offers:
+      per_system: 1
+      announce_at_seconds: [45]
+      claim_window_seconds: 30
+      claim_fraction: 0.5
+    live_leaderboard: {label: Best trial score}
+    scoring: {pilot_weight: 0.30, heldout_weight: 0.70}
+  maintaining:
+    label: Maintaining
+    reveal_seconds: 30
+    setup_seconds: 20
+    months: 6
+    month_seconds: 15
+    event_response_seconds: 20
+    credits: 6
+    actions_per_month: 1
+    live_leaderboard: {label: Service this year}
+
+leaderboards:
+  columns: [overall, planning, development, maintaining]
+  refresh_seconds: 10
+  big_screen_rows: 10
+  tie_breaks:
+    overall: [total_points, maintaining_points, development_points, planning_points, earlier_join]
+    planning: [points, earlier_submit]
+    development: [points, fewer_pilot_runs, earlier_submit]
+    maintaining: [points, higher_final_month_health, earlier_join]
+  winners: {overall_top: 3, per_system_top: 1, top_system: 1}
+
+text_limits:
+  problem_title: 8
+  problem_description: 35
+  insight_title: 10
+  insight_teaser: 18
+  tile_body: 40
+  dialogue_line: 16
+
+sources:
+  DEMO-1: {paper: HANDBOOK, locator: Chapter 1, gist: "Fix the process before you buy software for it."}
+  DEMO-2: {paper: HANDBOOK, locator: Chapter 4, gist: "Keep agents for work whose steps change from case to case."}
+
+public_source_labels:
+  HANDBOOK: "The Branch Handbook (invented for the demo)"

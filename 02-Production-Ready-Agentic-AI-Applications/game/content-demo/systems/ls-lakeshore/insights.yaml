@@ -1,0 +1,80 @@
+- id: ls-look-priya
+  method: interview
+  character: demo-priya
+  public:
+    title: Ask Priya about the grant
+    teaser: The branch manager signs every report.
+  bandwidth: 1
+  seconds: 10
+  tile:
+    type: quote
+    headline: Priya on the monthly report
+    body: An opinion from the person who signs it.
+    data:
+      speaker: demo-priya
+      text: "Every month the missing number is a different one.\nI chase the bus log, then the room sheet, then the town.\nThe printer is fine now."
+- id: ls-look-hours
+  method: data_pull
+  character: null
+  public:
+    title: Pull staff time sheets
+    teaser: Where the hours of the week go.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: chart
+    headline: Staff hours by task, last month
+    body: Hours logged by the six staff.
+    data:
+      kind: bar
+      x_label: Task
+      y_label: Hours
+      series:
+        - name: Hours
+          points: [[Desk, 300], [Bus, 120], [Reports, 22], [Typing barcodes, 18]]
+- id: ls-look-rooms
+  method: data_pull
+  character: null
+  public:
+    title: Count room bookings
+    teaser: How bookings are made and kept.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: stat
+    headline: Bookings that clash
+    body: Bookings for the reading room over four weeks.
+    data: {value: 16, label: clashes in 240 bookings, comparison: "All were made on the paper sheet."}
+- id: ls-look-books
+  method: audit
+  character: null
+  public:
+    title: Audit checkout problems
+    teaser: Watch which books fail at the scanner.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: audit
+    headline: Checkout audit of 600 loans
+    body: Every loan at the main desk for a week.
+    data:
+      sample_size: 600
+      findings:
+        - {label: Scanned at once, count: 548}
+        - {label: Faded barcode typed by hand, count: 50}
+        - {label: Printer delay, count: 2}
+- id: ls-look-bus
+  method: observation
+  character: null
+  public:
+    title: Ride the bus on Friday
+    teaser: Follow the Friday route from first to last stop.
+  bandwidth: 3
+  seconds: 20
+  tile:
+    type: quote
+    headline: The driver on the Friday route
+    body: Said between stops nine and ten.
+    data:
+      speaker: demo-idris
+      text: "Fourteen stops is two too many for a Friday.\nThursday is half empty."
