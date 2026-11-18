@@ -24,15 +24,17 @@
   tile:
     type: chart
     headline: Desk wait by weekday
-    body: Median wait in minutes over the last eight weeks.
+    body: Median wait in minutes over the last eight weeks. **Monday** is the only day past the target.
     data:
-      kind: bar
+      kind: line
       x_label: Weekday
       y_label: Minutes
       series:
         - name: Median wait
           points: [[Mon, 18], [Tue, 4], [Wed, 9], [Thu, 5], [Fri, 6], [Sat, 7]]
-      note: Staffing is the same every weekday.
+        - name: Target (10 minutes)
+          points: [[Mon, 10], [Tue, 10], [Wed, 10], [Thu, 10], [Fri, 10], [Sat, 10]]
+      note: Staffing is *the same* every weekday.
 - id: rb-look-partner
   method: data_pull
   character: null

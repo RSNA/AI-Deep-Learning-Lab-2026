@@ -9,7 +9,7 @@ import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { loadPack, type Pack } from '@lab02/content-schema'
-import { joinOpen, project } from '@lab02/engine'
+import { canPickSystem, joinOpen, project } from '@lab02/engine'
 import {
   CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, normalizeCode,
   type PhaseId, type SessionPublic,
@@ -106,6 +106,9 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
       joinOpen: joinOpen(s, pack, room.now()),
       systems: project.systemRefs(s, pack).map((r) => ({ ...r, players: active.filter((p) => p.system === r.id).length })),
       nameRule: { min: rule.min_chars, max: rule.max_chars },
+      pickSystem: canPickSystem(s, pack)
+        ? s.systems.map((id, index) => ({ id, index, name: pack.systems[id]!.system.public.name, setting: pack.systems[id]!.system.public.setting }))
+        : null,
     }
   }
 
@@ -122,9 +125,9 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (!joinLimit()) return bad(reply, 429, 'rate_limited')
     const room = manager.get(normalizeCode(body.data.code))
     if (!room) return bad(reply, 404, 'unknown_session')
-    const r = room.join(body.data.name, body.data.avatar)
+    const r = room.join(body.data.name, body.data.avatar, body.data.system)
     if (!r.ok) {
-      const status = r.error === 'name_taken' ? 409 : r.error === 'name_invalid' ? 400 : r.error === 'session_full' ? 503 : 403
+      const status = r.error === 'name_taken' ? 409 : r.error === 'name_invalid' || r.error === 'unknown_system' ? 400 : r.error === 'session_full' ? 503 : 403
       return bad(reply, status, r.error)
     }
     return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: room.code }
@@ -236,6 +239,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
       pack: {
         title: pack.game.game.title, hash: pack.hash.slice(0, 12), systems: pack.systemIds,
         phasesAvailable: pack.phasesAvailable, provisional: pack.provisional,
+        pickModes: pack.game.join.choose_system_in_modes ?? [],
       },
     }
   })

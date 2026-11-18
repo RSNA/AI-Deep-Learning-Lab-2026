@@ -4,6 +4,7 @@
     description: Weekend returns and new holds meet on Monday morning, and the desk falls behind until Wednesday.
   key:
     real: true
+    class: no_ai
     tier: 1
     flagship: false
     rationale: The Monday desk has one person where the volume needs two. A schedule change fixes it.
@@ -15,6 +16,7 @@
     description: Notices go to addresses that patrons stopped using years ago.
   key:
     real: true
+    class: no_ai
     tier: 2
     flagship: false
     rationale: A fixed rule that asks for a fresh address at every renewal solves it.
@@ -26,6 +28,7 @@
     description: Staff answer the same questions about story hours and classes by phone and at the desk.
   key:
     real: true
+    class: single_model
     tier: 4
     flagship: false
     rationale: Answers come from the event calendar in one step, so a language model with that calendar is enough.
@@ -37,6 +40,7 @@
     description: A book that another library holds can take a month to arrive, and patrons give up.
   key:
     real: true
+    class: agentic
     tier: 5
     flagship: true
     rationale: Each request takes a different path through catalogs, emails and shipping, so it needs an agent with tools.
@@ -48,6 +52,7 @@
     description: Staff remember kiosks that froze and lines that formed behind them.
   key:
     real: false
+    class: not_real
     tier: null
     flagship: false
     rationale: A vendor update fixed the kiosks in the spring. Three tickets last month.
@@ -59,6 +64,7 @@
     description: A misplaced book is as good as lost, and volunteers do the reshelving.
   key:
     real: false
+    class: not_real
     tier: null
     flagship: false
     rationale: The shelf audit finds very few misplaced books. Too rare to matter.

@@ -30,7 +30,8 @@ export type SystemPublic = z.infer<typeof SystemPublic>
 export const SystemRef = S({ id: z.string(), index: Int, name: Text })
 export type SystemRef = z.infer<typeof SystemRef>
 
-export const LadderRung = S({ rung: Rung, label: Text, fitsWhen: Text, example: Text })
+/** A rung of the ladder, with the Phase 1 class it falls in (teaching material for the menu). */
+export const LadderRung = S({ rung: Rung, label: Text, fitsWhen: Text, example: Text, classId: z.string(), classShort: Text })
 export type LadderRung = z.infer<typeof LadderRung>
 
 export const PackArt = S({
@@ -61,10 +62,17 @@ export type PhasePoints = z.infer<typeof PhasePoints>
 // ------------------------------------------------------------------------------------------
 const Brief = S({ from: z.string(), title: Text, text: Text }).nullable()
 
+export const PlanningClass = S({
+  id: z.string(), label: Text, short: Text, fitsWhen: Text,
+  rungs: z.array(Rung),
+  capacity: Int,                    // the spots of the class on the board
+})
+export type PlanningClass = z.infer<typeof PlanningClass>
+
 export const PlanningContent = S({
   phase: z.literal('planning'),
   brief: Brief,
-  rules: S({ bandwidth: Int, reportSlots: Int, agentRungCapacity: Int }),
+  rules: S({ bandwidth: Int, classes: z.array(PlanningClass) }),   // classes in class_order
   problems: z.array(S({ id: z.string(), title: Text, description: Text })),
   investigations: z.array(S({
     id: z.string(), method: Method, character: z.string().nullable(),
@@ -85,14 +93,14 @@ export const PlanningView = S({
   bandwidthFree: Int,
   running: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms, lines: z.array(Text) })),
   tiles: z.array(S({ investigation: z.string(), unlockedAtMs: Ms, tile: Tile })),
-  picks: z.record(z.string(), Rung),
+  picks: z.record(z.string(), z.string()),     // problem id to class id. Unsorted problems have no entry
   reveal: S({
     problems: z.array(S({
-      id: z.string(), real: z.boolean(), tier: Rung.nullable(), flagship: z.boolean(), rationale: Text,
+      id: z.string(), class: z.string(), tier: Rung.nullable(), flagship: z.boolean(), rationale: Text,
       burden: S({ kind: z.string(), size: z.string(), note: Text }).optional(),
     })),
-    graded: z.array(S({ problem: z.string(), rung: Rung, identify: z.number(), ladder: z.number() })),
-    identify: z.number(), ladder: z.number(), flagship: z.number(), raw: z.number(),
+    graded: z.array(S({ problem: z.string(), picked: z.string().nullable(), points: z.number() })),   // every problem, in pack order
+    classify: z.number(), flagship: z.number(), raw: z.number(),
   }).nullable(),
 })
 export type PlanningView = z.infer<typeof PlanningView>
@@ -133,6 +141,7 @@ export const BoardColumn = S({
   // empty: the phase has not opened. live: in play, provisional. final: closed. sum: overall.
   state: z.enum(['empty', 'live', 'final', 'sum']),
   label: Text,                      // what the value means
+  of: Int.optional(),               // the largest value a live column can reach ("17 of 22")
   rows: z.array(BoardRow),
 })
 export type BoardColumn = z.infer<typeof BoardColumn>
@@ -188,6 +197,11 @@ export const ScreenView = S({
   spotlight: S({ name: Text, avatar: AvatarId, system: z.string(), stage: StageId,
                  points: S({ planning: Int.nullable(), development: Int.nullable(), maintaining: Int.nullable(), total: Int }),
                  tiles: Int }).nullable(),
+  reveal: S({                       // the results of the phase that just closed, for the room
+    phase: PhaseId,
+    histogram: z.array(Int),        // practices per tenth of the points, 0-99 up to 900-1000
+    systems: z.array(S({ id: z.string(), players: Int, meanPoints: z.number(), flagshipHits: Int })),
+  }).nullable(),
   winners: S({
     overall: z.array(BoardRow),
     perSystem: z.array(S({ system: z.string(), row: BoardRow.nullable() })),

@@ -10,7 +10,7 @@ const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shap
 // ------------------------------------------------------------------------------------------
 export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('planning.investigate'), payload: S({ id: z.string().max(80) }) }),
-  S({ type: z.literal('planning.set_report'), payload: S({ picks: z.record(z.string().max(80), Rung) }) }),
+  S({ type: z.literal('planning.set_report'), payload: S({ picks: z.record(z.string().max(80), z.string().max(40)) }) }),
   S({ type: z.literal('planning.submit'), payload: S({}) }),
 ])
 export type PlayerCommand = z.infer<typeof PlayerCommand>
@@ -77,7 +77,7 @@ export const ErrorMsg = S({ t: z.literal('error'), error: ErrorCode, message: Te
 export const Moment = z.discriminatedUnion('kind', [
   S({ kind: z.literal('interview_line'), investigation: z.string(), speaker: z.string(), index: z.number().int(), text: Text }),
   S({ kind: z.literal('tile'), investigation: z.string() }),
-  S({ kind: z.literal('dialogue'), speaker: z.string(), text: Text }),
+  S({ kind: z.literal('dialogue'), id: z.string(), speaker: z.string(), text: Text }),
   S({ kind: z.literal('announcement'), from: z.string(), text: Text }),
   S({ kind: z.literal('letter'), phase: PhaseId }),
   S({ kind: z.literal('stage'), stage: z.string() }),

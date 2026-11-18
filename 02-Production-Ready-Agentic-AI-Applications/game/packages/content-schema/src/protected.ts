@@ -28,7 +28,7 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
     for (const [k, v] of Object.entries(sp.system.key)) if (k !== 'flagship_problem') add(v, 'never', `${id}.system.key.${k}`)
     sp.problems?.forEach((p) => {
       for (const [k, v] of Object.entries(p.key)) {
-        const revealed = k === 'rationale' || k === 'burden'
+        const revealed = k === 'rationale' || k === 'burden' || k === 'class' || k === 'tier' || k === 'flagship'
         add(v, revealed ? 'planning.reveal' : 'never', `${p.id}.key.${k}`)
       }
     })
@@ -66,6 +66,8 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
   }
   pub(pack.characters, false)
   pub(pack.game.ladder, true)
+  // The classes of Phase 1 go out with its content: ids, labels and what each fits.
+  pub(pack.game.phases.planning.classes, true)
   for (const id of pack.systemIds) {
     const sp = pack.systems[id]!
     pub([sp.system, sp.problems, sp.insights, sp.build, sp.maintain], false)

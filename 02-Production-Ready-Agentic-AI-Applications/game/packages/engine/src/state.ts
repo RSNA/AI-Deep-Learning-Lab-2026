@@ -6,11 +6,21 @@ export type GameMs = number
 
 export type PhaseResult = { raw: number; points: number; band: string; provisional: boolean }
 
+export type PlanningResult = {
+  graded: { problem: string; picked: string | null; points: number }[]   // every problem, in pack order
+  classify: number
+  flagship: number
+  raw: number
+}
+
 export type PlanningState = {
   done: { id: string; atMs: GameMs }[]
-  running: { id: string; startedAtMs: GameMs; completesAtMs: GameMs }[]
-  picks: Record<string, 1 | 2 | 3 | 4 | 5>
+  /** `released`: interview lines out so far. Free bandwidth is the total minus what these hold. */
+  running: { id: string; startedAtMs: GameMs; completesAtMs: GameMs; released: number }[]
+  /** Problem id to class id. A problem without an entry is unsorted. */
+  picks: Record<string, string>
   submittedAtMs: GameMs | null
+  result: PlanningResult | null
 }
 
 export type PlayerState = {
@@ -33,6 +43,8 @@ export type PlayerState = {
   development: null
   maintaining: null
   inbox: InboxItem[]
+  /** Dialogue lines that have fired for this player (each fires once). */
+  said: string[]
 }
 
 export type BoardState = {
@@ -86,12 +98,20 @@ export type EngineEvent =
   | { kind: 'renamed'; playerId: PlayerId; atMs: GameMs }
   | { kind: 'screen'; atMs: GameMs }
   | { kind: 'closed'; atMs: GameMs }
+  | { kind: 'moment'; playerId: PlayerId; atMs: GameMs; ref: MomentRef }
+
+/** What a moment refers to. The projection turns it into the protocol's Moment. */
+export type MomentRef =
+  | { type: 'interview_line'; investigation: string; index: number }
+  | { type: 'tile'; investigation: string }
+  | { type: 'dialogue'; id: string }
+  | { type: 'letter'; phase: PhaseId }
 
 export type Outcome = { dirty: PlayerId[] | 'all'; events: EngineEvent[] }
 export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode })
 
 /** Commands the engine applies. The server stamps each with the game time it handles it. */
 export type Command =
-  | { actor: 'system'; type: 'join'; payload: { playerId: PlayerId; name: string; avatar?: string | null } }
+  | { actor: 'system'; type: 'join'; payload: { playerId: PlayerId; name: string; avatar?: string | null; system?: string | null } }
   | { actor: 'player'; playerId: PlayerId; type: string; payload: unknown }
   | { actor: 'host'; type: string; payload: unknown }

@@ -188,12 +188,19 @@ export class Room {
         case 'screen':
           this.screenDirty = true
           break
+        case 'moment': {
+          const sock = this.players.get(ev.playerId)
+          const m = sock ? project.moment(this.state, this.deps.pack, ev.playerId, ev.ref) : null
+          if (sock && m) this.sendPlayerMsg(sock, { t: 'moment', moment: m })
+          break
+        }
         case 'closed':
           this.deps.db.closeSession(this.code, wall)
           this.setClock(false)
           break
       }
-      if (ev.kind !== 'beat') this.deps.db.logEvent(this.code, ev.kind, ev.atMs, wall, ev)
+      // Interview lines are many and say nothing the tile does not: they are not logged.
+      if (ev.kind !== 'beat' && !(ev.kind === 'moment' && ev.ref.type === 'interview_line')) this.deps.db.logEvent(this.code, ev.kind, ev.atMs, wall, ev)
     }
     if (stageChanged) {
       this.snapshot(true)
@@ -372,14 +379,14 @@ export class Room {
   // ----------------------------------------------------------------------------------------
   // Joining
   // ----------------------------------------------------------------------------------------
-  join(name: string, avatar: string | null | undefined):
+  join(name: string, avatar: string | null | undefined, system: string | null | undefined = null):
     | { ok: true; playerId: string; token: string; rejoinCode: string }
     | { ok: false; error: ErrorCode } {
     const { db, pack, config } = this.deps
     const now = this.now()
     this.handle(advance(this.state, pack, now))
     const playerId = newPlayerId()
-    const res = apply(this.state, pack, { actor: 'system', type: 'join', payload: { playerId, name, avatar: avatar ?? null } }, now)
+    const res = apply(this.state, pack, { actor: 'system', type: 'join', payload: { playerId, name, avatar: avatar ?? null, system: system ?? null } }, now)
     if (!res.ok) return { ok: false, error: res.error }
     const token = newToken()
     let rejoinCode = newCode()
@@ -389,7 +396,7 @@ export class Room {
     db.transaction(() => {
       this.seq = db.insertCommand({
         code: this.code, actor: 'system', player_id: playerId, cid: null, game_ms: now, wall_ms: config.wallNow(),
-        type: 'join', payload: JSON.stringify({ playerId, name: p.name, avatar: p.avatar }), result: null,
+        type: 'join', payload: JSON.stringify({ playerId, name: p.name, avatar: p.avatar, system: system ?? null }), result: null,
       })
       db.insertAuth({ token_hash: hashToken(token), role: 'player', code: this.code, player_id: playerId, rejoin_code: rejoinCode, created: config.wallNow() })
     })
@@ -523,7 +530,7 @@ export class Room {
 
 function toCommand(c: CommandRow): Command {
   const payload = JSON.parse(c.payload) as unknown
-  if (c.actor === 'system') return { actor: 'system', type: 'join', payload: payload as { playerId: string; name: string; avatar?: string | null } }
+  if (c.actor === 'system') return { actor: 'system', type: 'join', payload: payload as { playerId: string; name: string; avatar?: string | null; system?: string | null } }
   if (c.actor === 'player') return { actor: 'player', playerId: c.player_id!, type: c.type, payload }
   return { actor: 'host', type: c.type, payload }
 }

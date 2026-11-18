@@ -9,10 +9,15 @@ export const SessionPublic = S({
   code: z.string(), label: Text, title: Text.nullable(), stage: StageId, joinOpen: z.boolean(),
   systems: z.array(S({ ...SystemRef.shape, players: z.number().int() })),
   nameRule: S({ min: z.number().int(), max: z.number().int() }),
+  /** The health systems a player may pick from, in a session whose mode allows it. Otherwise null. */
+  pickSystem: z.array(S({ id: z.string(), index: z.number().int(), name: Text, setting: Text })).nullable(),
 })
 export type SessionPublic = z.infer<typeof SessionPublic>
 
-export const JoinBody = S({ code: z.string().max(16), name: z.string().max(200), avatar: z.string().max(16).optional() })
+export const JoinBody = S({
+  code: z.string().max(16), name: z.string().max(200), avatar: z.string().max(16).optional(),
+  system: z.string().max(40).optional(),   // honored only where the session allows a pick
+})
 export type JoinBody = z.infer<typeof JoinBody>
 export const RejoinBody = S({ code: z.string().max(16), rejoinCode: z.string().max(16) })
 export type RejoinBody = z.infer<typeof RejoinBody>

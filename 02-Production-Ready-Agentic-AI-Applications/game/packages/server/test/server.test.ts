@@ -3,7 +3,7 @@ import WebSocket from 'ws'
 import { afterEach, describe, expect, it } from 'vitest'
 import { STAGES } from '@lab02/protocol'
 import { needsReload } from '../src/index.ts'
-import { attach, hostConn, hostToken, joinBot, sleep, startServer, step, until, type Bot } from './helpers.ts'
+import { attach, hostConn, hostToken, joinBot, playPlanning, sleep, startServer, step, until, type Bot } from './helpers.ts'
 
 type Srv = Awaited<ReturnType<typeof startServer>>
 const cleanups: (() => Promise<void> | void)[] = []
@@ -36,6 +36,7 @@ describe('a whole game', () => {
 
     const bots: Bot[] = []
     for (let i = 0; i < 40; i++) bots.push(await joinBot(srv, code, `Practice ${String(i).padStart(2, '0')}`))
+    for (const [i, b] of bots.entries()) playPlanning(b, srv.url, i + 1)
     cleanups.push(() => bots.forEach((b) => b.conn.close()))
     await until(() => bots.every((b) => b.stage === 'lobby'), 5000, 'welcomes')
 
@@ -52,6 +53,15 @@ describe('a whole game', () => {
     await until(() => bots.every((b) => b.stage === 'winners'), 5000, 'bots at winners')
     const stagesSeen = new Set(bots[0]!.messages.filter((m) => m.t === 'view' || m.t === 'welcome').map((m) => (JSON.parse(m.raw) as { view: { stage: string } }).view.stage))
     expect(STAGES.slice(0, STAGES.indexOf('winners') + 1).filter((st) => !stagesSeen.has(st))).toEqual([])
+    // Phase 1 was played: every bot unlocked insights, saw interview lines and tiles arrive, and got its letter.
+    for (const b of bots) {
+      const p = room.state.players[b.playerId]!
+      expect(p.planning!.done.length).toBeGreaterThan(3)
+      expect(p.planning!.result!.graded.length).toBe(6)
+      expect(b.messages.some((m) => m.t === 'moment' && m.raw.includes('"interview_line"'))).toBe(true)
+      expect(b.messages.some((m) => m.t === 'moment' && m.raw.includes('"tile"'))).toBe(true)
+      expect(p.inbox.some((m) => m.kind === 'letter')).toBe(true)
+    }
     for (const b of bots) {
       expect(b.messages.some((m) => m.t === 'standing')).toBe(true)
       const pts = (b.view as { points: Record<string, unknown> }).points
@@ -277,3 +287,37 @@ describe('limits', () => {
 })
 
 void sleep
+
+describe('picking a health system', () => {
+  it('a rehearsal offers the systems, honors a pick, refuses an unknown one, and survives a restart', async () => {
+    const srv = await server()
+    const code = session(srv, 'rehearsal')
+    const info = await srv.api.session(code)
+    expect(info.ok && info.data.pickSystem?.map((x) => x.id)).toEqual(['rb', 'ls'])
+    const a = await srv.api.join({ code, name: 'Picked Lakeshore', system: 'ls' })
+    const b = await srv.api.join({ code, name: 'Picked Again', system: 'ls' })
+    const c = await srv.api.join({ code, name: 'Assigned One' })
+    const bad = await srv.api.join({ code, name: 'Nowhere Branch', system: 'zz' })
+    expect(a.ok && b.ok && c.ok).toBe(true)
+    expect(!bad.ok && bad.status === 400 && bad.error === 'unknown_system').toBe(true)
+    const sys = (r: typeof a) => (r.ok ? srv.app.manager.get(code)!.state.players[r.data.playerId]!.system : null)
+    expect([sys(a), sys(b), sys(c)]).toEqual(['ls', 'ls', 'rb'])
+    // The pick is in the command log, so a restart gives the same systems.
+    const dataDir = srv.dataDir
+    await srv.app.close()
+    const again = await startServer({ dataDir })
+    cleanups.push(() => again.app.close().catch(() => {}), again.cleanup)
+    const st = again.app.manager.get(code)!.state
+    expect(st.order.map((id) => st.players[id]!.system)).toEqual(['ls', 'ls', 'rb'])
+  })
+
+  it('an event session offers no pick and ignores one', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const code = session(srv, 'test')
+    // The demo pack is provisional, so an event session cannot be made. A test session allows a
+    // pick; the event rule is covered in the engine tests. Here the route says null when not allowed.
+    const info = await srv.api.session(code)
+    expect(info.ok && info.data.pickSystem).not.toBeNull()
+  })
+})

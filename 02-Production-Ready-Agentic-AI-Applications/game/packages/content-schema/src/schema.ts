@@ -74,11 +74,26 @@ const MetricDeltas = S({
 // ------------------------------------------------------------------------------------------
 // game.yaml
 // ------------------------------------------------------------------------------------------
+const RungLit = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
+
+const PlanningClass = W({
+  id: Id, label: Text, short: Text, fits_when: Text,
+  rungs: z.array(RungLit),
+  capacity: PosInt,                      // the spots of the class on the board. Equals its class_mix
+})
+export type PlanningClass = z.infer<typeof PlanningClass>
+
 const PlanningRules = W({
   label: Text, play_seconds: PosInt, reveal_seconds: NonNeg,
-  candidates: PosInt, report_slots: PosInt, agent_rung_capacity: PosInt,
+  candidates: PosInt,
+  classes: z.array(PlanningClass).min(2),
+  class_order: z.array(Id).min(2),
+  class_mix: z.record(z.string(), Int.min(0)),
+  flagship_class: Id,
+  show_class_mix: z.literal(true),
   investigations: W({
     per_system: PosInt,
+    story: Int.min(0).optional(),        // read by the private checker only
     bandwidth: PosInt,
     levels: z.array(W({ bandwidth: PosInt, seconds: PosInt })).min(1),
     method_levels: z.partialRecord(Method, z.array(PosInt)),
@@ -87,13 +102,13 @@ const PlanningRules = W({
     parallel: z.literal(true),
     cancel: z.literal('none'),
   }),
-  live_leaderboard: W({ label: Text }),
+  live_leaderboard: W({ metric: z.literal('progress'), label: Text }),
   scoring: W({
-    identify: W({ per_real: Num, per_decoy: Num, component_floor: Num }),
-    ladder: W({ exact: Num, adjacent: Num }),
+    classify: W({ exact: Num, adjacent: Num }),
     flagship: W({ bonus: Num }),
   }),
 })
+export type PlanningRules = z.infer<typeof PlanningRules>
 
 const DevelopmentRules = W({
   label: Text, play_seconds: PosInt, reveal_seconds: NonNeg,
@@ -123,6 +138,7 @@ export const GameFile = W({
   join: W({
     assignment: z.literal('balanced'),
     tie_order: z.array(SystemId),
+    choose_system_in_modes: z.array(z.enum(['test', 'rehearsal', 'event'])).optional(),
     practice_name: W({
       min_chars: PosInt, max_chars: PosInt, unique_per_session: z.literal(true),
       filter_profanity: z.boolean(), host_can_rename: z.boolean(), host_can_remove: z.boolean(),
@@ -207,6 +223,7 @@ export const CharactersFile = z.array(W({
   id: Id,
   system: z.union([SystemId, z.literal('all')]),
   public: S({ name: Text, role: Text, portrait: z.string() }),
+  key: K({}).optional(),                 // authoring notes (voice, portrait prompt), never read
 }))
 export type CharactersFile = z.infer<typeof CharactersFile>
 
@@ -230,14 +247,13 @@ export const SystemFile = W({
 })
 export type SystemFile = z.infer<typeof SystemFile>
 
-const Rung = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
-
 export const ProblemsFile = z.array(W({
   id: Id,
   public: S({ title: Text, description: Text }),
   key: K({
     real: z.boolean(),
-    tier: Rung.nullable(),
+    class: Id,                           // the true answer of Phase 1
+    tier: RungLit.nullable(),
     flagship: z.boolean(),
     rationale: Text,
     burden: K({ kind: z.string(), size: z.string(), note: Text }).optional(),

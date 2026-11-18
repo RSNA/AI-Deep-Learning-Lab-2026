@@ -67,6 +67,16 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a band gap', 'game.yaml', (t) => t.replace('{id: steady,      min: 400', '{id: steady,      min: 401'), /score_bands/],
   ['a YAML syntax error', 'characters.yaml', (t) => `${t}\n  - : [`, /does not parse/],
   ['an assignment that does not exist', 'game.yaml', (t) => t.replace('assignment: balanced', 'assignment: random'), /join\.assignment/],
+  // The classes of Phase 1 (section 12.3)
+  ['a class that disagrees with the tier', `${RB}/problems.yaml`, (t) => t.replace('    class: single_model\n    tier: 4', '    class: no_ai\n    tier: 4'), /\[2\]\.key\.class.*does not cover rung 4/],
+  ['a mix that the problems do not match', `${RB}/problems.yaml`, (t) => t.replace('    real: false\n    class: not_real\n    tier: null', '    real: true\n    class: no_ai\n    tier: 2'), /class_mix asks for/],
+  ['a capacity that differs from its share', 'game.yaml', (t) => t.replace('        rungs: [3, 4]\n        capacity: 1', '        rungs: [3, 4]\n        capacity: 2'), /classes\[2\]\.capacity/],
+  ['a class without a capacity', 'game.yaml', (t) => t.replace('        rungs: [3, 4]\n        capacity: 1\n', '        rungs: [3, 4]\n'), /classes\[2\]\.capacity/],
+  ['a rung that no class covers', 'game.yaml', (t) => t.replace('rungs: [3, 4]', 'rungs: [3]'), /rung 4 must belong to exactly one class/],
+  ['a flagship outside the flagship class', `${RB}/problems.yaml`, (t) => t.replace('    flagship: false\n    rationale: Answers come', '    flagship: true\n    rationale: Answers come').replace('    flagship: true\n    rationale: Each request', '    flagship: false\n    rationale: Each request'), /flagship must be in the flagship class/],
+  ['an unknown class in the order', 'game.yaml', (t) => t.replace('class_order: [not_real, no_ai, single_model, agentic]', 'class_order: [not_real, no_ai, one_model, agentic]'), /unknown class "one_model"/],
+  ['a flagship class that is not last', 'game.yaml', (t) => t.replace('class_order: [not_real, no_ai, single_model, agentic]', 'class_order: [not_real, no_ai, agentic, single_model]'), /must come last/],
+  ['a live column that does not exist', 'game.yaml', (t) => t.replace('metric: progress', 'metric: points'), /live_leaderboard\.metric/],
 ]
 
 describe('broken packs fail with the right path', () => {

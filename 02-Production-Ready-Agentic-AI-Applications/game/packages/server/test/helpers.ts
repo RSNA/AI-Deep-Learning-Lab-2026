@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { GameConnection, playerApi, type ConnStatus } from '@lab02/protocol'
+import { GameConnection, playerApi, type ConnStatus, type PlanningContent } from '@lab02/protocol'
 import { createApp, type App } from '../src/index.ts'
 
 export const DEMO = fileURLToPath(new URL('../../../content-demo', import.meta.url))
@@ -67,4 +67,48 @@ export async function step(app: App, host: GameConnection, code: string): Promis
   const room = app.manager.get(code)!
   const r = await host.command(room.state.stageEndsAtMs !== null ? 'end_now' : 'next')
   if (!r.ok) throw new Error(`host command refused: ${r.error}`)
+}
+
+/**
+ * A bot that plays Phase 1 the way a player could: it fetches the content when the phase
+ * opens, starts every investigation that fits its free bandwidth, and keeps a board that fills
+ * the spots in pack order with a shuffle seeded by its name.
+ */
+export function playPlanning(bot: Bot, base: string, seed = 1): () => void {
+  let content: PlanningContent | null = null
+  let fetching = false
+  let boardSent = false
+  let x = seed >>> 0
+  const rand = () => { x = (Math.imul(x ^ (x >>> 15), 0x2c1b3c6d) + 0x9e3779b9) >>> 0; return x / 2 ** 32 }
+  let last: unknown = null
+  const act = (msg?: unknown) => {
+    const fromMsg = (msg as { view?: unknown } | undefined)?.view
+    if (fromMsg) last = fromMsg
+    const v = (last ?? bot.view) as { stage?: string; planning?: { status: string; bandwidthFree: number; running: { id: string }[]; tiles: { investigation: string }[] } | null } | null
+    if (!v || v.stage !== 'planning.play' || !v.planning || v.planning.status !== 'playing') return
+    if (!content) {
+      if (fetching) return
+      fetching = true
+      void playerApi(base).content(bot.token, 'planning').then((r) => { fetching = false; if (r.ok && r.data.phase === 'planning') { content = r.data; act() } })
+      return
+    }
+    const started = new Set([...v.planning.running.map((r) => r.id), ...v.planning.tiles.map((t) => t.investigation)])
+    let free = v.planning.bandwidthFree
+    for (const inv of content.investigations) {
+      if (started.has(inv.id) || inv.bandwidth > free) continue
+      free -= inv.bandwidth
+      void bot.conn.command('planning.investigate', { id: inv.id })
+    }
+    if (!boardSent) {
+      boardSent = true
+      const spots = content.rules.classes.flatMap((c) => Array<string>(c.capacity).fill(c.id))
+      for (let i = spots.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [spots[i], spots[j]] = [spots[j]!, spots[i]!] }
+      const picks: Record<string, string> = {}
+      content.problems.forEach((p, i) => { if (rand() > 0.15) picks[p.id] = spots[i]! })
+      void bot.conn.command('planning.set_report', { picks })
+    }
+  }
+  bot.conn.on('view', act)
+  bot.conn.on('welcome', act)
+  return act
 }

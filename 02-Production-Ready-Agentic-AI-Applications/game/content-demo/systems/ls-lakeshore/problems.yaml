@@ -4,6 +4,7 @@
     description: Each month someone gathers numbers from six places, chases the missing ones and writes them up.
   key:
     real: true
+    class: agentic
     tier: 5
     flagship: true
     rationale: The sources and the missing pieces differ every month, so the work needs an agent that picks its tools.
@@ -15,6 +16,7 @@
     description: Two groups arrive for the same room at the same hour.
   key:
     real: true
+    class: no_ai
     tier: 2
     flagship: false
     rationale: A booking form that refuses an overlap fixes it.
@@ -26,6 +28,7 @@
     description: The Friday route has two more stops than the driver can make in time.
   key:
     real: true
+    class: no_ai
     tier: 1
     flagship: false
     rationale: Moving two stops to Thursday fixes it. No software is needed.
@@ -37,6 +40,7 @@
     description: Old books with faded barcodes have to be typed in by hand.
   key:
     real: true
+    class: single_model
     tier: 3
     flagship: false
     rationale: Reading a faded barcode from a photo is one narrow task of seeing.
@@ -48,6 +52,7 @@
     description: Patrons complain that printing takes forever.
   key:
     real: false
+    class: not_real
     tier: null
     flagship: false
     rationale: The printer was replaced in the summer. Two calls last month.
@@ -59,6 +64,7 @@
     description: Someone writes about the Wi-Fi on every comment card.
   key:
     real: false
+    class: not_real
     tier: null
     flagship: false
     rationale: The district network team owns the Wi-Fi, and an upgrade is already scheduled.

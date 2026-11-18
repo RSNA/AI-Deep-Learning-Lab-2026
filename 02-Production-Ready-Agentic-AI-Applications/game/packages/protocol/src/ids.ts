@@ -40,7 +40,7 @@ export const ERROR_CODES = [
   'not_buildable', 'no_runs_left', 'offer_closed', 'offer_full', 'not_available', 'window_closed',
   'action_used', 'removed',
   // Host and join
-  'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player',
+  'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
 ] as const
 export const ErrorCode = z.enum(ERROR_CODES)
 export type ErrorCode = z.infer<typeof ErrorCode>

@@ -442,8 +442,7 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
 
   // Global consistency
   game.ladder.forEach((r, i) => { if (r.rung !== i + 1) err('game.yaml', `ladder[${i}].rung`, `rungs must run 1 to 5 in order`) })
-  if (pl.report_slots > pl.candidates) err('game.yaml', 'phases.planning.report_slots', 'more slots than candidates')
-  if (pl.agent_rung_capacity > pl.report_slots) err('game.yaml', 'phases.planning.agent_rung_capacity', 'more than the report slots')
+  checkClasses(ctx, game)
   const levels = new Map(inv.levels.map((l) => [l.bandwidth, l.seconds]))
   if (levels.size !== inv.levels.length) err('game.yaml', 'phases.planning.investigations.levels', 'two levels share a bandwidth')
   for (const l of inv.levels) if (l.bandwidth > inv.bandwidth) err('game.yaml', 'phases.planning.investigations.levels', `level ${l.bandwidth} is above the bandwidth`)
@@ -464,6 +463,7 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
   for (const sp of Object.values(systems)) {
     const f = (name: string) => `${sp.folder}/${name}.yaml`
     if (sp.problems && sp.problems.length !== pl.candidates) err(f('problems'), '', `holds ${sp.problems.length} problems, game.yaml asks for ${pl.candidates}`)
+    if (sp.problems) checkProblemClasses(ctx, f('problems'), game, sp)
     if (sp.insights) {
       if (sp.insights.length !== inv.per_system) err(f('insights'), '', `holds ${sp.insights.length} investigations, game.yaml asks for ${inv.per_system}`)
       let work = 0
@@ -481,5 +481,66 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
       if (n !== dev.offers.per_system) err(f('build'), 'offers', `holds ${n} offers, game.yaml asks for ${dev.offers.per_system}`)
       sp.build.offers?.forEach((o, i) => { if (o.index > dev.offers.announce_at_seconds.length) err(f('build'), `offers[${i}].index`, `no announcement time ${o.index}`) })
     }
+  }
+}
+
+// ------------------------------------------------------------------------------------------
+// The classes of Phase 1 (section 5.5)
+// ------------------------------------------------------------------------------------------
+const PL = 'phases.planning'
+
+function checkClasses(ctx: Ctx, game: GameFile) {
+  const err = (path: string, message: string) => ctx.errors.push({ file: 'game.yaml', path, message })
+  const pl = game.phases.planning
+  const ids = pl.classes.map((c) => c.id)
+  pl.classes.forEach((c, i) => { if (ids.indexOf(c.id) !== i) err(`${PL}.classes[${i}].id`, `class "${c.id}" is listed twice`) })
+  // class_order lists every class once.
+  for (const id of pl.class_order) if (!ids.includes(id)) err(`${PL}.class_order`, `unknown class "${id}"`)
+  for (const id of ids) if (pl.class_order.filter((x) => x === id).length !== 1) err(`${PL}.class_order`, `class "${id}" must appear exactly once`)
+  // Exactly one class has no rungs, and it comes first.
+  const decoy = pl.classes.filter((c) => c.rungs.length === 0)
+  if (decoy.length !== 1) err(`${PL}.classes`, `exactly one class must have empty rungs, found ${decoy.length}`)
+  else if (pl.class_order[0] !== decoy[0]!.id) err(`${PL}.class_order`, `the class with empty rungs ("${decoy[0]!.id}") must come first`)
+  // Every rung belongs to exactly one class.
+  for (const r of game.ladder) {
+    const holders = pl.classes.filter((c) => c.rungs.includes(r.rung))
+    if (holders.length !== 1) err(`${PL}.classes`, `rung ${r.rung} must belong to exactly one class, found ${holders.length}`)
+  }
+  // class_mix names every class and adds up to candidates.
+  for (const k of Object.keys(pl.class_mix)) if (!ids.includes(k)) err(`${PL}.class_mix.${k}`, `unknown class "${k}"`)
+  let sum = 0
+  pl.classes.forEach((c, i) => {
+    const mix = pl.class_mix[c.id]
+    if (mix === undefined) { err(`${PL}.class_mix`, `class "${c.id}" is missing`); return }
+    sum += mix
+    if (c.capacity !== mix) err(`${PL}.classes[${i}].capacity`, `capacity ${c.capacity} differs from its class_mix ${mix}`)
+  })
+  if (sum !== pl.candidates) err(`${PL}.class_mix`, `adds up to ${sum}, candidates is ${pl.candidates}`)
+  // The flagship class comes last and has one spot.
+  const fc = pl.classes.find((c) => c.id === pl.flagship_class)
+  if (!fc) err(`${PL}.flagship_class`, `unknown class "${pl.flagship_class}"`)
+  else {
+    if (pl.class_order.at(-1) !== fc.id) err(`${PL}.class_order`, `the flagship class "${fc.id}" must come last`)
+    if (fc.capacity !== 1) err(`${PL}.classes`, `the flagship class "${fc.id}" must have one spot`)
+    if (fc.rungs.length === 0) err(`${PL}.flagship_class`, 'the flagship class cannot be the class of problems that are not real')
+  }
+}
+
+function checkProblemClasses(ctx: Ctx, file: string, game: GameFile, sp: SystemPack) {
+  const err = (path: string, message: string) => ctx.errors.push({ file, path, message })
+  const pl = game.phases.planning
+  const counts = new Map<string, number>()
+  sp.problems!.forEach((p, i) => {
+    const cls = pl.classes.find((c) => c.id === p.key.class)
+    if (!cls) { err(`[${i}].key.class`, `unknown class "${p.key.class}"`); return }
+    counts.set(cls.id, (counts.get(cls.id) ?? 0) + 1)
+    if (!p.key.real && cls.rungs.length > 0) err(`[${i}].key.class`, `a problem that is not real belongs to the class with empty rungs, not "${cls.id}"`)
+    if (p.key.real && p.key.tier !== null && !cls.rungs.includes(p.key.tier)) err(`[${i}].key.class`, `class "${cls.id}" does not cover rung ${p.key.tier}`)
+    if (p.key.flagship && cls.id !== pl.flagship_class) err(`[${i}].key.class`, `the flagship must be in the flagship class "${pl.flagship_class}"`)
+  })
+  for (const c of pl.classes) {
+    const want = pl.class_mix[c.id]
+    const have = counts.get(c.id) ?? 0
+    if (want !== undefined && have !== want) err('', `holds ${have} problem(s) of class "${c.id}", class_mix asks for ${want}`)
   }
 }

@@ -23,7 +23,7 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "check:content": "tsx scripts/check-content.ts",
     "check:no-private": "tsx scripts/check-no-private.ts",
-    "test:parity": "vitest run --project parity",
+    "test:parity": "PARITY_PACK=1 vitest run packages/engine/test/parity-pack.test.ts",
     "test:leak": "LEAK_PACK=1 vitest run packages/server/test/leak.test.ts",
     "e2e": "npm run build -w @lab02/client && playwright test",
     "simulate": "tsx scripts/simulate.ts",

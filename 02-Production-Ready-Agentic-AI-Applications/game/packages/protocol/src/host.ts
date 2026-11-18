@@ -62,6 +62,7 @@ export const HostView = S({
   screen: S({ scene: SceneId, theme: Theme, slide: Int, spotlight: z.string().nullable(), filter: z.string().nullable(), screens: Int }),
   answerKey: z.boolean(),
   phaseLive: PhaseId.nullable(),
+  pickModes: z.array(Mode),         // session modes in which a player may pick the health system
 })
 export type HostView = z.infer<typeof HostView>
 

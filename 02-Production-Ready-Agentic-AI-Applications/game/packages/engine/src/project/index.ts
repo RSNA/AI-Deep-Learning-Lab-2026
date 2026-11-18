@@ -3,15 +3,17 @@
 // spreads, passes through or strips a pack object.
 import type { Pack, Tile as PackTile } from '@lab02/content-schema'
 import type {
-  Board, BoardColumn, BoardRow, Clock, ColumnId, LadderRung, PackArt, PhaseId,
+  Board, BoardColumn, BoardRow, Clock, ColumnId, LadderRung, Moment, PackArt, PhaseId,
   PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo, Standing, StageId,
   SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
 import type { HostPlayerRow, HostView } from '@lab02/protocol/host'
 import { COLUMNS, PHASES, phaseOfStage } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
+import { PHASE_MODULES } from '../phases/index.ts'
+import { bandwidthFree } from '../phases/planning.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf } from '../session.ts'
-import type { GameMs, PlayerId, PlayerState, SessionState } from '../state.ts'
+import type { GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
 
 // ------------------------------------------------------------------------------------------
 // Session, system, ladder, art
@@ -51,7 +53,11 @@ export function systemPublic(s: SessionState, pack: Pack, systemId: string): Sys
 }
 
 export function ladder(pack: Pack): LadderRung[] {
-  return pack.game.ladder.map((r) => ({ rung: r.rung, label: r.label, fitsWhen: r.fits_when, example: r.example }))
+  const classes = pack.game.phases.planning.classes
+  return pack.game.ladder.map((r) => {
+    const c = classes.find((x) => x.rungs.includes(r.rung))!
+    return { rung: r.rung, label: r.label, fitsWhen: r.fits_when, example: r.example, classId: c.id, classShort: c.short }
+  })
 }
 
 export function packArt(pack: Pack): PackArt {
@@ -123,7 +129,13 @@ export function planningContent(s: SessionState, pack: Pack, playerId: PlayerId)
   return {
     phase: 'planning',
     brief: brief ? { from: brief.from, title: brief.title, text: brief.text } : null,
-    rules: { bandwidth: rules.investigations.bandwidth, reportSlots: rules.report_slots, agentRungCapacity: rules.agent_rung_capacity },
+    rules: {
+      bandwidth: rules.investigations.bandwidth,
+      classes: rules.class_order.map((id) => {
+        const c = rules.classes.find((x) => x.id === id)!
+        return { id: c.id, label: c.label, short: c.short, fitsWhen: c.fits_when, rungs: [...c.rungs], capacity: c.capacity }
+      }),
+    },
     problems: (sp.problems ?? []).map((x) => ({ id: x.id, title: x.public.title, description: x.public.description })),
     investigations: (sp.insights ?? []).map((x) => ({
       id: x.id, method: x.method, character: x.character,
@@ -134,21 +146,68 @@ export function planningContent(s: SessionState, pack: Pack, playerId: PlayerId)
   }
 }
 
+/** The interview lines of a running investigation that are out so far. */
+function releasedLines(pack: Pack, p: PlayerState, id: string, released: number): string[] {
+  const inv = pack.systems[p.system]!.insights!.find((x) => x.id === id)!
+  if (inv.tile.type !== 'quote') return []
+  return inv.tile.data.text.split('\n').slice(0, released)
+}
+
 function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView | null {
   const st = p.planning
   if (!st) return null
-  const held = st.running.reduce((sum, r) => sum + (pack.systems[p.system]!.insights?.find((x) => x.id === r.id)?.bandwidth ?? 0), 0)
   const closed = s.closedPhases.includes('planning')
+  const sp = pack.systems[p.system]!
+  let reveal: PlanningView['reveal'] = null
+  if (closed && st.result) {
+    reveal = {
+      problems: (sp.problems ?? []).map((x) => {
+        const out: NonNullable<PlanningView['reveal']>['problems'][number] = {
+          id: x.id, class: x.key.class, tier: x.key.tier, flagship: x.key.flagship, rationale: x.key.rationale,
+        }
+        if (x.key.burden) out.burden = { kind: x.key.burden.kind, size: x.key.burden.size, note: x.key.burden.note }
+        return out
+      }),
+      graded: st.result.graded.map((g) => ({ problem: g.problem, picked: g.picked, points: g.points })),
+      classify: st.result.classify, flagship: st.result.flagship, raw: st.result.raw,
+    }
+  }
+  const picks: Record<string, string> = {}
+  for (const [k, v] of Object.entries(st.picks)) picks[k] = v
   return {
     status: closed ? 'closed' : st.submittedAtMs !== null ? 'submitted' : 'playing',
-    bandwidthFree: pack.game.phases.planning.investigations.bandwidth - held,
-    running: st.running.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs, lines: [] })),
+    bandwidthFree: bandwidthFree(pack, p),
+    running: st.running.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs, lines: releasedLines(pack, p, r.id, r.released) })),
     tiles: st.done.map((d) => ({
       investigation: d.id, unlockedAtMs: d.atMs,
-      tile: tileView(pack.systems[p.system]!.insights!.find((x) => x.id === d.id)!.tile),
+      tile: tileView(sp.insights!.find((x) => x.id === d.id)!.tile),
     })),
-    picks: { ...st.picks },
-    reveal: null,
+    picks,
+    reveal,
+  }
+}
+
+/** A moment for one player, built from what the engine announced. */
+export function moment(s: SessionState, pack: Pack, playerId: PlayerId, ref: MomentRef): Moment | null {
+  const p = s.players[playerId]
+  if (!p) return null
+  const sp = pack.systems[p.system]!
+  switch (ref.type) {
+    case 'interview_line': {
+      const inv = sp.insights?.find((x) => x.id === ref.investigation)
+      if (!inv || inv.tile.type !== 'quote') return null
+      const text = inv.tile.data.text.split('\n')[ref.index]
+      if (text === undefined) return null
+      return { kind: 'interview_line', investigation: inv.id, speaker: inv.tile.data.speaker, index: ref.index, text }
+    }
+    case 'tile':
+      return { kind: 'tile', investigation: ref.investigation }
+    case 'dialogue': {
+      const d = sp.story?.dialogue?.find((x) => x.id === ref.id)
+      return d ? { kind: 'dialogue', id: d.id, speaker: d.speaker, text: d.text } : null
+    }
+    case 'letter':
+      return { kind: 'letter', phase: ref.phase }
   }
 }
 
@@ -211,7 +270,12 @@ export function boardView(s: SessionState, pack: Pack, opts: { system: string | 
         rows.push(row)
       }
     }
-    columns[col] = { state, label: columnLabel(pack, col, state), rows }
+    const column: BoardColumn = { state, label: columnLabel(pack, col, state), rows }
+    if (state === 'live' && col !== 'overall') {
+      const max = PHASE_MODULES[col].liveMax?.(pack) ?? null
+      if (max !== null) column.of = max
+    }
+    columns[col] = column
   }
   return { atMs: b.atMs, live: b.live, system: opts.system, columns, systems: b.systems.map((x) => ({ id: x.id, rank: x.rank, score: x.score })) }
 }
@@ -269,6 +333,7 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
     stage: s.stage,
     scene,
     theme: s.screen.theme,
+    reveal: screenReveal(s, pack),
     counts: { total: active.length, bySystem: s.systems.map((id) => ({ id, players: active.filter((p) => p.system === id).length })) },
     arrivals: active.slice(-12).reverse().map((p) => ({ name: p.name, avatar: p.avatar, system: p.system })),
     board: boardView(s, pack, { system: s.screen.filter, rows: rowsN }),
@@ -281,6 +346,29 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       tiles: sp.planning?.done.length ?? 0,
     } : null,
     winners,
+  }
+}
+
+/** The results of the phase that closed last, for the room (big screen reveal). */
+function screenReveal(s: SessionState, pack: Pack): ScreenView['reveal'] {
+  const phase = [...s.closedPhases].pop()
+  if (!phase) return null
+  const max = pack.game.scoring.normalization.max_points
+  const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed && p.acted[phase])
+  const histogram = new Array<number>(10).fill(0)
+  for (const p of active) {
+    const pts = p.results[phase]?.points ?? 0
+    histogram[Math.min(9, Math.floor((10 * pts) / max))]!++
+  }
+  return {
+    phase,
+    histogram,
+    systems: s.systems.map((id) => {
+      const ps = active.filter((p) => p.system === id)
+      const mean = ps.length ? ps.reduce((sum, p) => sum + (p.results[phase]?.points ?? 0), 0) / ps.length : 0
+      const hits = phase === 'planning' ? ps.filter((p) => (p.planning?.result?.flagship ?? 0) > 0).length : 0
+      return { id, players: ps.length, meanPoints: Math.round(mean * 10) / 10, flagshipHits: hits }
+    }),
   }
 }
 
@@ -312,8 +400,8 @@ function playerStatus(s: SessionState, p: PlayerState): string {
   if (ph === 'planning') {
     const st = p.planning
     if (!st) return 'Planning'
-    const sent = st.submittedAtMs !== null ? ', report sent' : ''
-    return `${st.done.length} tiles, ${st.running.length} running, ${Object.keys(st.picks).length} in the report${sent}`
+    const sent = st.submittedAtMs !== null ? ', board sent' : ''
+    return `${st.done.length} insights, ${st.running.length} running, ${Object.keys(st.picks).length} sorted${sent}`
   }
   return ph === 'development' ? 'Designing' : 'Running the year'
 }
@@ -382,6 +470,7 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
     screen: { scene: s.screen.scene, theme: s.screen.theme, slide: s.screen.slide, spotlight: s.screen.spotlight, filter: s.screen.filter, screens: x.screens },
     answerKey: x.answerKey,
     phaseLive: live,
+    pickModes: [...(pack.game.join.choose_system_in_modes ?? [])],
   }
 }
 

@@ -9,6 +9,7 @@ game:
 join:
   assignment: balanced
   tie_order: [rb, ls]
+  choose_system_in_modes: [test, rehearsal]
   practice_name:
     min_chars: 3
     max_chars: 24
@@ -97,8 +98,35 @@ phases:
     play_seconds: 150
     reveal_seconds: 30
     candidates: 6
-    report_slots: 4
-    agent_rung_capacity: 1
+    classes:
+      - id: not_real
+        label: Not a real problem at this branch
+        short: Not real
+        fits_when: The numbers do not back the complaint, it was fixed already, or it is too small to act on.
+        rungs: []
+        capacity: 2
+      - id: no_ai
+        label: Real, and fixed without any AI
+        short: No AI
+        fits_when: A change of staffing, schedule or house rule fixes it, or a rule in software.
+        rungs: [1, 2]
+        capacity: 2
+      - id: single_model
+        label: Real, and one AI model does it
+        short: One model
+        fits_when: A single task of seeing, sorting or writing, done the same way every time.
+        rungs: [3, 4]
+        capacity: 1
+      - id: agentic
+        label: Real, and it takes an agentic system
+        short: Agentic
+        fits_when: A goal with many steps whose path changes from case to case.
+        rungs: [5]
+        capacity: 1
+    class_order: [not_real, no_ai, single_model, agentic]
+    class_mix: {not_real: 2, no_ai: 2, single_model: 1, agentic: 1}
+    flagship_class: agentic
+    show_class_mix: true
     investigations:
       per_system: 5
       bandwidth: 3
@@ -115,10 +143,9 @@ phases:
       reachable_work: 260
       parallel: true
       cancel: none
-    live_leaderboard: {label: Branch uncovered}
+    live_leaderboard: {metric: progress, label: Progress}
     scoring:
-      identify: {per_real: 50, per_decoy: -25, component_floor: 0}
-      ladder: {exact: 75, adjacent: 25}
+      classify: {exact: 125, adjacent: 40}
       flagship: {bonus: 250}
   development:
     label: Development

@@ -1,6 +1,6 @@
 import type { Pack } from '@lab02/content-schema'
 import type { ErrorCode, PhaseId } from '@lab02/protocol'
-import type { GameMs, Outcome, PlayerState, SessionState } from '../state.ts'
+import type { EngineEvent, GameMs, Outcome, PlayerState, SessionState } from '../state.ts'
 
 export type CommandHandler = (
   s: SessionState, pack: Pack, p: PlayerState, payload: unknown, now: GameMs,
@@ -17,5 +17,11 @@ export type PhaseModule = {
   close(s: SessionState, pack: Pack, p: PlayerState, now: GameMs): number
   /** The player's value in the live leaderboard column. */
   liveValue(s: SessionState, pack: Pack, p: PlayerState): number
+  /** The largest value the live column can reach, when it has one ("17 of 22"). */
+  liveMax?(pack: Pack): number | null
+  /** The earliest timer of this player that has not run yet, or null. */
+  nextDue?(s: SessionState, pack: Pack, p: PlayerState): GameMs | null
+  /** Run the timers of this player that are due at or before `at`, in order. */
+  fire?(s: SessionState, pack: Pack, p: PlayerState, at: GameMs): EngineEvent[]
   commands: Record<string, CommandHandler>
 }

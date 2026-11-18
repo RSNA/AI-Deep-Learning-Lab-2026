@@ -3,9 +3,60 @@
 // The scan fails if a protected string of the pack appears before its moment.
 // `npm run test:leak` runs it on the pack in CONTENT_DIR (with SYSTEMS if set).
 import { describe, expect, it } from 'vitest'
-import { loadPack, protectedStrings } from '@lab02/content-schema'
+import { loadPack, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
 import { STAGES, type StageId } from '@lab02/protocol'
-import { DEMO, attach, hostConn, hostToken, joinBot, startServer, step, until, type Bot } from './helpers.ts'
+import { DEMO, attach, hostConn, hostToken, joinBot, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
+import type { Room } from '../src/room.ts'
+
+/** Every text of a tile, with the interview lines apart (they may arrive one by one before the tile). */
+function tileTexts(t: Tile): { fixed: string[]; lines: string[] } {
+  const fixed = [t.headline, t.body]
+  const lines: string[] = []
+  if (t.type === 'stat') fixed.push(t.data.label, String(t.data.value), t.data.unit ?? '', t.data.comparison ?? '')
+  if (t.type === 'chart') fixed.push(t.data.x_label, t.data.y_label, t.data.note ?? '', ...t.data.series.map((x) => x.name))
+  if (t.type === 'audit') fixed.push(t.data.note ?? '', ...t.data.findings.map((f) => f.label))
+  if (t.type === 'quote') lines.push(...t.data.text.split('\n'))
+  return { fixed: fixed.filter((x) => x.length >= 12), lines: lines.filter((x) => x.length >= 12) }
+}
+
+/** Text a player may hold at any time: the public fields of the pack. */
+function publicTexts(pack: Pack): Set<string> {
+  const out = new Set<string>()
+  const add = (x: unknown) => {
+    if (typeof x === 'string') out.add(x)
+    else if (Array.isArray(x)) x.forEach(add)
+    else if (x && typeof x === 'object') for (const [k, v] of Object.entries(x)) if (k !== 'key' && k !== 'tile') add(v)
+  }
+  for (const id of pack.systemIds) {
+    const sp = pack.systems[id]!
+    add(sp.system.public); add(sp.problems); add(sp.insights); add(sp.story)
+  }
+  add(pack.characters); add(pack.game.ladder); add(pack.game.phases.planning.classes)
+  return out
+}
+
+/** The tile texts of one player's investigations that must not have reached them yet. */
+function forbiddenFor(room: Room, pack: Pack, playerId: string, open: Set<string>): string[] {
+  const p = room.state.players[playerId]
+  if (!p) return []
+  const st = p.planning
+  const done = new Set(st?.done.map((d) => d.id) ?? [])
+  const allowed = new Set(open)
+  const out: string[] = []
+  const invs = pack.systems[p.system]?.insights ?? []
+  for (const inv of invs) {
+    const tx = tileTexts(inv.tile)
+    if (done.has(inv.id)) { tx.fixed.forEach((x) => allowed.add(x)); tx.lines.forEach((x) => allowed.add(x)) }
+    const run = st?.running.find((r) => r.id === inv.id)
+    if (run && inv.tile.type === 'quote') inv.tile.data.text.split('\n').slice(0, run.released).forEach((x) => allowed.add(x))
+  }
+  for (const inv of invs) {
+    if (done.has(inv.id)) continue
+    const tx = tileTexts(inv.tile)
+    for (const x of [...tx.fixed, ...tx.lines]) if (!allowed.has(x)) out.push(x)
+  }
+  return out
+}
 
 const usePrivate = process.env.LEAK_PACK === '1'
 const dir = usePrivate ? process.env.CONTENT_DIR! : DEMO
@@ -24,6 +75,9 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const code = r.room.code
       const room = r.room
       const records: { stage: StageId; text: string }[] = []
+      const tileLeaks: string[] = []
+      const open = publicTexts(loaded.pack)
+      let tilesSeen = 0
       const token = await hostToken(srv.url)
       const host = hostConn(srv.ws, token, code)
       await until(() => host.status === 'open')
@@ -31,7 +85,16 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const bots: Bot[] = []
       for (let i = 0; i < 8; i++) {
         const b = await joinBot(srv, code, `Leak Bot ${i}`)
-        b.conn.on('*', (m) => records.push({ stage: room.state.stage, text: JSON.stringify(m) }))
+        b.conn.on('*', (m) => {
+          const text = JSON.stringify(m)
+          records.push({ stage: room.state.stage, text })
+          // A tile reaches its own player only, and only when their investigation has ended.
+          if (text.includes('"tiles":[{')) tilesSeen++
+          for (const x of forbiddenFor(room, loaded.pack, b.playerId, open)) {
+            if (text.includes(JSON.stringify(x).slice(1, -1))) { tileLeaks.push(`a tile text reached ${b.playerId} during ${room.state.stage} before its investigation ended: ${x.slice(0, 24)}`); break }
+          }
+        })
+        playPlanning(b, srv.url, i + 7)
         bots.push(b)
       }
       const scrLink = await fetch(`${srv.url}/api/host/screen-link`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ code }) })
@@ -50,8 +113,9 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         }
         const sess = await fetch(`${srv.url}/api/session/${code}`)
         records.push({ stage: room.state.stage, text: await sess.text() })
-        if (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.')) await step(srv.app, host, code)
-        await until(() => room.state.stage !== before, 15_000, `leaving ${before}`)
+        // Phase 1 runs on its own clock, so the bots earn their tiles. Later phases are stubs.
+        if (before !== 'planning.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
+        await until(() => room.state.stage !== before, 40_000, `leaving ${before}`)
       }
       for (const b of bots) b.conn.close()
       screen.conn.close()
@@ -68,7 +132,14 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           }
         }
       }
+      // No class, tier, rationale, burden or graded board reaches anyone before the Phase 1 reveal.
+      const early = records.filter((r) => idx(r.stage) < idx('planning.reveal'))
+      const fields = ['"tier":', '"rationale":', '"burden":', '"graded":', '"justification"', '"class":"']
+      const structural = fields.filter((f) => early.some((r) => r.text.includes(f)))
       expect(records.length).toBeGreaterThan(100)
+      expect(tilesSeen).toBeGreaterThan(0)
+      expect(structural).toEqual([])
+      expect(tileLeaks).toEqual([])
       expect(leaks).toEqual([])
     } finally {
       await srv.app.close()
