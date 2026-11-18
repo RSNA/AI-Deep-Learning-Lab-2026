@@ -42,8 +42,9 @@ phases. Each is played by everyone at once against a shared timer and is worth u
    An investigation holds part of the player's bandwidth for some seconds and then unlocks one
    evidence tile. Several can run at once while bandwidth is free, so time is the limit. The
    player sorts every problem into a class: not a real problem here, real and no AI needed,
-   real and one AI model is enough, or real and in need of an agentic system. The last class
-   holds one problem.
+   real and one AI model is enough, or real and in need of an agentic system. The board has
+   one spot for every problem, and the player is told the split: in a full pack three, three,
+   three and one.
 2. **Development.** The player fills a board of choices to design a solution for one problem.
    Pilot runs score the design on four metrics (validity, reliability, cost, complexity) and
    return one traced failure. At the end, the submitted design is tested again on a second set
@@ -311,7 +312,8 @@ type PlanningRules = {
   classes: PlanningClass[]                                 // the answers a player can give
   class_order: ClassId[]                                   // the spectrum, every class once
   class_mix: Record<ClassId, number>                       // problems per class, in every system
-  show_class_mix: boolean                                  // true tells the player the mix
+  flagship_class: ClassId                                  // the flagship in this class earns the bonus
+  show_class_mix: true                                     // the board shows its spots, so the mix is known
   investigations: { per_system: number
                     story?: number                          // read by the private checker only
                     bandwidth: number                       // blocks a player can commit at once
@@ -328,7 +330,7 @@ type PlanningClass = {
   id: ClassId; label: Text; short: Text      // `short` is the two-word name on bins and buttons
   fits_when: Text
   rungs: (1|2|3|4|5)[]                       // the ladder rungs the class covers
-  capacity?: number                          // the most problems a player may put in it
+  capacity: number                           // the spots of the class on the board. Equals its class_mix
 }
 type DevelopmentRules = {
   label: Text; play_seconds: number; reveal_seconds: number
@@ -348,9 +350,11 @@ type MaintainingRules = {
 
 The classes of Phase 1 follow four rules that the loader checks. Exactly one class has empty
 `rungs`. It is the class of the problems that are not real, and `class_order` lists it first.
-Every rung of the ladder belongs to exactly one class. Exactly one class has a `capacity`. It is
-the class of the flagship problem, and `class_order` lists it last. `class_mix` names every
-class and adds up to `candidates`.
+Every rung of the ladder belongs to exactly one class. `class_mix` names every class and adds up
+to `candidates`. Every class has a `capacity`, the number of its spots on the board, and it
+equals the class's share of `class_mix`, so the board has one spot for every problem.
+`flagship_class` is the class of the flagship problem. `class_order` lists it last, and it has
+one spot.
 
 `story_time` says what the play time stands for in the story, for example that a pilot run
 stands for a two-week pilot. The client shows these strings next to the waits. They never affect
@@ -428,7 +432,7 @@ type Problem = {
 `class` is the id of one of `phases.planning.classes`. A problem that is not real has the class
 with empty `rungs` and `tier: null`. A real problem has a `tier`, and its class is the one whose
 `rungs` hold that tier. The number of problems in each class equals `class_mix`. Exactly one
-problem has `flagship: true`. It sits in the class that has a `capacity`, and it equals
+problem has `flagship: true`. It sits in `flagship_class`, and it equals
 `system.key.flagship_problem`. The rationale is read by the player at the reveal, so it says
 what solves the problem and why the class below would fall short.
 
@@ -618,7 +622,8 @@ is written from scratch for the purpose.
   option arms, `grants_monitor`, a one-time check, a change action with a month window, every
   dialogue trigger, letters with all bands, help slides with a live statistic, and a report card.
 - **Phase 1 rules.** Its `game.yaml` has the four classes, a `class_mix` that adds up to its 6
-  problems and uses every class, and `test` and `rehearsal` in `join.choose_system_in_modes`.
+  problems and uses every class (2, 2, 1 and 1), a `capacity` on every class that equals its
+  share, and `test` and `rehearsal` in `join.choose_system_in_modes`.
 - **Calibration.** Its anchors are estimates marked provisional until `scripts/simulate`
   exists in Step 9. From then on they are measured.
 - **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, Phase 2 in
@@ -731,7 +736,8 @@ stage, or to the current month in `maintaining.year`), `end_now`, `rename_player
 The player investigates and sorts every candidate problem into a class. The classes come from
 `phases.planning.classes`, and `class_order` is the spectrum from "not a real problem" to the
 class that asks for the most. Below, the *decoy class* is the class with empty `rungs`, the
-*real classes* are the others, and the *capacity class* is the one that has a `capacity`.
+*real classes* are the others, and the *flagship class* is `flagship_class`. A class has as
+many *spots* as its `capacity`, and the spots of all classes add up to the number of problems.
 
 **State of a player**
 
@@ -755,7 +761,7 @@ type PlanningResult = {
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `planning.investigate {id}` | Stage is `planning.play`. Not submitted. The id is neither done nor running. Its bandwidth fits in what is free | The investigation holds its bandwidth and runs for its `seconds`. It cannot be cancelled |
-| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. Every problem id and every class id exists. No class holds more problems than its `capacity` | Replaces the draft. A problem that the draft leaves out is unsorted |
+| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. Every problem id and every class id exists. No class holds more problems than it has spots (its `capacity`) | Replaces the draft. A problem that the draft leaves out is unsorted |
 | `planning.submit {}` | Stage is `planning.play`. Not submitted | Locks the board. The player waits for the stage to end |
 
 A draft that breaks a rule is refused with `invalid_report` and changes nothing. A draft may be
@@ -785,17 +791,18 @@ points(problem) =
             one step apart in class_order
   0         in every other case
 classify = sum of points over the sorted problems
-flagship = bonus if the flagship problem is in the capacity class, else 0
+flagship = bonus if the flagship problem is in the flagship class, else 0
 raw      = classify + flagship
 ```
 
 A real problem that is called not real, a problem that is not real and is put in a real class,
 a real problem two steps from its class, and an unsorted problem all earn 0. Nothing earns less
 than 0. The most a player can reach is `candidates × exact + bonus`, which a pack sets to 1000.
+Because the spots are counted, a problem in the wrong class takes the spot of another.
 
 **Random play.** The floor anchor of a system (section 6.8) is the mean raw score of random
-boards made like this: as many random problems as its `capacity` go into the capacity class,
-and every other problem goes into one of the other classes with equal chance.
+boards made like this: the problems are shuffled into the spots of the board, one problem a
+spot, every arrangement with equal chance.
 
 **Live column.** `progress`: the number of insights unlocked plus the number of problems sorted.
 Its largest value is `investigations.per_system + candidates`, and the column carries it, so a
@@ -1257,8 +1264,7 @@ type PlanningContent = {
   brief: { from: CharacterId; title: Text; text: Text } | null
   rules: { bandwidth: number
            classes: { id: ClassId; label: Text; short: Text; fitsWhen: Text
-                      rungs: number[]; capacity: number | null }[]       // in class_order
-           classMix: Record<ClassId, number> | null }    // sent only when show_class_mix is true
+                      rungs: number[]; capacity: number }[] }   // in class_order. capacity = spots
   problems: { id: ProblemId; title: Text; description: Text }[]
   investigations: { id: InvestigationId; method: Method; character: CharacterId | null
                     title: Text; teaser: Text; bandwidth: number; seconds: number
@@ -1406,7 +1412,6 @@ in the spotlight). It sends nothing but `hello`.
 | --- | --- |
 | Health system `public`, the `public` of its cast, the ladder with the class of each rung, the game title | At join |
 | Problem `public`. Investigation `public`, `method`, `character`, `bandwidth`, `seconds`. The classes: `label`, `short`, `fits_when`, `rungs`, `capacity` | When Phase 1 opens |
-| `class_mix` | When Phase 1 opens, and only when `show_class_mix` is true. Otherwise never before the reveal, where the corrected board shows it |
 | An interview line | At its scheduled time, to that player |
 | A tile | When its investigation completes, to that player |
 | Problem `key`: `class`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
@@ -1427,7 +1432,7 @@ Never sent to a player or the big screen: conditions of any kind, tags, rules, a
 did not fire, `extra_cost`, case weights and which set a case belongs to, the hidden and year
 cost of a single option, complexity points of a single option, monitor `upkeep`, event `drift`,
 `detect`, `onset` before the reveal, option and action `effects`, `reveals`, `arms`, `disarms`,
-`calibration`, source gists, `class_mix` while `show_class_mix` is false, and every `key` field
+`calibration`, source gists, and every `key` field
 not listed above.
 
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
@@ -1563,12 +1568,12 @@ an insight is clamped.
 │ practice ◆ system │ Phase 1 · Planning │ 08:12 │ bandwidth ■■□                   │ rank │
 ├────────────────┬──────────────────────────────────────────┬─────────────────────────────┤
 │ ‹ Room         │ Evidence        5 insights    size ▫ ▪   │ Sort           6 of 10 Send │
-│ (scene)        │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ┌ Not a problem ──────────┐ │
-│ transcript     │ │ Practice │ │ insight  │ │ insight  │   │ │ chip                    │ │
-├────────────────┤ │          │ │          │ │          │   │ ├ No AI ──────────────────┤ │
-│ Investigations │ └──────────┘ └──────────┘ └──────────┘   │ │ chip  chip              │ │
-│  row           │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ├ One model ──────────────┤ │
-│  row           │ │ insight  │ │ insight  │ │ insight  │   │ ├ Agentic        holds 1 ─┤ │
+│ (scene)        │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ┌ Not a problem   3 spots ┐ │
+│ transcript     │ │ Practice │ │ insight  │ │ insight  │   │ │ [chip] [spot] [spot]    │ │
+├────────────────┤ │          │ │          │ │          │   │ ├ No AI           3 spots ┤ │
+│ Investigations │ └──────────┘ └──────────┘ └──────────┘   │ │ [chip] [chip] [spot]    │ │
+│  row           │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ├ One model       3 spots ┤ │
+│  row           │ │ insight  │ │ insight  │ │ insight  │   │ ├ Agentic         1 spot ─┤ │
 │  row  …        │ │          │ │          │ │          │   │ └─────────────────────────┘ │
 │                │ └──────────┘ └──────────┘ └──────────┘   │ Unsorted                    │
 │                │   … the wall scrolls                     │  problem card, problem card │
@@ -1588,7 +1593,8 @@ Each area scrolls by itself. The page never scrolls sideways.
 **Phone layout.** The top bar shrinks to the countdown and the bandwidth. Three tabs at the
 bottom: Room (scene, transcript, investigations), Evidence, Sort. A tab shows a badge when
 something new is in it. Evidence is one column of full cards. Sort lists the problem cards with
-their class control, under a strip of the four bins with the number of problems in each. Every
+their class control, under a strip of the four classes that shows, for each, how many of its
+spots are filled ("2 of 3"). Every
 problem card in Sort has a button that jumps to Evidence, and Evidence then shows a button that
 leads back to that card. On a tablet the evidence wall and the sorting board sit side by side
 and the rail is a drawer that opens from the top bar.
@@ -1643,26 +1649,35 @@ while it is open.
 | `quote` | The speaker's portrait, name and role, and the lines |
 | `audit` | The sample size, each finding as a labelled bar with its count, the note |
 
-**The sorting board.** The header shows how many problems are sorted and the Send button.
+**The sorting board.** The header shows how many problems are sorted and the Send button. The
+board asks one thing of the player and says it in a line under the header, built from the
+classes: "Find the 3 problems that are not real, the 3 that need no AI, the 3 that need one
+model and the 1 that needs an agentic system."
 
-- **Bins.** Four bins in `class_order`, each with the `label` of its class. A tap on the label
-  opens its `fits_when` and the rungs of the ladder it covers. A bin shows the problems in it
-  as chips with the whole title. The capacity class shows as many slots as its `capacity`.
-  When `classMix` is sent, each bin also says how many problems belong in it. It still accepts
-  more or fewer, except for the capacity class.
-- **Unsorted.** Under the bins, the problems that are not sorted yet, one card each, in pack
+- **Ten spots.** Four bins in `class_order`, each with the `label` of its class and as many
+  **spots** as its `capacity` (3, 3, 3 and 1 in a full pack), so the board has one spot for
+  every problem. An empty spot is drawn as an outlined, numbered drop target. A filled spot
+  holds the problem as a chip with the whole title. The bin header says how many of its spots
+  are filled ("2 of 3"). A tap on the label opens the `fits_when` of the class and the rungs of
+  the ladder it covers.
+- **Unsorted.** Next to the bins, in a tray that scrolls inside itself and never pushes a spot
+  off the screen, the problems that are not sorted yet, one card each, in pack
   order: the title and the whole description. The board starts with every problem here.
-- **Sorting by dragging.** A problem card or chip can be dragged into a bin, from one bin to
-  another, or back to Unsorted. The bins stay in view while something is dragged, and the bin
-  under the pointer is marked. Dragging uses pointer events, so it also works on a touch
+- **Sorting by dragging.** A problem card or chip can be dragged into an empty spot, from one
+  bin to another, or back to Unsorted. Dropping it anywhere on a bin puts it in the first empty
+  spot of that bin. The bins stay in view while something is dragged, and the spot or bin under
+  the pointer is marked. Dragging uses pointer events, so it also works on a touch
   screen.
 - **Sorting without dragging.** Every problem card has a class control with one button per
   class, labelled with the `short` name, and a way to clear it. It is the only way on a phone
   and the keyboard path on a laptop: with a card in focus the keys 1 to 4 pick the class in
   `class_order` and 0 clears it. A chip in a bin opens its card, with the description and the
   same control, in place.
-- **The capacity class.** Putting a problem there when it is full asks to swap. On yes, the
-  problem that was there goes back to Unsorted.
+- **A full class.** A class never holds more problems than it has spots. Dropping a problem on
+  a filled spot swaps the two: the problem that was there takes the place the new one came
+  from (its old spot, or Unsorted). Dropping it on the header of a full bin, or picking a full
+  class with the class control, asks which of the problems in that class should leave, and the
+  one that leaves goes back to Unsorted. A full class is marked as full on the class control.
 - **Saving.** Every change is saved to the server after 300 ms without a change. A refusal puts
   the board back to what the server holds and says why.
 - **Send** opens a sheet that lists the board by class, names the problems that are still
@@ -1674,7 +1689,7 @@ it stood. Two notices warn before, at the times in `clock.warnings_seconds_left`
 
 **Reveal.** One screen, top to bottom.
 
-1. **The corrected board.** The four bins with every problem in its true class. Each problem
+1. **The corrected board.** The four bins with every problem in its true spot. Each problem
    carries a mark for the player's own pick: right, one class off, wrong, or unsorted, with the
    class the player chose and the points it earned. Opening a problem shows its rationale, its
    burden and, for a real problem, its rung on the ladder. The flagship problem is marked and
@@ -1958,9 +1973,10 @@ repository. The checks run on the Mac before each merge.
 - **Rules.** Each command has a test for every refusal in its table. Late joining, the offer
   race, pause and extend, tie-breaks, rounding half up, missing anchors.
 - **Sorting.** The planning vectors hold every pair of true class and picked class, the
-  flagship bonus with the flagship in and out of the capacity class, an empty board, a board
-  with problems left unsorted, a draft with two problems in the capacity class (refused) and a
-  draft with an unknown class (refused). `test:parity` sends random boards made by the rule of
+  flagship bonus with the flagship in and out of the flagship class, an empty board, a board
+  with problems left unsorted, a draft with two problems in the flagship class (refused), a
+  draft with one problem more than a class has spots (refused) and a draft with an unknown
+  class (refused). `test:parity` sends random boards made by the rule of
   section 6.5. The live value is insights plus sorted problems and never moves on a refusal.
 - **Joining.** With two health systems ten joins alternate A, B. After a removal the next join
   goes to the smaller system. In a `test` and in a `rehearsal` session a join with `system`
@@ -1973,8 +1989,8 @@ repository. The checks run on the Mac before each merge.
 - The demo pack loads without errors or warnings.
 - A folder of broken packs, one fault each, fails with the right path in the message. For the
   classes: a problem whose class disagrees with its tier, a mix that the problems do not match,
-  two classes with a capacity, a rung that no class covers, a flagship outside the capacity
-  class.
+  a class whose capacity differs from its share of the mix, a class without a capacity, a rung
+  that no class covers, a flagship outside the flagship class.
 - Every projection output passes its strict schema. A snapshot test lists the field names of
   every outgoing type, so a new field shows up in review.
 - **The leak scan.** The loader can list every string of a pack that must not leave the server,
@@ -2013,10 +2029,13 @@ in a fresh one, the host console driving the stages, and the big screen followin
 
 For the board of Phase 1 it also checks, at both sizes unless said otherwise:
 
-- A problem is sorted by dragging it into a bin, moved to another bin and dragged back to
-  Unsorted (laptop). The same three moves work with the class control and with the keys 1 to 4
+- The board shows one spot for every problem, in the split of the classes, and the line that
+  names the split. A problem is sorted by dragging it into an empty spot, moved to another bin
+  and dragged back to Unsorted (laptop). The same three moves work with the class control and with the keys 1 to 4
   and 0 (laptop), and with the class control alone (phone).
-- A second problem dropped on the capacity class asks to swap, and the first returns to Unsorted.
+- A problem dropped on a filled spot swaps with the problem there. A problem sent to a full
+  class by its header or by the class control asks which problem leaves, and that one returns
+  to Unsorted. No path leaves a class with more problems than spots.
 - With all 12 investigations of a full-size fixture done, the wall shows 13 cards, two columns
   with the rail open and three with it folded at 1280 px, no card is cut, and no text on a card
   is smaller than 14 px.
