@@ -27,19 +27,22 @@ Words used with a fixed meaning:
 | Game time | The session clock, in milliseconds. It stops when the host pauses |
 | Pack | A folder of content files in the format of section 5 |
 | Rung | One of the five levels of the automation ladder, from no software to an agentic system |
+| Class | One of the answers a player can give for a problem in Phase 1: not a real problem, real without AI, real with one AI model, real with an agentic system. A class covers the rungs listed for it in `game.yaml` |
 
 ---
 
 ## 1. The game in mechanics
 
 A session holds up to 150 players, each on a laptop or a phone. A player joins with a link,
-names a practice and is assigned to a health system. The session then moves through three
+names a practice and is assigned to one of the health systems of the pack. The event pack has
+two. The session then moves through three
 phases. Each is played by everyone at once against a shared timer and is worth up to 1000 points.
 
 1. **Planning.** The player sees a list of candidate problems and investigates the practice.
    An investigation holds part of the player's bandwidth for some seconds and then unlocks one
    evidence tile. Several can run at once while bandwidth is free, so time is the limit. The
-   player reports which problems are real and puts each on a rung of the ladder. The top rung
+   player sorts every problem into a class: not a real problem here, real and no AI needed,
+   real and one AI model is enough, or real and in need of an agentic system. The last class
    holds one problem.
 2. **Development.** The player fills a board of choices to design a solution for one problem.
    Pilot runs score the design on four metrics (validity, reliability, cost, complexity) and
@@ -229,7 +232,8 @@ both. Validation has three layers.
 2. **References.** Every id that a file mentions exists: characters, problems, monitors, events,
    offers, components, choices and options inside conditions, source ids.
 3. **Counts from `game.yaml`.** The number of problems, investigations and offers match what
-   `game.yaml` states. Every investigation uses a bandwidth level that exists, with the seconds
+   `game.yaml` states. The class of every problem exists, agrees with `real` and `tier`, and
+   the number of problems in each class equals `class_mix` (section 5.5). Every investigation uses a bandwidth level that exists, with the seconds
    of that level, and one that its method allows. The work of all investigations of a system
    (bandwidth times seconds, summed) lies inside `total_work`.
 
@@ -240,7 +244,8 @@ enforces the design rules: how hard the puzzle is, how the evidence fits togethe
 numbers balance. The public loader does not know those rules.
 
 A setting that has one implemented value is validated to hold that value. For example
-`join.assignment` must be `balanced`. A pack cannot ask for behavior that does not exist.
+`join.assignment` must be `balanced`, and `phases.planning.live_leaderboard.metric` must be
+`progress`. A pack cannot ask for behavior that does not exist.
 
 `npm run check:content` loads the pack in `CONTENT_DIR` and prints every error and warning.
 
@@ -261,6 +266,7 @@ type Game = {
   game: { title: Text | null; phase_order: PhaseId[]; health_systems: SystemId[] }
   join: {
     assignment: 'balanced'; tie_order: SystemId[]
+    choose_system_in_modes?: Mode[]      // session modes in which a player may pick the system (6.4)
     practice_name: { min_chars: number; max_chars: number; unique_per_session: true;
                      filter_profanity: boolean; host_can_rename: boolean; host_can_remove: boolean }
     reconnect: 'token'
@@ -294,24 +300,35 @@ type Game = {
   public_source_labels: Record<string, Text>     // by paper
 }
 type PhaseId = 'planning' | 'development' | 'maintaining'
+type Mode = 'test' | 'rehearsal' | 'event'
 type Segment = 'join' | 'intro_slides' | 'planning' | 'help_slides_1' | 'development' | 'help_slides_2'
              | 'maintaining' | 'help_slides_3' | 'reflection' | 'winners'   // each maps to stages (6.3)
 type Metric = 'validity' | 'reliability' | 'cost' | 'complexity'
 
 type PlanningRules = {
   label: Text; play_seconds: number; reveal_seconds: number
-  candidates: number; report_slots: number; agent_rung_capacity: number
+  candidates: number                                       // problems per health system
+  classes: PlanningClass[]                                 // the answers a player can give
+  class_order: ClassId[]                                   // the spectrum, every class once
+  class_mix: Record<ClassId, number>                       // problems per class, in every system
+  show_class_mix: boolean                                  // true tells the player the mix
   investigations: { per_system: number
+                    story?: number                          // read by the private checker only
                     bandwidth: number                       // blocks a player can commit at once
                     levels: { bandwidth: number; seconds: number }[]
                     method_levels: Record<Method, number[]>  // bandwidth levels a method may use
                     total_work: { min: number; max: number } // sum of bandwidth x seconds
                     reachable_work: number                  // read by the private checker only
                     parallel: true; cancel: 'none' }
-  live_leaderboard: { label: Text }
-  scoring: { identify: { per_real: number; per_decoy: number; component_floor: number }
-             ladder: { exact: number; adjacent: number }
+  live_leaderboard: { metric: 'progress'; label: Text }
+  scoring: { classify: { exact: number; adjacent: number }
              flagship: { bonus: number } }
+}
+type PlanningClass = {
+  id: ClassId; label: Text; short: Text      // `short` is the two-word name on bins and buttons
+  fits_when: Text
+  rungs: (1|2|3|4|5)[]                       // the ladder rungs the class covers
+  capacity?: number                          // the most problems a player may put in it
 }
 type DevelopmentRules = {
   label: Text; play_seconds: number; reveal_seconds: number
@@ -328,6 +345,12 @@ type MaintainingRules = {
   live_leaderboard: { label: Text }
 }
 ```
+
+The classes of Phase 1 follow four rules that the loader checks. Exactly one class has empty
+`rungs`. It is the class of the problems that are not real, and `class_order` lists it first.
+Every rung of the ladder belongs to exactly one class. Exactly one class has a `capacity`. It is
+the class of the flagship problem, and `class_order` lists it last. `class_mix` names every
+class and adds up to `candidates`.
 
 `story_time` says what the play time stands for in the story, for example that a pilot run
 stands for a two-week pilot. The client shows these strings next to the waits. They never affect
@@ -393,13 +416,21 @@ type System = {
 type Problem = {
   id: ProblemId
   public: { title: Text; description: Text }
-  key: { real: boolean; tier: 1|2|3|4|5 | null; flagship: boolean; rationale: Text
+  key: { real: boolean
+         class: ClassId                    // the true answer of Phase 1
+         tier: 1|2|3|4|5 | null            // the ladder rung of a real problem, null when not real
+         flagship: boolean; rationale: Text
          burden?: { kind: string; size: string; note: Text }
          source?: SourceIds }
 }
 ```
 
-Exactly one problem has `flagship: true`. It is real, and it equals `system.key.flagship_problem`.
+`class` is the id of one of `phases.planning.classes`. A problem that is not real has the class
+with empty `rungs` and `tier: null`. A real problem has a `tier`, and its class is the one whose
+`rungs` hold that tier. The number of problems in each class equals `class_mix`. Exactly one
+problem has `flagship: true`. It sits in the class that has a `capacity`, and it equals
+`system.key.flagship_problem`. The rationale is read by the player at the reveal, so it says
+what solves the problem and why the class below would fall short.
 
 **`insights.yaml`** is a list.
 
@@ -586,6 +617,8 @@ is written from scratch for the purpose.
   advisory, a case with `extra_cost`, a loud event and a silent one, an event that another
   option arms, `grants_monitor`, a one-time check, a change action with a month window, every
   dialogue trigger, letters with all bands, help slides with a live statistic, and a report card.
+- **Phase 1 rules.** Its `game.yaml` has the four classes, a `class_mix` that adds up to its 6
+  problems and uses every class, and `test` and `rehearsal` in `join.choose_system_in_modes`.
 - **Calibration.** Its anchors are estimates marked provisional until `scripts/simulate`
   exists in Step 9. From then on they are measured.
 - **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, Phase 2 in
@@ -668,7 +701,16 @@ stage, or to the current month in `maintaining.year`), `end_now`, `rename_player
 ### 6.4 Joining
 
 - `join` adds a player to the health system with the fewest active players. `join.tie_order`
-  breaks a tie. A removed player does not count.
+  breaks a tie. A removed player does not count. With two health systems this sends players to
+  A, B, A, B in order of arrival, so the two halves of the room differ by one player at most,
+  and the balance repairs itself after the host removes someone.
+- **Picking a health system.** `join.choose_system_in_modes` lists the session modes in which a
+  player may choose. In a session of such a mode the join request may carry `system`, and the
+  player goes there. A request without it is assigned as above, and the players who picked count
+  toward the balance. An id that the session does not hold is refused with `unknown_system`. In
+  a session of any other mode a `system` in the request is ignored and the player is assigned.
+  The choice exists for play checks and rehearsals, where the person testing wants to play one
+  side. The event pack lists `test` and `rehearsal`, so nobody picks at the event.
 - The practice name is trimmed and checked for length and profanity by the server. A name
   that a practice of the session already has, compared without regard to case, is refused
   with `name_taken`. The engine never makes a second practice by adding a number, because the
@@ -686,6 +728,11 @@ stage, or to the current month in `maintaining.year`), `end_now`, `rename_player
 
 ### 6.5 Phase 1: Planning
 
+The player investigates and sorts every candidate problem into a class. The classes come from
+`phases.planning.classes`, and `class_order` is the spectrum from "not a real problem" to the
+class that asks for the most. Below, the *decoy class* is the class with empty `rungs`, the
+*real classes* are the others, and the *capacity class* is the one that has a `capacity`.
+
 **State of a player**
 
 ```ts
@@ -693,9 +740,13 @@ type PlanningState = {
   done: { id: InvestigationId; atMs: GameMs }[]            // in order of completion
   running: { id: InvestigationId; startedAtMs: GameMs; completesAtMs: GameMs }[]
                                                             // free bandwidth = total - held by these
-  picks: Record<ProblemId, 1|2|3|4|5>
+  picks: Record<ProblemId, ClassId>                         // a problem without an entry is unsorted
   submittedAtMs: GameMs | null
   result: PlanningResult | null                             // set when the stage ends
+}
+type PlanningResult = {
+  graded: { problem: ProblemId; picked: ClassId | null; points: number }[]   // every problem, in pack order
+  classify: number; flagship: number; raw: number
 }
 ```
 
@@ -704,8 +755,11 @@ type PlanningState = {
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `planning.investigate {id}` | Stage is `planning.play`. Not submitted. The id is neither done nor running. Its bandwidth fits in what is free | The investigation holds its bandwidth and runs for its `seconds`. It cannot be cancelled |
-| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. At most `report_slots` picks. At most `agent_rung_capacity` picks on rung 5. Every id exists | Replaces the draft |
-| `planning.submit {}` | Stage is `planning.play`. Not submitted | Locks the report. The player waits for the stage to end |
+| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. Every problem id and every class id exists. No class holds more problems than its `capacity` | Replaces the draft. A problem that the draft leaves out is unsorted |
+| `planning.submit {}` | Stage is `planning.play`. Not submitted | Locks the board. The player waits for the stage to end |
+
+A draft that breaks a rule is refused with `invalid_report` and changes nothing. A draft may be
+empty, and any number of problems may stay unsorted.
 
 When an investigation completes, its tile joins the player's view and its bandwidth is free
 again. Any number may run at once while their bandwidth adds up to at most
@@ -722,20 +776,35 @@ independently.
 **At the end of the stage** the draft of every player who did not submit is submitted as it
 stands. Investigations that are still running are dropped.
 
-**Scoring.** `R` is the number of real problems in the report and `D` the number that are not
-real.
+**Scoring.** Every sorted problem earns points by where the player put it.
 
 ```
-identify = max(component_floor, per_real × R + per_decoy × D)
-ladder   = for each real problem in the report: exact on the true rung, adjacent one rung off, else 0
-flagship = bonus if the flagship problem is in the report on rung 5, else 0
-raw      = identify + ladder + flagship
+points(problem) =
+  exact     the picked class is the true class
+  adjacent  the problem is real, the picked class is a real class, and the two classes are
+            one step apart in class_order
+  0         in every other case
+classify = sum of points over the sorted problems
+flagship = bonus if the flagship problem is in the capacity class, else 0
+raw      = classify + flagship
 ```
 
-**Live column.** The number of tiles unlocked. Correctness stays hidden until the reveal.
+A real problem that is called not real, a problem that is not real and is put in a real class,
+a real problem two steps from its class, and an unsorted problem all earn 0. Nothing earns less
+than 0. The most a player can reach is `candidates × exact + bonus`, which a pack sets to 1000.
+
+**Random play.** The floor anchor of a system (section 6.8) is the mean raw score of random
+boards made like this: as many random problems as its `capacity` go into the capacity class,
+and every other problem goes into one of the other classes with equal chance.
+
+**Live column.** `progress`: the number of insights unlocked plus the number of problems sorted.
+Its largest value is `investigations.per_system + candidates`, and the column carries it, so a
+row reads "17 of 22". A tie goes to the player who reached the value first. Every player can
+reach the top, so the column shows who is how far and never who is right. Correctness stays
+hidden until the reveal.
 
 **Reveal.** Each player receives the truth of every problem (section 9.2), their own picks
-graded one by one, the three parts of the score, the points, the band and the letter.
+graded one by one, the two parts of the score, the points, the band and the letter.
 
 ### 6.6 Phase 2: Development
 
@@ -916,7 +985,7 @@ ranking.
 
 | Column | While its phase is in play | After its phase closed |
 | --- | --- | --- |
-| Phase 1 | Tiles unlocked | Phase points |
+| Phase 1 | Progress: insights unlocked plus problems sorted | Phase points |
 | Phase 2 | Best pilot design score | Phase points |
 | Phase 3 | Points from the seen meters so far | Phase points |
 | Overall | Sum of the closed phases | Sum of the closed phases |
@@ -924,6 +993,8 @@ ranking.
 - The column of the phase in play is marked provisional. The engine recomputes the whole board
   every `refresh_seconds` of game time, and at every stage change. Everyone sees the same board
   between two beats.
+- A live column may carry `of`, the largest value it can reach. Phase 1 sets it, and the page
+  then shows a value as "17 of 22".
 - A filter shows the same four columns inside one health system. A strip ranks the health
   systems. A system's score is the sum over closed phases of the mean points of its players who
   acted in that phase. A player acted when the engine accepted one command or more from them.
@@ -940,7 +1011,8 @@ ranking.
 ### 6.10 Room statistics
 
 When a phase closes the engine computes the statistics the help slides can show, for the room
-and per health system: `flagship_hit_rate`, `most_reported_decoy`, `rung_confusion`,
+and per health system: `flagship_hit_rate`, `most_reported_decoy` (the problem that is not real and was most often
+put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
 `live_stat`. Each is a small typed object that the big screen knows how to draw. Step 11 fixes
@@ -978,8 +1050,8 @@ session and closing.
 | Route | Who | Does |
 | --- | --- | --- |
 | `GET /` and client routes | Anyone | The client application. `index.html` is never cached. Assets have hashed names and are cached for a year |
-| `GET /api/session/:code` | Anyone | Label, title, stage, whether joining is open, players per health system |
-| `POST /api/join` `{code, name, avatar?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name |
+| `GET /api/session/:code` | Anyone | Label, title, mode, stage, whether joining is open, players per health system, and `pickSystem`: the health systems (id, index, name, setting) when a player may pick one in this session, else null |
+| `POST /api/join` `{code, name, avatar?, system?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name. `system` is honored only where section 6.4 allows a pick, is ignored elsewhere, and gives 400 `unknown_system` for an id the session does not hold |
 | `POST /api/rejoin` `{code, rejoinCode}` | Anyone | Returns a new token for that player, in any stage of an open session. The old token stops working |
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
@@ -1156,7 +1228,7 @@ Server to client:
 
 | Message | When | Fields |
 | --- | --- | --- |
-| `welcome` | After `hello` | `protocol`, `build`, `me`, `session`, `system` (the `public` of the health system and its cast), `ladder`, `clock`, `view` |
+| `welcome` | After `hello` | `protocol`, `build`, `me`, `session`, `system` (the `public` of the health system and its cast), `ladder` (each rung with the id and the `short` label of the class it falls in), `clock`, `view` |
 | `ack` | After each `cmd` | `cid`, `ok`, `error?` |
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
@@ -1183,7 +1255,10 @@ Fetched once per phase. All of it is public by construction.
 ```ts
 type PlanningContent = {
   brief: { from: CharacterId; title: Text; text: Text } | null
-  rules: { bandwidth: number; reportSlots: number; agentRungCapacity: number }
+  rules: { bandwidth: number
+           classes: { id: ClassId; label: Text; short: Text; fitsWhen: Text
+                      rungs: number[]; capacity: number | null }[]       // in class_order
+           classMix: Record<ClassId, number> | null }    // sent only when show_class_mix is true
   problems: { id: ProblemId; title: Text; description: Text }[]
   investigations: { id: InvestigationId; method: Method; character: CharacterId | null
                     title: Text; teaser: Text; bandwidth: number; seconds: number
@@ -1238,12 +1313,12 @@ type PlanningView = {
   running: { id: InvestigationId; startedAtMs: GameMs; completesAtMs: GameMs
              lines: Text[] }[]                  // interview lines released so far
   tiles: { investigation: InvestigationId; unlockedAtMs: GameMs; tile: Tile }[]
-  picks: Record<ProblemId, 1|2|3|4|5>
+  picks: Record<ProblemId, ClassId>             // a problem without an entry is unsorted
   reveal: {
-    problems: { id: ProblemId; real: boolean; tier: number | null; flagship: boolean
+    problems: { id: ProblemId; class: ClassId; tier: number | null; flagship: boolean
                 rationale: Text; burden?: { kind: string; size: string; note: Text } }[]
-    graded: { problem: ProblemId; rung: number; identify: number; ladder: number }[]
-    identify: number; ladder: number; flagship: number; raw: number
+    graded: { problem: ProblemId; picked: ClassId | null; points: number }[]   // every problem
+    classify: number; flagship: number; raw: number
   } | null
 }
 ```
@@ -1329,11 +1404,12 @@ in the spotlight). It sends nothing but `hello`.
 
 | Content | Sent |
 | --- | --- |
-| Health system `public`, the `public` of its cast, the ladder, the game title | At join |
-| Problem `public`. Investigation `public`, `method`, `character`, `bandwidth`, `seconds` | When Phase 1 opens |
+| Health system `public`, the `public` of its cast, the ladder with the class of each rung, the game title | At join |
+| Problem `public`. Investigation `public`, `method`, `character`, `bandwidth`, `seconds`. The classes: `label`, `short`, `fits_when`, `rungs`, `capacity` | When Phase 1 opens |
+| `class_mix` | When Phase 1 opens, and only when `show_class_mix` is true. Otherwise never before the reveal, where the corrected board shows it |
 | An interview line | At its scheduled time, to that player |
 | A tile | When its investigation completes, to that player |
-| Problem `key`: `real`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
+| Problem `key`: `class`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
 | Board, choices, option `public`, visible cost, developers, `adds_developers`, `delivery_runs`, team size, component `public` | When Phase 2 opens |
 | Totals of a run: sub-scores, design score, pilot and year cost, visible and hidden parts, complexity points, developers | In the player's own run result |
 | One trace and the `public` of its case | In each run result |
@@ -1351,7 +1427,8 @@ Never sent to a player or the big screen: conditions of any kind, tags, rules, a
 did not fire, `extra_cost`, case weights and which set a case belongs to, the hidden and year
 cost of a single option, complexity points of a single option, monitor `upkeep`, event `drift`,
 `detect`, `onset` before the reveal, option and action `effects`, `reveals`, `arms`, `disarms`,
-`calibration`, source gists, and every `key` field not listed above.
+`calibration`, source gists, `class_mix` while `show_class_mix` is false, and every `key` field
+not listed above.
 
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
 
@@ -1392,13 +1469,15 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
 - **Wake lock.** The player view asks the browser to keep the screen on.
 
 Shared components: button, card, chip, pips, countdown, meter, tabs, sheet, toast, speech bubble,
-portrait, avatar, the four tile types, ladder legend, rung picker, leaderboard table, letter.
+portrait, avatar, the four tile types as evidence cards, the card overlay, problem card, class
+bin, class control, ladder legend, leaderboard table, letter.
 
 **The top bar** is on every player screen: the practice's character and name with the health
 system badge, the
 phase and its label, the countdown, the resource of the phase (bandwidth, pilot runs or the year's credits),
 the rank chip that opens the standings, a connection dot and a menu (how to play, the ladder,
-the rejoin code). The countdown turns amber and then red at the times in
+the rejoin code). The ladder in the menu is teaching material. It lists the five rungs and
+marks on each the class it falls in. The countdown turns amber and then red at the times in
 `clock.warnings_seconds_left`.
 
 ### 10.2 Join and lobby
@@ -1407,6 +1486,12 @@ the rejoin code). The countdown turns amber and then red at the times in
 from with one already picked, one field for the practice name with its length limits, and a
 Join button. When the pack has no title yet, the session label stands alone. Errors appear under the field. A link opens "Rejoin with a code". A
 closed or unknown session says so plainly.
+
+**Picking a health system.** When the session allows it (`pickSystem` of section 7.2, in a test
+or a rehearsal), the join page shows one more row under the name field: "Assign me", which is
+picked at first, and one button per health system with its mark, its name and its setting. A
+line under the row says that the choice exists only in a test or a rehearsal. In an event
+session the row is absent and nothing on the page hints at it.
 
 **Lobby.** After joining, the player sees which health system they were assigned to, with a
 short reveal, and the rejoin code of the practice in large type with the line "Keep this code.
@@ -1466,26 +1551,47 @@ A bubble holds one line of dialogue. The scene queues bubbles so that two never 
 
 ### 10.4 Phase 1 screens
 
-**Laptop layout.** Three columns under the top bar.
+Phase 1 has one screen, **the board**. The player sorts the problems on it while every insight
+they have unlocked stays readable beside the problems. The phase is decided by reading the
+insights next to each other, so the evidence gets the most room on the screen, and nothing on
+an insight is clamped.
+
+**Laptop layout.** Three areas under the top bar.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ practice ◆ system │ Phase 1 · Planning │ 08:12 │ bandwidth ■■□        │ rank │
-├──────────────────────┬─────────────────────────┬───────────────────────────┤
-│ Reading room         │ Evidence                │ Report        4 of 6  Send│
-│ (scene)              │                         │ ladder summary            │
-│                      │  tile   tile            │ ┌───────────────────────┐ │
-│ transcript strip     │  tile   tile            │ │ problem card          │ │
-├──────────────────────┤  tile                   │ │ [out][1][2][3][4][5]  │ │
-│ Investigations       │                         │ └───────────────────────┘ │
-│  row  row  row  …    │                         │  … 12 cards, scrolling    │
-└──────────────────────┴─────────────────────────┴───────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ practice ◆ system │ Phase 1 · Planning │ 08:12 │ bandwidth ■■□                   │ rank │
+├────────────────┬──────────────────────────────────────────┬─────────────────────────────┤
+│ ‹ Room         │ Evidence        5 insights    size ▫ ▪   │ Sort           6 of 10 Send │
+│ (scene)        │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ┌ Not a problem ──────────┐ │
+│ transcript     │ │ Practice │ │ insight  │ │ insight  │   │ │ chip                    │ │
+├────────────────┤ │          │ │          │ │          │   │ ├ No AI ──────────────────┤ │
+│ Investigations │ └──────────┘ └──────────┘ └──────────┘   │ │ chip  chip              │ │
+│  row           │ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ ├ One model ──────────────┤ │
+│  row           │ │ insight  │ │ insight  │ │ insight  │   │ ├ Agentic        holds 1 ─┤ │
+│  row  …        │ │          │ │          │ │          │   │ └─────────────────────────┘ │
+│                │ └──────────┘ └──────────┘ └──────────┘   │ Unsorted                    │
+│                │   … the wall scrolls                     │  problem card, problem card │
+└────────────────┴──────────────────────────────────────────┴─────────────────────────────┘
 ```
+
+- **The rail**, on the left, 340 px: the reading room scene, the transcript strip and the
+  investigations list. One control at its top folds it to a strip of 44 px that still shows how
+  many investigations are running, with their seconds left, and how many are not started. The
+  rail folds by itself once every investigation is done, with a short notice, and the same
+  control opens it again.
+- **The evidence wall**, in the centre, takes all the width that is left.
+- **The sorting board**, on the right, 340 px.
+
+Each area scrolls by itself. The page never scrolls sideways.
 
 **Phone layout.** The top bar shrinks to the countdown and the bandwidth. Three tabs at the
-bottom: Room (scene, transcript, investigations), Evidence, Report. A tab shows a badge when
-something new is in it. The tablet layout puts Room on the left and Evidence and Report as two
-tabs on the right.
+bottom: Room (scene, transcript, investigations), Evidence, Sort. A tab shows a badge when
+something new is in it. Evidence is one column of full cards. Sort lists the problem cards with
+their class control, under a strip of the four bins with the number of problems in each. Every
+problem card in Sort has a button that jumps to Evidence, and Evidence then shows a button that
+leads back to that card. On a tablet the evidence wall and the sorting board sit side by side
+and the rail is a drawer that opens from the top bar.
 
 **The brief.** When the phase opens, the brief of the phase appears as a card with the
 sender's portrait. The player closes it and can open it again from the menu. The clock runs
@@ -1499,86 +1605,121 @@ while it is open.
 - Start is one click, because nothing is spent. A started investigation cannot be cancelled,
   and the row says so before the first one is started.
 - States: available, not enough free bandwidth (dimmed, says how many blocks it needs and when
-  the next ones come free), running (a bar with the seconds left), done (a check and a link to
-  its tile). Several rows can be running.
+  the next ones come free), running (a bar with the seconds left), done (a check and a link
+  that scrolls the wall to its card). Several rows can be running.
 - The top bar shows the bandwidth as blocks, held and free. Blocks that come free flash once.
-- After the report is sent, every row is locked.
+- After the board is sent, every row is locked.
 
-**Evidence.** The unlocked tiles in order of arrival, two columns on a laptop and one on a
-phone. Empty at first, with one line that says how to get the first tile.
+**The evidence wall.** A grid of insight cards.
 
-| Tile | Shows |
+- **Columns.** As many as fit at the minimum card width. A size control in the header of the
+  wall has two positions: "More" with a minimum of 260 px, which is the default, and "Larger"
+  with a minimum of 380 px. On a 1280 px screen "More" gives two columns with the rail open and
+  three with it folded, and wider screens give more. The control is remembered in the browser.
+- **A card shows everything at reading size**: a colored strip with the method and the title of
+  the investigation it came from, the headline, the chart or the findings or the speech bubbles
+  or the number, then the body and the note with their bold and italic marks. Nothing is
+  clamped, cut or hidden behind a click. Body text is 14 px or more. The cards of a row start
+  at the same height and may end at different heights.
+- **Order.** The Practice card is pinned first. It lists every line of `practice_profile` and
+  `baseline` with its unit. The insight cards follow in order of arrival, and a card never
+  changes its place afterwards, so a player finds it again where it was.
+- **Arrival.** A new card appears with a short highlight and a "New" tag that goes when the
+  card has been on screen for a few seconds. When it lands outside the visible part of the
+  wall, a chip at the bottom of the wall says so and scrolls to it.
+- **Maximize.** A click on a card, or Enter while it has the focus, opens it in an overlay with
+  larger type (18 px body), a larger chart and the same content. Escape, the close button or a
+  click outside closes it, and the focus returns to the card. The left and right arrow keys
+  move to the previous and the next card without closing. On a laptop the overlay covers the
+  rail and the wall and leaves the sorting board free, so a player can read a card large and
+  sort at the same time. On a phone it fills the screen.
+- **Empty.** Before the first insight the wall shows the Practice card and one line that says
+  how to get the first insight.
+
+| Tile | The card shows |
 | --- | --- |
 | `stat` | The value and unit large, the label, the comparison under it |
 | `chart` | A bar or line chart drawn as SVG, axis labels, a legend when there are two series or more, the note |
 | `quote` | The speaker's portrait, name and role, and the lines |
 | `audit` | The sample size, each finding as a labelled bar with its count, the note |
 
-Every tile also shows its headline, its body, and the method and title of the investigation it
-came from. A new tile arrives with a short highlight. Clicking a tile opens it large.
+**The sorting board.** The header shows how many problems are sorted and the Send button.
 
-**Report.** The column header shows the slots used, the ladder summary and the Send button.
+- **Bins.** Four bins in `class_order`, each with the `label` of its class. A tap on the label
+  opens its `fits_when` and the rungs of the ladder it covers. A bin shows the problems in it
+  as chips with the whole title. The capacity class shows as many slots as its `capacity`.
+  When `classMix` is sent, each bin also says how many problems belong in it. It still accepts
+  more or fewer, except for the capacity class.
+- **Unsorted.** Under the bins, the problems that are not sorted yet, one card each, in pack
+  order: the title and the whole description. The board starts with every problem here.
+- **Sorting by dragging.** A problem card or chip can be dragged into a bin, from one bin to
+  another, or back to Unsorted. The bins stay in view while something is dragged, and the bin
+  under the pointer is marked. Dragging uses pointer events, so it also works on a touch
+  screen.
+- **Sorting without dragging.** Every problem card has a class control with one button per
+  class, labelled with the `short` name, and a way to clear it. It is the only way on a phone
+  and the keyboard path on a laptop: with a card in focus the keys 1 to 4 pick the class in
+  `class_order` and 0 clears it. A chip in a bin opens its card, with the description and the
+  same control, in place.
+- **The capacity class.** Putting a problem there when it is full asks to swap. On yes, the
+  problem that was there goes back to Unsorted.
+- **Saving.** Every change is saved to the server after 300 ms without a change. A refusal puts
+  the board back to what the server holds and says why.
+- **Send** opens a sheet that lists the board by class, names the problems that are still
+  unsorted and says that they will score nothing, and asks to confirm. After sending, the
+  board is locked and says that it was sent. The evidence wall stays readable.
 
-- The ladder summary lists the five rungs with their labels and, on each, the problems placed
-  there as chips. Clicking a rung opens its `fits_when` and `example`.
-- One card per candidate problem, in pack order. A card shows the title and the description,
-  clamped to two lines until opened.
-- Each card has one control with six positions: "Leave out" and the rungs 1 to 5. Choosing a
-  rung puts the problem in the report on that rung.
-- When all slots are used, the rungs of the other cards are disabled and say that the report is
-  full.
-- Rung 5 holds `agent_rung_capacity` problems. Choosing it on another card asks to move it, and
-  the problem that held it leaves the report.
-- A card has a "Ruled out" toggle that greys it. It is a note for the player, kept in the
-  browser and never sent.
-- On a laptop the chips of the ladder summary can also be dragged between rungs.
-- Every change is saved to the server after 300 ms without typing or clicking.
-- **Send** opens a sheet that lists the report by rung, says that empty slots are allowed, and
-  asks to confirm. After sending, the column is locked and says the report was sent.
-
-**End of the stage.** A full-width notice says that time is up and that the report was sent as
+**End of the stage.** A full-width notice says that time is up and that the board was sent as
 it stood. Two notices warn before, at the times in `clock.warnings_seconds_left`.
 
-**Reveal.** One screen, top to bottom: the letter with the sender's portrait, the score (the
-three parts, the points and the band), and the corrected report. The corrected report lists
-every candidate problem with the player's rung, the true answer, a mark (right, one rung off,
-reported but not real, real but missed) and the rationale on opening. The flagship problem is
-marked. A closing line names the problem that everyone builds for next. The same screen stays
-during the break, with a note to look at the big screen.
+**Reveal.** One screen, top to bottom.
+
+1. **The corrected board.** The four bins with every problem in its true class. Each problem
+   carries a mark for the player's own pick: right, one class off, wrong, or unsorted, with the
+   class the player chose and the points it earned. Opening a problem shows its rationale, its
+   burden and, for a real problem, its rung on the ladder. The flagship problem is marked and
+   open by default.
+2. **The letter**, with the sender's portrait.
+3. **The score**: its two parts (the sorting and the flagship), the points and the band.
+
+A closing line names the problem that everyone builds for next. The same screen stays during
+the break, with a note to look at the big screen.
 
 **Notes from the first full-size pack (Step 4).** The first real Phase 1 content was written
-after this section. It asks for the following.
+after the first version of this section. It asks for the following.
 
 - **Practice numbers stay in reach.** Some evidence is read against a line of the practice
-  profile or the baseline. During Phase 1 both are one tap away. On a laptop a "Practice" card
-  sits at the top of the Evidence column, closed to its title until opened. On a phone it is the
-  first card of the Evidence tab. The card lists every line of `practice_profile` and `baseline`
-  with its unit. The wall board in the scene does not replace it.
-- **Nothing a player needs is clamped.** A tile always shows its whole body, its findings and
-  its note. A problem card shows its whole description on a laptop and a tablet, where a
-  description runs to about 26 words, and clamps it only on a phone. The play time has no room
-  for a click on every card.
+  profile or the baseline. Both are on the Practice card, which is pinned first on the wall on
+  a laptop and is the first card of the Evidence tab on a phone. The wall board in the scene
+  does not replace it.
+- **Nothing a player needs is clamped.** A card always shows its whole body, its findings and
+  its note. A problem card shows its whole description on every screen size. The play time has
+  no room for a click on every card.
 - **Two inline marks.** The body and the note of a tile, a brief and a letter may carry
   `**bold**` and `*italic*`, so that a player can skim for the number that matters. The client
   renders these two marks and nothing else. Every other character is shown as text, and no
   HTML is ever interpreted. A pack uses them on two to four places in a tile.
-- **Sizes to design for.** A headline has up to 10 words and a body up to 40. An `audit` tile
-  has up to 7 findings with labels of up to 12 words and a note of up to 20 words. A `chart`
-  tile has up to 3 series and up to 8 points in a series. An interview has 3 lines of up to 16
-  words. An investigation row has a title of up to 9 words and a teaser of up to 13.
+- **Sizes to design for.** A system has 10 problem cards and 12 investigations. A problem has a
+  title of up to 8 words and a description of up to 35. A headline has up to 10 words and a
+  body up to 45. An `audit` tile has up to 7 findings with labels of up to 12 words and a note
+  of up to 20 words. A `chart` tile has up to 3 series and up to 8 points in a series. An
+  interview has 3 lines of up to 16 words. An investigation row has a title of up to 9 words
+  and a teaser of up to 13. The wall must stay readable with 12 insight cards and the Practice
+  card on it.
 - **`audit` tiles.** The bars are scaled to the largest count on the tile and never to
   `sample_size`, because the findings of a tally can count different things. The sample size is
   a caption. A label wraps and is never cut.
 - **`chart` tiles.** The x values are often text, such as quarters or the names of groups. A bar
   chart with several series is drawn as grouped bars with the value on each bar. A line chart
-  starts its y axis at zero, and on a phone it may show every second x label. The note sits
-  under the chart in body text.
+  starts its y axis at zero, and at the smallest card width it may show every second x label.
+  A series whose points all share one value is a yardstick, such as a target. It is drawn as
+  a dashed line without markers and keeps its name in the legend. The note sits under the
+  chart in body text.
 - **`quote` tiles.** The body is one or two sentences about the speaker and comes before the
   lines. A bubble in the scene wraps a line of 16 words to three rows at most at the phone crop.
   The transcript strip always holds every line.
 - **Reveal.** A rationale runs to about 90 words and a burden note to about 40. The corrected
-  report keeps both behind the opening of a row and opens the row of the flagship problem by
-  default.
+  board keeps both behind the opening of a problem and opens the flagship problem by default.
 
 ### 10.5 Phase 2 screens (outline)
 
@@ -1649,8 +1790,9 @@ Opened at `/host` with the passcode. One page, laptop only.
 | Export | Results and timing as JSON or CSV |
 | Danger | Reset stage (not in `event` mode), close session. Both ask to confirm by typing the session code |
 
-Creating a session asks for a label and a mode, and shows which phases the pack can run and
-whether its anchors are provisional.
+Creating a session asks for a label and a mode, and shows which phases the pack can run,
+whether its anchors are provisional, and whether players can pick their health system in that
+mode.
 
 ### 10.9 Big screen
 
@@ -1670,7 +1812,8 @@ chooses a scene.
 
 **The leaderboard.** Four columns side by side, each with the top `big_screen_rows` rows: rank,
 the practice's character, practice name, health system badge, value. The live column has a "Live" tag and the label from
-`live_leaderboard.label`. A column whose phase has not opened is empty. The arrow keys of the
+`live_leaderboard.label`. A live column that carries `of` shows a value as "17 of 22". A column
+whose phase has not opened is empty. The arrow keys of the
 big screen window move the slides as well.
 
 ---
@@ -1733,7 +1876,8 @@ chips and filled tracks. Light: `#d5f5ec`, `#fff0cf`, `#dbf1fa`, `#ebe9fa`, `#ff
 `#173f3c`, `#453618`, `#1c3a52`, `#30315a`, `#4a2530`.
 
 Health systems, each a color and a shape, used on badges and rows: blue circle `#4f8fe6`,
-orange square `#f08a3c`, pink triangle `#e0609e`, green diamond `#3fb58f`. The four metrics have
+orange square `#f08a3c`, pink triangle `#e0609e`, green diamond `#3fb58f`. A pack with two
+health systems uses the first two. The four metrics have
 fixed icons and always appear in the same order: validity, reliability, cost, complexity. A
 meter is filled with `--go`, with `--sun` when it needs attention and with `#e2605a` when it is
 failing.
@@ -1813,12 +1957,24 @@ repository. The checks run on the Mac before each merge.
   many small ones.
 - **Rules.** Each command has a test for every refusal in its table. Late joining, the offer
   race, pause and extend, tie-breaks, rounding half up, missing anchors.
+- **Sorting.** The planning vectors hold every pair of true class and picked class, the
+  flagship bonus with the flagship in and out of the capacity class, an empty board, a board
+  with problems left unsorted, a draft with two problems in the capacity class (refused) and a
+  draft with an unknown class (refused). `test:parity` sends random boards made by the rule of
+  section 6.5. The live value is insights plus sorted problems and never moves on a refusal.
+- **Joining.** With two health systems ten joins alternate A, B. After a removal the next join
+  goes to the smaller system. In a `test` and in a `rehearsal` session a join with `system`
+  lands there, and later joins without it restore the balance. In an `event` session a join
+  with `system` is assigned as if it carried none. An unknown system id is refused.
 - **Property.** No points outside 0 to `max_points`. A meter never leaves 0 to 100.
 
 ### 12.3 Content and projection
 
 - The demo pack loads without errors or warnings.
-- A folder of broken packs, one fault each, fails with the right path in the message.
+- A folder of broken packs, one fault each, fails with the right path in the message. For the
+  classes: a problem whose class disagrees with its tier, a mix that the problems do not match,
+  two classes with a capacity, a rung that no class covers, a flagship outside the capacity
+  class.
 - Every projection output passes its strict schema. A snapshot test lists the field names of
   every outgoing type, so a new field shows up in review.
 - **The leak scan.** The loader can list every string of a pack that must not leave the server,
@@ -1854,6 +2010,25 @@ attached to a pull request.
 Playwright plays the demo pack at 1280 × 720 and 390 × 844: join, lobby, each phase as it is
 built, a refresh in the middle of a phase, a closed browser that returns with the rejoin code
 in a fresh one, the host console driving the stages, and the big screen following. It checks that nothing overflows and that every action works by tap.
+
+For the board of Phase 1 it also checks, at both sizes unless said otherwise:
+
+- A problem is sorted by dragging it into a bin, moved to another bin and dragged back to
+  Unsorted (laptop). The same three moves work with the class control and with the keys 1 to 4
+  and 0 (laptop), and with the class control alone (phone).
+- A second problem dropped on the capacity class asks to swap, and the first returns to Unsorted.
+- With all 12 investigations of a full-size fixture done, the wall shows 13 cards, two columns
+  with the rail open and three with it folded at 1280 px, no card is cut, and no text on a card
+  is smaller than 14 px.
+- A card maximizes on a click and on Enter, the arrow keys reach its neighbours, Escape closes
+  it and returns the focus, and a problem can be sorted while a card is maximized (laptop).
+- The rail folds by itself when the last investigation ends and opens again.
+- A refresh in the middle of sorting brings the same board back.
+- In a rehearsal session the join page offers the health systems and the player lands in the
+  one picked. In an event session the row is absent.
+
+The fixture is a neutral pack of full size (10 problems, 12 investigations, texts at their word
+limits) that lives with the tests, so that the layout is proven without the private pack.
 
 ### 12.7 Load and timing
 
@@ -1949,9 +2124,18 @@ a refresh and a server restart, and the host can drive every stage with the big 
 
 **Step 5. Phase 1**
 
-The planning rules of section 6.5, the parity vectors for planning and normalization, the
-screens of section 10.4, interviews in the scene, the brief, the letter and the reveal, the
-live column, dialogue triggers for the phase, the big screen reveal.
+1. `content-schema`: the planning rules and the problem key of section 5.5 (classes, mix,
+   `class`, `choose_system_in_modes`), their loader checks, and the demo pack brought to the
+   new format.
+2. `protocol`: `PlanningContent.rules`, `PlanningView.picks` and its reveal, the class on each
+   ladder rung, `pickSystem` and `system` on the join routes, `of` on a live column.
+3. `engine`: the planning rules of section 6.5, the progress column, the pick of a health
+   system at join (section 6.4), and the parity vectors for planning and normalization, which
+   the private tool regenerates for the classification.
+4. `client`: the board of section 10.4 (rail, evidence wall with the overlay, sorting board
+   with dragging and the class control), the picker on the join page, interviews in the scene,
+   the brief, the letter and the reveal, dialogue triggers for the phase, the big screen
+   reveal.
 
 Done when Phase 1 of the private pack plays from brief to reveal on a laptop and a phone, and
 the leak scan and parity pass on it.
@@ -1986,7 +2170,7 @@ report.
 
 | Step | Adds |
 | --- | --- |
-| 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5 |
+| 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5. The review of that content also turned Phase 1 from a ladder report into a sorting board with four classes, cut the pack to two health systems and added the pick of a health system in tests and rehearsals (sections 1, 5.5, 6.4, 6.5, 6.9, 7.2, 8.3, 8.4, 9.2, 10.2, 10.4 and 12) |
 | 6 | Section 10.5 in full, and the final `DevelopmentView` |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
