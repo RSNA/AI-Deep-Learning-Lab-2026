@@ -188,7 +188,7 @@ test('the phone: three tabs, the same assessment, a full class, the evidence and
   s.close()
 })
 
-test('the lobby: the people in a list, pixel portraits, a click that makes a person speak', async ({ page }, info) => {
+test('the lobby: the people in a list, pixel portraits, a click that makes a person speak', async ({ page }) => {
   const s = await setup(page, 'E2E lobby')
   await joinPicked(page, s.code, 'Lobby Tester', /Riverbend/)
   await expect(page.getByText('People in your practice')).toBeVisible()

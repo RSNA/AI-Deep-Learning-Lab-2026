@@ -387,6 +387,7 @@ describe('host consoles', () => {
     const a2v = views(a2)
     cleanups.push(() => a2.close())
     await until(() => !!a2v.view && a2v.view.control.you, 5000, 'back in control')
+    await until(() => bv.view!.control.state === 'held', 5000, 'the viewer sees it held again')
     // It drops again and stays away: after 20 seconds nobody is in control, and with two
     // consoles left it goes to no one by itself.
     a2.close()

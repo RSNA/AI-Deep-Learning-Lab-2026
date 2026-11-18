@@ -2161,7 +2161,7 @@ sent as it stood. Two notices warn before, at the times in `clock.warnings_secon
 ```
 ┌──────────────────────────────────────────────────────────┬───────────────────────────┐
 │ The corrected assessment                                 │ A letter for you          │
-│ ┌ Real, and it needs an agentic system ────────────────┐ │  ▣ sender                 │
+│ ┌ Real, and it takes an agentic system ────────────────┐ │  ▣ sender                 │
 │ │ title   The agent project   your pick · points       │ │  the always text          │
 │ │ why it needs an agent        │ what it costs         │ │  the line for this player │
 │ │ (the rationale)              │ (the burden, the rung)│ ├───────────────────────────┤
