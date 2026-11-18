@@ -1,4 +1,4 @@
-# Demo cast. Four people shared by both library networks, and one extra in each.
+# Demo cast. Four people shared by both library networks, and one extra in each network.
 # look: free words that the client's sprite builder reads (hair, hair_style, skin, top, detail).
 - id: demo-mara
   system: all
@@ -19,7 +19,7 @@
 - id: demo-priya
   system: all
   public: {name: Priya Nand, role: Branch manager, portrait: demo-priya}
-  look: {hair: black, hair_style: bun, skin: medium, top: navy blazer}
+  look: {hair: black, hair_style: long, skin: medium, top: navy blazer, detail: badge}
   click_lines:
     - My door is open. The draft from it too.
     - Budgets are stories with numbers in them.
@@ -27,17 +27,26 @@
 - id: demo-tom
   system: all
   public: {name: Tom Okafor, role: Systems technician, portrait: demo-tom}
-  look: {hair: grey, hair_style: buzz, skin: dark, top: green polo, detail: beard}
+  look: {hair: grey, hair_style: short, skin: dark, top: green polo, detail: beard}
   click_lines:
     - Have you tried turning the kiosk off and on again?
     - The printer and I have an understanding. It does not understand.
     - Every cable here has a name. Do not ask me the names.
 - id: demo-ola
-  system: all
+  system: rb
   extra: true
   public: {name: Ola Berg, role: Volunteer reader, portrait: demo-ola}
-  look: {hair: blonde, hair_style: ponytail, skin: fair, top: red jumper, detail: headphones}
+  look: {hair: blonde, hair_style: long, skin: fair, top: red jumper, detail: headphones}
   click_lines:
     - Story time is at four. I do the voices.
     - The dragon book again? Excellent choice.
     - I only volunteer here. I have opinions anyway.
+- id: demo-sami
+  system: ls
+  extra: true
+  public: {name: Sami Hale, role: Night security, portrait: demo-sami}
+  look: {hair: black, hair_style: bald, skin: tan, top: navy jacket, detail: mug}
+  click_lines:
+    - Quiet night. The returns chute is louder than the burglars.
+    - I read the overdue list on my rounds. Riveting.
+    - The lights here turn off by themselves. Mostly.

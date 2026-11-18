@@ -226,8 +226,9 @@ export const MonitorsFile = W({
 })
 export type MonitorsFile = z.infer<typeof MonitorsFile>
 
-/** How a person's pixel character looks. Free words, read by the client's sprite builder. */
-export const Look = W({ hair: Text.optional(), hair_style: Text.optional(), skin: Text.optional(), top: Text.optional(), detail: Text.optional() })
+/** How a person's pixel character looks: free words, read by the client's sprite builder (11.4). */
+export const HAIR_STYLES = ['short', 'long', 'bald', 'covered'] as const
+export const Look = W({ hair: Text, hair_style: z.enum(HAIR_STYLES), skin: Text, top: Text, detail: Text.optional() })
 export type Look = z.infer<typeof Look>
 
 export const CharactersFile = z.array(W({
@@ -455,22 +456,18 @@ export type StoryFile = z.infer<typeof StoryFile>
 // ------------------------------------------------------------------------------------------
 // teaching/
 // ------------------------------------------------------------------------------------------
-const Slide = W({ id: Id, title: Text, bullets: z.array(Text), live_stat: z.string().optional(), notes: Text.optional() })
-export const HelpSlidesFile = W({
-  intro: z.array(Slide).optional(),
-  breaks: W({
-    after_planning: z.array(Slide).optional(),
-    after_development: z.array(Slide).optional(),
-    after_maintaining: z.array(Slide).optional(),
-  }),
-  reflection_prompts: z.array(Text).optional(),
-})
-export type HelpSlidesFile = z.infer<typeof HelpSlidesFile>
+
 
 /** teaching/deck.yaml: the one deck of the session, in sections. */
+/** The room statistics a slide may show (section 6.10). */
+export const ROOM_STATS = [
+  'flagship_hit_rate', 'most_reported_decoy', 'class_confusion', 'median_pilot_runs', 'most_common_trace',
+  'pilot_to_heldout_drop', 'share_overbuilt', 'monitors_funded', 'silent_events_caught_early', 'most_missed_event',
+] as const
+
 export const DeckSlide = W({
   id: Id, title: Text, bullets: z.array(Text),
-  image: z.string().optional(), live_stat: z.string().optional(), notes: Text.optional(), placeholder: z.boolean().optional(),
+  image: z.string().optional(), live_stat: z.enum(ROOM_STATS).optional(), notes: Text.optional(), placeholder: z.boolean().optional(),
 })
 export const DeckFile = W({
   sections: z.array(W({ id: Id, title: Text, stage: z.string(), slides: z.array(DeckSlide).min(1) })).min(1),

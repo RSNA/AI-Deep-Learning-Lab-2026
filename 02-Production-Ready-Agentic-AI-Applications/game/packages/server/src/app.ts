@@ -142,7 +142,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const room = manager.get(normalizeCode(body.data.code))
     if (!room || room.state.closed) return bad(reply, 404, 'unknown_session')
     const r = room.rejoin(body.data.rejoinCode)
-    if (!r.ok) return bad(reply, r.error === 'removed' ? 403 : 404, r.error)
+    if (!r.ok) return bad(reply, r.error === 'removed' ? 403 : 404, r.error === 'unknown_player' ? 'not_found' : r.error)
     return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: room.code }
   })
 
@@ -240,6 +240,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
       pack: {
         title: pack.game.game.title, hash: pack.hash.slice(0, 12), systems: pack.systemIds,
         systemNames: pack.systemIds.map((id) => pack.systems[id]!.system.public.name),
+        placeholders: (pack.deck?.sections ?? []).reduce((n, sec) => n + sec.slides.filter((sl) => sl.placeholder).length, 0),
         phasesAvailable: pack.phasesAvailable, provisional: pack.provisional,
         pickModes: pack.game.join.choose_system_in_modes ?? [],
       },
@@ -252,7 +253,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (!body.success) {
       // Name the field that is wrong, so the console can say so beside it.
       const field = body.error.issues[0]?.path[0]
-      return bad(reply, 400, field === 'code' ? 'code_invalid' : field === 'label' ? 'label_invalid' : 'bad_message')
+      return bad(reply, 400, field === 'code' ? 'code_invalid' : 'bad_message')
     }
     const r = manager.create(body.data.label, body.data.mode, body.data.code)
     if (!r.ok) return bad(reply, 409, r.error)
@@ -263,7 +264,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const r = manager.remove(normalizeCode(req.params.code))
     if (r === 'unknown_session') return bad(reply, 404, r)
-    if (r === 'session_open') return bad(reply, 409, r)
+    if (r === 'session_open') return bad(reply, 409, 'wrong_stage')
     return { ok: true }
   })
 
@@ -409,7 +410,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
           const room = h.session ? manager.get(h.session) : undefined
           if (!room) return refuse(CLOSE.closed, 'unknown_session')
           conn.room = room
-          room.attachHost(sock, h.name ?? '')
+          room.attachHost(sock, h.name ?? '', h.console ?? '')
           return
         }
         const room = row.code ? manager.get(row.code) : undefined
@@ -443,7 +444,10 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
         if (limited) return sock.send(JSON.stringify({ t: 'ack', cid: env.data.cid, ok: false, error: 'rate_limited' }))
         conn.room.hostCommand(sock, env.data.cid, env.data.type, env.data.payload)
       }
-      // A screen sends nothing after hello.
+      else {
+        // A screen sends nothing after hello (section 7.10): one that does is closed.
+        ws.close(1008, 'a screen sends nothing')
+      }
     })
   })
 

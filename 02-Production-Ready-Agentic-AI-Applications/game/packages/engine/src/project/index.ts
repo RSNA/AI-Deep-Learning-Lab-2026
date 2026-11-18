@@ -267,24 +267,17 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
 // ------------------------------------------------------------------------------------------
 // Slides
 // ------------------------------------------------------------------------------------------
-/** A figure of the room that a slide may show live (`live_stat`). Unknown names show nothing. */
+/**
+ * A room statistic that a slide shows live (`live_stat`, section 6.10). Step 11 fixes their
+ * shapes. Until then the share of the room that found the agent project is drawn, and the
+ * others show nothing.
+ */
 function liveStat(s: SessionState, pack: Pack, name: string): SlideView['stat'] {
-  const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
-  const m = /^(planning|development|maintaining)_(mean|flagship)$/.exec(name)
-  if (name === 'players') return { label: 'Players in the room', value: String(active.length) }
-  if (m) {
-    const phase = m[1] as PhaseId
-    const done = active.filter((p) => p.results[phase] && p.acted[phase])
-    if (!done.length) return null
-    if (m[2] === 'mean') {
-      const mean = Math.round(done.reduce((n, p) => n + p.results[phase]!.points, 0) / done.length)
-      return { label: `Mean points in ${pack.game.phases[phase].label}`, value: String(mean) }
-    }
-    if (phase !== 'planning') return null
-    const hits = done.filter((p) => (p.planning?.result?.flagship ?? 0) > 0).length
-    return { label: 'Found the agent project', value: `${Math.round((100 * hits) / done.length)}%` }
-  }
-  return null
+  if (name !== 'flagship_hit_rate' || !s.closedPhases.includes('planning')) return null
+  const done = s.order.map((id) => s.players[id]!).filter((p) => !p.removed && p.acted.planning && p.planning?.result)
+  if (!done.length) return null
+  const hits = done.filter((p) => (p.planning!.result!.flagship ?? 0) > 0).length
+  return { label: 'of the room found the agent project', value: `${Math.round((100 * hits) / done.length)}%` }
 }
 
 export function slideView(s: SessionState, pack: Pack, index: number): SlideView | null {
@@ -404,6 +397,12 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       tiles: sp.planning?.done.length ?? 0,
     } : null,
     slide: scene === 'slides' ? slideView(s, pack, s.screen.slide) : null,
+    activity: s.stage === 'planning.play' ? {
+      players: active.length,
+      acted: active.filter((p) => p.acted.planning).length,
+      insights: active.reduce((n, p) => n + (p.planning?.done.length ?? 0), 0),
+      sent: active.filter((p) => p.planning?.submittedAtMs !== null && p.planning?.submittedAtMs !== undefined).length,
+    } : null,
     winners,
   }
 }
@@ -435,7 +434,7 @@ function screenReveal(s: SessionState, pack: Pack): ScreenView['reveal'] {
 // Host console
 // ------------------------------------------------------------------------------------------
 const SEGMENT_LABELS: Record<string, string> = {
-  join: 'Join', intro_slides: 'Intro', planning: 'Phase 1', help_slides_1: 'Help 1',
+  join: 'Join', intro_slides: 'Intro slides', planning: 'Phase 1', help_slides_1: 'Help 1',
   development: 'Phase 2', help_slides_2: 'Help 2', maintaining: 'Phase 3', help_slides_3: 'Help 3',
   reflection: 'Reflection', winners: 'Winners',
 }
@@ -542,7 +541,7 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
       current: hostSlide(s, pack, s.screen.slide),
       next: hostSlide(s, pack, s.screen.slide + 1),
     },
-    control: { you: false, holder: null, watchers: [] },
+    control: { you: false, state: 'free', holder: null, watchers: [] },
     answerKey: x.answerKey,
     phaseLive: live,
     pickModes: [...(pack.game.join.choose_system_in_modes ?? [])],

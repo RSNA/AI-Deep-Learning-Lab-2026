@@ -26,7 +26,11 @@ export type Sock = {
   spectating?: string | null
   hostName?: string
   hostSeq?: number
+  consoleId?: string
 }
+
+/** Section 7.10: control stays with a console that drops for this long, then it is free. */
+export const CONTROL_GRACE_MS = 20_000
 
 /** Host commands a console may send without holding control: they change nothing in the session. */
 const VIEW_ONLY_OK = new Set(['take_control', 'spectate', 'rejoin_code'])
@@ -44,8 +48,12 @@ export class Room {
   private clock: ClockState
   private readonly players = new Map<PlayerId, Sock>()
   private readonly hosts = new Set<Sock>()
-  /** The one console that drives the session. The others watch until they take control. */
-  private controller: Sock | null = null
+  /**
+   * The one console that drives the session (section 7.10). `sock` is null while it has dropped
+   * and may come back within the grace time. Null altogether: control is free.
+   */
+  private controller: { id: string; name: string; sock: Sock | null; droppedAt: number } | null = null
+  private everControlled = false
   private hostSeqN = 0
   private readonly screens = new Set<Sock>()
   private readonly dedup = new Map<string, Map<string, AckRecord>>()
@@ -140,6 +148,7 @@ export class Room {
   // ----------------------------------------------------------------------------------------
   tick(): void {
     const wall = this.deps.config.wallNow()
+    this.checkControl()
     if (!this.state.closed) this.handle(advance(this.state, this.deps.pack, this.now()))
     if (this.clock.running && wall - this.lastClockWrite >= 1000) {
       this.deps.db.writeClock(this.code, this.now(), true, this.clock.scale)
@@ -304,9 +313,25 @@ export class Room {
   private controlFor(sock: Sock) {
     const c = this.controller
     return {
-      you: sock === c,
-      holder: c?.hostName ?? null,
-      watchers: [...this.hosts].filter((h) => h !== c).map((h) => h.hostName ?? ''),
+      you: !!c && c.sock === sock,
+      state: (c ? (c.sock ? 'held' : 'reconnecting') : 'free') as 'held' | 'reconnecting' | 'free',
+      holder: c?.name ?? null,
+      watchers: [...this.hosts].filter((h) => h !== sock && h !== c?.sock).map((h) => h.hostName ?? ''),
+    }
+  }
+
+  /** After the grace time a dropped controller loses control. A lone console then takes it. */
+  private checkControl(): void {
+    const c = this.controller
+    const wall = this.deps.config.wallNow()
+    if (c && !c.sock && wall - c.droppedAt >= CONTROL_GRACE_MS) {
+      this.controller = null
+      this.hostDirty = true
+    }
+    if (!this.controller && this.hosts.size === 1 && this.everControlled) {
+      const only = [...this.hosts][0]!
+      this.controller = { id: only.consoleId!, name: only.hostName!, sock: only, droppedAt: 0 }
+      this.hostDirty = true
     }
   }
 
@@ -367,23 +392,28 @@ export class Room {
     }
     if (this.hosts.delete(sock)) {
       this.hostDirty = true
-      if (this.controller === sock) {
-        // Control passes to the console that has been here longest.
-        const next = [...this.hosts].sort((a, b) => (a.hostSeq ?? 0) - (b.hostSeq ?? 0))[0] ?? null
-        this.controller = next
-        if (next) this.moveControl(sock.hostName ?? null, next)
-      }
+      // A controller that drops keeps control for the grace time, so a reload changes nothing.
+      if (this.controller?.sock === sock) this.controller = { ...this.controller, sock: null, droppedAt: this.deps.config.wallNow() }
     }
     if (this.screens.delete(sock)) this.hostDirty = true
   }
 
-  attachHost(sock: Sock, name = ''): void {
+  attachHost(sock: Sock, name = '', consoleId = ''): void {
     sock.role = 'host'
     sock.spectating = null
     sock.hostName = name.trim().slice(0, 40) || 'Host console'
     sock.hostSeq = ++this.hostSeqN
+    sock.consoleId = consoleId || `c${sock.hostSeq}-${Math.random().toString(36).slice(2, 8)}`
     this.hosts.add(sock)
-    if (!this.controller) this.controller = sock
+    const c = this.controller
+    if (c && !c.sock && c.id === sock.consoleId) {
+      // The controller came back within the grace time.
+      this.controller = { ...c, sock, name: sock.hostName }
+    } else if (!c && (!this.everControlled || this.hosts.size === 1)) {
+      // The first console in holds control, and so does a console that is alone when control is free.
+      this.controller = { id: sock.consoleId, name: sock.hostName, sock, droppedAt: 0 }
+      this.everControlled = true
+    }
     this.sendHostMsg(sock, { t: 'welcome', protocol: PROTOCOL_VERSION, build: this.deps.config.build, role: 'host', view: { ...this.hostView(), control: this.controlFor(sock) } })
     this.sendHostMsg(sock, this.clockMsg())
     this.hostDirty = true
@@ -393,6 +423,11 @@ export class Room {
   private moveControl(from: string | null, to: Sock): void {
     for (const h of this.hosts) this.sendHostMsg(h, { t: 'control', from, to: to.hostName ?? '' })
     this.sendHostViews()
+  }
+
+  /** Whether this console may change the session. */
+  private inControl(sock: Sock): boolean {
+    return !!this.controller && this.controller.sock === sock
   }
 
   attachScreen(sock: Sock): void {
@@ -503,16 +538,17 @@ export class Room {
     if (seen) return ack(seen)
     const { pack, db, config } = this.deps
     const p = (payload ?? {}) as Record<string, unknown>
-    if (!VIEW_ONLY_OK.has(type) && sock !== this.controller) return ack({ ok: false, error: 'not_in_control' })
+    if (!VIEW_ONLY_OK.has(type) && !this.inControl(sock)) return ack({ ok: false, error: 'not_in_control' })
     // Commands that act on the clock or the sockets, not on the engine.
     switch (type) {
       case 'take_control': {
         const prev = this.controller
-        if (prev === sock) return ack({ ok: true })
-        this.controller = sock
-        db.logEvent(this.code, 'control', this.now(), config.wallNow(), { from: prev?.hostName ?? null, to: sock.hostName ?? '' })
+        if (prev?.sock === sock) return ack({ ok: true })
+        this.controller = { id: sock.consoleId!, name: sock.hostName!, sock, droppedAt: 0 }
+        this.everControlled = true
+        db.logEvent(this.code, 'control', this.now(), config.wallNow(), { from: prev?.name ?? null, to: sock.hostName ?? '' })
         ack({ ok: true })
-        this.moveControl(prev?.hostName ?? null, sock)
+        this.moveControl(prev?.name ?? null, sock)
         return
       }
       case 'pause':

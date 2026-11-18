@@ -19,8 +19,8 @@ export function TownStrip({ height = 208, children }: { height?: number; childre
   )
 }
 
-function errorText(error: string): string {
-  return plainError(error, COPY.errors)
+function errorText(error: string, rule?: { min: number; max: number }): string {
+  return plainError(error, rule)
 }
 
 /** Where a join refusal is shown: at the name, at the health system, or at the button. */
@@ -48,7 +48,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
     let live = true
     const load = () => api.session(code).then((r) => {
       if (!live) return
-      if (r.ok) { setInfo(r.data); setLoadErr(null) } else setLoadErr(r.error === 'unknown_session' ? COPY.errors.unknown_session! : errorText(r.error))
+      if (r.ok) { setInfo(r.data); setLoadErr(null) } else setLoadErr(errorText(r.error))
     })
     void load()
     const id = setInterval(load, 10_000)
@@ -122,7 +122,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
               <input id="practice" className="field" autoComplete="off" maxLength={rule.max + 8} value={name}
                 onChange={(e) => setName(e.target.value)} aria-describedby="name-hint name-err" />
               <div id="name-hint" className="hint">{COPY.nameHint(rule.min, rule.max)}</div>
-              {err && errorAt(err) === 'name' && <div id="name-err" className="err" role="alert">{errorText(err)}</div>}
+              {err && errorAt(err) === 'name' && <div id="name-err" className="err" role="alert">{errorText(err, rule)}</div>}
               {err === 'name_taken' && <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('rejoin'); setErr(null) }}>{COPY.rejoinLink}</button>}
             </div>
             {info?.pickSystem && (
@@ -149,7 +149,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
               </fieldset>
             )}
             <button className="btn go big" type="submit" disabled={busy || !!closed || name.trim().length < rule.min}>{busy ? COPY.joining : COPY.join}</button>
-            {closed && <div className="err">{COPY.errors.join_closed}</div>}
+            {closed && <div className="err">{errorText('join_closed')}</div>}
             {err && errorAt(err) === 'form' && !closed && <div className="err" role="alert">{errorText(err)}</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 14 }}>
               <span className="muted">{COPY.practicesIn(total)}</span>

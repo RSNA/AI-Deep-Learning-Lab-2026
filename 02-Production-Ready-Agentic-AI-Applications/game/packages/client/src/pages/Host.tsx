@@ -1,19 +1,24 @@
-// The host console (engineering spec, section 10.8). Laptop only. Every refusal is one plain
-// sentence beside the control it concerns. One console controls the session at a time.
+// The host console (engineering spec, section 10.8). Laptop only. Every control carries one line
+// that says what it does, and every refusal is one plain sentence beside the control it
+// concerns. One console controls the session at a time (section 7.10).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MODES, PLAY_STAGES, phaseOfStage, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
 import type { HostView, SessionSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
 import { connect, hostFetch } from '../lib/net.ts'
-import { store } from '../lib/storage.ts'
+import { consoleId, store } from '../lib/storage.ts'
 import type { ClockRef } from '../lib/clock.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
 import { SystemsStrip } from './Play.tsx'
 import { ScreenStage } from './Screen.tsx'
+import { ManualBody } from './Manual.tsx'
 import { H } from './hostCopy.ts'
 
-type PackInfo = { title: string | null; hash: string; systems: string[]; systemNames?: string[]; phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[] }
+type PackInfo = {
+  title: string | null; hash: string; systems: string[]; systemNames?: string[]
+  phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[]; placeholders?: number
+}
 type Summary = SessionSummary & { broken?: string }
 
 const CODE_RULE = /^[A-Za-z0-9]{4,8}$/
@@ -37,12 +42,12 @@ function Login({ onToken }: { onToken: (t: string, name: string) => void }) {
       }}>
         <div className="panel-head bar">{H.title}</div>
         <div className="panel-body">
-          <label className="lbl" htmlFor="hname">{H.yourName}</label>
-          <input id="hname" className="field" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={H.yourNameExample} aria-describedby="hname-hint" />
-          <div id="hname-hint" className="hint">{H.yourNameHint}</div>
           <label className="lbl" htmlFor="pass">{H.passcode}</label>
           <input id="pass" className="field" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} aria-describedby="pass-err" />
           {err && <div id="pass-err" className="err" role="alert">{err}</div>}
+          <label className="lbl" htmlFor="hname">{H.yourName}</label>
+          <input id="hname" className="field" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={H.yourNameExample} aria-describedby="hname-hint" />
+          <div id="hname-hint" className="hint">{H.yourNameHint}</div>
           <button className="btn go" disabled={busy || !pass || !name.trim()}>{H.signIn}</button>
         </div>
       </form>
@@ -69,6 +74,30 @@ function ModeControl({ mode, setMode, provisional }: { mode: Mode; setMode: (m: 
   )
 }
 
+function Downloads({ token, code, onError }: { token: string; code: string; onError: (t: string | null) => void }) {
+  const exportFile = async (what: string, format: string) => {
+    const res = await fetch(`/api/host/export/${code}?what=${what}&format=${format}`, { headers: { authorization: `Bearer ${token}` } })
+    if (!res.ok) { onError(plainError('internal')); return }
+    onError(null)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `lab02-${code}-${what}.${format}`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  return (
+    <>
+      {([['results', 'csv', H.dlResults, H.dlResultsLine], ['timing', 'csv', H.dlTiming, H.dlTimingLine], ['commands', 'json', H.dlCommands, H.dlCommandsLine]] as const).map(([what, fmt, l, line]) => (
+        <div key={what} className="ctl">
+          <button className="btn small text" onClick={() => exportFile(what, fmt)}>{l}</button>
+          <div className="hint">{line}</div>
+        </div>
+      ))}
+    </>
+  )
+}
+
 function Sessions({ token, open, signOut, manual }: { token: string; open: (code: string) => void; signOut: () => void; manual: () => void }) {
   const [list, setList] = useState<Summary[]>([])
   const [pack, setPack] = useState<PackInfo | null>(null)
@@ -79,6 +108,7 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
   const [showClosed, setShowClosed] = useState(false)
   const [deleting, setDeleting] = useState<Summary | null>(null)
   const [delErr, setDelErr] = useState<string | null>(null)
+  const [dlErr, setDlErr] = useState<Record<string, string>>({})
   const load = useCallback(async () => {
     const r = await hostFetch<{ sessions: Summary[]; pack: PackInfo }>(token, '/api/host/sessions')
     if (!r.ok) { if (r.status === 401) signOut(); return }
@@ -99,6 +129,12 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
         <b>{s.label}</b>
         <span className="muted">{H.mode[s.mode]} · {s.closed ? H.closedWord : STAGE_TITLE[s.stage]} · {players(s.players)}</span>
         {s.broken && <span className="err">{s.broken}</span>}
+        {s.closed && (
+          <span className="sdl">
+            <Downloads token={token} code={s.code} onError={(t) => setDlErr((m) => ({ ...m, [s.code]: t ?? '' }))} />
+            {dlErr[s.code] && <span className="err">{dlErr[s.code]}</span>}
+          </span>
+        )}
       </span>
       {!s.closed && <button className="btn small" onClick={() => open(s.code)}>{H.open}</button>}
       {s.closed && <button className="btn small text danger" onClick={() => { setDelErr(null); setDeleting(s) }}>{H.delete}</button>}
@@ -117,22 +153,23 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
       {pack && (
         <section className="panel">
           <div className="panel-body loaded">
-            <div className="good" style={{ fontWeight: 800, fontSize: 17 }}>{H.loaded(phases, pack.systems.length)}</div>
-            <div className={pack.provisional ? 'bad' : 'good'} style={{ fontWeight: 800 }}>{pack.provisional ? H.uncalibrated : H.calibrated}</div>
-            <div className="hint">{H.loadedDetail(pack.title, pack.systemNames ?? pack.systems, pack.hash)}</div>
+            <div className="good" style={{ fontWeight: 800, fontSize: 17 }}>{H.loaded(pack.title, phases, pack.systems.length)}</div>
+            {pack.provisional && <div className="bad" style={{ fontWeight: 800 }}>{H.uncalibrated}</div>}
+            {!!pack.placeholders && <div style={{ fontWeight: 800 }}>{H.placeholders(pack.placeholders)}</div>}
+            <div className="hint" style={{ fontSize: 12 }}>{H.loadedDetail(pack.systemNames ?? pack.systems, pack.hash)}</div>
           </div>
         </section>
       )}
       <form className="panel" noValidate onSubmit={async (e) => {
         e.preventDefault()
         setErr(null)
-        if (!label.trim()) { setErr({ field: 'label', text: plainError('label_invalid') }); return }
+        if (!label.trim()) { setErr({ field: 'label', text: H.labelNeeded }); return }
         if (codeBad) { setErr({ field: 'code', text: plainError('code_invalid') }); return }
         const body: Record<string, string> = { label: label.trim(), mode }
         if (code.trim()) body.code = code.trim().toUpperCase()
         const r = await hostFetch<{ code: string }>(token, '/api/host/session', body)
         if (!r.ok) {
-          const field = r.error === 'code_invalid' || r.error === 'code_taken' ? 'code' : r.error === 'label_invalid' ? 'label' : 'form'
+          const field = r.error === 'code_invalid' || r.error === 'code_taken' ? 'code' : 'form'
           setErr({ field, text: plainError(r.error) })
           return
         }
@@ -148,17 +185,18 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
           <div className="fieldbox">
             <span className="lbl" id="mode-l">{H.modeLabel}</span>
             <ModeControl mode={mode} setMode={setMode} provisional={!!pack?.provisional} />
-            <div className="hint">{H.modeLine[mode]}{(pack?.pickModes ?? []).includes(mode) ? ` ${H.pickYes}` : ` ${H.pickNo}`}</div>
+            <div className="hint">{H.modeLine[mode]} {(pack?.pickModes ?? []).includes(mode) ? H.pickYes : H.pickNo}</div>
             {pack?.provisional && <div id="mode-why" className="hint bad">{H.eventWhy}</div>}
           </div>
           <div className="fieldbox">
             <label className="lbl" htmlFor="scode">{H.joinCode}</label>
-            <input id="scode" className={`field code${codeBad ? ' bad' : ''}`} value={code} maxLength={8} autoComplete="off" spellCheck={false}
-              onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))} aria-invalid={codeBad} aria-describedby="scode-hint scode-err" />
+            <input id="scode" className={`field code${codeBad ? ' bad' : ''}`} value={code} maxLength={9} autoComplete="off" spellCheck={false}
+              onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))} aria-invalid={codeBad} aria-describedby="scode-hint scode-rule scode-err" />
+            <div id="scode-rule" className={`hint${codeBad ? ' bad' : ''}`}>{H.joinCodeRule}</div>
             <div id="scode-hint" className="hint">{H.joinCodeHint}</div>
             {(codeBad || err?.field === 'code') && <div id="scode-err" className="err" role="alert">{codeBad ? plainError('code_invalid') : err!.text}</div>}
           </div>
-          <div className="fieldbox" style={{ justifyContent: 'flex-end' }}>
+          <div className="fieldbox" style={{ justifyContent: 'flex-start', paddingTop: 22 }}>
             <button className="btn go" disabled={!label.trim() || codeBad}>{H.create}</button>
             {err?.field === 'form' && <div className="err" role="alert">{err.text}</div>}
           </div>
@@ -226,19 +264,18 @@ function Refusal({ text }: { text?: string }) {
 }
 
 type Ask = { title: string; text: string; options: { label: string; tone?: 'go' | 'danger'; run: () => void }[] }
+type Cmd = (type: string, payload?: Record<string, unknown>, at?: string) => Promise<{ ok: boolean; error?: string; data?: unknown } | null>
 
 // ------------------------------------------------------------------------------------------
-// The big screen panel
+// The projector panel
 // ------------------------------------------------------------------------------------------
-function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
-  hv: HostView; clock: ClockRef | null; cmd: (type: string, payload: Record<string, unknown>, at: string) => Promise<unknown>
-  refusals: Record<string, string>; ask: (a: Ask) => void; token: string; code: string
+function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
+  hv: HostView; clock: ClockRef | null; cmd: Cmd; refusals: Record<string, string>; ask: (a: Ask) => void; token: string; code: string; canAct: boolean
 }) {
   const sc = hv.screen
   const phase = phaseOfStage(hv.stage)
   const playing = PLAY_STAGES.includes(hv.stage)
-  const phaseName = phase ? `Phase ${PHASE_NUMBER[phase]}` : ''
-  const allScored = hv.preview.winners?.final ?? false
+  const phaseName = phase ? `Phase ${PHASE_NUMBER[phase]}` : 'A phase'
   const deck = hv.deck
   const openScreen = async () => {
     const r = await hostFetch<{ path: string }>(token, '/api/host/screen-link', { code })
@@ -258,23 +295,39 @@ function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
     { id: 'auto', label: H.follow, line: H.followLine, off: null },
     { id: 'lobby', label: H.lobby, line: H.lobbyLine, off: null },
     { id: 'play', label: H.leaderboard, line: H.leaderboardLine, off: sc.available.play ? null : H.leaderboardOff },
-    { id: 'slides', label: H.slides, line: playing ? H.slidesLinePlaying : H.slidesLine, off: sc.available.slides ? null : H.slidesOff, onClick: showSlides },
-    { id: 'winners', label: allScored ? H.winners : H.standingsSoFar, line: allScored ? H.winnersLine : H.winnersEarlyLine, off: sc.available.winners ? null : H.winnersOff },
+    { id: 'slides', label: H.slides, line: H.slidesLine, off: sc.available.slides ? null : H.slidesOff, onClick: showSlides },
+    { id: 'winners', label: H.winners, line: H.winnersLine, off: sc.available.winners ? null : H.winnersOff },
   ]
   const pinned = sc.scene !== 'auto'
-  const pinnedLabel = scenes.find((x) => x.id === sc.scene)?.label ?? H.spotlight
+  const pinnedLabel = scenes.find((x) => x.id === sc.scene)?.label ?? H.spotlightScene
   const cur = deck.current
+  const section = deck.sections.find((s) => sc.slide >= s.start && sc.slide < s.start + s.count)
+  const mirrorOff = playing ? H.mirrorOffPlay : sc.shown !== 'slides' ? H.mirrorOffHidden : null
+
+  // The left and right arrow keys move the slides while no field has the focus.
+  useEffect(() => {
+    if (!canAct || deck.count === 0) return
+    const on = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.closest('input, select, textarea, [contenteditable]') || t.closest('[role="dialog"]'))) return
+      if (e.key === 'ArrowRight') { e.preventDefault(); void cmd('slide', { delta: 1 }, 'slides') }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); void cmd('slide', { delta: -1 }, 'slides') }
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [canAct, deck.count, cmd])
+
   return (
     <section className="panel">
       <div className="panel-head lav">{H.bigScreen}</div>
       <div className="panel-body bigscreen">
-        <div>
-          <button className="btn small go" onClick={openScreen}>{H.openScreen}</button>
-          <div className="hint">{H.openScreenLine}</div>
-          <div className="hint">{H.screensConnected(sc.screens)}</div>
-        </div>
         <div className="preview" aria-label={H.previewLabel}>
           <ScreenStage v={hv.preview} clock={clock} scale={344 / 1920} themed />
+        </div>
+        <div className={`hint${sc.screens === 0 ? ' bad' : ''}`} style={{ alignSelf: 'center', fontWeight: 800 }}>{H.screensConnected(sc.screens)}</div>
+        <div className="ctl">
+          <button className="btn small go" onClick={openScreen} style={{ alignSelf: 'flex-start' }}>{H.openScreen}</button>
+          <div className="hint">{H.openScreenLine}</div>
         </div>
         {pinned && (
           <div className="pinned" role="status">
@@ -289,7 +342,7 @@ function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
           {scenes.map((x) => (
             <div key={x.id} className="ctl">
               <div className="ctl-row">
-                <button className={`btn small text${(x.id === sc.scene) ? ' picked' : ''}`} aria-pressed={x.id === sc.scene} disabled={!!x.off}
+                <button className={`btn small text${x.id === sc.scene ? ' picked' : ''}`} aria-pressed={x.id === sc.scene} disabled={!!x.off}
                   onClick={x.onClick ?? (() => cmd('screen_scene', { scene: x.id }, 'scene'))}>{x.label}</button>
                 {x.id === 'play' && (
                   <select className="field slim" aria-label={H.leaderboardShows} value={sc.filter ?? ''} onChange={(e) => cmd('screen_filter', { system: e.target.value || null }, 'scene')}>
@@ -299,7 +352,7 @@ function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
                 )}
                 {x.id === sc.shown && x.id !== sc.scene && <span className="chip">{H.onNow}</span>}
               </div>
-              <div className="hint">{x.off ?? x.line}</div>
+              <div className={`hint${x.off ? ' bad' : ''}`}>{x.off ?? x.line}</div>
             </div>
           ))}
           {sc.spotlight && (
@@ -320,18 +373,20 @@ function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
                 <span className="num slidecount">{H.slideOf(sc.slide + 1, deck.count)}</span>
                 <button className="btn small" onClick={() => cmd('slide', { delta: 1 }, 'slides')} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
               </div>
-              <div className="hint">{sc.shown === 'slides' ? H.slidesMoveLive : H.slidesMoveHidden}</div>
+              {section && <div className="sectitle">{section.title}</div>}
+              <div className="hint">{H.keysLine}</div>
               <label className="lbl" htmlFor="jump">{H.jump}</label>
-              <select id="jump" className="field slim" value={deck.sections.find((s) => sc.slide >= s.start && sc.slide < s.start + s.count)?.id ?? ''}
+              <select id="jump" className="field slim" value={section?.id ?? ''}
                 onChange={(e) => { const sec = deck.sections.find((s) => s.id === e.target.value); if (sec) void cmd('slide_to', { index: sec.start }, 'slides') }}>
-                {deck.sections.map((s) => <option key={s.id} value={s.id}>{s.title} ({H.slideOf(s.start + 1, deck.count)})</option>)}
+                {deck.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
               </select>
-              {sc.shown === 'slides' && !playing && (
-                <label className="check">
-                  <input type="checkbox" checked={sc.mirror} onChange={(e) => cmd('screen_mirror', { mirror: e.target.checked }, 'slides')} />
+              <div className="ctl">
+                <label className={`check${mirrorOff ? ' off' : ''}`}>
+                  <input type="checkbox" checked={sc.mirror} disabled={!!mirrorOff && !sc.mirror} onChange={(e) => cmd('screen_mirror', { mirror: e.target.checked }, 'slides')} />
                   <span>{H.mirrorToggle}</span>
                 </label>
-              )}
+                {mirrorOff && <div className="hint">{mirrorOff}</div>}
+              </div>
               <div className="slidepair">
                 {[{ l: H.current, s: cur }, { l: H.upNext, s: deck.next }].map(({ l, s }) => (
                   <div key={l} className="minislide">
@@ -365,10 +420,31 @@ function BigScreen({ hv, clock, cmd, refusals, ask, token, code }: {
   )
 }
 
+/** The room after a phase: how the points spread and each health system. */
+function RoomStats({ hv }: { hv: HostView }) {
+  const r = hv.preview.reveal
+  if (!r) return null
+  const total = r.histogram.reduce((a, b) => a + b, 0)
+  return (
+    <div className="roomstats">
+      <div className="eyebrow">{H.roomStats(`Phase ${PHASE_NUMBER[r.phase]}`)} · {players(total)}</div>
+      {r.systems.map((x) => {
+        const ref = hv.session.systems.find((s) => s.id === x.id)
+        return (
+          <div key={x.id} className="kv">
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><SystemShape index={ref?.index ?? 0} size={10} />{ref?.name}</span>
+            <span className="v">{Math.round(x.meanPoints)} {H.meanPoints}{r.phase === 'planning' ? `, ${H.foundAgent(x.flagshipHits, x.players)}` : ''}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ------------------------------------------------------------------------------------------
 // The console of one session
 // ------------------------------------------------------------------------------------------
-const SPEEDS = [1, 2, 5, 10, 20]
+const SPEEDS = [1, 5, 10, 50]
 
 function Console({ token, name, code, back, manual }: { token: string; name: string; code: string; back: () => void; manual: () => void }) {
   const [conn, setConn] = useState<GameConnection | null>(null)
@@ -386,20 +462,19 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null)
   const [askSheet, setAskSheet] = useState<Ask | null>(null)
   const [takeOpen, setTakeOpen] = useState(false)
-  const [moved, setMoved] = useState<string | null>(null)
+  const [lost, setLost] = useState<string | null>(null)
   const [rowCodes, setRowCodes] = useState<Record<string, string>>({})
+  const [manualOpen, setManualOpen] = useState(false)
   const ref = useRefusals()
+  const youRef = useRef(false)
 
   useEffect(() => {
-    const c = connect(token, { session: code, host: true, name })
+    const c = connect(token, { session: code, host: true, name, console: consoleId() })
     c.on('welcome', (m) => setHv((m as unknown as { view: HostView }).view))
-    c.on('host_view', (m) => setHv((m as unknown as { view: HostView }).view))
+    c.on('host_view', (m) => { const v = (m as unknown as { view: HostView }).view; youRef.current = v.control.you; setHv(v) })
     c.on('clock', (m) => setClock({ clock: (m as unknown as { clock: Clock }).clock, at: performance.now() }))
-    c.on('control', (m) => {
-      const x = m as unknown as { from: string | null; to: string }
-      setMoved(H.controlMoved(x.to))
-      setTimeout(() => setMoved(null), 8000)
-    })
+    // The console that lost control keeps a notice until it is closed.
+    c.on('control', (m) => { const x = m as unknown as { from: string | null; to: string }; if (youRef.current && x.to !== name) setLost(H.tookControl(x.to)) })
     c.on('spectate', (m) => {
       const s = m as unknown as { playerId: string; view: PlayerView | null }
       setSpect((cur) => (cur && cur.id === s.playerId ? { id: s.playerId, view: s.view } : cur))
@@ -410,7 +485,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   }, [token, code, back, name])
 
   const say = (t: string) => { setToast(t); setTimeout(() => setToast(null), 3500) }
-  const cmd = useCallback(async (type: string, payload: Record<string, unknown> = {}, at = 'stage') => {
+  const cmd: Cmd = useCallback(async (type, payload = {}, at = 'stage') => {
     if (!conn) return null
     const r = await conn.command(type, payload)
     ref.set(at, r.ok ? null : plainError(r.error))
@@ -425,206 +500,234 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const ctl = hv.control
   const phase = phaseOfStage(t)
   const phaseName = phase ? `Phase ${PHASE_NUMBER[phase]}` : null
-  const exportFile = async (what: string, format: string) => {
-    const res = await fetch(`/api/host/export/${code}?what=${what}&format=${format}`, { headers: { authorization: `Bearer ${token}` } })
-    if (!res.ok) { ref.set('downloads', plainError('internal')); return }
-    const blob = await res.blob()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `lab02-${code}-${what}.${format}`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
+  const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else setTakeOpen(true) }
 
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <header className="topbar" style={{ gridTemplateColumns: '1fr auto' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, minWidth: 0 }}>
-          <button className="iconbtn" onClick={back} aria-label={H.allSessions}>←</button>
-          <span className="face" style={{ fontSize: 32 }}>{H.title}</span>
-          <span style={{ color: 'var(--bar-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hv.session.label}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {hv.clock.scale !== 1 && <span className="chip speedbadge" role="status">{H.speedBadge(hv.clock.scale)}</span>}
-          <span className="chip" style={{ background: ctl.you ? 'var(--go)' : '#fff', color: 'var(--on)', borderColor: '#1d2140' }}>{ctl.you ? H.youControl : H.viewOnly}</span>
-          <span style={{ color: 'var(--bar-muted)', fontSize: 14 }}>{H.joinCode}</span>
-          <span className="codebox">{hv.session.code}</span>
-          <span className="chip" style={{ background: hv.session.mode === 'event' ? 'var(--go)' : 'var(--sun)', color: 'var(--on)', borderColor: '#1d2140' }}>{H.modeChip(hv.session.mode)}</span>
-          <button className="btn small text" onClick={manual}>{H.manual}</button>
-        </div>
-      </header>
-      {!ctl.you && (
-        <div className="viewonly" role="status">
-          <span>{ctl.holder ? H.watching(ctl.holder) : H.watchingNobody}</span>
-          <button className="btn small sun" onClick={() => setTakeOpen(true)}>{H.takeControl}</button>
-        </div>
-      )}
-      {ctl.you && ctl.watchers.length > 0 && <div className="watchers">{H.watchers(ctl.watchers)}</div>}
-      <main className="console">
-        <fieldset disabled={!ctl.you} className="ctlset">
-          <section className="panel stagebar">
-            <div>
-              <div className="eyebrow">{H.nowOnStage}</div>
-              <div className="face" style={{ fontSize: 32 }}>{STAGE_TITLE[t]}</div>
-              {behind !== null && <div style={{ fontSize: 14, fontWeight: 700 }} className={behind > 30 ? 'bad' : 'good'}>{H.schedule(behind)}</div>}
-            </div>
-            <Countdown clock={clock} big guide />
-            <div style={{ display: 'flex', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}><div className="num" style={{ fontSize: 32 }}>{hv.counts.total}</div><div className="hint">{hv.counts.total === 1 ? H.playerWord : H.playersWord}</div></div>
-              <div style={{ textAlign: 'center' }}><div className="num good" style={{ fontSize: 32 }}>{hv.counts.connected}</div><div className="hint">{H.online}</div></div>
-            </div>
-            <div style={{ flexGrow: 1 }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-                {hv.clock.running
-                  ? <button className="btn small" onClick={() => cmd('pause')}>{H.pause}</button>
-                  : <button className="btn small sun" onClick={() => cmd('resume')} disabled={hv.closed}>{H.resume}</button>}
-                <button className="btn small" onClick={() => cmd('extend', { seconds: 30 })} disabled={!hv.timed}>+30 s</button>
-                <button className="btn small" onClick={() => cmd('extend', { seconds: 60 })} disabled={!hv.timed}>+60 s</button>
-                <button className="btn small danger" onClick={() => cmd('end_now')} disabled={!hv.timed}>{H.endNow}</button>
-                <button className="btn go" onClick={() => cmd('next')} disabled={hv.timed || !hv.next}>
-                  {hv.timed ? H.endsByItself : hv.next ? H.nextStage(STAGE_TITLE[hv.next]) : H.done}
-                </button>
+    <div className={`hostwrap${manualOpen ? ' with-manual' : ''}`}>
+      <div className="hostmain">
+        <header className="topbar sessbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <button className="iconbtn" onClick={back} aria-label={H.allSessions}>←</button>
+            <span style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hv.session.label}</span>
+            <span className="codebox" title={H.joinCode}>{hv.session.code}</span>
+            <span className="chip" style={{ background: hv.session.mode === 'event' ? 'var(--go)' : 'var(--sun)', color: 'var(--on)', borderColor: '#1d2140' }}>{H.modeChip(hv.session.mode)}</span>
+            {hv.clock.scale !== 1 && <span className="chip speedbadge" role="status">{H.speedBadge(hv.clock.scale)}</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="barstage">{STAGE_TITLE[t]}</span>
+            <Countdown clock={clock} guide />
+            {hv.counts.bySystem.map((x) => {
+              const s = systems.find((y) => y.id === x.id)
+              return <span key={x.id} className="barsys" title={s?.name}><SystemShape index={s?.index ?? 0} size={10} />{H.connections(x.players, x.connected)}</span>
+            })}
+            <span className={`chip${ctl.you ? ' good' : ''}`}>{H.controlLine(ctl.holder, ctl.you)}</span>
+            <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
+          </div>
+        </header>
+        {!ctl.you && (
+          <div className="viewonly" role="status">
+            <span>{ctl.state === 'held' ? H.controlledFrom(ctl.holder ?? '') : ctl.state === 'reconnecting' ? H.reconnecting : H.nobody}</span>
+            <button className="btn small sun" onClick={take}>{H.takeControl}</button>
+            <Refusal text={ref.map.take} />
+          </div>
+        )}
+        {lost && (
+          <div className="lostctl" role="alert">
+            <span>{lost}</span>
+            <button className="btn small" onClick={() => setLost(null)} aria-label={H.close}>✕</button>
+          </div>
+        )}
+        {ctl.you && ctl.watchers.length > 0 && <div className="watchers">{H.watchers(ctl.watchers)}</div>}
+        <main className="console">
+          <fieldset disabled={!ctl.you} className="ctlset">
+            <section className="panel stagebar">
+              <div>
+                <div className="eyebrow">{H.nowOnStage}</div>
+                <div className="face" style={{ fontSize: 32 }}>{STAGE_TITLE[t]}</div>
+                {behind !== null && <div style={{ fontSize: 14, fontWeight: 700 }} className={behind > 30 ? 'bad' : 'good'}>{H.schedule(behind)}</div>}
+              </div>
+              <Countdown clock={clock} big guide />
+              <div style={{ display: 'flex', gap: 20 }}>
+                <div style={{ textAlign: 'center' }}><div className="num" style={{ fontSize: 32 }}>{hv.counts.total}</div><div className="hint">{hv.counts.total === 1 ? H.playerWord : H.playersWord}</div></div>
+                <div style={{ textAlign: 'center' }}><div className="num good" style={{ fontSize: 32 }}>{hv.counts.connected}</div><div className="hint">{H.online}</div></div>
+              </div>
+              <div style={{ flexGrow: 1 }} />
+              <div className="stagectl">
+                <div className="ctl">
+                  <button className="btn go" onClick={() => cmd('next')} disabled={hv.timed || !hv.next}>
+                    {hv.timed ? H.endsByItself : hv.next ? H.nextStage(STAGE_TITLE[hv.next]) : H.done}
+                  </button>
+                  <div className="hint">{H.stageLines.next}</div>
+                </div>
+                <div className="ctl">
+                  {hv.clock.running
+                    ? <button className="btn small" onClick={() => cmd('pause')}>{H.pause}</button>
+                    : <button className="btn small sun" onClick={() => cmd('resume')} disabled={hv.closed}>{H.resume}</button>}
+                  <div className="hint">{H.stageLines.pause}</div>
+                </div>
+                <div className="ctl">
+                  <div className="ctl-row">
+                    <button className="btn small" onClick={() => cmd('extend', { seconds: 30 })} disabled={!hv.timed}>+30 s</button>
+                    <button className="btn small" onClick={() => cmd('extend', { seconds: 60 })} disabled={!hv.timed}>+60 s</button>
+                  </div>
+                  <div className="hint">{H.stageLines.extend}</div>
+                </div>
+                <div className="ctl">
+                  <button className="btn small danger" onClick={() => cmd('end_now')} disabled={!hv.timed}>{H.endNow}</button>
+                  <div className="hint">{H.stageLines.endNow}</div>
+                </div>
               </div>
               <Refusal text={ref.map.stage} />
-            </div>
-          </section>
-        </fieldset>
-
-        <div style={{ display: 'flex', gap: 4 }}>
-          {hv.schedule.segments.map((s) => (
-            <div key={s.segment} style={{ flex: s.end - s.start, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ height: 14, background: s.state === 'done' ? 'var(--lav)' : s.state === 'now' ? 'var(--sun)' : 'var(--inset)', border: `2px solid ${s.state === 'now' ? 'var(--line)' : 'var(--soft)'}` }} />
-              <div style={{ fontSize: 13, fontWeight: s.state === 'now' ? 800 : 600, color: s.state === 'now' ? 'var(--ink)' : 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label} · {s.start}′</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="console-grid">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-            <section className="panel">
-              <div className="panel-head sky" style={{ justifyContent: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-                <span>{H.players}</span>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button className="chip" style={{ background: filter === null ? '#1d2140' : '#fff', color: filter === null ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(null)}>{H.all} {hv.counts.total}</button>
-                  {systems.map((s) => {
-                    const n = hv.counts.bySystem.find((x) => x.id === s.id)?.players ?? 0
-                    return <button key={s.id} className="chip" style={{ background: filter === s.id ? '#1d2140' : '#fff', color: filter === s.id ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(s.id)}><SystemShape index={s.index} size={10} />{s.name} {n}</button>
-                  })}
-                </div>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="ptable">
-                  <thead><tr className="eyebrow">
-                    <th /><th>{H.colName}</th><th>{H.colSystem}</th><th>{H.colOnline}</th><th>{H.colStatus}</th><th>{H.colPoints}</th><th>{H.colLast}</th><th>{H.colActions}</th>
-                  </tr></thead>
-                  <tbody>
-                    {rows.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: 12 }}>{H.noPlayers}</td></tr>}
-                    {rows.map((p) => {
-                      const sys = systems.find((s) => s.id === p.system)
-                      return (
-                        <tr key={p.id}>
-                          <td style={{ padding: '4px 8px' }}><Avatar id={p.avatar} size={28} /></td>
-                          <td style={{ fontWeight: 800, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
-                          <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><SystemShape index={sys?.index ?? 0} size={12} />{sys?.name}</span></td>
-                          <td className={p.connected ? 'good' : 'bad'} style={{ fontWeight: 800 }}>{p.connected ? H.yes : H.no}</td>
-                          <td>{p.status}</td>
-                          <td className="num" style={{ fontSize: 18 }}>{p.points.total}</td>
-                          <td>{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
-                          <td style={{ whiteSpace: 'nowrap', padding: '4px 0' }}>
-                            <button className="btn small text" onClick={() => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) }}>{H.spectate}</button>{' '}
-                            <button className="btn small text" disabled={!ctl.you} onClick={() => setRename({ id: p.id, name: p.name })}>{H.rename}</button>{' '}
-                            <button className="btn small text" onClick={async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) }}>{H.code}</button>{' '}
-                            <button className="btn small text danger" disabled={!ctl.you} onClick={() => setRemoving({ id: p.id, name: p.name })}>{H.remove}</button>
-                            {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}
-                            <Refusal text={ref.map[`row:${p.id}`]} />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
             </section>
-            <div className="tools">
+          </fieldset>
+
+          <div style={{ display: 'flex', gap: 4 }}>
+            {hv.schedule.segments.map((s) => (
+              <div key={s.segment} style={{ flex: s.end - s.start, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ height: 14, background: s.state === 'done' ? 'var(--lav)' : s.state === 'now' ? 'var(--sun)' : 'var(--inset)', border: `2px solid ${s.state === 'now' ? 'var(--line)' : 'var(--soft)'}` }} />
+                <div style={{ fontSize: 13, fontWeight: s.state === 'now' ? 800 : 600, color: s.state === 'now' ? 'var(--ink)' : 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label} · {s.start}′</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="console-grid">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
               <section className="panel">
-                <div className="panel-head">{H.downloads}</div>
-                <div className="panel-body">
-                  {([['results', 'csv', H.dlResults, H.dlResultsLine], ['timing', 'csv', H.dlTiming, H.dlTimingLine], ['commands', 'json', H.dlCommands, H.dlCommandsLine]] as const).map(([what, fmt, l, line]) => (
-                    <div key={what} className="ctl">
-                      <button className="btn small text" onClick={() => exportFile(what, fmt)}>{l}</button>
-                      <div className="hint">{line}</div>
-                    </div>
-                  ))}
-                  <Refusal text={ref.map.downloads} />
+                <div className="panel-head sky" style={{ justifyContent: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                  <span>{H.players}</span>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button className="chip" style={{ background: filter === null ? '#1d2140' : '#fff', color: filter === null ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(null)}>{H.everyone} {hv.counts.total}</button>
+                    {systems.map((s) => {
+                      const n = hv.counts.bySystem.find((x) => x.id === s.id)?.players ?? 0
+                      return <button key={s.id} className="chip" style={{ background: filter === s.id ? '#1d2140' : '#fff', color: filter === s.id ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(s.id)}><SystemShape index={s.index} size={10} />{s.name} {n}</button>
+                    })}
+                  </div>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="ptable">
+                    <thead><tr className="eyebrow">
+                      <th /><th>{H.colName}</th><th>{H.colSystem}</th><th>{H.colOnline}</th><th>{H.colStatus}</th><th>{H.colP1}</th><th>{H.colP2}</th><th>{H.colP3}</th><th>{H.colTotal}</th><th>{H.colLast}</th><th>{H.colActions}</th>
+                    </tr></thead>
+                    <tbody>
+                      {rows.length === 0 && <tr><td colSpan={11} className="muted" style={{ padding: 12 }}>{H.noPlayers}</td></tr>}
+                      {rows.map((p) => {
+                        const sys = systems.find((s) => s.id === p.system)
+                        return (
+                          <tr key={p.id}>
+                            <td style={{ padding: '4px 8px' }}><Avatar id={p.avatar} size={28} /></td>
+                            <td style={{ fontWeight: 800, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
+                            <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><SystemShape index={sys?.index ?? 0} size={12} />{sys?.name}</span></td>
+                            <td className={p.connected ? 'good' : 'bad'} style={{ fontWeight: 800 }}>{p.connected ? H.yes : H.no}</td>
+                            <td>{p.status}</td>
+                            <td className="num">{p.points.planning ?? '–'}</td>
+                            <td className="num">{p.points.development ?? '–'}</td>
+                            <td className="num">{p.points.maintaining ?? '–'}</td>
+                            <td className="num" style={{ fontSize: 18 }}>{p.points.total}</td>
+                            <td>{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
+                            <td style={{ whiteSpace: 'nowrap', padding: '4px 0' }}>
+                              <button className="btn small text" onClick={() => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) }}>{H.spectate}</button>{' '}
+                              <button className="btn small text" disabled={!ctl.you} onClick={async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) }}>{H.spotlight}</button>{' '}
+                              <button className="btn small text" disabled={!ctl.you} onClick={() => setRename({ id: p.id, name: p.name })}>{H.rename}</button>{' '}
+                              <button className="btn small text" onClick={async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) }}>{H.code}</button>{' '}
+                              <button className="btn small text danger" disabled={!ctl.you} onClick={() => setRemoving({ id: p.id, name: p.name })}>{H.remove}</button>
+                              {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}
+                              <Refusal text={ref.map[`row:${p.id}`]} />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </section>
-              {hv.session.mode !== 'event' && (
-                <fieldset disabled={!ctl.you} className="ctlset">
-                  <section className="panel">
-                    <div className="panel-head sun">{H.rehearsalTools}</div>
-                    <div className="panel-body">
-                      <div className="ctl">
-                        <span className="lbl">{H.gameSpeed}</span>
-                        <div className="seg speeds" role="group" aria-label={H.gameSpeed}>
-                          {SPEEDS.map((x) => <button key={x} aria-pressed={hv.clock.scale === x} onClick={() => cmd('set_scale', { scale: x }, 'speed')}>{x}×</button>)}
+              <div className="tools">
+                <section className="panel">
+                  <div className="panel-head">{H.downloads}</div>
+                  <div className="panel-body">
+                    <Downloads token={token} code={code} onError={(x) => ref.set('downloads', x)} />
+                    <Refusal text={ref.map.downloads} />
+                  </div>
+                </section>
+                {hv.session.mode !== 'event' && (
+                  <fieldset disabled={!ctl.you} className="ctlset">
+                    <section className="panel">
+                      <div className="panel-head sun">{H.rehearsalTools}</div>
+                      <div className="panel-body">
+                        <div className="ctl">
+                          <span className="lbl">{H.gameSpeed}</span>
+                          <div className="seg speeds" role="group" aria-label={H.gameSpeed}>
+                            {SPEEDS.map((x) => <button key={x} aria-pressed={hv.clock.scale === x} onClick={() => cmd('set_scale', { scale: x }, 'speed')}>{x}×</button>)}
+                          </div>
+                          <div className="hint">{H.speedLine} {H.speedWhen}</div>
+                          <Refusal text={ref.map.speed} />
                         </div>
-                        <div className="hint">{H.speedLine}</div>
-                        <Refusal text={ref.map.speed} />
+                        <div className="ctl">
+                          <button className="btn small text danger" disabled={!phase} onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('reset_stage') }}>{phaseName ? H.resetPhase(phaseName) : H.resetThisPhase}</button>
+                          <div className="hint">{phase ? H.resetLine : H.resetOff}</div>
+                        </div>
                       </div>
-                      <div className="ctl">
-                        <button className="btn small text danger" disabled={!phase} onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('reset_stage') }}>{phaseName ? H.resetPhase(phaseName) : H.resetThisPhase}</button>
-                        <div className="hint">{phase ? H.resetLine : H.resetOff}</div>
-                      </div>
+                    </section>
+                  </fieldset>
+                )}
+                <fieldset disabled={!ctl.you} className="ctlset">
+                  <section className="panel endbox">
+                    <div className="panel-head bad">{H.endSession}</div>
+                    <div className="panel-body">
+                      <div className="hint">{H.endLine}</div>
+                      <button className="btn small danger" onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('close') }} disabled={hv.closed}>{H.endSessionButton}</button>
                     </div>
                   </section>
                 </fieldset>
-              )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
               <fieldset disabled={!ctl.you} className="ctlset">
-                <section className="panel endbox">
-                  <div className="panel-head bad">{H.endSession}</div>
-                  <div className="panel-body">
-                    <div className="hint">{H.endLine}</div>
-                    <button className="btn small danger" onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('close') }} disabled={hv.closed}>{H.endSessionButton}</button>
-                  </div>
-                </section>
+                <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
               </fieldset>
+              <section className="panel">
+                <div className="panel-head">{H.roomLive}</div>
+                <div className="panel-body">
+                  <RoomStats hv={hv} />
+                  {(['overall', 'planning', 'development', 'maintaining'] as const).map((c) => {
+                    const col = hv.board.columns[c]
+                    return (
+                      <details key={c} open={c === (hv.phaseLive ?? 'overall')}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 800, minHeight: 32 }}>{COLUMN_TITLE[c].title} {columnTag(col) && <span className="chip" style={{ fontSize: 11 }}>{columnTag(col)}</span>}</summary>
+                        <BoardRows rows={col.rows.slice(0, 5)} systems={systems} of={col.of} emptyText={H.boardEmpty} />
+                      </details>
+                    )
+                  })}
+                  <SystemsStrip systems={systems} standings={hv.board.systems} />
+                </div>
+              </section>
+              <section className="panel">
+                <div className="panel-head sun">{H.answerKey}</div>
+                <div className="panel-body">
+                  <div className="hint">{H.answerKeyLine}</div>
+                  <button className="btn small text" disabled={!hv.answerKey} onClick={() => { setKeyErr(null); setKeyPass('') }}>{hv.answerKey ? H.openKey : H.noKey}</button>
+                </div>
+              </section>
             </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-            <fieldset disabled={!ctl.you} className="ctlset">
-              <BigScreen hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} />
-            </fieldset>
-            <section className="panel">
-              <div className="panel-head">{H.roomLive}</div>
-              <div className="panel-body">
-                {(['overall', 'planning', 'development', 'maintaining'] as const).map((c) => {
-                  const col = hv.board.columns[c]
-                  return (
-                    <details key={c} open={c === (hv.phaseLive ?? 'overall')}>
-                      <summary style={{ cursor: 'pointer', fontWeight: 800, minHeight: 32 }}>{COLUMN_TITLE[c].title} {columnTag(col) && <span className="chip" style={{ fontSize: 11 }}>{columnTag(col)}</span>}</summary>
-                      <BoardRows rows={col.rows.slice(0, 5)} systems={systems} of={col.of} emptyText={H.boardEmpty} />
-                    </details>
-                  )
-                })}
-                <SystemsStrip systems={systems} standings={hv.board.systems} />
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-head sun">{H.answerKey}</div>
-              <div className="panel-body">
-                <div className="hint">{H.answerKeyLine}</div>
-                <button className="btn small text" disabled={!hv.answerKey} onClick={() => { setKeyErr(null); setKeyPass('') }}>{hv.answerKey ? H.openKey : H.noKey}</button>
-              </div>
-            </section>
+        </main>
+      </div>
+      {manualOpen && (
+        <aside className="manual-side" aria-label={H.manual}>
+          <div className="manual-head">
+            <span className="face">{H.manual}</span>
+            <span style={{ display: 'flex', gap: 6 }}>
+              <button className="btn small text" onClick={manual}>{H.manualWindow}</button>
+              <button className="btn small" onClick={() => setManualOpen(false)} aria-label={H.close}>✕</button>
+            </span>
           </div>
-        </div>
-      </main>
+          <div className="manual-scroll"><ManualBody /></div>
+        </aside>
+      )}
 
       {confirm && (
         <Sheet title={confirm === 'close' ? H.endSession : phaseName ? H.resetPhase(phaseName) : H.resetThisPhase} head="sun" onClose={() => setConfirm(null)}>
-          <p>{confirm === 'close' ? H.endLost(players(hv.counts.total)) : H.resetLost(phaseName ?? '', players(hv.counts.total))}</p>
+          <p>{confirm === 'close' ? H.endLost(hv.counts.total) : H.resetLost(phaseName ?? '', hv.counts.total)}</p>
           <label className="lbl" htmlFor="confirm-code">{H.typeCode(hv.session.code)}</label>
           <input id="confirm-code" className="field code" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
           {confirmErr && <div className="err" role="alert">{confirmErr}</div>}
@@ -646,7 +749,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
           <button className="btn go" onClick={async () => {
             const r = await cmd('rename_player', { playerId: rename.id, name: rename.name }, 'rename')
             if (r?.ok) setRename(null)
-            else setRename({ ...rename, err: plainError(r?.error, { name_taken: H.nameTaken }) })
+            else setRename({ ...rename, err: plainError(r?.error) })
           }}>{H.rename}</button>
         </Sheet>
       )}
@@ -699,7 +802,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
           </div>
         </Sheet>
       )}
-      {(toast || moved) && <div className="toast" role="status">{moved ?? toast}</div>}
+      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )
 }
@@ -713,7 +816,7 @@ export function HostPage({ go }: { go: (path: string) => void }) {
   const code = params.get('s')
   const signOut = useCallback(() => { store.setHost(null); setAuth(null) }, [])
   const back = useCallback(() => go('/host'), [go])
-  const manual = useCallback(() => window.open('/host/manual', 'lab02-manual'), [])
+  const manual = useCallback(() => { window.open('/host/manual', 'lab02-manual') }, [])
   if (!auth || !auth.name) return <Login onToken={(token, name) => setAuth({ token, name })} />
   if (!code) return <Sessions token={auth.token} open={(c) => go(`/host?s=${c}`)} signOut={signOut} manual={manual} />
   return <Console key={code} token={auth.token} name={auth.name} code={code} back={back} manual={manual} />

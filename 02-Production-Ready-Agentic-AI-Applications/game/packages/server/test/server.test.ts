@@ -323,49 +323,96 @@ describe('picking a health system', () => {
 })
 
 describe('host consoles', () => {
-  const named = (srv: Srv, token: string, code: string, name: string) =>
-    new GameConnection({ url: srv.ws, token, build: 'bot', session: code, name, commandFrame: 'hostcmd', minDelayMs: 20, maxDelayMs: 100 })
+  const named = (srv: { ws: string }, token: string, code: string, name: string, id: string) =>
+    new GameConnection({ url: srv.ws, token, build: 'bot', session: code, name, console: id, commandFrame: 'hostcmd', minDelayMs: 20, maxDelayMs: 100 })
+  type Ctl = { you: boolean; state: string; holder: string | null; watchers: string[] }
   const views = (c: GameConnection) => {
-    const got: { view?: { control: { you: boolean; holder: string | null; watchers: string[] } }; control: { from: string | null; to: string }[] } = { control: [] }
+    const got: { view?: { control: Ctl }; control: { from: string | null; to: string }[] } = { control: [] }
     c.on('welcome', (m) => { got.view = (m as unknown as { view: NonNullable<typeof got.view> }).view })
     c.on('host_view', (m) => { got.view = (m as unknown as { view: NonNullable<typeof got.view> }).view })
     c.on('control', (m) => got.control.push(m as unknown as { from: string | null; to: string }))
     return got
   }
 
-  it('lets one console control at a time: the first in, then whoever takes control, then the oldest left', async () => {
+  it('lets one console control at a time: the first in, then whoever takes control', async () => {
     const srv = await server()
     cleanups.push(srv.cleanup)
     const code = session(srv)
     const token = await hostToken(srv.url)
-    const a = named(srv, token, code, 'Lectern')
+    const a = named(srv, token, code, 'Lectern', 'tab-a')
     const av = views(a)
     await until(() => a.status === 'open' && !!av.view)
-    const b = named(srv, token, code, 'Back row')
+    const b = named(srv, token, code, 'Back row', 'tab-b')
     const bv = views(b)
     cleanups.push(() => { a.close(); b.close() })
     await until(() => b.status === 'open' && !!bv.view)
-    expect(av.view!.control).toMatchObject({ you: true, holder: 'Lectern' })
-    expect(bv.view!.control).toMatchObject({ you: false, holder: 'Lectern' })
+    expect(av.view!.control).toMatchObject({ you: true, state: 'held', holder: 'Lectern' })
+    expect(bv.view!.control).toMatchObject({ you: false, state: 'held', holder: 'Lectern' })
     await until(() => av.view!.control.watchers.includes('Back row'), 5000, 'watcher listed')
+    expect(bv.view!.control.watchers).not.toContain('Back row')
 
-    // A view-only console is refused, except for what changes nothing.
+    // A viewer is refused, except for what changes nothing.
     expect(await b.command('next')).toMatchObject({ ok: false, error: 'not_in_control' })
     expect(await b.command('screen_theme', { theme: 'dark' })).toMatchObject({ ok: false, error: 'not_in_control' })
     expect((await b.command('spectate', { playerId: null })).ok).toBe(true)
 
-    // Taking control: the former controller learns at once.
+    // Taking control: every console hears of it, and the former controller watches.
     expect((await b.command('take_control')).ok).toBe(true)
     await until(() => av.control.length > 0 && av.view!.control.you === false, 5000, 'control moved')
     expect(av.control.at(-1)).toMatchObject({ from: 'Lectern', to: 'Back row' })
     expect(bv.view!.control.you).toBe(true)
     expect(await a.command('next')).toMatchObject({ ok: false, error: 'not_in_control' })
     expect((await b.command('next')).ok).toBe(true)
+  })
 
-    // The controller leaves: control passes to the console that has been here longest.
-    b.close()
-    await until(() => av.view!.control.you === true, 5000, 'control returned')
-    expect((await a.command('screen_theme', { theme: 'light' })).ok).toBe(true)
+  it('keeps control for a console that comes back within 20 seconds, then frees it', async () => {
+    let skew = 0
+    const srv = await startServer({ wallNow: () => Date.now() + skew })
+    cleanups.push(() => srv.app.close().catch(() => {}), srv.cleanup)
+    const code = session(srv)
+    const token = await hostToken(srv.url)
+    const a = named(srv, token, code, 'Lectern', 'tab-a')
+    await until(() => a.status === 'open')
+    const b = named(srv, token, code, 'Back row', 'tab-b')
+    const c = named(srv, token, code, 'Side desk', 'tab-c')
+    const bv = views(b)
+    const cv = views(c)
+    cleanups.push(() => { b.close(); c.close() })
+    await until(() => !!bv.view && !!cv.view)
+    // The controller drops: the others see it reconnecting, and its id gets control back.
+    a.close()
+    await until(() => bv.view!.control.state === 'reconnecting', 5000, 'reconnecting')
+    skew += 15_000
+    const a2 = named(srv, token, code, 'Lectern', 'tab-a')
+    const a2v = views(a2)
+    cleanups.push(() => a2.close())
+    await until(() => !!a2v.view && a2v.view.control.you, 5000, 'back in control')
+    // It drops again and stays away: after 20 seconds nobody is in control, and with two
+    // consoles left it goes to no one by itself.
+    a2.close()
+    await until(() => bv.view!.control.state === 'reconnecting', 5000, 'reconnecting again')
+    skew += 21_000
+    await until(() => bv.view!.control.state === 'free' && cv.view!.control.state === 'free', 5000, 'free')
+    // One of them leaves: the lone console takes control by itself.
+    c.close()
+    await until(() => bv.view!.control.you === true, 5000, 'lone console in control')
+  })
+
+  it('closes a big screen that sends a command', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const code = session(srv)
+    const token = await hostToken(srv.url)
+    const link = await fetch(`${srv.url}/api/host/screen-link`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ code }) })
+    const screenToken = ((await link.json()) as { path: string }).path.split('#')[1]!
+    const ws = new WebSocket(srv.ws)
+    const closed = new Promise<number>((resolve) => ws.on('close', (c) => resolve(c)))
+    await new Promise<void>((resolve) => ws.on('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'hello', token: screenToken, build: 'bot' }))
+    await sleep(200)
+    ws.send(JSON.stringify({ t: 'hostcmd', cid: 'x', type: 'next', payload: {} }))
+    expect(await closed).toBe(1008)
+    expect(srv.app.manager.get(code)!.state.stage).toBe('lobby')
   })
 
   it('names the wrong field of a new session, and deletes a session only once it has ended', async () => {
@@ -373,15 +420,14 @@ describe('host consoles', () => {
     cleanups.push(srv.cleanup)
     const token = await hostToken(srv.url)
     const post = (body: unknown) => fetch(`${srv.url}/api/host/session`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
-    expect(await (await post({ label: 'X', mode: 'test', code: 'AB' })).json()).toEqual({ error: 'code_invalid' })
-    expect(await (await post({ label: '', mode: 'test' })).json()).toEqual({ error: 'label_invalid' })
+    for (const bad of ['AB', 'ABC', 'ABCDEFGHI', 'AB-12']) expect(await (await post({ label: 'X', mode: 'test', code: bad })).json()).toEqual({ error: 'code_invalid' })
     expect(await (await post({ label: 'X', mode: 'event' })).json()).toEqual({ error: 'provisional_anchors' })
     const made = (await (await post({ label: 'X', mode: 'test', code: 'KEEP1' })).json()) as { code: string }
     expect(made.code).toBe('KEEP1')
     expect(await (await post({ label: 'Y', mode: 'test', code: 'keep1' })).json()).toEqual({ error: 'code_taken' })
 
     const del = (c: string) => fetch(`${srv.url}/api/host/session/${c}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } })
-    expect(await (await del('KEEP1')).json()).toEqual({ error: 'session_open' })
+    expect(await (await del('KEEP1')).json()).toEqual({ error: 'wrong_stage' })
     const host = hostConn(srv.ws, token, 'KEEP1')
     cleanups.push(() => host.close())
     await until(() => host.status === 'open')

@@ -6,7 +6,7 @@ import {
   AVATARS, PHASES, PLAY_STAGES, STAGES, phaseOfStage,
   SCENES, type AvatarId, type ErrorCode, type Mode, type PhaseId, type SceneId, type StageId,
 } from '@lab02/protocol'
-import { deckSlides, sectionStartFor } from './deck.ts'
+import { deckSlides, sectionOf, sectionStartFor } from './deck.ts'
 import { computeBoard } from './leaderboard.ts'
 import { checkName } from './names.ts'
 import { PHASE_MODULES } from './phases/index.ts'
@@ -257,11 +257,15 @@ function enterStage(s: SessionState, pack: Pack, stage: StageId, at: GameMs): Ou
   s.stageLog.push({ stage, atMs: at })
   for (const ph of PHASES) if (FIRST_STAGE[ph] === stage) story.push(...openPhase(s, pack, ph, at))
   if (stage === 'closed') s.closed = true
-  // Slides never reach a player's screen while a phase is played. Following the game, the deck
-  // opens at the section of the stage.
-  if (PLAY_STAGES.includes(stage)) s.screen.mirror = false
-  const start = s.screen.scene === 'auto' ? sectionStartFor(pack, stage) : null
-  if (start !== null) s.screen.slide = start
+  // Section 6.13. Following the game into a slide stage, the deck moves to the section unless the
+  // host is already inside it, and the slides go to every player's screen. A play stage ends
+  // the mirror, and so does any stage where the projector leaves the slides.
+  const sec = s.screen.scene === 'auto' ? sectionOf(pack, stage) : null
+  if (sec) {
+    if (s.screen.slide < sec.start || s.screen.slide >= sec.start + sec.count) s.screen.slide = sec.start
+    s.screen.mirror = true
+  }
+  endMirrorIfOff(s, pack)
   touchAll(s)
   s.board = computeBoard(s, pack, at)
   const events: EngineEvent[] = [{ kind: 'stage', stage, atMs: at }, ...story]
@@ -461,7 +465,7 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
     case 'slide': {
       const n = deckSlides(pack).length
       if (n === 0) return fail('no_deck')
-      s.screen.slide = Math.max(0, Math.min(n - 1, s.screen.slide + cmd.payload.delta))
+      s.screen.slide = Math.max(0, Math.min(n - 1, s.screen.slide + cmd.payload.delta))   // delta is 1 or -1
       break
     }
     case 'spotlight': {
@@ -477,8 +481,10 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
       return fail('bad_message')
   }
   s.rev++
+  const wasMirrored = !!s.screen.mirror
+  endMirrorIfOff(s, pack)
   // A mirrored slide is part of every player's view.
-  if (s.screen.mirror || cmd.type === 'screen_scene') {
+  if (s.screen.mirror || wasMirrored || cmd.type === 'screen_scene' || cmd.type === 'spotlight') {
     touchAll(s)
     return done({ dirty: 'all', events: [{ kind: 'screen', atMs: now }] })
   }
@@ -497,6 +503,11 @@ export function shownScene(s: SessionState, pack: Pack): SceneId {
   if (st === 'reflection') return 'reflection'
   if (st === 'winners' || st === 'closed') return 'winners'
   return 'play'
+}
+
+/** The mirror ends when the projector does not show the slides, and in every play stage. */
+function endMirrorIfOff(s: SessionState, pack: Pack): void {
+  if (s.screen.mirror && (PLAY_STAGES.includes(s.stage) || shownScene(s, pack) !== 'slides')) s.screen.mirror = false
 }
 
 /** Whether every player's screen shows the current slide now. */

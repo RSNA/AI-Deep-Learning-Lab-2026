@@ -1,6 +1,6 @@
-// The sorting board as the browser holds it (engineering spec, section 10.4). The server stores
-// only which class each problem is in. The browser also keeps which spot of the class it sits
-// in, so a swap and a drop on a numbered spot look the way the player made them.
+// The assessment as the browser holds it (engineering spec, section 10.4). The server stores only
+// which class each problem is in. The browser also keeps the order inside each class: a card
+// settles at the end of its section, and the others keep their places.
 import type { PlanningClass } from '@lab02/protocol'
 
 /** Spots per class, in class_order. A spot holds a problem id or null. */
@@ -47,52 +47,49 @@ export function reconcile(classes: PlanningClass[], problemIds: string[], picks:
     const i = out[cls]!.indexOf(null)
     if (i >= 0) { out[cls]![i] = pid; placed.add(pid) }
   }
-  return out
+  return compact(out)
 }
 
 function clone(l: Layout): Layout {
   return Object.fromEntries(Object.entries(l).map(([k, v]) => [k, [...v]]))
 }
 
-/** Put a problem on a spot. A problem already there takes the place the new one came from. */
-export function dropOnSpot(layout: Layout, pid: string, cls: string, spot: number): Layout {
-  const out = clone(layout)
-  const from = whereIs(out, pid)
-  const there = out[cls]![spot] ?? null
-  if (from) out[from.cls]![from.spot] = null
-  out[cls]![spot] = pid
-  if (there && there !== pid) {
-    if (from) out[from.cls]![from.spot] = there
-    // A problem that came from Unsorted sends the one it replaces back there.
-  }
-  return out
+/** Close the gaps of every class, keeping the order. */
+function compact(l: Layout): Layout {
+  return Object.fromEntries(Object.entries(l).map(([k, v]) => {
+    const ids = v.filter((x): x is string => !!x)
+    return [k, [...ids, ...Array<null>(v.length - ids.length).fill(null)]]
+  }))
 }
 
-/** Put a problem in a class without naming a spot. Null when the class is full: ask who leaves. */
+/** Put a problem at the end of a class. Null when the class is full: ask who leaves. */
 export function dropInClass(layout: Layout, pid: string, cls: string): Layout | null {
   const from = whereIs(layout, pid)
   if (from?.cls === cls) return layout
-  const i = layout[cls]!.indexOf(null)
+  const out = compact(unsort(layout, pid))
+  const i = out[cls]!.indexOf(null)
   if (i < 0) return null
-  return dropOnSpot(layout, pid, cls, i)
+  out[cls]![i] = pid
+  return out
 }
 
 /** The problem `leaving` goes back to Unsorted and `pid` takes its spot. */
 export function replaceIn(layout: Layout, pid: string, leaving: string): Layout {
   const at = whereIs(layout, leaving)
   if (!at) return layout
-  const out = unsort(layout, leaving)
+  const out = clone(layout)
+  out[at.cls]![at.spot] = null
   const from = whereIs(out, pid)
   if (from) out[from.cls]![from.spot] = null
   out[at.cls]![at.spot] = pid
-  return out
+  return compact(out)
 }
 
 export function unsort(layout: Layout, pid: string): Layout {
   const out = clone(layout)
   const from = whereIs(out, pid)
   if (from) out[from.cls]![from.spot] = null
-  return out
+  return compact(out)
 }
 
 export function isFull(layout: Layout, cls: string): boolean {

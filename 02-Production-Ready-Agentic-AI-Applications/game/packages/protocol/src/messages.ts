@@ -27,6 +27,7 @@ export const Hello = S({
   build: z.string().max(80),
   session: z.string().max(16).optional(),   // a host names the session it drives
   name: z.string().max(40).optional(),      // a host console's name, shown to the other consoles
+  console: z.string().max(40).optional(),   // a host console's id, random per browser tab
 })
 export type Hello = z.infer<typeof Hello>
 

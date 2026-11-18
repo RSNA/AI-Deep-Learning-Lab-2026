@@ -10,7 +10,6 @@ sections:
         bullets:
           - Each of you is the digital services director of one branch.
           - Two library networks play side by side.
-        live_stat: players
         notes: Wait until most people have joined. Point at the code on the big screen.
       - id: welcome-2
         title: Three phases, one season each
@@ -28,14 +27,13 @@ sections:
         bullets:
           - Most requests were smaller than they sounded.
           - Only one needed a system that plans its own steps.
-        live_stat: planning_flagship
+        live_stat: flagship_hit_rate
         notes: Ask one player who found the big project to say what gave it away.
       - id: planning-2
         title: Counts beat complaints
         bullets:
           - A loud complaint is one data point.
           - A tally of a month is many.
-        live_stat: planning_mean
   - id: after-development
     title: After Phase 2
     stage: break.development

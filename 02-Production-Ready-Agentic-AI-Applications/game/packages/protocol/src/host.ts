@@ -23,7 +23,7 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('slide_to'), payload: S({ index: Int.min(0) }) }),
   S({ type: z.literal('screen_theme'), payload: S({ theme: Theme }) }),
   S({ type: z.literal('screen_filter'), payload: S({ system: z.string().nullable() }) }),
-  S({ type: z.literal('slide'), payload: S({ delta: Int }) }),
+  S({ type: z.literal('slide'), payload: S({ delta: z.union([z.literal(1), z.literal(-1)]) }) }),
   S({ type: z.literal('spotlight'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('spectate'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('set_scale'), payload: S({ scale: z.number().positive().max(100) }) }),
@@ -76,7 +76,12 @@ export const HostView = S({
     next: S({ slide: SlideView, notes: Text.nullable(), placeholder: z.boolean() }).nullable(),
   }),
   /** Which console holds control. Filled per console by the server. */
-  control: S({ you: z.boolean(), holder: Text.nullable(), watchers: z.array(Text) }),
+  control: S({
+    you: z.boolean(),
+    state: z.enum(['held', 'reconnecting', 'free']),   // reconnecting: the controller dropped less than 20 s ago
+    holder: Text.nullable(),
+    watchers: z.array(Text),                          // the names of the other consoles that watch
+  }),
   answerKey: z.boolean(),
   phaseLive: PhaseId.nullable(),
   pickModes: z.array(Mode),         // session modes in which a player may pick the health system

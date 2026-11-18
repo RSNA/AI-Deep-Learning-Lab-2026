@@ -79,6 +79,13 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a live column that does not exist', 'game.yaml', (t) => t.replace('metric: progress', 'metric: points'), /live_leaderboard\.metric/],
   // Round 8: the deck, banter, the empty letter
   ['a deck section at a stage that does not exist', 'teaching/deck.yaml', (t) => t.replace('    stage: intro', '    stage: opening'), /sections\[0\]\.stage.*unknown stage "opening"/],
+  ['a deck section at a play stage', 'teaching/deck.yaml', (t) => t.replace('    stage: intro', '    stage: planning.play'), /sections\[0\]\.stage.*unknown stage "planning\.play"/],
+  ['two deck sections at one stage', 'teaching/deck.yaml', (t) => t.replace('    stage: break.development', '    stage: break.planning'), /two sections open at "break\.planning"/],
+  ['a deck section without slides', 'teaching/deck.yaml', (t) => t.replace(/ {2}- id: closing\n {4}title: Reflection\n {4}stage: reflection\n {4}slides:[\s\S]*$/, '  - id: closing\n    title: Reflection\n    stage: reflection\n    slides: []\n'), /sections\[4\]\.slides/],
+  ['a slide image that does not exist', 'teaching/deck.yaml', (t) => t.replace('        notes: Keep this short.', '        image: slides/none.png\n        notes: Keep this short.'), /art\/slides\/none\.png does not exist/],
+  ['a live statistic that does not exist', 'teaching/deck.yaml', (t) => t.replace('live_stat: flagship_hit_rate', 'live_stat: players'), /live_stat/],
+  ['an empty-letter line below more problems than there are', 'game.yaml', (t) => t.replace('submission: {letter_empty_below: 2}', 'submission: {letter_empty_below: 7}'), /letter_empty_below.*between 0 and the 6 candidates/],
+  ['a hair style outside the four', 'characters.yaml', (t) => t.replace('hair_style: long, skin: light', 'hair_style: mohawk, skin: light'), /\[0\]\.look\.hair_style/],
   ['two slides with one id', 'teaching/deck.yaml', (t) => t.replace('      - id: welcome-2', '      - id: welcome-1'), /duplicate id "welcome-1"|welcome-1/],
   ['a slide without bullets', 'teaching/deck.yaml', (t) => t.replace(/ {8}bullets:\n {10}- Each of you[^\n]*\n {10}- Two library[^\n]*\n/, ''), /slides\[0\]\.bullets/],
   ['a banter line by someone who is not in the system', `${RB}/story.yaml`, (t) => t.replace('{speaker: demo-mara, text: Who moved', '{speaker: demo-nobody, text: Who moved'), /banter\[0\]\.lines\[0\]\.speaker/],

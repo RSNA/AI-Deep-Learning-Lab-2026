@@ -80,6 +80,7 @@ exports[`outgoing types > HostView 1`] = `
   "contentHash",
   "control",
   "control.holder",
+  "control.state",
   "control.watchers",
   "control.you",
   "counts",
@@ -148,6 +149,11 @@ exports[`outgoing types > HostView 1`] = `
   "players.[].status",
   "players.[].system",
   "preview",
+  "preview.activity",
+  "preview.activity.acted",
+  "preview.activity.insights",
+  "preview.activity.players",
+  "preview.activity.sent",
   "preview.arrivals",
   "preview.arrivals.[].avatar",
   "preview.arrivals.[].name",
@@ -464,6 +470,11 @@ exports[`outgoing types > PlayerView 1`] = `
 
 exports[`outgoing types > ScreenView 1`] = `
 [
+  "activity",
+  "activity.acted",
+  "activity.insights",
+  "activity.players",
+  "activity.sent",
   "arrivals",
   "arrivals.[].avatar",
   "arrivals.[].name",

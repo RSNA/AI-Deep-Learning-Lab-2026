@@ -42,5 +42,5 @@ banter:
       - {speaker: demo-idris, text: That is what makes it so sad.}
   - id: ls-b-story
     lines:
-      - {speaker: demo-ola, text: Can I borrow the big chair for story time?}
-      - {speaker: demo-priya, text: Only if the dragon gives it back.}
+      - {speaker: demo-sami, text: Who left the big chair by the door again?}
+      - {speaker: demo-priya, text: Story time. The dragon needed a throne.}

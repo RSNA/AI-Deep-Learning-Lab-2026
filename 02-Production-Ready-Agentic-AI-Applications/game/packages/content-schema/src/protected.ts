@@ -75,7 +75,9 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
   for (const id of pack.systemIds) {
     const sp = pack.systems[id]!
     pub([sp.system, sp.problems, sp.insights, sp.build, sp.maintain], false)
-    pub(sp.story, true)
+    // Banter is public, but it is not allowed to repeat a protected string: it stays out of the
+    // published set, so the scan flags a line that does.
+    if (sp.story) pub({ ...sp.story, banter: undefined }, true)
   }
   pub([pack.palette, pack.monitors], false)
   for (let i = out.length - 1; i >= 0; i--) if (published.has(out[i]!.text)) out.splice(i, 1)

@@ -35,7 +35,7 @@ export function ClassControl({ board, pid, big = false }: { board: Board; pid: s
         )
       })}
       {at && !board.locked && (
-        <button type="button" className="clr" aria-label={P1.clearLabel} title={`0: ${P1.clearLabel}`} onClick={(e) => { e.stopPropagation(); board.unsort(pid) }}>{P1.toUnsorted}</button>
+        <button type="button" className="clr" aria-label={P1.clearLabel} title={`0: ${P1.clearLabel}`} onClick={(e) => { e.stopPropagation(); board.unsort(pid) }}>↩ {P1.toUnsorted}</button>
       )}
     </div>
   )
@@ -48,16 +48,16 @@ export function AskSheet({ board, content }: { board: Board; content: PlanningCo
   const title = content.problems.find((p) => p.id === a.pid)?.title ?? ''
   const inClass = (board.layout[a.cls] ?? []).filter((x): x is string => !!x)
   return (
-    <Sheet title={P1.whoLeaves(cls.short)} head="sun" onClose={board.cancelAsk}>
-      <p>{P1.whoLeavesText(title, cls.label)}</p>
+    <Sheet title={P1.whoLeaves(cls.short)} head="sky" onClose={board.cancelAsk}>
+      <p><b>{P1.whoLeavesAsk(cls.short)}</b> {P1.whoLeavesText(title, cls.short)}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {inClass.map((pid) => (
           <button key={pid} type="button" className="btn text leavebtn" onClick={() => board.replace(a.pid, pid)}>
-            <span>{content.problems.find((p) => p.id === pid)?.title}</span><span className="muted">{P1.leaves}</span>
+            <span>{content.problems.find((p) => p.id === pid)?.title}</span><span className="muted">↩ {P1.leaves}</span>
           </button>
         ))}
       </div>
-      <button type="button" className="btn small" onClick={board.cancelAsk}>{P1.cancel}</button>
+      <button type="button" className="btn small" style={{ alignSelf: 'flex-end' }} onClick={board.cancelAsk}>{P1.cancel}</button>
     </Sheet>
   )
 }
@@ -117,25 +117,25 @@ function ProblemCard({ p, board, sorted, open, setOpen, fresh, onEvidence }: {
   )
 }
 
-function SectionHead({ title, count, tone, fits }: { title: string; count: string; tone: string; fits?: { label: string; text: string } }) {
+function SectionHead({ title, count, tone, full = false, hint, fits }: { title: string; count: string; tone: string; full?: boolean; hint?: string; fits?: { label: string; text: string; rungs: number[] } }) {
   const [open, setOpen] = useState(false)
+  const inner = <><span className="an">{title} · <span className="num">{count}</span>{full && <small className="afull">{P1.full}</small>}</span>{hint && <span className="ah">{hint}</span>}{fits && <span className="ai" aria-hidden="true">{open ? '▴' : '?'}</span>}</>
   return (
     <div className={`ahead ${tone}`}>
-      <span className="an">{title} · <span className="num">{count}</span></span>
-      {fits && <button type="button" className="ai" aria-expanded={open} aria-label={P1.whatFits(fits.label)} onClick={() => setOpen(!open)}>?</button>}
-      {fits && open && <div className="afits" role="note"><b>{fits.label}.</b> {fits.text}</div>}
+      {fits ? <button type="button" className="ahbtn" aria-expanded={open} aria-label={`${title}, ${count}. ${P1.whatFits(fits.label)}`} onClick={() => setOpen(!open)}>{inner}</button> : <div className="ahbtn">{inner}</div>}
+      {fits && open && <div className="afits" role="note" onClick={() => setOpen(false)}><b>{fits.label}.</b> {fits.text}<div className="muted">{P1.rungs}: {fits.rungs.length ? fits.rungs.join(', ') : P1.noRungs}</div></div>}
     </div>
   )
 }
 
 /** The whole assessment column. */
-export function Assessment({ board, content, onEvidence, focus }: { board: Board; content: PlanningContent; onEvidence?: (pid: string) => void; focus?: string | null }) {
+export function Assessment({ board, content, onEvidence, focus, phone = false }: { board: Board; content: PlanningContent; onEvidence?: (pid: string) => void; focus?: string | null; phone?: boolean }) {
   const pv = usePlayer((s) => s.view?.planning)
   const [sending, setSending] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
   const [fresh, setFresh] = useState<string | null>(null)
   const prev = useRef(board.picks)
-  // A card that moved flashes once where it settles.
+  // A card that moved is marked for a moment where it settles.
   const picksKey = JSON.stringify(board.picks)
   useEffect(() => {
     const before = prev.current
@@ -156,32 +156,38 @@ export function Assessment({ board, content, onEvidence, focus }: { board: Board
     <ProblemCard key={p.id} p={p} board={board} sorted={sorted} open={open === p.id} setOpen={(o) => setOpen(o ? p.id : null)} fresh={fresh === p.id} onEvidence={onEvidence} />
   )
   return (
-    <section className="assess" aria-label={P1.assessment}>
-      <div className="assess-top">
-        <div className="ask">{askLine(board.classes, content.problems.length)}</div>
-        <div className="assess-send">
-          <span className="muted">{P1.sorted(n, content.problems.length)}</span>
-          {!board.locked && <button type="button" className="btn go small" onClick={() => setSending(true)}>{P1.send}</button>}
-        </div>
-        {board.locked && pv?.status === 'submitted' && <div className="locked">{P1.sent}</div>}
+    <section className={`colbox assess sortcol${phone ? ' phone' : ''}`} aria-label={P1.assessment}>
+      <div className="colhead sun">
+        <span className="l"><h2>{P1.assessment}</h2><span className="s">{P1.sorted(n, content.problems.length)}</span></span>
+        <span className="r">{!board.locked && <button type="button" className="btn go small sendbtn" onClick={() => setSending(true)}>{P1.send}</button>}</span>
       </div>
-      <div className="asections">
-        <div className="asec unsorted">
-          <SectionHead title={P1.unsortedTitle} count={String(unsorted.length)} tone="tone-u" />
-          {unsorted.length === 0 ? <div className="muted aempty">{P1.allSorted}</div> : unsorted.map((p) => card(p, false))}
+      <div className="ask">{askLine(board.classes, content.problems.length)}</div>
+      <div className="strip" aria-hidden="true">
+        {board.classes.map((c, i) => (
+          <div key={c.id} className={classTone(i)}>
+            <div className="n">{P1.filled((board.layout[c.id] ?? []).filter(Boolean).length, c.capacity)}</div>
+            <div className="l">{c.short}</div>
+          </div>
+        ))}
+      </div>
+      {board.locked && pv?.status === 'submitted' && <div className="locked">{P1.sent}</div>}
+      <div className="colscroll asections">
+        <div className={`asec unsorted${unsorted.length === 0 ? ' done' : ''}`}>
+          <SectionHead title={P1.unsortedTitle} count={String(unsorted.length)} tone="tone-u" hint={unsorted.length ? P1.pickHint : undefined} />
+          {unsorted.length === 0 ? <div className="aempty">{P1.allSorted}</div> : unsorted.map((p) => card(p, false))}
         </div>
         {board.classes.map((c, i) => {
           const ids = (board.layout[c.id] ?? []).filter((x): x is string => !!x)
           return (
             <div key={c.id} className={`asec ${classTone(i)}`} data-class={c.id}>
-              <SectionHead title={c.short} count={P1.filled(ids.length, c.capacity)} tone={classTone(i)} fits={{ label: c.label, text: c.fitsWhen }} />
+              <SectionHead title={c.short} count={P1.filled(ids.length, c.capacity)} tone={classTone(i)} full={ids.length >= c.capacity} fits={{ label: c.label, text: c.fitsWhen, rungs: c.rungs }} />
               {ids.length === 0 && <div className="muted aempty">{P1.sectionEmpty(c.capacity)}</div>}
               {ids.map((pid) => { const p = content.problems.find((x) => x.id === pid); return p ? card(p, true) : null })}
             </div>
           )
         })}
       </div>
-      {board.error && <div className="toast" role="alert" onClick={board.clearError}>{P1.refused}</div>}
+      {board.error && <div className="toast" role="alert" onClick={board.clearError}>{board.error}</div>}
       <AskSheet board={board} content={content} />
       {sending && <SendSheet board={board} content={content} onClose={() => setSending(false)} />}
     </section>

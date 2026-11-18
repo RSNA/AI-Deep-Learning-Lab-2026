@@ -4,13 +4,14 @@
 //
 // The scene lives: people walk between places on the floor, the worklist on the wall scrolls, the
 // monitors change, and now and then two or three people trade lines from the banter of the
-// story. A click on a person turns them to face the player, with one of their lines. In Phase 1 a
-// person with an interview to give carries a marker, and a click starts the interview; while it
-// runs they sit at the table with the player's own character. With reduced motion nobody walks
-// and the screens stay still; the bubbles and the clicks still work.
+// story. A click on a person makes them stop, turn to the player, hop and say one of their lines.
+// In Phase 1 a person with an interview to give carries a marker, and a click starts the
+// interview; while it runs they sit at the table with the player's own character. One bubble is
+// up at a time. With reduced motion nobody walks, the screens stand still and nobody hops; the
+// bubbles, the banter and the clicks still work.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AvatarId, Character, PackArt, SystemPublic } from '@lab02/protocol'
-import { looksOf } from '../components/ui.tsx'
+import { Portrait, looksOf } from '../components/ui.tsx'
 import { FACE_COL, spriteSheet, type Facing } from './people.ts'
 
 type Point = [number, number, Facing]
@@ -22,24 +23,50 @@ export type SceneLayout = {
   door: [number, number]
   ambient: Point[]
   board: [number, number, number, number] | null
+  /** Optional: more points people may walk to. */
+  places?: Point[]
   /** Optional: monitor screens [x, y, w, h]. Without them the scene finds the screens itself. */
   monitors?: [number, number, number, number][]
 }
 
 const VARIANTS = 12
 const CELL = 4
+const LINE_MS = 3000
+const MIN_LINE_MS = 2800
+
+// Wall time and chance for the animation only. The scene never feeds anything back to the game.
+const wallMs = () => performance.now()
+const chance = () => Math.random()
+const between = (a: number, b: number) => a + chance() * (b - a)
 
 function avatarIndex(id: string): number {
   const n = Number(id.replace(/\D/g, ''))
   return Number.isFinite(n) && n >= 1 ? (n - 1) % VARIANTS : 0
 }
 
-// Wall time and chance for the animation only. The scene never feeds anything back to the game.
-const wallMs = () => performance.now()
-const chance = () => Math.random()
-
 function reducedMotion(): boolean {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
+}
+
+const TITLES = new Set(['dr', 'dr.', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'mx', 'mx.', 'prof', 'prof.'])
+/** The first name: no title before it and nothing after a comma. */
+export function firstName(name: string): string {
+  const words = (name.split(',')[0] ?? '').trim().split(/\s+/)
+  while (words.length > 1 && TITLES.has(words[0]!.toLowerCase())) words.shift()
+  return words[0] ?? name
+}
+
+/**
+ * The scale of the scene (sections 10.2 and 10.4): the smallest whole number at which the room
+ * covers the width, as long as the crop stays within 10 percent of the room's width, else the
+ * scale below on a backdrop. On a phone the camera crops instead of shrinking the room.
+ */
+export function sceneScale(width: number, roomW: number, phone: boolean): number {
+  if (width <= 0) return 1
+  const cover = Math.ceil(width / roomW)
+  if (phone) return Math.max(2, cover > 2 && (cover * roomW - width) / (cover * roomW) > 0.1 ? cover - 1 : cover)
+  if ((cover * roomW - width) / (cover * roomW) <= 0.1) return cover
+  return Math.max(1, cover - 1)
 }
 
 type Actor = {
@@ -50,11 +77,12 @@ type Actor = {
   home: Point
   you: boolean
   path: [number, number][]
-  /** Where the person stands while not at home, or null. */
+  /** Where the person stands while away from home, or null. */
   away: Point | null
-  /** Game of idle life: when the person may next turn or walk, and until when they hold still. */
+  /** When the person may next set out, and until when they hold still. */
   nextAt: number
   holdUntil: number
+  hopAt: number
 }
 
 // ------------------------------------------------------------------------------------------
@@ -62,7 +90,7 @@ type Actor = {
 // ------------------------------------------------------------------------------------------
 type Floor = { w: number; h: number; ok: Uint8Array }
 
-function readFloor(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; screens: [number, number, number, number][]; boardBg: number | null } | null {
+function readRoom(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; screens: [number, number, number, number][]; boardBg: number | null; wall: string } | null {
   const [W, H] = layout.size
   const c = document.createElement('canvas')
   c.width = W
@@ -121,7 +149,8 @@ function readFloor(img: HTMLImageElement, layout: SceneLayout): { floor: Floor; 
   }
   let boardBg: number | null = null
   if (board) { const [r, g, b] = at(board[0] + 3, board[1] + 3); boardBg = (r << 16) | (g << 8) | b }
-  return { floor: { w, h, ok: ok2 }, screens: layout.monitors ?? screens.slice(0, 16), boardBg }
+  const [wr, wg, wb] = at(Math.floor(W / 2), Math.floor(H * 0.12))
+  return { floor: { w, h, ok: ok2 }, screens: layout.monitors ?? screens.slice(0, 16), boardBg, wall: `rgb(${wr},${wg},${wb})` }
 }
 
 /** A path for the feet from one spot to another on the floor, as turning points. */
@@ -164,7 +193,6 @@ function route(floor: Floor | null, from: [number, number], to: [number, number]
   cells.reverse()
   const toPos = (c: number): [number, number] => [(c % w) * CELL + CELL / 2 - 8, Math.floor(c / w) * CELL + CELL / 2 - 14]
   const pts: [number, number][] = []
-  // Step from the spot onto the floor along one axis, then follow the cells, keeping the turns.
   const first = toPos(cells[0]!)
   pts.push([first[0], from[1]], first)
   for (let i = 1; i < cells.length - 1; i++) {
@@ -176,17 +204,26 @@ function route(floor: Floor | null, from: [number, number], to: [number, number]
   return pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1]![0] || p[1] !== pts[i - 1]![1])
 }
 
-/** Places the people of the practice and the player's own character on the layout. */
+/** Where people may walk to: free posts, the places of the room, the wall board and the door. */
+function placesOf(layout: SceneLayout): Point[] {
+  const out: Point[] = [...layout.posts, ...layout.ambient, ...(layout.places ?? [])]
+  if (layout.board) out.push([layout.board[0] + layout.board[2] / 2 - 8, layout.board[1] + layout.board[3] + 18, 'back'])
+  out.push([layout.door[0] - 8, Math.min(layout.size[1] - 18, layout.door[1] + 4), 'back'])
+  return out
+}
+
+/** Places every person of the practice and the player's own character on the layout. */
 function castActors(layout: SceneLayout, cast: Character[], me: { avatar: AvatarId } | null, walkIn: boolean): Actor[] {
-  const spots = [...layout.posts, ...layout.ambient]
-  const actors: Actor[] = cast.slice(0, spots.length).map((c, i) => {
-    const home = spots[i]!
-    return { key: c.id, x: home[0], y: home[1], facing: home[2], home, you: false, path: [], away: null, nextAt: 4000 + i * 2300, holdUntil: 0 }
+  // The cast take the posts in cast order, the extras the posts left and then the stations.
+  const spots = [...layout.posts, ...layout.ambient, ...(layout.places ?? [])]
+  const actors: Actor[] = cast.map((c, i) => {
+    const home: Point = spots[i] ?? [24 + ((i * 37) % (layout.size[0] - 48)), layout.you[1] + ((i % 2) * 12) - 6, 'front']
+    return { key: c.id, x: home[0], y: home[1], facing: home[2], home, you: false, path: [], away: null, nextAt: between(6000, 30_000), holdUntil: 0, hopAt: 0 }
   })
   if (me) {
     const home = layout.you
     const start = walkIn && !reducedMotion() ? [layout.door[0] - 8, layout.door[1] - 16] as [number, number] : [home[0], home[1]] as [number, number]
-    const a: Actor = { key: 'you', x: start[0], y: start[1], facing: home[2], home, you: true, path: [], away: null, nextAt: Infinity, holdUntil: 0 }
+    const a: Actor = { key: 'you', x: start[0], y: start[1], facing: home[2], home, you: true, path: [], away: null, nextAt: Infinity, holdUntil: 0, hopAt: 0 }
     if (start[0] !== home[0] || start[1] !== home[1]) a.path = [[start[0], home[1]], [home[0], home[1]]]
     actors.push(a)
   }
@@ -201,7 +238,7 @@ function targetOf(a: Actor, layout: SceneLayout, meeting: string[]): Point {
   return a.away ?? a.home
 }
 
-type Said = { key: string; text: string; until: number }
+type Line = { key: string; text: string; ms: number; kind: 'click' | 'banter' }
 
 export type RoomProps = {
   art: PackArt | null
@@ -218,36 +255,38 @@ export type RoomProps = {
   label?: string
   /** Characters at the meeting table, in the order their interviews started. */
   meeting?: string[]
-  /** The interview line being said now, shown at the top of the scene with its speaker's name. */
+  /** The interview or dialogue line being said now. It goes over everything else. */
   bubble?: { speaker: string; text: string } | null
   /** Characters who have an interview to give: they carry a marker and a click starts it. */
   available?: string[]
   onPick?: (characterId: string) => void
+  /** A click from outside the scene, such as the list of people: that person turns and speaks. */
+  poke?: { id: string; n: number } | null
 }
-
-const LINE_MS = 3400
-const BANTER_GAP: [number, number] = [14_000, 26_000]
 
 export function Room({
   art, cast, banter = [], me, theme, maxHeight = 540, cropHeight, focusX = 160, focusY = 100, label = 'Your practice',
-  meeting = [], bubble = null, available = [], onPick,
+  meeting = [], bubble = null, available = [], onPick, poke = null,
 }: RoomProps) {
   const host = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [layout, setLayout] = useState<SceneLayout | null>(null)
   const [fallback, setFallback] = useState(false)
+  const [wall, setWall] = useState<string | null>(null)
   const base = art?.room ? `${art.base}room/` : '/art/room/'
   const tagsRef = useRef<HTMLDivElement>(null)
   const actorsRef = useRef<Actor[]>([])
   const meetingRef = useRef<string[]>(meeting)
-  const busyRef = useRef(false)
+  const bubbleRef = useRef(bubble)
   const setNightRef = useRef<((night: boolean) => void) | null>(null)
-  const [said, setSaid] = useState<Said[]>([])
-  const saidRef = useRef<Said[]>([])
+  const [line, setLine] = useState<Line | null>(null)
+  const queue = useRef<Line[]>([])
+  const lineTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const banterTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   const clickN = useRef(new Map<string, number>())
   const [, setFrame] = useState(0)
   meetingRef.current = meeting
-  busyRef.current = meeting.length > 0 || !!bubble
+  bubbleRef.current = bubble
   const looks = useMemo(() => looksOf(cast), [cast])
   const castKey = cast.map((c) => c.id).join(',')
 
@@ -267,17 +306,17 @@ export function Room({
   }, [base])
 
   const [rw, rh] = layout?.size ?? [320, 180]
-  const fitW = Math.floor(width / rw)
-  let scale = Math.max(width < 640 ? 2 : 1, fitW)
-  scale = Math.max(1, Math.min(scale, Math.floor(maxHeight / rh)))
-  const viewW = Math.min(width, rw * scale)
+  const phone = width > 0 && width < 640
+  let scale = sceneScale(width, rw, phone)
+  if (!cropHeight) scale = Math.max(1, Math.min(scale, Math.floor(maxHeight / rh)))
+  const viewW = width
   const viewH = Math.min(rh * scale, cropHeight ?? rh * scale)
-  const offsetX = rw * scale > viewW ? Math.round(Math.max(viewW - rw * scale, Math.min(0, viewW / 2 - focusX * scale))) : Math.floor((width - rw * scale) / 2)
+  const offsetX = rw * scale > viewW ? Math.round(Math.max(viewW - rw * scale, Math.min(0, viewW / 2 - focusX * scale))) : Math.floor((viewW - rw * scale) / 2)
   const offsetY = rh * scale > viewH ? Math.round(Math.max(viewH - rh * scale, Math.min(0, viewH / 2 - focusY * scale))) : 0
 
   const screenPos = (a: { x: number; y: number }) => [Math.round(offsetX + (a.x + 8) * scale), Math.round(offsetY + (a.y + 1) * scale)] as const
 
-  // Positions the hit areas, the markers and the bubbles over the people.
+  // Positions the hit areas, the markers and the bubble over the people.
   const placeTags = () => {
     const box = tagsRef.current
     if (!box) return
@@ -285,61 +324,100 @@ export function Room({
       const [x, y] = screenPos(a)
       for (const el of box.querySelectorAll<HTMLElement>(`[data-k="${a.key}"]`)) {
         if (el.dataset.role === 'say') {
-          // A bubble stays inside the scene.
+          // A bubble goes over its speaker when it fits in the visible part, else at the top.
           const half = el.offsetWidth / 2
-          const left = Math.max(half + 4, Math.min(viewW - half - 4, x))
-          el.style.transform = `translate(${left}px, ${y}px) translate(-50%, -100%)`
-          el.style.setProperty('--tail', `${Math.round(x - left + half)}px`)
+          const fits = y - el.offsetHeight - 10 >= 0 && x >= 0 && x <= viewW
+          if (fits) {
+            const left = Math.max(half + 4, Math.min(viewW - half - 4, x))
+            el.style.transform = `translate(${left}px, ${y}px) translate(-50%, -100%)`
+            el.style.setProperty('--tail', `${Math.round(x - left + half)}px`)
+            el.classList.remove('top')
+          } else {
+            el.style.transform = `translate(${Math.round(viewW / 2)}px, 6px) translate(-50%, 0)`
+            el.classList.add('top')
+          }
         } else if (el.dataset.role === 'hit') el.style.transform = `translate(${x - 8 * scale}px, ${y - scale}px)`
         else el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`
       }
     }
   }
 
-  const say = (key: string, text: string, ms = LINE_MS) => {
-    const until = wallMs() + ms
-    saidRef.current = [...saidRef.current.filter((s) => s.key !== key && s.until > wallMs()), { key, text, until }]
-    setSaid(saidRef.current)
-    setTimeout(() => { saidRef.current = saidRef.current.filter((s) => s.until > wallMs()); setSaid(saidRef.current) }, ms + 30)
+  // One bubble at a time: an interview or dialogue line goes first, the queue waits for it.
+  const pump = () => {
+    if (lineTimer.current || bubbleRef.current) return
+    const next = queue.current.shift()
+    if (!next) { setLine(null); return }
+    setLine(next)
+    lineTimer.current = setTimeout(() => { lineTimer.current = null; setLine(null); pump() }, Math.max(MIN_LINE_MS, next.ms))
   }
+  const enqueue = (l: Line) => { queue.current.push(l); pump() }
+  const stopBanter = () => {
+    for (const t of banterTimers.current) clearTimeout(t)
+    banterTimers.current = []
+    queue.current = queue.current.filter((l) => l.kind !== 'banter')
+    if (line?.kind === 'banter' && lineTimer.current) { clearTimeout(lineTimer.current); lineTimer.current = null; setLine(null) }
+  }
+  // A line of an interview or of dialogue ends any exchange at once; the queue resumes after it.
+  useEffect(() => {
+    if (bubble) stopBanter()
+    else pump()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bubble?.text])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (lineTimer.current) clearTimeout(lineTimer.current); stopBanter() }, [])
 
-  // A click on a person: they turn to the player and say one of their lines.
+  // A click on a person: they stop, turn to the player, hop, and say one of their lines.
   const clickPerson = (c: Character) => {
     if (available.includes(c.id) && onPick) { onPick(c.id); return }
     const a = actorsRef.current.find((x) => x.key === c.id)
-    if (a) { a.facing = 'front'; a.holdUntil = wallMs() + LINE_MS + 600 }
+    if (a) {
+      a.path = []
+      a.facing = 'front'
+      a.holdUntil = wallMs() + LINE_MS + 800
+      if (!reducedMotion()) a.hopAt = wallMs()
+    }
     const lines = c.clickLines
-    if (!lines.length) return
-    const n = clickN.current.get(c.id) ?? 0
-    clickN.current.set(c.id, n + 1)
-    say(c.id, lines[n % lines.length]!)
+    if (lines.length) {
+      if (!clickN.current.has(c.id)) clickN.current.set(c.id, Math.floor(chance() * lines.length))
+      const n = clickN.current.get(c.id)!
+      clickN.current.set(c.id, n + 1)
+      queue.current = queue.current.filter((l) => l.key !== c.id)
+      enqueue({ key: c.id, text: lines[n % lines.length]!, ms: LINE_MS, kind: 'click' })
+    }
     setFrame((f) => f + 1)
   }
+  useEffect(() => {
+    if (!poke) return
+    const c = cast.find((x) => x.id === poke.id)
+    if (c) clickPerson(c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poke?.n])
 
-  // Banter: one exchange at a time, among people who are in the room and not in an interview.
+  // Banter: every 20 to 40 seconds, one exchange, in a shuffled order that repeats only when all have played.
   const banterKey = banter.map((b) => b.id).join(',')
   useEffect(() => {
     if (!banter.length) return
     let stop = false
     let timer: ReturnType<typeof setTimeout>
-    let order = [...banter].sort(() => chance() - 0.5)
-    let k = 0
+    let order: typeof banter = []
     const schedule = (ms: number) => { timer = setTimeout(run, ms) }
     const run = () => {
       if (stop) return
-      if (busyRef.current || document.hidden) return schedule(5000)
-      if (k >= order.length) { order = [...banter].sort(() => chance() - 0.5); k = 0 }
-      const ex = order[k++]!
+      if (bubbleRef.current || lineTimer.current || queue.current.length || document.hidden) return schedule(4000)
+      if (!order.length) order = [...banter].sort(() => chance() - 0.5)
+      const ex = order[0]!
       const here = new Set(actorsRef.current.map((a) => a.key))
-      if (!ex.lines.every((l) => here.has(l.speaker) && !meetingRef.current.includes(l.speaker))) return schedule(2000)
-      // The speakers turn to each other.
+      if (!ex.lines.every((l) => here.has(l.speaker) && !meetingRef.current.includes(l.speaker))) { order.push(order.shift()!); return schedule(3000) }
+      order.shift()
+      // The speakers stop where they are and turn to each other.
       const speakers = [...new Set(ex.lines.map((l) => l.speaker))].map((id) => actorsRef.current.find((a) => a.key === id)!)
       const cx = speakers.reduce((n, a) => n + a.x, 0) / speakers.length
-      for (const a of speakers) { if (!a.path.length) a.facing = a.x < cx - 2 ? 'right' : a.x > cx + 2 ? 'left' : 'front'; a.holdUntil = wallMs() + ex.lines.length * (LINE_MS + 500) }
-      ex.lines.forEach((l, i) => setTimeout(() => { if (!stop) say(l.speaker, l.text) }, i * (LINE_MS + 500)))
-      schedule(ex.lines.length * (LINE_MS + 500) + BANTER_GAP[0] + chance() * (BANTER_GAP[1] - BANTER_GAP[0]))
+      const span = ex.lines.length * (LINE_MS + 200)
+      for (const a of speakers) { a.path = []; a.facing = a.x < cx - 2 ? 'right' : a.x > cx + 2 ? 'left' : 'front'; a.holdUntil = wallMs() + span }
+      ex.lines.forEach((l) => enqueue({ key: l.speaker, text: l.text, ms: LINE_MS, kind: 'banter' }))
+      schedule(span + between(20_000, 40_000))
     }
-    schedule(6000 + chance() * 4000)
+    schedule(between(5000, 12_000))
     return () => { stop = true; clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [banterKey])
@@ -350,9 +428,10 @@ export function Room({
     const [tx, ty, tf] = targetOf(a, lay, meetingRef.current)
     const end = a.path.at(-1)
     if (end ? end[0] === tx && end[1] === ty : a.x === tx && a.y === ty) {
-      if (!a.path.length && wallMs() > a.holdUntil && !a.away) a.facing = tf
+      if (!a.path.length && wallMs() > a.holdUntil) a.facing = tf
       return
     }
+    if (wallMs() < a.holdUntil && !meetingRef.current.includes(a.key) && !a.you) return
     if (still) { a.x = tx; a.y = ty; a.facing = tf; a.path = []; return }
     a.path = route(floorRef.current, [a.x, a.y], [tx, ty])
   }
@@ -387,12 +466,13 @@ export function Room({
         const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('art timeout')), 8000))
         const [dayTex, nightTex, sheet] = await Promise.race([textures, timeout])
         if (destroyed) { app.destroy(true); return }
-        // The floor and the screens, read once from the day image.
+        // The floor, the screens and the wall colour, read once from the day image.
         const img = new Image()
         img.src = `${base}room_day.png`
         await img.decode().catch(() => {})
-        const read = img.complete ? readFloor(img, layout) : null
+        const read = img.complete ? readRoom(img, layout) : null
         floorRef.current = read?.floor ?? null
+        if (read) setWall(read.wall)
         host.current?.setAttribute('data-ready', 'scene')
         const world = new PIXI.Container()
         world.scale.set(scale)
@@ -403,19 +483,20 @@ export function Room({
         world.addChild(bg)
         const still = reducedMotion()
 
-        // The worklist on the wall scrolls; the monitors change.
+        // The worklist on the wall moves up one row every 2 to 4 seconds; the monitors change.
         const deco = new PIXI.Container()
         world.addChild(deco)
         const board = layout.board
-        let worklist: { g: InstanceType<typeof PIXI.Graphics>; off: number; rows: { w: number; c: number; flag: boolean }[] } | null = null
         const ROWC = [0xff7171, 0xffb83f, 0x3fc8a1, 0x4fb6e6, 0x3fc8a1, 0xa99ad6]
+        const ROW_H = 4
+        let worklist: { g: InstanceType<typeof PIXI.Graphics>; off: number; target: number; nextAt: number; rows: { w: number; c: number }[] } | null = null
         if (board && read) {
           const [bx, by, bw, bh] = board
           const g = new PIXI.Graphics()
           const mask = new PIXI.Graphics().rect(bx + 3, by + 3, bw - 6, bh - 6).fill(0xffffff)
           g.mask = mask
           deco.addChild(mask, g)
-          worklist = { g, off: 0, rows: Array.from({ length: 12 }, (_, i) => ({ w: 0.3 + ((i * 37) % 60) / 100, c: ROWC[i % ROWC.length]!, flag: i % 3 === 0 })) }
+          worklist = { g, off: 0, target: 0, nextAt: between(2000, 4000), rows: Array.from({ length: 12 }, (_, i) => ({ w: 0.3 + ((i * 37) % 60) / 100, c: ROWC[i % ROWC.length]! })) }
         }
         const drawWorklist = () => {
           if (!worklist || !board) return
@@ -423,14 +504,14 @@ export function Room({
           const g = worklist.g
           g.clear()
           g.rect(bx + 3, by + 3, bw - 6, bh - 6).fill(read?.boardBg ?? 0x25283d)
-          const rowH = 4
           const inner = bw - 18
+          const loop = ROW_H * worklist.rows.length
           worklist.rows.forEach((r, i) => {
-            const y = by + 4 + i * rowH - (worklist!.off % (rowH * worklist!.rows.length))
-            for (const yy of [y, y + rowH * worklist!.rows.length]) {
+            const y0 = by + 4 + i * ROW_H - (worklist!.off % loop)
+            for (const yy of [y0, y0 + loop]) {
               if (yy < by + 1 || yy > by + bh - 3) continue
-              g.rect(bx + 5, yy, Math.round(inner * r.w), 2).fill(r.c)
-              g.rect(bx + bw - 12, yy, 7, 2).fill(r.flag ? 0xffffff : 0x8a8fb0)
+              g.rect(bx + 5, Math.round(yy), Math.round(inner * r.w), 2).fill(r.c)
+              g.rect(bx + bw - 12, Math.round(yy), 7, 2).fill(0x8a8fb0)
             }
           })
         }
@@ -438,29 +519,33 @@ export function Room({
         const screens = (read?.screens ?? []).map(([x, y, w, h], i) => {
           const g = new PIXI.Graphics()
           deco.addChild(g)
-          return { x, y, w, h, g, mode: i % 3, nextAt: 800 + i * 450 }
+          return { x, y, w, h, g, frame: i % 4, nextAt: between(800, 3000), pace: between(1500, 4000), lit: false }
         })
-        const drawScreen = (s: (typeof screens)[number], t: number) => {
+        const drawScreen = (s: (typeof screens)[number]) => {
           const g = s.g
           g.clear()
           const ix = s.x + 1, iy = s.y + 1, iw = s.w - 2, ih = s.h - 2
           if (iw < 3 || ih < 3) return
-          g.rect(ix, iy, iw, ih).fill(0x1d2038)
-          const phase = Math.floor(t / 400)
-          if (s.mode === 0) {
-            // An image of a scan: a grey round shape.
-            g.ellipse(ix + iw / 2, iy + ih / 2, Math.max(1, iw / 2 - 1), Math.max(1, ih / 2 - 1)).fill(0xc8ccd8)
-            g.ellipse(ix + iw / 2 + ((phase % 3) - 1), iy + ih / 2, Math.max(1, iw / 5), Math.max(1, ih / 5)).fill(0x7a7f99)
-          } else if (s.mode === 1) {
-            // A list of studies.
-            for (let r = 0; r < ih - 1; r += 2) g.rect(ix + 1, iy + r + 1, Math.max(1, Math.round((iw - 2) * (0.4 + (((r + phase) * 29) % 50) / 100))), 1).fill(r % 4 ? 0x64c0e1 : 0xe6eef8)
-          } else {
-            // A report being typed.
-            const lines = 1 + (phase % Math.max(1, Math.floor(ih / 2)))
-            for (let r = 0; r < lines; r++) g.rect(ix + 1, iy + 1 + r * 2, r === lines - 1 ? Math.max(1, (phase * 2) % (iw - 1)) : iw - 2, 1).fill(0xe6eef8)
+          const lite = s.lit ? 0x2c3260 : 0x1d2038
+          g.rect(ix, iy, iw, ih).fill(lite)
+          const fg = s.lit ? 0xffffff : 0xc8ccd8
+          switch (s.frame) {
+            case 0: // an image of a scan
+              g.ellipse(ix + iw / 2, iy + ih / 2, Math.max(1, iw / 2 - 1), Math.max(1, ih / 2 - 1)).fill(fg)
+              g.ellipse(ix + iw / 2, iy + ih / 2, Math.max(1, iw / 5), Math.max(1, ih / 5)).fill(0x7a7f99)
+              break
+            case 1: // the same scan, another slice
+              g.ellipse(ix + iw / 2, iy + ih / 2, Math.max(1, iw / 2 - 2), Math.max(1, ih / 2 - 1)).fill(fg)
+              g.ellipse(ix + iw / 2 + 1, iy + ih / 2 - 1, Math.max(1, iw / 4), Math.max(1, ih / 4)).fill(0x7a7f99)
+              break
+            case 2: // a list of studies
+              for (let r = 0; r < ih - 1; r += 2) g.rect(ix + 1, iy + r + 1, Math.max(1, Math.round((iw - 2) * (0.4 + ((r * 29) % 50) / 100))), 1).fill(r % 4 ? 0x64c0e1 : fg)
+              break
+            default: // a report being typed
+              for (let r = 0; r < Math.floor(ih / 2); r++) g.rect(ix + 1, iy + 1 + r * 2, r === Math.floor(ih / 2) - 1 ? Math.max(1, iw / 3) : iw - 2, 1).fill(fg)
           }
         }
-        screens.forEach((s) => drawScreen(s, 0))
+        screens.forEach(drawScreen)
         setNightRef.current = (night) => { bg.texture = night ? nightTex : dayTex }
 
         const people = new PIXI.Container()
@@ -476,9 +561,9 @@ export function Room({
             if (key === 'you') {
               t = new PIXI.Texture({ source: sheet.source, frame: new PIXI.Rectangle((FACE_COL[facing] * 3 + step) * 16, youVariant * 16, 16, 16) })
             } else {
-              let base = sheets.get(key)
-              if (!base) { base = PIXI.Texture.from(spriteSheet(key, looks.get(key)!)); sheets.set(key, base) }
-              t = new PIXI.Texture({ source: base.source, frame: new PIXI.Rectangle((FACE_COL[facing] * 3 + step) * 16, 0, 16, 16) })
+              let b = sheets.get(key)
+              if (!b) { b = PIXI.Texture.from(spriteSheet(key, looks.get(key)!)); sheets.set(key, b) }
+              t = new PIXI.Texture({ source: b.source, frame: new PIXI.Rectangle((FACE_COL[facing] * 3 + step) * 16, 0, 16, 16) })
             }
             frames.set(k, t)
           }
@@ -497,35 +582,32 @@ export function Room({
         })
         placeTags()
         let t = 0
-        let lastScroll = 0
-        const places = [...layout.posts, ...layout.ambient]
+        const places = placesOf(layout)
         app.ticker.add((tk) => {
           const dt = tk.deltaMS
           t += dt
           const now = wallMs()
           let moved = false
-          // Idle life: now and then someone turns, or walks to another place and back.
+          // Walking: someone sets out every 15 to 45 seconds to a free place, stays 4 to 10, and comes back.
           if (!still) {
             for (const s of sprites) {
               const a = s.a
               if (a.you || a.path.length || meetingRef.current.includes(a.key) || now < a.holdUntil || t < a.nextAt) continue
-              a.nextAt = t + 7000 + chance() * 12_000
+              if (a.away) { a.away = null; a.nextAt = t + between(15_000, 45_000); continue }
               const walkers = sprites.filter((x) => x.a.path.length).length
-              if (a.away) { a.away = null; continue }
-              if (walkers < 2 && chance() < 0.45) {
-                const taken = new Set(sprites.map((x) => { const p = targetOf(x.a, layout, meetingRef.current); return `${p[0]},${p[1]}` }))
-                const free = places.filter((p) => !taken.has(`${p[0]},${p[1]}`))
-                if (free.length) { a.away = free[Math.floor(chance() * free.length)]!; a.nextAt = t + 9000 + chance() * 9000; continue }
-              }
-              const order: Facing[] = ['front', 'left', 'right', 'back']
-              a.facing = order[Math.floor(chance() * order.length)]!
-              a.holdUntil = now + 1500
+              if (walkers >= 3) { a.nextAt = t + 3000; continue }
+              const taken = new Set(sprites.map((x) => { const p = targetOf(x.a, layout, meetingRef.current); return `${p[0]},${p[1]}` }))
+              const free = places.filter((p) => !taken.has(`${p[0]},${p[1]}`))
+              if (free.length) { a.away = free[Math.floor(chance() * free.length)]!; a.nextAt = t + 5000 + between(4000, 10_000) }
+              else a.nextAt = t + between(15_000, 45_000)
             }
           }
           for (const s of sprites) {
             const a = s.a
             steer(a, layout, still)
-            if (still) { s.c.x = a.x; s.c.y = a.y; s.c.zIndex = a.y; s.sp.texture = frame(a.key, a.facing, 0); moved = true; continue }
+            const hop = a.hopAt && now - a.hopAt < 260 ? -Math.round(Math.sin(((now - a.hopAt) / 260) * Math.PI) * 3) : 0
+            if (hop === 0 && a.hopAt && now - a.hopAt >= 260) a.hopAt = 0
+            if (still) { s.c.x = a.x; s.c.y = a.y; s.c.zIndex = a.y; s.sp.texture = frame(a.key, a.facing, 0); s.sp.y = 0; moved = true; continue }
             if (a.path.length) {
               const [tx, ty] = a.path[0]!
               const sp = 0.04 * dt // 40 px per second
@@ -546,10 +628,21 @@ export function Room({
             } else if (s.sp.texture !== frame(a.key, a.facing, 0)) {
               s.sp.texture = frame(a.key, a.facing, 0)
             }
+            if (s.sp.y !== hop) { s.sp.y = hop; moved = true }
           }
           if (!still) {
-            if (worklist && t - lastScroll > 140) { worklist.off++; lastScroll = t; drawWorklist() }
-            for (const s of screens) if (t > s.nextAt) { s.nextAt = t + 1400 + chance() * 2600; if (chance() < 0.25) s.mode = (s.mode + 1) % 3; drawScreen(s, t) }
+            if (worklist) {
+              if (t > worklist.nextAt) { worklist.target += ROW_H; worklist.nextAt = t + between(2000, 4000) }
+              if (worklist.off < worklist.target) { worklist.off = Math.min(worklist.target, worklist.off + dt * 0.02); drawWorklist() }
+            }
+            for (const s of screens) {
+              const lit = sprites.some((x) => Math.abs(x.a.x + 8 - (s.x + s.w / 2)) < 12 && x.a.y > s.y && x.a.y - s.y < 30)
+              if (t > s.nextAt || lit !== s.lit) {
+                if (t > s.nextAt) { s.frame = (s.frame + 1) % 4; s.nextAt = t + s.pace }
+                s.lit = lit
+                drawScreen(s)
+              }
+            }
           }
           if (moved) placeTags()
         })
@@ -586,10 +679,13 @@ export function Room({
   useEffect(() => { placeTags() })
 
   const actors = layout ? (actorsRef.current.length ? actorsRef.current : castActors(layout, cast, me, false)) : []
-  const speaker = bubble ? cast.find((c) => c.id === bubble.speaker) : undefined
+  // The bubble on show: an interview or dialogue line first, else the head of the queue.
+  const shown: { key: string; text: string } | null = bubble ? { key: bubble.speaker, text: bubble.text } : line
+  const shownPerson = shown ? cast.find((c) => c.id === shown.key) : undefined
+  const shownIdx = shownPerson ? cast.indexOf(shownPerson) : 0
   const sheetUrls = useMemo(() => new Map(cast.map((c) => [c.id, fallback ? spriteSheet(c.id, looks.get(c.id)!).toDataURL() : ''])), [cast, looks, fallback])
   return (
-    <div ref={host} className="room" role="group" aria-label={label} style={{ position: 'relative', width: '100%', height: viewH || undefined, overflow: 'hidden', background: 'var(--inset)' }}>
+    <div ref={host} className="room" role="group" aria-label={label} style={{ position: 'relative', width: '100%', height: viewH || undefined, overflow: 'hidden', background: wall ?? 'var(--inset)' }}>
       {fallback || !layout ? (
         layout && (
           <div style={{ position: 'absolute', left: offsetX, top: offsetY, width: rw * scale, height: rh * scale }}>
@@ -612,7 +708,7 @@ export function Room({
         {actors.map((a) => {
           const [x, y] = screenPos(a)
           if (a.you) return <span key={a.key} data-k={a.key} aria-hidden="true" className="tag you" style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -100%)` }}>You</span>
-          const c = cast.find((x) => x.id === a.key)
+          const c = cast.find((p) => p.id === a.key)
           if (!c) return null
           const canPick = available.includes(a.key) && !!onPick
           return [
@@ -623,17 +719,10 @@ export function Room({
             canPick ? <span key={`${a.key}-mark`} data-k={a.key} aria-hidden="true" className="mark" style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -100%)` }}>!</span> : null,
           ]
         })}
-        {said.map((s) => {
-          const c = cast.find((x) => x.id === s.key)
-          return (
-            <div key={`${s.key}:${s.text}`} data-k={s.key} data-role="say" className="bubble say-bubble" role="status">
-              {c && <b>{c.name.split(',')[0]}</b>}{s.text}
-            </div>
-          )
-        })}
-        {bubble && (
-          <div key={bubble.text} className="bubble scene-bubble" aria-hidden="true">
-            <b>{speaker ? speaker.name.split(',')[0] : ''}:</b> {bubble.text}
+        {shown && (
+          <div key={`${shown.key}:${shown.text}`} data-k={shown.key} data-role="say" className="bubble say-bubble" role="status">
+            {shownPerson && <Portrait c={shownPerson} cast={cast} index={shownIdx} size={28} />}
+            <span>{shownPerson && <b>{firstName(shownPerson.name)} </b>}{shown.text}</span>
           </div>
         )}
       </div>

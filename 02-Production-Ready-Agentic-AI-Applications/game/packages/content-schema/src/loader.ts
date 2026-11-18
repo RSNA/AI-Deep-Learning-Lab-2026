@@ -192,7 +192,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   }
 
   if (ctx.errors.length === 0 && characters) {
-    checkReferences(ctx, game, characters, palette, monitors, systems, systemIds, deck, reportCard)
+    checkReferences(ctx, game, characters, palette, monitors, systems, systemIds, deck, reportCard, listFiles(join(dir, 'art')))
     checkCounts(ctx, game, systems)
   }
   if (ctx.errors.length > 0 || !characters) return { ok: false, errors: ctx.errors, warnings: ctx.warnings }
@@ -220,21 +220,23 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 // ------------------------------------------------------------------------------------------
 // Layer 2: references
 // ------------------------------------------------------------------------------------------
-/** The stages a deck section may open at (the stage ids of the engine, section 6.3). */
-const DECK_STAGES = [
-  'lobby', 'intro', 'planning.play', 'planning.reveal', 'break.planning',
-  'development.play', 'development.reveal', 'break.development',
-  'maintaining.setup', 'maintaining.year', 'maintaining.reveal', 'break.maintaining',
-  'reflection', 'winners', 'closed',
-] as const
+/** The stages a deck section may open at: the slide stages of section 6.13. */
+const DECK_STAGES = ['intro', 'break.planning', 'break.development', 'break.maintaining', 'reflection'] as const
 
 function checkReferences(
   ctx: Ctx, game: GameFile, characters: CharactersFile, palette: PaletteFile | null,
   monitors: MonitorsFile | null, systems: Record<string, SystemPack>, systemIds: string[],
-  deck: DeckFile | null, reportCard: ReportCardFile | null,
+  deck: DeckFile | null, reportCard: ReportCardFile | null, artFiles: string[],
 ) {
   const err = (file: string, path: string, message: string) => ctx.errors.push({ file, path, message })
   const warn = (file: string, path: string, message: string) => ctx.warnings.push({ file, path, message })
+  const limits = game.text_limits ?? {}
+  /** A word limit of `text_limits` gives a warning, like everywhere. */
+  const words = (text: string, limit: string, file: string, path: string) => {
+    const max = limits[limit]
+    const n = text.split(/\s+/).filter(Boolean).length
+    if (max !== undefined && n > max) warn(file, path, `${n} words, over the ${limit} limit of ${max}`)
+  }
   const allSystems = game.game.health_systems
   const seen = new Map<string, string>()
   const unique = (id: string, file: string, path: string) => {
@@ -252,6 +254,7 @@ function checkReferences(
     charIds.set(c.id, c.system)
     if (c.system !== 'all' && !allSystems.includes(c.system)) err('characters.yaml', `[${i}].system`, `unknown health system "${c.system}"`)
     if (c.click_lines !== undefined && c.click_lines.length < 3) warn('characters.yaml', `[${i}].click_lines`, 'a person needs three or more click lines')
+    c.click_lines?.forEach((l, j) => words(l, 'click_line', 'characters.yaml', `[${i}].click_lines[${j}]`))
     if (c.look === undefined) warn('characters.yaml', `[${i}].look`, 'no look: the sprite falls back to one made from the id')
   })
   const charOk = (id: string, sys: string) => charIds.has(id) && (charIds.get(id) === 'all' || charIds.get(id) === sys)
@@ -319,7 +322,10 @@ function checkReferences(
       for (const [phase, b] of Object.entries((st.briefs ?? {}) as Record<string, { from: string } | undefined>)) if (b && !charOk(b.from, sid)) err(f('story'), `briefs.${phase}.from`, `unknown character "${b.from}"`)
       st.banter?.forEach((b, i) => {
         unique(b.id, f('story'), `banter[${i}].id`)
-        b.lines.forEach((l, j) => { if (!charOk(l.speaker, sid)) err(f('story'), `banter[${i}].lines[${j}].speaker`, `unknown character "${l.speaker}"`) })
+        b.lines.forEach((l, j) => {
+          if (!charOk(l.speaker, sid)) err(f('story'), `banter[${i}].lines[${j}].speaker`, `unknown character "${l.speaker}"`)
+          words(l.text, 'banter_line', f('story'), `banter[${i}].lines[${j}].text`)
+        })
       })
       for (const [k, l] of Object.entries((st.letters ?? {}) as Record<string, { from: string; variants: Record<string, string> } | undefined>)) {
         if (!l) continue
@@ -344,10 +350,14 @@ function checkReferences(
 
   deck?.sections.forEach((sec, i) => {
     unique(sec.id, 'teaching/deck.yaml', `sections[${i}].id`)
-    if (!(DECK_STAGES as readonly string[]).includes(sec.stage)) err('teaching/deck.yaml', `sections[${i}].stage`, `unknown stage "${sec.stage}"`)
+    if (!(DECK_STAGES as readonly string[]).includes(sec.stage)) err('teaching/deck.yaml', `sections[${i}].stage`, `unknown stage "${sec.stage}": a section opens at ${DECK_STAGES.join(', ')}`)
+    if (deck.sections.findIndex((x) => x.stage === sec.stage) !== i) err('teaching/deck.yaml', `sections[${i}].stage`, `two sections open at "${sec.stage}"`)
     sec.slides.forEach((sl, j) => {
       unique(sl.id, 'teaching/deck.yaml', `sections[${i}].slides[${j}].id`)
       if (sl.image !== undefined && !/^[a-z0-9_/-]+\.(png|webp)$/.test(sl.image)) err('teaching/deck.yaml', `sections[${i}].slides[${j}].image`, 'an image is a path under art/, ending in .png or .webp')
+      else if (sl.image !== undefined && !artFiles.includes(sl.image)) err('teaching/deck.yaml', `sections[${i}].slides[${j}].image`, `art/${sl.image} does not exist`)
+      words(sl.title, 'slide_title', 'teaching/deck.yaml', `sections[${i}].slides[${j}].title`)
+      sl.bullets.forEach((b, k) => words(b, 'slide_bullet', 'teaching/deck.yaml', `sections[${i}].slides[${j}].bullets[${k}]`))
     })
   })
   reportCard?.sections.forEach((s, i) => unique(s.id, 'teaching/report-card.yaml', `sections[${i}].id`))
@@ -515,6 +525,8 @@ const PL = 'phases.planning'
 function checkClasses(ctx: Ctx, game: GameFile) {
   const err = (path: string, message: string) => ctx.errors.push({ file: 'game.yaml', path, message })
   const pl = game.phases.planning
+  const below = pl.submission?.letter_empty_below
+  if (below !== undefined && below > pl.candidates) err(`${PL}.submission.letter_empty_below`, `must lie between 0 and the ${pl.candidates} candidates`)
   const ids = pl.classes.map((c) => c.id)
   pl.classes.forEach((c, i) => { if (ids.indexOf(c.id) !== i) err(`${PL}.classes[${i}].id`, `class "${c.id}" is listed twice`) })
   // class_order lists every class once.

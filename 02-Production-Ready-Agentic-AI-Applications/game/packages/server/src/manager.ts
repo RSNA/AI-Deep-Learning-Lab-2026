@@ -16,14 +16,14 @@ export class Manager {
     for (const row of this.deps.db.sessions()) {
       if (row.closed !== null) continue
       if (row.content_hash !== this.deps.pack.hash) {
-        this.broken.set(row.code, 'The content pack changed since this session started. It stays closed to play.')
+        this.broken.set(row.code, 'This session was started on older content and cannot be opened again.')
         this.deps.log.warn('session not resumed: content hash differs', { code: row.code })
         continue
       }
       try {
         this.rooms.set(row.code, Room.restore(this.deps, row.code))
       } catch (err) {
-        this.broken.set(row.code, `Could not be restored: ${(err as Error).message}`)
+        this.broken.set(row.code, 'This session could not be restored after a restart and cannot be opened again.')
         this.deps.log.error('session restore failed', { code: row.code, error: (err as Error).message })
       }
     }

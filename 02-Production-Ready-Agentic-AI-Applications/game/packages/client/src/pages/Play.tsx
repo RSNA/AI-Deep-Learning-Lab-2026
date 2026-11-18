@@ -10,8 +10,6 @@ import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
-import { Blocks } from '../phase1/Rail.tsx'
-import { P1 } from '../phase1/copy.ts'
 
 function useWakeLock() {
   useEffect(() => {
@@ -44,41 +42,34 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const clock = usePlayer((s) => s.clock)
   const status = usePlayer((s) => s.status)
   const standing = usePlayer((s) => s.standing)
-  const narrow = useNarrow()
+  const narrow = useNarrow(1024)
   const sys = w.session.systems.find((s) => s.id === view.me.system)
   const phase = phaseOfStage(view.stage)
-  const title = phase ? `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}` : STAGE_TITLE[view.stage]
-  const rank = standing?.ranks.phase ?? standing?.ranks.overall
+  const title = phase ? `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}` : STAGE_TITLE[view.stage]
+  const phaseRank = standing?.ranks.phase ?? null
+  const rank = phaseRank ?? standing?.ranks.overall ?? null
   const timed = clock?.clock.stageEndsAtMs !== null && clock?.clock.stageEndsAtMs !== undefined
-  const content = usePlayer((s) => s.content.planning)
-  const pv = view.stage === 'planning.play' ? view.planning : null
-  const total = content?.phase === 'planning' ? content.rules.bandwidth : null
-  const bandwidth = pv && total !== null ? (
-    <span className="bw" aria-label={`${P1.bandwidth}: ${P1.free(pv.bandwidthFree)}`}>
-      {!narrow && <span className="bwl">{P1.bandwidth}</span>}
-      <Blocks n={total} held={total - pv.bandwidthFree} />
-      <span className="bwl">{P1.free(pv.bandwidthFree)}</span>
-    </span>
-  ) : null
+  const rankBtn = (
+    <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
+      {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
+    </button>
+  )
   return (
-    <header className="topbar" style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto', padding: '6px 10px' } : undefined}>
+    <header className="topbar" style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto auto', padding: '6px 10px' } : undefined}>
       <div className="who">
         <Avatar id={view.me.avatar} size={32} />
-        {!narrow && <span className="name">{view.me.name}</span>}
-        {sys && <span className="sysbadge"><SystemShape index={sys.index} size={10} />{narrow ? '' : sys.name}</span>}
-        {narrow && !bandwidth && <span className="phase" style={{ fontSize: 20 }}>{title}</span>}
+        <span className="name">{view.me.name}</span>
+        {sys && !narrow && <span className="sysbadge"><SystemShape index={sys.index} size={10} />{sys.name}</span>}
       </div>
-      {!narrow && (
+      {!narrow ? (
         <div className="mid">
           <span className="phase">{title}</span>
           {timed && <Countdown clock={clock} />}
         </div>
-      )}
+      ) : <div className="mid">{timed && <Countdown clock={clock} />}</div>}
       <div className="right">
-        {bandwidth}
-        {narrow && timed && <Countdown clock={clock} />}
-        <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />
-        <button className="iconbtn" onClick={onStandings} aria-label={COPY.standings}>{rank ? `#${rank}` : '#–'}</button>
+        {rankBtn}
+        {!narrow && <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />}
         <button className="iconbtn" onClick={onMenu} aria-label={COPY.menu}>☰</button>
       </div>
     </header>
@@ -92,7 +83,7 @@ function MenuSheet({ w, onClose, onBrief }: { w: Welcome; onClose: () => void; o
   const brief = view.inbox.find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
-      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={onBrief}>{P1.brief}: {brief.title}</button>}
+      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={onBrief}>{COPY.letterAgain}: {brief.title}</button>}
       <div className="eyebrow">{COPY.rejoinCode}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className="codebox" style={{ fontSize: 36 }}>{view.me.rejoinCode}</span>
@@ -237,29 +228,31 @@ function SystemPanel({ w }: { w: Welcome }) {
   )
 }
 
-function CastPanel({ w }: { w: Welcome }) {
+function CastPanel({ w, onPoke }: { w: Welcome; onPoke?: (id: string) => void }) {
   return (
     <section className="panel">
       <div className="panel-head sun">{COPY.people}</div>
       <div className="panel-body cast-list">
         {w.system.cast.map((c, i) => (
-          <div key={c.id} className="cast-row">
-            <Portrait c={c} cast={w.system.cast} index={i} size={60} />
-            <div><div style={{ fontSize: 16, fontWeight: 800 }}>{c.name}</div><div className="muted" style={{ fontSize: 14 }}>{c.role}</div></div>
-          </div>
+          <button key={c.id} type="button" className="cast-row" onClick={() => onPoke?.(c.id)} aria-label={`${c.name}, ${c.role}. ${COPY.sayHello}`}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Portrait c={c} cast={w.system.cast} index={i} size={60} />
+              <span><span style={{ display: 'block', fontSize: 16, fontWeight: 800 }}>{c.name}</span><span className="muted" style={{ fontSize: 14 }}>{c.role}</span></span>
+            </span>
+          </button>
         ))}
       </div>
     </section>
   )
 }
 
-function RoomPanel({ w, title, maxHeight = 400 }: { w: Welcome; title?: string; maxHeight?: number }) {
+function RoomPanel({ w, title, maxHeight = 600, poke = null }: { w: Welcome; title?: string; maxHeight?: number; poke?: { id: string; n: number } | null }) {
   const view = usePlayer((s) => s.view)!
   const theme = useTheme()
   return (
     <section className="panel">
       <div className="panel-head lav">{title ?? COPY.yourPractice}<span className="sub">{COPY.sceneHint}</span></div>
-      <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} />
+      <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} poke={poke} />
     </section>
   )
 }
@@ -267,6 +260,8 @@ function RoomPanel({ w, title, maxHeight = 400 }: { w: Welcome; title?: string; 
 function Lobby({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
   const narrow = useNarrow(1024)
+  const [poke, setPoke] = useState<{ id: string; n: number } | null>(null)
+  const onPoke = (id: string) => setPoke((p) => ({ id, n: (p?.n ?? 0) + 1 }))
   const howTo = (
     <section className="panel">
       <div className="panel-head">{COPY.howToPlay}</div>
@@ -277,25 +272,25 @@ function Lobby({ w }: { w: Welcome }) {
     <>
       <TownStrip height={narrow ? 120 : 160}>
         <div className="bubble" style={{ position: 'absolute', left: '50%', top: 14, transform: 'translateX(-50%)', width: 'min(320px, 86vw)' }}>
-          <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.lookAtScreen : COPY.waitingHost}
+          <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.introWait : COPY.waitingHost}
         </div>
       </TownStrip>
       {narrow ? (
         <main className="lobby narrow">
-          <RoomPanel w={w} maxHeight={360} />
-          {howTo}
           <SystemPanel w={w} />
-          <CastPanel w={w} />
+          <RoomPanel w={w} maxHeight={360} poke={poke} />
+          <CastPanel w={w} onPoke={onPoke} />
+          {howTo}
         </main>
       ) : (
         <main className="lobby">
           <div className="lobby-left">
             {howTo}
-            <CastPanel w={w} />
+            <CastPanel w={w} onPoke={onPoke} />
           </div>
           <div className="lobby-right">
-            <RoomPanel w={w} maxHeight={560} />
             <SystemPanel w={w} />
+            <RoomPanel w={w} poke={poke} />
           </div>
         </main>
       )}
@@ -395,7 +390,7 @@ function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
               </div>
             )}
           </div>
-          <p className="muted">{COPY.slideFollows}</p>
+          <p className="muted">{COPY.presenting}</p>
           {onBack && <button type="button" className="btn go" style={{ alignSelf: 'flex-start' }} onClick={onBack}>{COPY.backToBoard}</button>}
         </div>
       </section>
@@ -405,18 +400,19 @@ function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
 
 function StageBody({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
-  const [hidden, setHidden] = useState<string | null>(null)
+  const [hidden, setHidden] = useState(false)
   const st = view.stage
-  // A mirrored slide takes the screen. Where the player has a board to read, they may step back
-  // to it until the host moves to another slide.
-  if (view.slide && hidden !== view.slide.id) {
-    const canLeave = st !== 'lobby' && st !== 'intro'
-    return <MirroredSlide onBack={canLeave ? () => setHidden(view.slide!.id) : null} />
-  }
+  // While the host mirrors the slides the player's screen shows the current slide. At a reveal
+  // or a break the player may step back to the board; that choice lasts until the mirror ends.
+  const mirrored = !!view.slide
+  useEffect(() => { if (!mirrored) setHidden(false) }, [mirrored])
+  const canLeave = st.endsWith('.reveal') || st.startsWith('break.')
+  if (view.slide && !(hidden && canLeave)) return <MirroredSlide onBack={canLeave ? () => setHidden(true) : null} />
+  const onSlides = view.slide ? () => setHidden(false) : null
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
   if (st === 'winners' || st === 'closed') return <Winners />
   const phase = phaseOfStage(st)
-  if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning w={w} />
+  if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning w={w} onSlides={onSlides} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
   if (st.startsWith('break.')) return <Results w={w} phase={st.split('.')[1] as PhaseId} note={COPY.lookAtScreen} />
   if (st === 'reflection') return <Results w={w} phase={null} note={COPY.lookAtScreen} />
@@ -480,7 +476,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
         </Sheet>
       )}
       {menu && <MenuSheet w={welcome} onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} />}
-      {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} />}
+      {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} again />}
       {standings && <StandingsSheet w={welcome} onClose={() => setStandings(false)} />}
     </div>
   )

@@ -118,8 +118,11 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         expect((await host.command('slide', { delta: 1 })).ok).toBe(true)
         shownEver.add(flat[1]!.slide.id)
         await new Promise((r) => setTimeout(r, 300))
+        expect((await host.command('screen_mirror', { mirror: false })).ok).toBe(true)
+        await new Promise((r) => setTimeout(r, 200))
         expect((await host.command('screen_scene', { scene: 'auto' })).ok).toBe(true)
       }
+      let pinnedInPlay = false
       const watchSlides = setInterval(() => { const v = visible(false); if (v) shownEver.add(v) }, 20)
 
       while (room.state.stage !== 'closed') {
@@ -132,6 +135,13 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         }
         const sess = await fetch(`${srv.url}/api/session/${code}`)
         records.push({ stage: room.state.stage, text: await sess.text(), slide: visible(true) })
+        // Once in Phase 1 the host puts the slides on the projector only, then follows the game again.
+        if (before === 'planning.play' && !pinnedInPlay && flat.length) {
+          pinnedInPlay = true
+          expect((await host.command('screen_scene', { scene: 'slides' })).ok).toBe(true)
+          await new Promise((r) => setTimeout(r, 300))
+          expect((await host.command('screen_scene', { scene: 'auto' })).ok).toBe(true)
+        }
         // Phase 1 runs on its own clock, so the bots earn their tiles. Later phases are stubs.
         if (before !== 'planning.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
         await until(() => room.state.stage !== before, 40_000, `leaving ${before}`)
@@ -158,8 +168,10 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const structural = fields.filter((f) => early.some((r) => r.text.includes(f)))
       // A slide reaches a browser only while it is shown there. Notes never do (they are protected).
       const slideLeaks: string[] = []
+      const openText = [...open].join('\n')
       for (const f of flat) {
-        const texts = [f.slide.title, ...f.slide.bullets].filter((x) => x.length >= 12)
+        // A slide line that repeats text the pack publishes anyway (a class label, a ladder rung) proves nothing.
+        const texts = [f.slide.title, ...f.slide.bullets].filter((x) => x.length >= 12 && !openText.includes(x))
         for (const rec of records) {
           if (rec.slide === f.slide.id) continue
           const hit = texts.find((x) => rec.text.includes(JSON.stringify(x).slice(1, -1)))
@@ -167,6 +179,13 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         }
       }
       expect(slideLeaks).toEqual([])
+      // Banter and click lines are public: none of them may carry a protected string.
+      const spoken: string[] = []
+      for (const c of loaded.pack.characters) spoken.push(...(c.click_lines ?? []))
+      for (const id of loaded.pack.systemIds) for (const b of loaded.pack.systems[id]!.story?.banter ?? []) spoken.push(...b.lines.map((l) => l.text))
+      const spokenLeaks = list.filter((p) => spoken.some((x) => x.includes(p.text))).map((p) => p.where)
+      expect(spokenLeaks).toEqual([])
+      expect(pinnedInPlay || !flat.length).toBe(true)
       if (flat.length > 1) expect(records.some((r) => r.slide !== null)).toBe(true)
       expect(records.length).toBeGreaterThan(100)
       expect(tilesSeen).toBeGreaterThan(0)

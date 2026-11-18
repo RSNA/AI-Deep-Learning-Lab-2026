@@ -68,11 +68,12 @@ const STYLES: [RegExp, Style][] = [
   [/curl|afro|coil|wav|voluminous/, 'curly'], [/long|shoulder/, 'long'], [/short|side|neat|swept|spiky|messy/, 'short'],
 ]
 
-export type Detail = 'glasses' | 'beard' | 'moustache' | 'stethoscope' | 'lanyard' | 'badge' | 'tie' | 'headphones' | 'earrings' | 'scarf' | 'clipboard'
+export type Detail = 'glasses' | 'beard' | 'moustache' | 'stethoscope' | 'lanyard' | 'badge' | 'tie' | 'headphones' | 'earrings' | 'scarf' | 'clipboard' | 'pager' | 'mug' | 'belt' | 'backpack' | 'arms'
 const DETAILS: [RegExp, Detail][] = [
   [/glass|spectacle/, 'glasses'], [/beard|stubble|goatee/, 'beard'], [/moustache|mustache/, 'moustache'],
   [/stethoscope/, 'stethoscope'], [/lanyard/, 'lanyard'], [/badge|name tag/, 'badge'], [/tie\b|bow tie/, 'tie'],
   [/headphone|headset|earbud/, 'headphones'], [/earring/, 'earrings'], [/scarf/, 'scarf'], [/clipboard|tablet|folder/, 'clipboard'],
+  [/pager|phone/, 'pager'], [/mug|coffee|cup/, 'mug'], [/tool ?belt|belt/, 'belt'], [/backpack|rucksack|bag/, 'backpack'], [/crossed arms|arms crossed/, 'arms'],
 ]
 
 const TROUSERS = ['#3b3f58', '#56565e', '#8a7a5a', '#2e2e36', '#5d4a3a', '#46526e']
@@ -293,6 +294,12 @@ export function drawFrame(p: Parsed, facing: Facing, step: 0 | 1 | 2): Px {
     }
     const chest = bodyRow(8)
     const c = chest.xs.length ? Math.floor((chest.xs[0]! + chest.xs[chest.xs.length - 1]!) / 2) : -1
+    if (d === 'backpack' && chest.xs.length) {
+      const pack: RGB = hex('#c2504d')
+      if (back) for (let r = 7; r <= 9; r++) { const row = bodyRow(r); row.xs.slice(1, -1).forEach((x) => set(x, row.y, r === 7 ? darker(pack, 0.2) : pack)) }
+      else if (facing === 'front') { set(chest.xs[0]!, top + 7, pack); set(chest.xs[chest.xs.length - 1]!, top + 7, pack) }
+      else { const x = facing === 'left' ? chest.xs[chest.xs.length - 1]! : chest.xs[0]!; for (let r = 7; r <= 9; r++) set(x, top + r, pack) }
+    }
     if (c < 0 || back) continue
     if (d === 'stethoscope') {
       if (facing === 'front') { set(c - 1, top + 7, METAL); set(c + 2, top + 7, METAL); set(c - 1, top + 8, METAL); set(c + 2, top + 8, METAL); set(c, top + 9, METAL); set(c + 1, top + 9, METAL) }
@@ -306,6 +313,10 @@ export function drawFrame(p: Parsed, facing: Facing, step: 0 | 1 | 2): Px {
     }
     if (d === 'tie') { set(c, top + 7, hex('#c2504d')); set(c, top + 8, hex('#a54240')); if (facing === 'front') { set(c + 1, top + 7, hex('#c2504d')); set(c + 1, top + 8, hex('#a54240')) } }
     if (d === 'scarf') { const r = bodyRow(7); r.xs.forEach((x) => set(x, r.y, hex('#e07a3c'))) }
+    if (d === 'pager') { set(chest.xs[chest.xs.length - 1]! - 1, top + 9, DARK); set(chest.xs[chest.xs.length - 1]! - 1, top + 8, hex('#64c0e1')) }
+    if (d === 'mug') { const x = facing === 'left' ? chest.xs[0]! - 1 : chest.xs[chest.xs.length - 1]! + 1; set(x, top + 8, hex('#eef0f4')); set(x, top + 9, hex('#c2504d')) }
+    if (d === 'belt') { const r = bodyRow(9); r.xs.forEach((x, i) => set(x, r.y, i % 3 === 1 ? hex('#f0c64a') : hex('#5a3a2c'))) }
+    if (d === 'arms') { const r = bodyRow(8); r.xs.slice(1, -1).forEach((x) => set(x, r.y, darker(p.top, 0.35))) }
     if (d === 'clipboard') { const x = facing === 'left' ? chest.xs[0]! - 1 : chest.xs[chest.xs.length - 1]!; set(x, top + 8, hex('#c59a68')); set(x, top + 9, hex('#eef0f4')) }
   }
   if (p.details.includes('headphones')) {

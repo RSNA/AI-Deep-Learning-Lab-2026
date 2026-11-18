@@ -189,6 +189,10 @@ text_limits:
   insight_teaser: 18
   tile_body: 40
   dialogue_line: 16
+  banter_line: 16
+  click_line: 14
+  slide_title: 8
+  slide_bullet: 16
 
 sources:
   DEMO-1: {paper: HANDBOOK, locator: Chapter 1, gist: "Fix the process before you buy software for it."}

@@ -229,6 +229,7 @@ export const ScreenView = S({
     systems: z.array(S({ id: z.string(), players: Int, meanPoints: z.number(), flagshipHits: Int })),
   }).nullable(),
   slide: SlideView.nullable(),      // only while the scene is 'slides'
+  activity: S({ players: Int, acted: Int, insights: Int, sent: Int }).nullable(),   // the room in a play stage
   winners: S({
     final: z.boolean(),             // every phase is scored. Before that: the standings so far, no podium
     overall: z.array(BoardRow),

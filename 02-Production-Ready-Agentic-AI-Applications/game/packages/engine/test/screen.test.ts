@@ -18,27 +18,64 @@ describe('the deck', () => {
     expect(sectionStartFor(pack, 'planning.play')).toBeNull()
   })
 
-  it('moves within the deck and refuses an index past its end', () => {
+  it('moves one slide at a time, stops at both ends, and refuses an index past the end', () => {
     const s = newSession()
-    expect(host(s, 'slide', { delta: -3 }).ok).toBe(true)
+    expect(host(s, 'slide', { delta: -1 }).ok).toBe(true)
     expect(s.screen.slide).toBe(0)
-    host(s, 'slide', { delta: 100 })
+    expect(host(s, 'slide', { delta: 2 })).toMatchObject({ ok: false, error: 'bad_message' })
+    for (let i = 0; i < flat.length + 3; i++) host(s, 'slide', { delta: 1 })
     expect(s.screen.slide).toBe(flat.length - 1)
     expect(host(s, 'slide_to', { index: 2 }).ok).toBe(true)
     expect(s.screen.slide).toBe(2)
     expect(host(s, 'slide_to', { index: flat.length })).toMatchObject({ ok: false, error: 'unknown_id' })
   })
 
-  it('opens at the section of the stage when the screen follows the game, and keeps the last slide when pinned', () => {
+  it('following the game into a slide stage, moves to its section and mirrors it, unless the host is inside it', () => {
     const s = newSession()
-    host(s, 'next') // intro
+    join(s, 'p1', 'Alpha Branch')
+    const intro = sectionStartFor(pack, 'intro')!
+    host(s, 'slide_to', { index: intro + 1 })
+    host(s, 'next') // intro: already inside its section, so the position stays
     expect(shownScene(s, pack)).toBe('slides')
-    expect(s.screen.slide).toBe(sectionStartFor(pack, 'intro'))
-    host(s, 'slide', { delta: 1 })
-    const shown = s.screen.slide
+    expect(s.screen.slide).toBe(intro + 1)
+    expect(slidesMirrored(s, pack)).toBe(true)
+    expect(project.playerView(s, pack, 'p1', 'C').slide?.id).toBe(flat[intro + 1]!.slide.id)
+    // A play stage ends the mirror; the break moves the deck to its own section and mirrors again.
+    host(s, 'next', {}, 1000)
+    expect(slidesMirrored(s, pack)).toBe(false)
+    host(s, 'end_now', {}, 2000)
+    host(s, 'next', {}, 3000)
+    expect(s.stage).toBe('break.planning')
+    expect(s.screen.slide).toBe(sectionStartFor(pack, 'break.planning'))
+    expect(slidesMirrored(s, pack)).toBe(true)
+  })
+
+  it('leaves a pinned projector alone at a stage change, and resumes at the slide shown last', () => {
+    const s = newSession()
     host(s, 'screen_scene', { scene: 'lobby' })
+    host(s, 'slide_to', { index: 3 })
+    host(s, 'next') // intro, but pinned to the lobby
+    expect(shownScene(s, pack)).toBe('lobby')
+    expect(s.screen.slide).toBe(3)
+    expect(s.screen.mirror).toBe(false)
     host(s, 'screen_scene', { scene: 'slides' })
-    expect(s.screen.slide).toBe(shown)
+    expect(project.screenView(s, pack, 'http://x').slide?.id).toBe(flat[3]!.slide.id)
+  })
+
+  it('ends the mirror when the projector leaves the slides, for any reason', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
+    host(s, 'screen_scene', { scene: 'slides', mirror: true })
+    expect(s.screen.mirror).toBe(true)
+    host(s, 'screen_scene', { scene: 'lobby' })
+    expect(s.screen.mirror).toBe(false)
+    host(s, 'screen_scene', { scene: 'slides' })
+    expect(slidesMirrored(s, pack)).toBe(false)
+    host(s, 'screen_mirror', { mirror: true })
+    expect(host(s, 'spotlight', { playerId: 'p1' }).ok).toBe(true)
+    expect(s.screen.mirror).toBe(false)
+    host(s, 'spotlight', { playerId: null })
+    expect(slidesMirrored(s, pack)).toBe(false)
   })
 })
 

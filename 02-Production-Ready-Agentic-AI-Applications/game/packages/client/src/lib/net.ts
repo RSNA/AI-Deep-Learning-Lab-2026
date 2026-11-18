@@ -8,9 +8,9 @@ export function socketUrl(): string {
   return `${proto}://${location.host}/ws`
 }
 
-export function connect(token: string, opts: { session?: string; host?: boolean; name?: string } = {}): GameConnection {
+export function connect(token: string, opts: { session?: string; host?: boolean; name?: string; console?: string } = {}): GameConnection {
   return new GameConnection({
-    url: socketUrl(), token, build: BUILD, session: opts.session, name: opts.name, commandFrame: opts.host ? 'hostcmd' : 'cmd',
+    url: socketUrl(), token, build: BUILD, session: opts.session, name: opts.name, console: opts.console, commandFrame: opts.host ? 'hostcmd' : 'cmd',
   })
 }
 

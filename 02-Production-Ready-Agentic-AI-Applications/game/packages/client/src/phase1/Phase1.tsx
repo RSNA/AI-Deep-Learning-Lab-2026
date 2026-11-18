@@ -1,5 +1,6 @@
-// Phase 1 for the player (engineering spec, section 10.4). On a laptop: the rail, the evidence
-// wall and the sorting board side by side. On a phone: three tabs. Then the reveal.
+// Phase 1 for the player (engineering spec, section 10.4). On a laptop three titled columns side
+// by side: Investigations, Evidence, Your assessment. Below 1024 px the same three as tabs.
+// Then the reveal.
 import { useEffect, useRef, useState } from 'react'
 import type { PlanningContent, Welcome } from '@lab02/protocol'
 import { Portrait, Sheet } from '../components/ui.tsx'
@@ -8,13 +9,15 @@ import { Paragraphs } from '../lib/marks.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import { P1 } from './copy.ts'
-import { InvestigationList, PlanningRoom, Rail, Transcript } from './Rail.tsx'
+import { Investigations } from './Rail.tsx'
 import { Reveal } from './Reveal.tsx'
 import { Assessment } from './Sorting.tsx'
 import { useBoard } from './useBoard.ts'
 import { Wall } from './Wall.tsx'
 
-export function useNarrow(px = 768): boolean {
+export const PHONE_BELOW = 1024
+
+export function useNarrow(px = PHONE_BELOW): boolean {
   const [narrow, setNarrow] = useState(() => window.innerWidth < px)
   useEffect(() => {
     const on = () => setNarrow(window.innerWidth < px)
@@ -24,23 +27,28 @@ export function useNarrow(px = 768): boolean {
   return narrow
 }
 
-/** The brief of the phase, shown once when it opens. The menu opens it again. */
-export function BriefSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
+/** The opening letter: it pops up once when the phase starts and stays as the first card. */
+export function BriefSheet({ w, onClose, again = false }: { w: Welcome; onClose: () => void; again?: boolean }) {
   const view = usePlayer((s) => s.view)!
   const brief = view.inbox.find((m) => m.id === 'planning:brief')
   if (!brief) return null
   const idx = w.system.cast.findIndex((c) => c.id === brief.from)
   const c = w.system.cast[idx]
   return (
-    <Sheet title={brief.title ?? P1.brief} head="sun" onClose={onClose}>
+    <Sheet title={P1.letterTitle} head="sun" onClose={onClose} wide>
+      {!again && <div className="brief-started">{P1.phaseStarted}</div>}
       {c && (
         <div className="speaker">
-          <Portrait c={c} cast={w.system.cast} index={idx} size={60} />
+          <Portrait c={c} cast={w.system.cast} index={idx} size={64} />
           <div><div className="nm">{c.name}</div><div className="rl">{c.role}</div></div>
         </div>
       )}
+      <h2 className="brief-title">{brief.title}</h2>
       <div className="brief-text"><Paragraphs text={brief.text} /></div>
-      <button type="button" className="btn go big" autoFocus onClick={onClose}>{P1.briefStart}</button>
+      <div className="brief-foot">
+        <span className="muted">{again ? P1.letterStays : `${P1.clockRuns} ${P1.letterStays}`}</span>
+        <button type="button" className="btn go big" autoFocus onClick={onClose}>{again ? P1.close : P1.briefStart}</button>
+      </div>
     </Sheet>
   )
 }
@@ -65,30 +73,21 @@ function useWarnings(): string | null {
   return text
 }
 
+type Tab = 'investigations' | 'evidence' | 'assessment'
+
 function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) {
   const pv = usePlayer((s) => s.view!.planning!)
   const me = usePlayer((s) => s.view!.me.id)
   const board = useBoard(content)
-  const phone = useNarrow(768)
-  const said = usePlayer((s) => s.said)
+  const phone = useNarrow()
   const warning = useWarnings()
-  const allDone = pv.tiles.length === content.investigations.length
-  const [folded, setFolded] = useState(() => allDone)
-  const [notice, setNotice] = useState<string | null>(null)
   const [focusCard, setFocusCard] = useState<{ key: string; n: number } | null>(null)
-  const [tab, setTab] = useState<'room' | 'evidence' | 'sort'>('room')
+  const [tab, setTab] = useState<Tab>('investigations')
   const [fromProblem, setFromProblem] = useState<string | null>(null)
   const [sortFocus, setSortFocus] = useState<string | null>(null)
   const [briefOpen, setBriefOpen] = useState(() => !store.flag(`brief-planning-${me}`))
   const seenTiles = useRef(pv.tiles.length)
   const [evidenceBadge, setEvidenceBadge] = useState(0)
-
-  // The rail folds by itself once every investigation is done.
-  const wasDone = useRef(allDone)
-  useEffect(() => {
-    if (allDone && !wasDone.current) { setFolded(true); setNotice(P1.allDoneNotice); setTimeout(() => setNotice(null), 7000) }
-    wasDone.current = allDone
-  }, [allDone])
 
   useEffect(() => {
     if (pv.tiles.length > seenTiles.current && phone && tab !== 'evidence') setEvidenceBadge((n) => n + pv.tiles.length - seenTiles.current)
@@ -97,37 +96,35 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
 
   const closeBrief = () => { store.setFlag(`brief-planning-${me}`); setBriefOpen(false) }
   const showCard = (inv: string) => { setFocusCard({ key: inv, n: Date.now() }); if (phone) setTab('evidence') }
-  const unsortedN = content.problems.length - Object.keys(board.picks).length
+  const sorted = Object.keys(board.picks).length
 
   if (phone) {
     const backTo = fromProblem ? (
-      <button type="button" className="btn small backto" onClick={() => { setSortFocus(fromProblem); setFromProblem(null); setTab('sort') }}>
+      <button type="button" className="btn small backto" onClick={() => { setSortFocus(fromProblem); setFromProblem(null); setTab('assessment') }}>
         ← {P1.backTo(content.problems.find((p) => p.id === fromProblem)?.title ?? '')}
       </button>
     ) : null
+    const counts: Record<Tab, string> = {
+      investigations: P1.doneOf(pv.tiles.length, content.investigations.length),
+      evidence: P1.insights(pv.tiles.length, content.investigations.length),
+      assessment: P1.sorted(sorted, content.problems.length),
+    }
     return (
       <div className="p1-phone">
         <div className="p1-phone-main">
-          {tab === 'room' && (
-            <div className="phone-room">
-              <PlanningRoom w={w} content={content} pv={pv} cropHeight={200} />
-              <Transcript content={content} said={said} />
-              <InvestigationList content={content} pv={pv} onShowCard={showCard} />
-            </div>
-          )}
+          {tab === 'investigations' && <Investigations content={content} pv={pv} onShowCard={showCard} phone />}
           {tab === 'evidence' && <Wall w={w} content={content} pv={pv} phone focusCard={focusCard} backTo={backTo} />}
-          {tab === 'sort' && <Assessment board={board} content={content} focus={sortFocus} onEvidence={(pid) => { setFromProblem(pid); setTab('evidence'); setEvidenceBadge(0) }} />}
+          {tab === 'assessment' && <Assessment board={board} content={content} focus={sortFocus} phone onEvidence={(pid) => { setFromProblem(pid); setTab('evidence'); setEvidenceBadge(0) }} />}
         </div>
-        <nav className="ptabs" aria-label="Phase 1">
-          {(['room', 'evidence', 'sort'] as const).map((t) => {
-            const badge = t === 'evidence' ? evidenceBadge : t === 'sort' ? unsortedN : pv.running.length
-            return (
-              <button key={t} type="button" className={tab === t ? 'on' : ''} aria-pressed={tab === t}
-                onClick={() => { setTab(t); if (t === 'evidence') setEvidenceBadge(0); if (t !== 'evidence') setFromProblem(null) }}>
-                {P1[t]}{badge > 0 && <span className="badge">{badge}</span>}
-              </button>
-            )
-          })}
+        <nav className="ptabs" aria-label={P1.phase}>
+          {(['investigations', 'evidence', 'assessment'] as const).map((t) => (
+            <button key={t} type="button" className={tab === t ? 'on' : ''} aria-pressed={tab === t}
+              onClick={() => { setTab(t); if (t === 'evidence') setEvidenceBadge(0); if (t !== 'evidence') setFromProblem(null) }}>
+              <span className="tl">{P1.tab[t]}</span>
+              <span className="tc">{t === 'investigations' && pv.running.length ? P1.runningN(pv.running.length) : counts[t]}</span>
+              {t === 'evidence' && evidenceBadge > 0 && <span className="badge">{evidenceBadge}</span>}
+            </button>
+          ))}
         </nav>
         {warning && <div className="toast warnbar" role="status">{warning}</div>}
         {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
@@ -136,27 +133,22 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
   }
 
   return (
-    <div className={`p1${folded ? ' folded' : ''}`}>
-      <div className="p1-left">
-        <Rail w={w} content={content} pv={pv} folded={folded} setFolded={setFolded} onShowCard={showCard} />
-        <Wall w={w} content={content} pv={pv} focusCard={focusCard} />
-      </div>
-      <section className="sortcol" aria-label={P1.assessment}>
-        <div className="coltitle"><h2>{P1.assessment}</h2></div>
-        <Assessment board={board} content={content} />
-      </section>
-      {(warning || notice) && <div className="toast warnbar" role="status">{warning ?? notice}</div>}
+    <div className="p1">
+      <Investigations content={content} pv={pv} onShowCard={showCard} />
+      <Wall w={w} content={content} pv={pv} focusCard={focusCard} />
+      <Assessment board={board} content={content} />
+      {warning && <div className="toast warnbar" role="status">{warning}</div>}
       {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
     </div>
   )
 }
 
 /** Phase 1 from its first stage to the break that follows it. */
-export function Planning({ w }: { w: Welcome }) {
+export function Planning({ w, onSlides }: { w: Welcome; onSlides?: (() => void) | null }) {
   const view = usePlayer((s) => s.view)!
   const content = usePlayer((s) => s.content.planning) as PlanningContent | undefined
   const pv = view.planning
   if (!pv || !content) return <div className="banner">{P1.evidence}…</div>
-  if (pv.reveal) return <Reveal w={w} content={content} pv={pv} inBreak={view.stage === 'break.planning'} />
+  if (pv.reveal) return <Reveal w={w} content={content} pv={pv} inBreak={view.stage === 'break.planning'} onSlides={onSlides ?? null} />
   return <PlanningPlay w={w} content={content} />
 }

@@ -88,6 +88,11 @@ function Leaderboard({ v }: { v: ScreenView }) {
           )
         })}
       </div>
+      {v.activity && (
+        <div style={{ fontSize: 26, fontWeight: 800 }} className="muted">
+          {`${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} insights found · ${v.activity.sent} assessment${v.activity.sent === 1 ? '' : 's'} sent`}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
         <div><div className="face" style={{ fontSize: 32 }}>Health systems</div><div className="muted" style={{ fontSize: 17 }}>{COPY.systemsSub}</div></div>
         <SystemsStrip systems={v.session.systems} standings={v.board.systems} big />
@@ -145,6 +150,10 @@ function Lobby({ v }: { v: ScreenView }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'flex-start' }}>
         <Qr url={v.session.joinUrl} size={460} />
         <div className="face" style={{ fontSize: 56, lineHeight: 1 }}>{v.session.joinUrl.replace(/^https?:\/\//, '')}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          <span style={{ fontSize: 28, fontWeight: 800 }} className="muted">Join code</span>
+          <span className="face" style={{ fontSize: 72, lineHeight: 1, letterSpacing: 6 }}>{v.session.code}</span>
+        </div>
         <div style={{ fontSize: 24, fontWeight: 700 }} className="muted">Scan the code or type the link. No account needed.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
@@ -256,8 +265,8 @@ export function Slide({ v }: { v: ScreenView }) {
   const sl = v.slide
   if (!sl) return <TitleCard v={v} text="No slide to show." />
   return (
-    <div style={{ flexGrow: 1, minHeight: 0, padding: '48px 96px 32px', display: 'flex', flexDirection: 'column', gap: 28 }}>
-      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 1, color: 'var(--muted)' }}>{sl.section.toUpperCase()}</div>
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '48px 96px 32px', display: 'flex', flexDirection: 'column', gap: 28, position: 'relative' }}>
+      <div style={{ position: 'absolute', right: 48, top: 28, fontSize: 24, fontWeight: 800, color: 'var(--muted)', textAlign: 'right' }}>{sl.section} · {`${sl.index + 1} of ${sl.count}`}</div>
       <div className="face" style={{ fontSize: 104, lineHeight: 1 }}>{sl.title}</div>
       <div style={{ display: 'grid', gridTemplateColumns: sl.image || sl.stat ? 'minmax(0, 1.4fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 56, flexGrow: 1, minHeight: 0, alignItems: 'start' }}>
         <ul style={{ margin: 0, paddingLeft: 48, display: 'flex', flexDirection: 'column', gap: 22, fontSize: 44, lineHeight: 1.25, fontWeight: 600 }}>
@@ -275,7 +284,6 @@ export function Slide({ v }: { v: ScreenView }) {
           </div>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--muted)', textAlign: 'right' }}>{`Slide ${sl.index + 1} of ${sl.count}`}</div>
     </div>
   )
 }
@@ -346,8 +354,8 @@ export function ScreenStage({ v, clock, scale, themed = false }: { v: ScreenView
   let body: React.ReactNode
   switch (v.scene) {
     case 'lobby': body = <Lobby v={v} />; break
-    case 'intro': body = <TitleCard v={v} text="The game starts in a moment." />; break
-    case 'reflection': body = <TitleCard v={v} text="What did your practice learn?" />; break
+    case 'intro': body = <TitleCard v={v} text="Intro slides" />; break
+    case 'reflection': body = <TitleCard v={v} text="Reflection" />; break
     case 'slides': body = <Slide v={v} />; break
     case 'winners': body = <Winners v={v} />; break
     case 'spotlight': body = <Spotlight v={v} />; break

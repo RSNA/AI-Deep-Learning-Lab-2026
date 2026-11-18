@@ -1,4 +1,4 @@
-// The deck of the session (engineering spec, section 6.12): one list of slides in sections. The
+// The deck of the session (engineering spec, section 6.13): one list of slides in sections. The
 // screen state holds the index of the slide shown last, across the whole deck.
 import type { Pack } from '@lab02/content-schema'
 import type { StageId } from '@lab02/protocol'
@@ -25,6 +25,14 @@ export function deckSlides(pack: Pack): FlatSlide[] {
     cache.set(deck, out)
   }
   return out
+}
+
+/** The section that opens at this stage, as the index of its first slide and its length. */
+export function sectionOf(pack: Pack, stage: StageId): { start: number; count: number } | null {
+  const all = deckSlides(pack)
+  const hit = all.find((x) => x.section.stage === stage)
+  if (!hit) return null
+  return { start: hit.index, count: all.filter((x) => x.sectionIndex === hit.sectionIndex).length }
 }
 
 /** The first slide of the section that opens at this stage, or null. */

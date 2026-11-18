@@ -1,9 +1,10 @@
-// Evidence cards (engineering spec, section 10.4): the Practice card, the four tile types, and
-// the overlay that opens a card large. Nothing on a card is clamped, cut or hidden.
+// Evidence cards (engineering spec, section 10.4): the opening letter, the four tile types, the
+// practice facts of the panel, and the overlay that opens a card large. Nothing on a card is
+// clamped, cut or hidden.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Character, Method, PackArt, PlanningContent, SystemPublic, Tile } from '@lab02/protocol'
 import { Portrait } from '../components/ui.tsx'
-import { Marks } from '../lib/marks.tsx'
+import { Marks, Paragraphs } from '../lib/marks.tsx'
 import { P1 } from './copy.ts'
 
 export const METHOD_CLASS: Record<Method, string> = { interview: 'm-int', data_pull: 'm-dat', audit: 'm-aud', observation: 'm-obs' }
@@ -226,21 +227,46 @@ export function TileBody({ tile, cast, large = false }: { tile: Tile; cast: Char
 // Cards
 // ------------------------------------------------------------------------------------------
 export type CardItem =
-  | { kind: 'practice' }
+  | { kind: 'letter' }
   | { kind: 'tile'; investigation: string; tile: Tile }
 
 export function cardKey(c: CardItem): string {
-  return c.kind === 'practice' ? 'practice' : c.investigation
+  return c.kind === 'letter' ? 'letter' : c.investigation
 }
 
-export function PracticeBody({ system }: { system: SystemPublic }) {
+/** The practice facts: every line of the profile and the baseline, in two columns. */
+export function FactsBody({ system }: { system: SystemPublic }) {
   return (
-    <div className="practice-body">
-      <div className="eyebrow">{P1.practiceProfile}</div>
-      {system.practiceProfile.map((r) => <div key={r.label} className="kv"><span>{r.label}</span><span className="v">{r.value}</span></div>)}
-      <div className="eyebrow" style={{ marginTop: 8 }}>{P1.baseline}</div>
-      {system.baseline.map((r) => <div key={r.label} className="kv"><span>{r.label}</span><span className="v">{r.value}{r.unit ? ` ${r.unit}` : ''}</span></div>)}
+    <div className="facts">
+      <div>
+        <div className="eyebrow">{P1.practiceProfile}</div>
+        {system.practiceProfile.map((r) => <div key={r.label} className="kv"><span>{r.label}</span><span className="v">{r.value}</span></div>)}
+      </div>
+      <div>
+        <div className="eyebrow">{P1.baseline}</div>
+        {system.baseline.map((r) => <div key={r.label} className="kv"><span>{r.label}</span><span className="v">{r.value}{r.unit ? ` ${r.unit}` : ''}</span></div>)}
+      </div>
     </div>
+  )
+}
+
+/** The opening letter of the phase, with its sender. */
+export function LetterBody({ content, system }: { content: PlanningContent; system: SystemPublic }) {
+  const b = content.brief
+  if (!b) return null
+  const idx = system.cast.findIndex((c) => c.id === b.from)
+  const c = system.cast[idx]
+  return (
+    <>
+      <h3>{b.title}</h3>
+      {c && (
+        <div className="speaker">
+          <Portrait c={c} cast={system.cast} index={idx} size={56} />
+          <div><div className="nm">{c.name}</div><div className="rl">{c.role}</div></div>
+        </div>
+      )}
+      <div className="letter-text"><Paragraphs text={b.text} /></div>
+    </>
   )
 }
 
@@ -258,12 +284,13 @@ type CardProps = {
 }
 
 export function EvidenceCard({ item, content, system, art, fresh = false, large = false, onOpen, headExtra }: CardProps) {
-  if (item.kind === 'practice') {
+  if (item.kind === 'letter') {
+    const from = system.cast.find((c) => c.id === content.brief?.from)
     return (
-      <article className={`card practice${large ? ' large' : ''}`} data-card="practice" tabIndex={onOpen ? 0 : undefined}
-        onClick={onOpen} onKeyDown={(e) => { if (e.key === 'Enter' && onOpen) { e.preventDefault(); onOpen() } }} aria-label={P1.practiceCard}>
-        <div className="chead h-prac"><span className="src">{P1.practiceCard} · {system.name}</span>{headExtra ?? (onOpen && <span className="minibtn" aria-hidden="true">⤢</span>)}</div>
-        <div className="cbody"><PracticeBody system={system} /></div>
+      <article className={`card letter${large ? ' large' : ''}`} data-card="letter" tabIndex={onOpen ? 0 : undefined}
+        onClick={onOpen} onKeyDown={(e) => { if (e.key === 'Enter' && onOpen) { e.preventDefault(); onOpen() } }} aria-label={`${P1.letterCard}: ${content.brief?.title ?? ''}`}>
+        <div className="chead h-letter"><span className="src">{P1.letterCard.toUpperCase()}{from ? ` · ${P1.from(from.role)}` : ''}</span>{headExtra ?? (onOpen && <span className="minibtn" aria-hidden="true">⤢</span>)}</div>
+        <div className="cbody"><LetterBody content={content} system={system} /></div>
       </article>
     )
   }

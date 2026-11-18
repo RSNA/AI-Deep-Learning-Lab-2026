@@ -2,7 +2,9 @@
 // (engineering spec, section 10.4). A refusal puts the board back to what the server holds.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlanningContent } from '@lab02/protocol'
+import { plainError } from '../lib/errors.ts'
 import { usePlayer } from '../lib/player.ts'
+import { P1 } from './copy.ts'
 import { dropInClass, picksOf, reconcile, replaceIn, unsort, whereIs, type Layout } from './model.ts'
 
 const KEY = (player: string) => `lab02.layout.${player}`
@@ -56,7 +58,7 @@ export function useBoard(content: PlanningContent) {
       void send('planning.set_report', { picks }).then((r) => {
         pending.current = false
         if (!r.ok) {
-          setError(r.error ?? 'refused')
+          setError(`${P1.refused} ${plainError(r.error)}`)
           const now = usePlayer.getState().view?.planning?.picks ?? {}
           setLayout((prev) => reconcile(classes, ids, now, prev))
         }
