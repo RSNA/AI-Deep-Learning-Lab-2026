@@ -1215,7 +1215,8 @@ such, with the reason beside it (section 10.8).
 
 **Winners before the end.** The winners scene has two forms, and the view says which with
 `final`. Until every phase of the session is scored it is titled "Standings so far" and shows
-the overall ranking of the phases that are scored, with no podium and no fanfare. Once every
+the overall ranking of the phases that are scored, with no podium and no fanfare. Its list of
+health systems names every health system of the session, also one that has no points yet. Once every
 phase is scored it is the podium of section 10.9. Before any phase is scored the scene is not
 available.
 
@@ -1253,7 +1254,7 @@ session and closing.
 | `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log. Typing `/screen` without it shows one line that says to open the big screen from the host console |
 | `POST /api/host/key-ticket` `{passcode}` | Host, passcode entered again | A ticket valid for 5 minutes |
 | `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
-| `GET /healthz` | Anyone | Build id, uptime, open sessions, stage of each |
+| `GET /healthz` | Anyone | Build id, uptime, and for each open session its stage and its number of players. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the newest open session. The QR code holds
 `PUBLIC_URL/j/<code>`.
@@ -1416,7 +1417,8 @@ because it is about sockets.
   of the console that would lose control. `take_control` then makes that viewer the controller.
   The former controller becomes a viewer in the same moment. The server sends `control` with
   the two names to every console of the session, and the console that lost control shows a
-  notice that stays until it is closed ("Sam's laptop took control").
+  notice that stays until it is closed ("Sam's laptop took control"). The notice also goes
+  away by itself when that console holds control again.
 - **A controller that drops.** When the controller's socket closes, control stays with that
   console for 20 seconds of wall time, so that a reload or a short network loss changes
   nothing. During that time the viewers see "The controller is reconnecting". A viewer can
@@ -1849,15 +1851,15 @@ parts, and no part of the page is left empty.
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │ (the town strip, with the players of the room walking in)                     │
 ├──────────────────────┬────────────────────────────────────────────────────────┤
-│ How to play          │ Your health system                                     │
-│  1 Planning          │  name, setting, premise                                │
-│  2 Development       │  practice profile          │ what you already know     │
-│  3 Maintaining       ├────────────────────────────────────────────────────────┤
-├──────────────────────┤ Your practice                                          │
-│ People in your       │  (the living scene of section 10.3, as wide as this    │
-│ practice             │   area)                                                │
-│  ▣ name, role        │                                                        │
-│  ▣ name, role  …     │                                                        │
+│ How to play          │ Your practice                                          │
+│  1 Planning          │  (the living scene of section 10.3, as wide as this    │
+│  2 Development       │   area)                                                │
+│  3 Maintaining       │                                                        │
+├──────────────────────┤                                                        │
+│ People in your       ├────────────────────────────────────────────────────────┤
+│ practice             │ Your health system                                     │
+│  ▣ name, role        │  name, setting, premise                                │
+│  ▣ name, role  …     │  practice profile          │ what you already know     │
 └──────────────────────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -1867,13 +1869,17 @@ parts, and no part of the page is left empty.
   section 5.5, each with the portrait, the name and the role. Nothing marks an extra, and
   nothing says who has an interview to give. The list scrolls inside itself when it is long. A
   click on a row makes that person in the scene turn and say a click line.
-- **The right area** takes all the width that is left. It holds "Your health system" (the
-  name, the setting and the premise, then the practice profile and the baseline numbers as two
-  small tables side by side) and under it **"Your practice"**, the scene.
+- **The right area** takes all the width that is left. It holds **"Your practice"**, the
+  scene, first, so that a player who arrives sees the living room without a scroll at
+  1280 × 720. The title bar of the scene carries the name of the health system. Under the
+  scene comes "Your health system" (the name, the setting and the premise, then the practice
+  profile and the baseline numbers as two small tables side by side).
 - **The scene is large.** It is as wide as the right area. The client picks the smallest
   whole-number scale at which the room covers that width, as long as the crop stays within 10
   percent of the room's width. Where the crop would be larger it takes the scale below and
-  centres the room on a backdrop in the room's own wall color. At 1280 px this gives scale 3,
+  centres the room on a backdrop that continues the room: the wall color beside the wall and
+  the floor color beside the floor, under the same day or night tint as the room. No band of
+  another color ever shows beside a room, in the lobby or in the panel of section 10.4. At 1280 px this gives scale 3,
   a room of 960 × 540. A room keeps every post at least 24 px away from its left and right
   edges, so the crop never hides a person.
 - A line says that the host will start the game.
@@ -2156,41 +2162,56 @@ letter fills the screen until it is closed.
 **End of the stage.** A full-width notice says that time is up and that the assessment was
 sent as it stood. Two notices warn before, at the times in `clock.warnings_seconds_left`.
 
-**Reveal.** One screen with no part left empty.
+**Reveal.** One screen with no part left empty. Every row is as wide as the page, so no
+column can end before its neighbor.
 
 ```
 ┌──────────────────────────────────────────────────────────┬───────────────────────────┐
-│ The corrected assessment                                 │ A letter for you          │
-│ ┌ Real, and it takes an agentic system ────────────────┐ │  ▣ sender                 │
-│ │ title   The agent project   your pick · points       │ │  the always text          │
-│ │ why it needs an agent        │ what it costs         │ │  the line for this player │
-│ │ (the rationale)              │ (the burden, the rung)│ ├───────────────────────────┤
-│ └──────────────────────────────────────────────────────┘ │ Your score                │
-│ ┌ Not a real problem ┐ ┌ Real, no AI ─────┐ ┌ One model ┐│  Sorting          525     │
-│ │ problem  pick  pts │ │ problem pick pts │ │ …         ││  Agent project    250     │
-│ │ problem  pick  pts │ │ …                │ │           ││  Board score      775     │
-│ │ problem  pick  pts │ │                  │ │           ││  Phase 1 points   742     │
-│ └────────────────────┘ └──────────────────┘ └───────────┘│  Strong                   │
-└──────────────────────────────────────────────────────────┴───────────────────────────┘
+│ A letter for you                                         │ Your score                │
+│  ▣ sender                                                │  Sorting          525     │
+│  the always text                                         │  Agent project    250     │
+│  the line for this player                                │  Board score      775     │
+│                                                          │  Phase 1 points   742     │
+│                                                          │  Strong                   │
+├──────────────────────────────────────────────────────────┴───────────────────────────┤
+│ The corrected assessment                                                             │
+│ ┌ Real, and it takes an agentic system ────────────────────────────────────────────┐ │
+│ │ title   The agent project   your pick · points                                   │ │
+│ │ why it needs an agent                    │ what it costs (the burden, the rung)  │ │
+│ └──────────────────────────────────────────────────────────────────────────────────┘ │
+│ ┌ Not a real problem ──────┐ ┌ Real, no AI ─────────────┐ ┌ One model ─────────────┐ │
+│ │ problem  pick  pts       │ │ problem  pick  pts       │ │ …                      │ │
+│ │ problem  pick  pts       │ │ …                        │ │                        │ │
+│ └──────────────────────────┘ └──────────────────────────┘ └────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ Next, every practice builds for: (the problem)                                       │
+└──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **The agent project** spans the full row of the main area. It is the flagship class with
-   its one problem, opened. The row shows the title with the tag "The agent project", the
-   player's own pick and its points, and then two blocks side by side: the rationale on the
-   left, and on the right the burden under "What it costs the practice" with the rung of the
-   ladder. On a phone the two blocks stack.
-2. **The other three classes** sit in one row under it, each with the `label` of the class and
-   its problems. Each problem carries a mark for the player's own pick: right, one class off,
-   wrong, or not sorted, with the class the player chose and the points it earned. Opening a
-   problem shows its rationale, its burden and, for a real problem, its rung on the ladder.
-3. **The letter**, at the side, with the sender's portrait: the `always` text and the one line
-   for this player (section 6.5).
-4. **The score**, under the letter: the two parts ("Sorting" and "Agent project"), their sum as
-   "Board score", the points of the phase and the `label` of the band. When the points equal
-   the board score, the box shows the points once. When they differ, one line says that points
-   put both health systems on one scale. The words "raw" and "provisional" and the id of a band
+1. **The letter and the score** make the first row. The letter takes about two thirds of the
+   width, with the sender's portrait, the `always` text and the one line for this player
+   (section 6.5). The score takes the rest. The two boxes always have the same height, which
+   is the height of the taller one.
+2. **The score** shows the two parts ("Sorting" and "Agent project"), their sum as "Board
+   score", the points of the phase and the `label` of the band. When the points equal the
+   board score, the box shows the points once. When they differ, one line says that points put
+   both health systems on one scale. The words "raw" and "provisional" and the id of a band
    never appear (section 6.8).
-5. A closing line names the problem that everyone builds for next.
+3. **The corrected assessment** is the second row, across the whole page. **The agent
+   project** spans its full width. It is the flagship class with its one problem, opened. The
+   row shows the title with the tag "The agent project", the player's own pick and its points,
+   and then two blocks side by side: the rationale on the left, and on the right the burden
+   under "What it costs the practice" with the rung of the ladder.
+4. **The other three classes** sit in one row under it, in three columns of equal width and
+   equal height, each with the `label` of the class and its problems. Each problem carries a
+   mark for the player's own pick: right, one class off, wrong, or not sorted, with the class
+   the player chose and the points it earned. Opening a problem shows its rationale, its burden
+   and, for a real problem, its rung on the ladder.
+5. A closing line across the page names the problem that everyone builds for next.
+
+On a phone the parts stack in the same order: the letter, the score, the corrected assessment
+with the two blocks of the agent project one under the other, the three classes, the closing
+line.
 
 **An empty assessment.** When the player sorted nothing, one sentence at the top of the
 corrected assessment says so, "You sent an empty assessment, so no problem scored." The ten
@@ -2416,6 +2437,12 @@ stage, the projector, the slides, the players, the rehearsal tools and the end o
 are shown as unavailable. Spectate, rejoin codes, downloads, the answer key and the manual
 work. The controller sees the names of the consoles that watch.
 
+**The players table.** At 1280 px every column and every action of a row is fully inside the
+table, and nothing is cut at its edge. The actions of a row sit behind one "Actions" menu when
+they do not fit in one line. The cell "In this phase" is one short line, such as "3 insights ·
+1 running · 6 sorted". The top bar of a console that is watching shows "Watching" where the
+console in control shows "You have control", and never an empty box.
+
 **The manual.** The console shows `docs/HOST_MANUAL.md` of this repository, which the client
 build includes as text. It opens in a panel beside the console, so the host reads and acts at
 once, and it can open in a window of its own. The client renders headings, paragraphs, lists,
@@ -2445,7 +2472,9 @@ marks a placeholder. The slide scales as one block, like every scene.
 
 **A slide on a player's screen.** While the host mirrors the slides (section 6.13) the
 player's screen shows the same slide in place of the game, laid out for the size of that
-screen, with the line "The host is presenting." It follows the host from slide to slide, and
+screen, with the line "The host is presenting." The slide fills the area under the top bar,
+like the slide on the projector: the type grows with the screen, and a laptop never shows a
+small slide box above an empty page. It follows the host from slide to slide, and
 the player cannot move it. When the player has a board of their own behind the slide, which is
 the case in a reveal and in a break, a button "Back to my board" shows the reveal screen, and
 that screen then carries "Back to the slides". The choice lives in the browser and ends with
