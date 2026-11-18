@@ -13,6 +13,8 @@ export type Config = {
   clientDir: string | null
   systems: string[] | undefined
   production: boolean
+  /** A production server runs with a passcode shorter than 16 characters. */
+  weakPasscode: boolean
   build: string
   /** Wall clock in ms. Tests replace it. Nothing else in the server reads the time. */
   wallNow: () => number
@@ -22,8 +24,11 @@ export type Config = {
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env, defaults: Partial<Config> = {}): Config {
   const production = env.NODE_ENV === 'production'
   const passcode = env.HOST_PASSCODE ?? (production ? '' : 'demo')
-  if (production && passcode.length < 16) {
-    throw new Error('HOST_PASSCODE must be set and at least 16 characters long in production')
+  // A short passcode is allowed in production only when asked for by name, for development
+  // weeks on the event server (ALLOW_WEAK_PASSCODE=1). The event itself uses a long one.
+  const weakAllowed = env.ALLOW_WEAK_PASSCODE === '1'
+  if (production && (passcode.length === 0 || (passcode.length < 16 && !weakAllowed))) {
+    throw new Error('HOST_PASSCODE must be set and at least 16 characters long in production (or set ALLOW_WEAK_PASSCODE=1 while developing)')
   }
   const level = (env.LOG_LEVEL ?? 'info') as Config['logLevel']
   return {
@@ -38,6 +43,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env, defaults: Pa
     clientDir: env.CLIENT_DIR ? resolve(env.CLIENT_DIR) : null,
     systems: env.SYSTEMS ? env.SYSTEMS.split(',').map((x) => x.trim()).filter(Boolean) : undefined,
     production,
+    weakPasscode: production && passcode.length < 16,
     build: env.BUILD_ID ?? process.env.BUILD_ID ?? 'dev',
     wallNow: () => Date.now(),
     tickMs: 250,

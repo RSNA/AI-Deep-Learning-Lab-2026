@@ -1197,6 +1197,7 @@ the room.
 | `CONTENT_DIR` | The pack | `./content-demo` |
 | `DATA_DIR` | Database folder | `./data` |
 | `HOST_PASSCODE` | Host passcode, at least 16 characters when `NODE_ENV` is `production`. The server refuses to start in production without one | `demo` in development |
+| `ALLOW_WEAK_PASSCODE` | `1` lets a production server start with a passcode shorter than 16 characters, for development weeks on the event server (Step 5, at the lab director's request). The server logs a warning at start. Never set at the event | unset |
 | `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
 | `LOG_LEVEL` | Log detail | `info` |

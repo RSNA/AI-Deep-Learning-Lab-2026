@@ -59,6 +59,7 @@ export function needsReload(clientBuild: string, serverBuild: string): boolean {
 export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEnv = process.env): App {
   const config = { ...configFromEnv(env), ...overrides }
   const log = createLogger(config.logLevel, config.wallNow)
+  if (config.weakPasscode) log.warn('the host passcode is shorter than 16 characters (ALLOW_WEAK_PASSCODE). Set a long one before the event')
   const res = loadPack(config.contentDir, { systems: config.systems })
   for (const w of res.warnings) log.warn('pack warning', { file: w.file, path: w.path, message: w.message })
   if (!res.ok) {
