@@ -66,13 +66,22 @@ The loader returns PIL RGB images, prompt and target. Model tensor processing, c
 
 ## Rehearsal and remaining work
 
-Run `python tools/verify_notebook.py` against the seeded local hospital. Rehearse in a fresh Colab runtime once
-the HTTPS host is available. Test a revoked token and a stopped host; verify the two recovery points can resume the single-case workflow.
-Review every image and report template before public release. Add concise facilitator slides, rehearse the existing cohort exercise, then
-benchmark a selected MedGemma processor/collator and optional training run near the event.
+Run `python tools/verify_notebook.py` against the seeded local hospital or set `RSNA_BASE_URL` to the public host.
+The verifier uses separate fresh kernels, checks Imon's three report modalities, both cached cohort views,
+448/224/112-pixel previews, unchanged training exports and the network-free recovery route.
+Also rehearse on a fresh Google Colab CPU runtime before the session.
 
-Freeze the final materials by November 15, 2026. Preserve upstream faculty and scheduling information during export.
-Keep the repository, clinical pack, credentials and review material private until publication is approved.
+Alessia's November 20 revision is integrated selectively: section 10 compares full-resolution display pixels
+with a resized preview, section 11 displays the actual saved training image before input/target, and section 12
+shows four cached images versus three eligible pairs. The `VIEW` cell does not repeat network calls or export.
+Use the two completed exercises directly; the cohort remains optional within the 45-minute guided pathway.
+Keep the canonical training image at 896 pixels while trying smaller preview sizes.
+
+Faculty rehearsal: November 23, 7–8 AM Central. Session: December 2, 9:30–10:30 AM Central, room S401AB.
+Use the backup walkthrough for expected results if a network step fails. Alessia's own presentation slides
+were mentioned in email but were not attached to the notebook revision; incorporate them after receipt.
+Preserve upstream faculty and scheduling information, and sync official main before updating PR #13.
+Only participant materials belong in the public lab folder; backend configuration and credentials stay private.
 
 ## Complementary material and access
 
