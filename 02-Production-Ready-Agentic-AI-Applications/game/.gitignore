@@ -1,0 +1,25 @@
+# Dependencies and builds
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime data
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Secrets and local settings
+.env
+.env.*
+
+# Test output. Screenshots and recordings are never committed.
+test-results/
+playwright-report/
+coverage/
+
+# Private content must never be here. Only content-demo/ is tracked.
+/content/
+/content-private/
+/review/
+answer-key.html
