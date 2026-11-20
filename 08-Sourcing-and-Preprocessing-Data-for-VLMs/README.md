@@ -75,8 +75,8 @@ within the 45-minute guided pathway. The closing take-home messages link to inde
 **Preparation status (November 20, 2026):** the [hospital](https://rsnalearninglab.eduardofarina.com)
 is online. This revision passed both notebooks in independent fresh local kernels against public HTTPS,
 including both cohort views, three smaller preview resolutions and the embedded recovery route. Imon's
-sections 7–9 are unchanged from the preceding integrated version. A fresh Colab rehearsal of this revision
-is being completed separately. Arena remains optional complementary material; successful live inference
+sections 7–9 are unchanged from the preceding integrated version. Both notebooks also completed on newly allocated Google Colab CPU runtimes with dependency installation
+enabled, using this public hospital. Faculty rehearsal remains planned. Arena remains optional complementary material; successful live inference
 remains unverified after an earlier external GPU quota failure.
 The instructor supplies classroom tokens. Planned hospital access continues through March 2, 2027.
 Alessia's separate slides were mentioned in email but not included in the supplied notebook attachment;
