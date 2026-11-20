@@ -1,6 +1,13 @@
 // Browser storage, wrapped: a private window or blocked storage must never break the game.
 export type PlayerAuth = { session: string; token: string; playerId: string; rejoinCode: string }
 
+/** What this browser keeps of its last game: the practice and its points, never an answer. */
+export type PastGame = {
+  session: string; label: string; name: string; avatar: string; system: string
+  points: { planning: number | null; development: number | null; maintaining: number | null; total: number }
+  rank: number | null; of: number | null; scored: boolean
+}
+
 function read<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(key)
@@ -19,6 +26,8 @@ function write(key: string, value: unknown): void {
 export const store = {
   player: () => read<PlayerAuth>('lab02.player'),
   setPlayer: (a: PlayerAuth | null) => write('lab02.player', a),
+  last: () => read<PastGame>('lab02.last'),
+  setLast: (g: PastGame | null) => write('lab02.last', g),
   host: () => read<{ token: string; name?: string }>('lab02.host'),
   setHost: (a: { token: string; name?: string } | null) => write('lab02.host', a),
   screen: () => read<{ token: string }>('lab02.screen'),

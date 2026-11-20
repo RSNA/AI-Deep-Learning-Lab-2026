@@ -11,7 +11,8 @@ export const CLOSE = {
   tooSlow: 4006,
 } as const
 
-export type ConnStatus = 'connecting' | 'open' | 'reconnecting' | 'closed' | 'superseded' | 'removed' | 'unauthorized'
+/** `ended`: the server no longer holds the session (it was closed before a restart, or deleted). */
+export type ConnStatus = 'connecting' | 'open' | 'reconnecting' | 'closed' | 'superseded' | 'removed' | 'unauthorized' | 'ended'
 export type CommandResult = { ok: boolean; error?: ErrorCode; data?: unknown }
 
 type AnyMsg = { t: string; [k: string]: unknown }
@@ -157,7 +158,8 @@ export class GameConnection {
       if (this.stopped) return
       if (ev.code === CLOSE.superseded) return this.stop('superseded')
       if (ev.code === CLOSE.removed) return this.stop('removed')
-      if (ev.code === CLOSE.unauthorized || ev.code === CLOSE.closed) return this.stop('unauthorized')
+      if (ev.code === CLOSE.unauthorized) return this.stop('unauthorized')
+      if (ev.code === CLOSE.closed) return this.stop('ended')
       this.setStatus('reconnecting')
       const base = Math.min(this.opts.maxDelayMs, this.opts.minDelayMs * 2 ** this.attempt)
       this.attempt++

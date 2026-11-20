@@ -50,7 +50,7 @@ Fill the three fields and press **Create**.
 | Mode | Test, rehearsal or event. See the table below |
 | Join code | What players type to join. It needs 4 to 8 letters or digits. Leave it empty and the game picks one |
 
-| Mode | Use it for | Game speed | Players pick their health system | Reset a phase |
+| Mode | Use it for | Game speed | Players pick their health system | Reset a phase or restart the game |
 | --- | --- | --- | --- | --- |
 | Test | Quick checks by you or by automated players | Any | Yes, when the content allows it | Yes |
 | Rehearsal | A full practice run with people | 1× unless you change it | Yes, when the content allows it | Yes |
@@ -81,10 +81,15 @@ thing.
 | Players | Everyone in the room, with what they are doing |
 | Projector | What the room sees, and the slides |
 | Room | The leaderboard and, after each phase, how the room did |
-| Answer key | The answers, for hosts only |
-| Downloads | Results and logs |
-| Rehearsal tools | Game speed and reset. Absent in an event session |
+| Rehearsal tools | Game speed, reset of a phase and restart of the game. Absent in an event session |
 | End the session | Closing the session for good |
+| Downloads | Results and logs |
+| Answer key | The answers, for hosts only |
+
+Under the stage controls the page has three columns. The players and the room are on the left.
+The projector is in the middle and takes the most space, because you use it most. The panels
+you seldom need are on the right, in the order of the table above. On a narrow window the three
+columns stand one under the other.
 
 ## 4. Stages and the clock
 
@@ -115,12 +120,12 @@ gives that stage. Nothing happens when it reaches zero.
 The **schedule** strip shows the planned stages with their minutes, where the session is now,
 and whether you are ahead or behind.
 
-## 5. The players table
+## 5. The players
 
 Each row is one player: their character, the name of their practice, their health system,
-whether they are connected, what they are doing in the current phase, their points, and how
-long ago they last did something. The filter above the table shows everyone or one health
-system.
+whether they are online, what they are doing in the current phase, how long ago they last did
+something, and their points. The filter above the list shows everyone or one health system. The
+button with three lines (☰) at the end of a row opens the actions for that player.
 
 | Action on a row | What it does |
 | --- | --- |
@@ -284,8 +289,14 @@ This box exists in test and rehearsal sessions. An event session does not show i
   the game is paused. A badge at the top of the console shows the speed whenever it is not 1×,
   so check for that badge before a rehearsal with people.
 - **Reset this phase** puts every player back at the start of the phase that is running and
-  erases their work in it. Points of earlier phases stay. The console tells you exactly what
-  will be lost and asks you to type the join code.
+  erases their work in it. Points of earlier phases stay. In the break after a phase it starts
+  that phase again. The phase begins at once with its full time. Every player reads a line that
+  says so and gets the opening letter of the phase again.
+- **Restart the game** takes everyone back to the lobby with no points, in the same session.
+  The players stay in, with their names, health systems and rejoin codes, so nobody has to join
+  again, and new players can still join. Use it to play the same session once more.
+
+Both tell you exactly what will be lost and ask you to confirm with one click.
 
 ## 11. Downloads
 
@@ -301,11 +312,17 @@ first page, until you delete the session.
 ## 12. Ending a session
 
 **End the session** closes it for everyone. Nobody can join or play again. The console tells
-you how many players this affects and asks you to type the join code. The downloads stay
-available afterwards.
+you how many players this affects and asks you to confirm. In a test or a rehearsal one click
+confirms. In an event session you first type the join code, so that the real session is never
+ended by a slip. The downloads stay available afterwards.
 
-Do not end a session to fix a mistake in the middle of a rehearsal. Use Pause, or Reset this
-phase.
+What the players see: their page says "This game has ended" and keeps their rank and points,
+and they can look at their Phase 1 result again. When you open a new session, a button "Join
+the new game" appears on that page by itself within a few seconds, and the join page already
+holds the name of their practice. You do not need to hand out a new link.
+
+Do not end a session to fix a mistake in the middle of a rehearsal. Use Pause, Reset this
+phase, or Restart the game.
 
 ## 13. The answer key
 
@@ -319,7 +336,7 @@ window cannot open it.
 
 | What happened | What to do |
 | --- | --- |
-| A player lost their screen or closed the browser | Opening the join link again in the same browser brings them back. On another device they press "Rejoin with a code" and type their rejoin code. If they lost the code, find their row in the players table, press "Rejoin code" and read it out |
+| A player lost their screen or closed the browser | Opening the join link again in the same browser brings them back. On another device they press "Rejoin with a code" and type their rejoin code. If they lost the code, find their row in the players list, open its menu (☰), press "Rejoin code" and read it out |
 | A player types the name of a practice that already exists | The join page offers the rejoin field. This is on purpose, so that nobody ends up with two practices |
 | The projector window was closed | Press "Open the big screen in a new window" again. It opens on the same view |
 | The wrong view is on the projector | Look for the pinned banner in the Projector panel and press "Follow the game" |
@@ -327,6 +344,9 @@ window cannot open it.
 | Players do not see the slides | Check the switch "Players' screens follow the slides". It cannot be on during a phase |
 | Your laptop dies or loses the network | The session keeps running on the server and nothing is lost. Open `/host` on any other laptop, sign in and open the session. After 20 seconds you can take control |
 | Another host has control and is not answering | Press "Take control" and confirm |
+| A phase went wrong in a rehearsal | Press "Reset Phase 1" (or the phase in play) in the rehearsal tools. Earlier phases keep their points |
+| You want to play the same session once more | Press "Restart the game" in the rehearsal tools. Everyone is back in the lobby and stays in the session |
+| You ended a session and want the players in a new one | Open a new session on the first page. The players' screens offer "Join the new game" by themselves |
 | A phase needs more time | Press +30 s or +60 s. You can press them more than once |
 | Something is confusing the room | Press Pause. The clock stops for everyone and nobody loses work. Press Resume when you are ready |
 | A button says it is unavailable | Read the line beside it. It gives the reason |

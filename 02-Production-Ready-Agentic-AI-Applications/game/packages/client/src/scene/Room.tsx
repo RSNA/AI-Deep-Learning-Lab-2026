@@ -13,8 +13,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AvatarId, Character, PackArt, SystemPublic } from '@lab02/protocol'
 import { Portrait, looksOf } from '../components/ui.tsx'
 import { FACE_COL, spriteSheet, type Facing } from './people.ts'
+import { cropScale, inView, intoView, sceneScale, spotsIn, visibleSpan, wholeRoom, type Point, type View } from './band.ts'
 
-type Point = [number, number, Facing]
+export { sceneScale } from './band.ts'
+
 export type SceneLayout = {
   size: [number, number]
   posts: Point[]
@@ -56,18 +58,6 @@ export function firstName(name: string): string {
   return words[0] ?? name
 }
 
-/**
- * The scale of the scene (sections 10.2 and 10.4): the smallest whole number at which the room
- * covers the width, as long as the crop stays within 10 percent of the room's width, else the
- * scale below on a backdrop. On a phone the camera crops instead of shrinking the room.
- */
-export function sceneScale(width: number, roomW: number, phone: boolean): number {
-  if (width <= 0) return 1
-  const cover = Math.ceil(width / roomW)
-  if (phone) return Math.max(2, cover > 2 && (cover * roomW - width) / (cover * roomW) > 0.1 ? cover - 1 : cover)
-  if ((cover * roomW - width) / (cover * roomW) <= 0.1) return cover
-  return Math.max(1, cover - 1)
-}
 
 type Actor = {
   key: string
@@ -295,24 +285,27 @@ function route(floor: Floor | null, from: [number, number], to: [number, number]
 }
 
 /** Where people may walk to: free posts, the places of the room, the wall board and the door. */
-function placesOf(layout: SceneLayout): Point[] {
+function placesOf(layout: SceneLayout, view: View): Point[] {
   const out: Point[] = [...layout.posts, ...layout.ambient, ...(layout.places ?? [])]
   if (layout.board) out.push([layout.board[0] + layout.board[2] / 2 - 8, layout.board[1] + layout.board[3] + 18, 'back'])
   out.push([layout.door[0] - 8, Math.min(layout.size[1] - 18, layout.door[1] + 4), 'back'])
-  return out
+  return out.filter((p) => inView(p, view))
 }
 
 /** Places every person of the practice and the player's own character on the layout. */
-function castActors(layout: SceneLayout, cast: Character[], me: { avatar: AvatarId } | null, walkIn: boolean): Actor[] {
+function castActors(layout: SceneLayout, cast: Character[], me: { avatar: AvatarId } | null, walkIn: boolean, view: View = wholeRoom(layout.size)): Actor[] {
   // The cast take the posts in cast order, the extras the posts left and then the stations.
-  const spots = [...layout.posts, ...layout.ambient, ...(layout.places ?? [])]
+  // A spot outside the view is left out; whoever finds no spot takes one moved into the view.
+  const spots = spotsIn([...layout.posts, ...layout.ambient, ...(layout.places ?? [])], view)
   const actors: Actor[] = cast.map((c, i) => {
-    const home: Point = spots[i] ?? [24 + ((i * 37) % (layout.size[0] - 48)), layout.you[1] + ((i % 2) * 12) - 6, 'front']
+    const home: Point = spots[i] ?? intoView([24 + ((i * 37) % (layout.size[0] - 48)), layout.you[1] + ((i % 2) * 12) - 6, 'front'], view)
     return { key: c.id, x: home[0], y: home[1], facing: home[2], home, you: false, path: [], away: null, nextAt: between(6000, 30_000), holdUntil: 0, hopAt: 0 }
   })
   if (me) {
-    const home = layout.you
-    const start = walkIn && !reducedMotion() ? [layout.door[0] - 8, layout.door[1] - 16] as [number, number] : [home[0], home[1]] as [number, number]
+    const home = intoView(layout.you, view)
+    const door: [number, number] = [layout.door[0] - 8, layout.door[1] - 16]
+    // The walk in from the door is shown only when the door is in view.
+    const start = walkIn && !reducedMotion() && inView(door, view) ? door : [home[0], home[1]] as [number, number]
     const a: Actor = { key: 'you', x: start[0], y: start[1], facing: home[2], home, you: true, path: [], away: null, nextAt: Infinity, holdUntil: 0, hopAt: 0 }
     if (start[0] !== home[0] || start[1] !== home[1]) a.path = [[start[0], home[1]], [home[0], home[1]]]
     actors.push(a)
@@ -421,8 +414,14 @@ export function Room({
   const phone = width > 0 && width < 640
   let scale = sceneScale(width, rw, phone)
   if (!cropHeight) scale = Math.max(1, Math.min(scale, Math.floor(maxHeight / rh)))
+  else scale = cropScale(scale, cropHeight, phone)
   const viewW = width
   const viewH = Math.min(rh * scale, cropHeight ?? rh * scale)
+  // What the camera shows of the room. On a phone the sides are cropped by design, so only the rows count.
+  const rowTop = visibleSpan(rh, scale, viewH, focusY)[0]
+  const colLeft = phone ? 0 : visibleSpan(rw, scale, viewW, focusX)[0]
+  const colSpan = phone ? rw : Math.min(rw, viewW / scale)
+  const view = useMemo<View>(() => ({ rows: [rowTop, rowTop + viewH / scale], cols: [colLeft, colLeft + colSpan] }), [rowTop, viewH, scale, colLeft, colSpan])
   const offsetX = rw * scale > viewW ? Math.round(Math.max(viewW - rw * scale, Math.min(0, viewW / 2 - focusX * scale))) : Math.floor((viewW - rw * scale) / 2)
   const offsetY = rh * scale > viewH ? Math.round(Math.max(viewH - rh * scale, Math.min(0, viewH / 2 - focusY * scale))) : 0
 
@@ -553,7 +552,7 @@ export function Room({
     if (!layout || !width || fallback) return
     let destroyed = false
     let cleanup = () => {}
-    actorsRef.current = castActors(layout, cast, me, !!me)
+    actorsRef.current = castActors(layout, cast, me, !!me, view)
     void (async () => {
       try {
         const PIXI = await import('pixi.js')
@@ -693,7 +692,7 @@ export function Room({
         })
         placeTags()
         let t = 0
-        const places = placesOf(layout)
+        const places = placesOf(layout, view)
         app.ticker.add((tk) => {
           const dt = tk.deltaMS
           t += dt
@@ -782,14 +781,14 @@ export function Room({
   const meetingKey = meeting.join(',')
   useEffect(() => {
     if (!layout || !(fallback || !actorsRef.current.length)) return
-    if (!actorsRef.current.length) actorsRef.current = castActors(layout, cast, me, false)
+    if (!actorsRef.current.length) actorsRef.current = castActors(layout, cast, me, false, view)
     for (const a of actorsRef.current) steer(a, layout, true)
     setFrame((n) => n + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, fallback, meetingKey])
   useEffect(() => { placeTags() })
 
-  const actors = layout ? (actorsRef.current.length ? actorsRef.current : castActors(layout, cast, me, false)) : []
+  const actors = layout ? (actorsRef.current.length ? actorsRef.current : castActors(layout, cast, me, false, view)) : []
   // The bubble on show: an interview or dialogue line first, else the head of the queue.
   const shown: { key: string; text: string } | null = bubble ? { key: bubble.speaker, text: bubble.text } : line
   const shownPerson = shown ? cast.find((c) => c.id === shown.key) : undefined

@@ -247,6 +247,7 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
     rev: p.rev,
     me: { id: p.id, name: p.name, avatar: p.avatar, system: p.system, rejoinCode },
     stage: s.stage,
+    run: s.run ?? 0,
     points: {
       planning: pts('planning'), development: pts('development'), maintaining: pts('maintaining'),
       total: overallPoints(s, p),

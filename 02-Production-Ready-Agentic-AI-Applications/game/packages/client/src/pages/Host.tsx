@@ -1,8 +1,8 @@
 // The host console (engineering spec, section 10.8). Laptop only. Every control carries one line
 // that says what it does, and every refusal is one plain sentence beside the control it
 // concerns. One console controls the session at a time (section 7.10).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MODES, PLAY_STAGES, phaseOfStage, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { MODES, PLAY_STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
 import type { HostView, SessionSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
@@ -48,7 +48,7 @@ function RowActions({ label, items }: { label: string; items: RowAction[] }) {
   }
   return (
     <>
-      <button ref={btn} type="button" className="btn small text actbtn" aria-haspopup="menu" aria-expanded={!!at} aria-label={label} onClick={open}>{H.colActions} ▾</button>
+      <button ref={btn} type="button" className="btn small text actbtn" aria-haspopup="menu" aria-expanded={!!at} aria-label={label} title={H.colActions} onClick={open}>☰</button>
       {at && (
         <div ref={menu} className="actmenu" role="menu" style={{ top: at.top, right: at.right }}>
           {items.map((it) => (
@@ -349,6 +349,18 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
   const cur = deck.current
   const section = deck.sections.find((s) => sc.slide >= s.start && sc.slide < s.start + s.count)
   const mirrorOff = playing ? H.mirrorOffPlay : sc.shown !== 'slides' ? H.mirrorOffHidden : null
+  // The preview is as wide as the panel allows, up to 640 px, and keeps the projector's 16 to 9.
+  const box = useRef<HTMLDivElement>(null)
+  const [pw, setPw] = useState(344)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const fit = () => setPw(Math.max(240, Math.min(640, el.clientWidth - 6)))
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    fit()
+    return () => ro.disconnect()
+  }, [])
 
   // The left and right arrow keys move the slides while no field has the focus.
   useEffect(() => {
@@ -367,14 +379,16 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     <section className="panel">
       <div className="panel-head lav">{H.bigScreen}</div>
       <div className="panel-body bigscreen">
-        <div className="preview" aria-label={H.previewLabel}>
-          <ScreenStage v={hv.preview} clock={clock} scale={344 / 1920} themed />
+        <div ref={box} className="previewbox">
+          <div className="preview" aria-label={H.previewLabel} style={{ width: pw + 6, height: Math.round(pw * 9 / 16) + 6 }}>
+            <ScreenStage v={hv.preview} clock={clock} scale={pw / 1920} themed />
+          </div>
         </div>
-        <div className={`hint${sc.screens === 0 ? ' bad' : ''}`} style={{ alignSelf: 'center', fontWeight: 800 }}>{H.screensConnected(sc.screens)}</div>
-        <div className="ctl">
-          <button className="btn small go" onClick={openScreen} style={{ alignSelf: 'flex-start' }}>{H.openScreen}</button>
-          <div className="hint">{H.openScreenLine}</div>
+        <div className="ctl-row openrow">
+          <button className="btn small go" onClick={openScreen}>{H.openScreen}</button>
+          <span className={`hint${sc.screens === 0 ? ' bad' : ''}`} style={{ fontWeight: 800 }}>{H.screensConnected(sc.screens)}</span>
         </div>
+        <div className="hint">{H.openScreenLine}</div>
         {pinned && (
           <div className="pinned" role="status">
             <span>{H.pinned(pinnedLabel)}</span>
@@ -383,6 +397,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
         )}
         {sc.mirror && <div className="mirrored" role="status">{H.mirrored}</div>}
 
+        <div className="pgroups">
         <div className="group">
           <div className="eyebrow">{H.whatShows}</div>
           {scenes.map((x) => (
@@ -451,6 +466,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
           )}
           <Refusal text={refusals.slides} />
         </div>
+        </div>
 
         <div className="group apart">
           <div className="eyebrow">{H.projectorTheme}</div>
@@ -498,7 +514,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const [clock, setClock] = useState<ClockRef | null>(null)
   const [filter, setFilter] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [confirm, setConfirm] = useState<null | 'reset_stage' | 'close'>(null)
+  const [confirm, setConfirm] = useState<null | 'reset_stage' | 'restart_game' | 'close'>(null)
   const [typed, setTyped] = useState('')
   const [confirmErr, setConfirmErr] = useState<string | null>(null)
   const [spect, setSpect] = useState<{ id: string; view: PlayerView | null } | null>(null)
@@ -525,7 +541,8 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
       const s = m as unknown as { playerId: string; view: PlayerView | null }
       setSpect((cur) => (cur && cur.id === s.playerId ? { id: s.playerId, view: s.view } : cur))
     })
-    c.onStatus((st) => { if (st === 'unauthorized') back() })
+    // A session the server no longer holds (deleted, or ended before a restart) goes back to the list.
+    c.onStatus((st) => { if (st === 'unauthorized' || st === 'ended') back() })
     setConn(c)
     return () => c.close()
   }, [token, code, back, name])
@@ -544,8 +561,12 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const t = hv.stage
   const behind = hv.schedule.behindSeconds
   const ctl = hv.control
-  const phase = phaseOfStage(t)
+  // The phase a reset starts again: the one on stage, or at a break the one before it.
+  const phase = resetPhaseOf(t)
   const phaseName = phase ? `Phase ${PHASE_NUMBER[phase]}` : null
+  // Only an event session asks for the join code to be typed. A test or a rehearsal confirms with one click.
+  const mustType = hv.session.mode === 'event'
+  const openConfirm = (what: 'reset_stage' | 'restart_game' | 'close') => { setTyped(''); setConfirmErr(null); setConfirm(what) }
   // A phase column shows once its phase has opened, so the table fits at 1280 px (section 10.8).
   const shownPhases = (['planning', 'development', 'maintaining'] as const).filter((ph) => hv.board.columns[ph].state !== 'empty')
   const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else setTakeOpen(true) }
@@ -583,6 +604,12 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
           <div className="lostctl" role="alert">
             <span>{lost}</span>
             <button className="btn small" onClick={() => setLost(null)} aria-label={H.close}>✕</button>
+          </div>
+        )}
+        {hv.closed && (
+          <div className="endedbar" role="status">
+            <span>{H.endedBar}</span>
+            <button className="btn small" onClick={back}>{H.allSessions}</button>
           </div>
         )}
         {ctl.you && ctl.watchers.length > 0 && <div className="watchers">{H.watchers(ctl.watchers)}</div>}
@@ -638,103 +665,54 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
             ))}
           </div>
 
+          {/* Three columns (section 10.8): the players, the projector as the main area, and the
+              panels that are seldom needed. */}
           <div className="console-grid">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+            <div className="ccol">
               <section className="panel">
-                <div className="panel-head sky" style={{ justifyContent: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                <div className="panel-head sky" style={{ justifyContent: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                   <span>{H.players}</span>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button className="chip" style={{ background: filter === null ? '#1d2140' : '#fff', color: filter === null ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(null)}>{H.everyone} {hv.counts.total}</button>
                     {systems.map((s) => {
                       const n = hv.counts.bySystem.find((x) => x.id === s.id)?.players ?? 0
-                      return <button key={s.id} className="chip" style={{ background: filter === s.id ? '#1d2140' : '#fff', color: filter === s.id ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(s.id)}><SystemShape index={s.index} size={10} />{s.name} {n}</button>
+                      return <button key={s.id} className="chip" title={s.name} aria-label={`${s.name} ${n}`} style={{ background: filter === s.id ? '#1d2140' : '#fff', color: filter === s.id ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(s.id)}><SystemShape index={s.index} size={10} />{n}</button>
                     })}
                   </div>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="ptable">
-                    <thead><tr className="eyebrow">
-                      <th /><th>{H.colName}</th><th title={H.colSystem} aria-label={H.colSystem}>{H.colSystemShort}</th><th>{H.colOnline}</th><th>{H.colStatus}</th>
-                      {shownPhases.map((ph) => <th key={ph} className="pnum" title={`Phase ${PHASE_NUMBER[ph]}`}>{H.colPhase(PHASE_NUMBER[ph])}</th>)}
-                      <th className="pnum">{H.colTotal}</th><th className="pnum">{H.colLast}</th><th>{H.colActions}</th>
-                    </tr></thead>
-                    <tbody>
-                      {rows.length === 0 && <tr><td colSpan={8 + shownPhases.length} className="muted" style={{ padding: 12 }}>{H.noPlayers}</td></tr>}
-                      {rows.map((p) => {
-                        const sys = systems.find((s) => s.id === p.system)
-                        return (
-                          <tr key={p.id}>
-                            <td style={{ padding: '4px 8px' }}><Avatar id={p.avatar} size={28} /></td>
-                            <td className="pname" title={p.name}>{p.name}</td>
-                            <td><span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span className="sr-only">{sys?.name}</span></span></td>
-                            <td className={`ponline ${p.connected ? 'good' : 'bad'}`}><span aria-hidden="true">●</span> {p.connected ? H.yes : H.no}</td>
-                            <td className="pstatus">{p.status}</td>
-                            {shownPhases.map((ph) => <td key={ph} className="num pnum">{p.points[ph] ?? '–'}</td>)}
-                            <td className="num pnum" style={{ fontSize: 18 }}>{p.points.total}</td>
-                            <td className="pnum">{p.idleSeconds === null ? '–' : `${p.idleSeconds} s`}</td>
-                            <td className="pact">
-                              <RowActions label={H.actionsFor(p.name)} items={[
-                                { label: H.spectate, run: () => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) } },
-                                { label: H.spotlight, off: !ctl.you, run: async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) } },
-                                { label: H.rename, off: !ctl.you, run: () => setRename({ id: p.id, name: p.name }) },
-                                { label: H.code, run: async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) } },
-                                { label: H.remove, off: !ctl.you, danger: true, run: () => setRemoving({ id: p.id, name: p.name }) },
-                              ]} />
-                              {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}
-                              <Refusal text={ref.map[`row:${p.id}`]} />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-              <div className="tools">
-                <section className="panel">
-                  <div className="panel-head">{H.downloads}</div>
-                  <div className="panel-body">
-                    <Downloads token={token} code={code} onError={(x) => ref.set('downloads', x)} />
-                    <Refusal text={ref.map.downloads} />
-                  </div>
-                </section>
-                {hv.session.mode !== 'event' && (
-                  <fieldset disabled={!ctl.you} className="ctlset">
-                    <section className="panel">
-                      <div className="panel-head sun">{H.rehearsalTools}</div>
-                      <div className="panel-body">
-                        <div className="ctl">
-                          <span className="lbl">{H.gameSpeed}</span>
-                          <div className="seg speeds" role="group" aria-label={H.gameSpeed}>
-                            {SPEEDS.map((x) => <button key={x} aria-pressed={hv.clock.scale === x} onClick={() => cmd('set_scale', { scale: x }, 'speed')}>{x}×</button>)}
+                <ul className="plist" aria-label={H.players}>
+                  {rows.length === 0 && <li className="muted" style={{ padding: 12 }}>{H.noPlayers}</li>}
+                  {rows.map((p) => {
+                    const sys = systems.find((s) => s.id === p.system)
+                    return (
+                      <li key={p.id} className="prow">
+                        <Avatar id={p.avatar} size={32} />
+                        <div className="pmain">
+                          <div className="pline">
+                            <span className="pname" title={p.name}>{p.name}</span>
+                            <span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span className="sr-only">{sys?.name}</span></span>
+                            <span className={`ponline ${p.connected ? 'good' : 'bad'}`}><span aria-hidden="true">●</span> {p.connected ? H.onlineWord : H.offlineWord}</span>
                           </div>
-                          <div className="hint">{H.speedLine} {H.speedWhen}</div>
-                          <Refusal text={ref.map.speed} />
+                          <div className="pstatus">{p.status}{p.idleSeconds === null ? '' : ` · ${H.lastAct(p.idleSeconds)}`}</div>
+                          {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}
+                          <Refusal text={ref.map[`row:${p.id}`]} />
                         </div>
-                        <div className="ctl">
-                          <button className="btn small text danger" disabled={!phase} onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('reset_stage') }}>{phaseName ? H.resetPhase(phaseName) : H.resetThisPhase}</button>
-                          <div className="hint">{phase ? H.resetLine : H.resetOff}</div>
+                        <div className="ppts">
+                          <span className="num" title={H.colTotal}>{p.points.total}</span>
+                          {shownPhases.length > 1 && <span className="hint">{shownPhases.map((ph) => `${H.colPhase(PHASE_NUMBER[ph])} ${p.points[ph] ?? '–'}`).join(' · ')}</span>}
                         </div>
-                      </div>
-                    </section>
-                  </fieldset>
-                )}
-                <fieldset disabled={!ctl.you} className="ctlset">
-                  <section className="panel endbox">
-                    <div className="panel-head bad">{H.endSession}</div>
-                    <div className="panel-body">
-                      <div className="hint">{H.endLine}</div>
-                      <button className="btn small danger" onClick={() => { setTyped(''); setConfirmErr(null); setConfirm('close') }} disabled={hv.closed}>{H.endSessionButton}</button>
-                    </div>
-                  </section>
-                </fieldset>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-              <fieldset disabled={!ctl.you} className="ctlset">
-                <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
-              </fieldset>
+                        <RowActions label={H.actionsFor(p.name)} items={[
+                          { label: H.spectate, run: () => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) } },
+                          { label: H.spotlight, off: !ctl.you, run: async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) } },
+                          { label: H.rename, off: !ctl.you, run: () => setRename({ id: p.id, name: p.name }) },
+                          { label: H.code, run: async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) } },
+                          { label: H.remove, off: !ctl.you, danger: true, run: () => setRemoving({ id: p.id, name: p.name }) },
+                        ]} />
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
               <section className="panel">
                 <div className="panel-head">{H.roomLive}</div>
                 <div className="panel-body">
@@ -749,6 +727,56 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                     )
                   })}
                   <SystemsStrip systems={systems} standings={hv.board.systems} />
+                </div>
+              </section>
+            </div>
+
+            <div className="ccol">
+              <fieldset disabled={!ctl.you} className="ctlset">
+                <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
+              </fieldset>
+            </div>
+
+            <div className="ccol">
+              {hv.session.mode !== 'event' && (
+                <fieldset disabled={!ctl.you || hv.closed} className="ctlset">
+                  <section className="panel">
+                    <div className="panel-head sun">{H.rehearsalTools}</div>
+                    <div className="panel-body">
+                      <div className="ctl">
+                        <span className="lbl">{H.gameSpeed}</span>
+                        <div className="seg speeds" role="group" aria-label={H.gameSpeed}>
+                          {SPEEDS.map((x) => <button key={x} aria-pressed={hv.clock.scale === x} onClick={() => cmd('set_scale', { scale: x }, 'speed')}>{x}×</button>)}
+                        </div>
+                        <div className="hint">{H.speedLine} {H.speedWhen}</div>
+                        <Refusal text={ref.map.speed} />
+                      </div>
+                      <div className="ctl">
+                        <button className="btn small text danger" disabled={!phase} onClick={() => openConfirm('reset_stage')}>{phaseName ? H.resetPhase(phaseName) : H.resetThisPhase}</button>
+                        <div className="hint">{phase ? H.resetLine : H.resetOff}</div>
+                      </div>
+                      <div className="ctl">
+                        <button className="btn small text danger" onClick={() => openConfirm('restart_game')}>{H.restartGame}</button>
+                        <div className="hint">{H.restartLine}</div>
+                      </div>
+                    </div>
+                  </section>
+                </fieldset>
+              )}
+              <fieldset disabled={!ctl.you} className="ctlset">
+                <section className="panel endbox">
+                  <div className="panel-head bad">{H.endSession}</div>
+                  <div className="panel-body">
+                    <div className="hint">{hv.closed ? H.endedShort : H.endLine}</div>
+                    <button className="btn small danger" onClick={() => openConfirm('close')} disabled={hv.closed}>{H.endSessionButton}</button>
+                  </div>
+                </section>
+              </fieldset>
+              <section className="panel">
+                <div className="panel-head">{H.downloads}</div>
+                <div className="panel-body">
+                  <Downloads token={token} code={code} onError={(x) => ref.set('downloads', x)} />
+                  <Refusal text={ref.map.downloads} />
                 </div>
               </section>
               <section className="panel">
@@ -776,17 +804,22 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
       )}
 
       {confirm && (
-        <Sheet title={confirm === 'close' ? H.endSession : phaseName ? H.resetPhase(phaseName) : H.resetThisPhase} head="sun" onClose={() => setConfirm(null)}>
-          <p>{confirm === 'close' ? H.endLost(hv.counts.total) : H.resetLost(phaseName ?? '', hv.counts.total)}</p>
-          <label className="lbl" htmlFor="confirm-code">{H.typeCode(hv.session.code)}</label>
-          <input id="confirm-code" className="field code" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
+        <Sheet title={confirm === 'close' ? H.endSession : confirm === 'restart_game' ? H.restartGame : phaseName ? H.resetPhase(phaseName) : H.resetThisPhase} head="sun" onClose={() => setConfirm(null)}>
+          <p>{confirm === 'close' ? H.endLost(hv.counts.total) : confirm === 'restart_game' ? H.restartLost(hv.counts.total) : H.resetLost(phaseName ?? '', hv.counts.total)}</p>
+          {mustType && (
+            <>
+              <label className="lbl" htmlFor="confirm-code">{H.typeCode(hv.session.code)}</label>
+              <input id="confirm-code" className="field code" value={typed} autoComplete="off" spellCheck={false} onChange={(e) => setTyped(e.target.value)} autoFocus />
+            </>
+          )}
           {confirmErr && <div className="err" role="alert">{confirmErr}</div>}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn danger" disabled={typed.trim().toUpperCase() !== hv.session.code} onClick={async () => {
-              const r = await cmd(confirm, { confirm: typed.trim() }, 'confirm')
+            <button className="btn danger" autoFocus={!mustType} disabled={mustType && typed.trim().toUpperCase() !== hv.session.code} onClick={async () => {
+              const r = await cmd(confirm, { confirm: mustType ? typed.trim() : hv.session.code }, 'confirm')
               if (r && !r.ok) { setConfirmErr(plainError(r.error)); return }
               setConfirm(null)
-            }}>{confirm === 'close' ? H.endSessionButton : H.resetNow}</button>
+              if (confirm === 'restart_game') say(H.restarted)
+            }}>{confirm === 'close' ? H.endSessionButton : confirm === 'restart_game' ? H.restartNow : H.resetNow}</button>
             <button className="btn" onClick={() => setConfirm(null)}>{H.cancel}</button>
           </div>
         </Sheet>

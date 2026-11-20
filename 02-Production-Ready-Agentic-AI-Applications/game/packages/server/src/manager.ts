@@ -61,13 +61,18 @@ export class Manager {
     return this.rooms.get(code.toUpperCase())
   }
 
-  /** The newest session that is not closed. The root URL sends visitors there. */
-  newestOpen(): Room | undefined {
+  /**
+   * The newest session that is not closed. The root URL sends visitors there. With `after`, only
+   * a session opened later than that one counts: the next game for the players of a game that ended.
+   */
+  newestOpen(after?: string): Room | undefined {
+    const since = after ? this.deps.db.session(after.toUpperCase())?.created ?? -Infinity : -Infinity
     let best: Room | undefined
     let bestCreated = -Infinity
     for (const room of this.rooms.values()) {
-      if (room.state.closed) continue
+      if (room.state.closed || room.code === after?.toUpperCase()) continue
       const created = this.deps.db.session(room.code)?.created ?? 0
+      if (created < since) continue
       if (created >= bestCreated) {
         best = room
         bestCreated = created

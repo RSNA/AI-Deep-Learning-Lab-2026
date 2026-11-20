@@ -8,6 +8,7 @@ import { store } from '../lib/storage.ts'
 import { setTheme, useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
+import { NewGame, PastGameCard } from '../components/after.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
 
@@ -86,14 +87,13 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ w, onClose, onBrief }: { w: Welcome; onClose: () => void; onBrief: () => void }) {
+function MenuSheet({ onClose, onBrief }: { onClose: () => void; onBrief: () => void }) {
   const view = usePlayer((s) => s.view)!
   const theme = useTheme()
-  const [open, setOpen] = useState<number | null>(null)
   const brief = view.inbox.find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
-      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={onBrief}>{COPY.letterAgain}: {brief.title}</button>}
+      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start', whiteSpace: 'normal', textAlign: 'left', height: 'auto', minHeight: 36, padding: '4px 10px' }} onClick={onBrief}>{COPY.letterAgain}: {brief.title}</button>}
       <div className="eyebrow">{COPY.rejoinCode}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className="codebox" style={{ fontSize: 36 }}>{view.me.rejoinCode}</span>
@@ -106,25 +106,6 @@ function MenuSheet({ w, onClose, onBrief }: { w: Welcome; onClose: () => void; o
       </div>
       <div className="eyebrow">{COPY.howToPlay}</div>
       <HowToPlay compact />
-      <div className="eyebrow">{COPY.ladder}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {[...w.ladder].reverse().map((r) => (
-          <div key={r.rung} style={{ border: '2px solid var(--line)' }}>
-            <button onClick={() => setOpen(open === r.rung ? null : r.rung)} aria-expanded={open === r.rung}
-              style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, padding: '4px 10px', background: 'var(--inset)', border: 0, cursor: 'pointer', textAlign: 'left' }}>
-              <span className="num" style={{ fontSize: 24, width: 18 }}>{r.rung}</span>
-              <span style={{ fontWeight: 800, flexGrow: 1 }}>{r.label}</span>
-              <span className="chip" style={{ fontSize: 12 }}>{r.classShort}</span>
-            </button>
-            {open === r.rung && (
-              <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
-                <div>{r.fitsWhen}</div>
-                <div className="muted">Example: {r.example}</div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
     </Sheet>
   )
 }
@@ -386,19 +367,59 @@ function PointsTable() {
   )
 }
 
-function Winners() {
+/**
+ * The winners, and the page of a game the host has ended (section 10.7). An ended game takes no
+ * more commands. Its page keeps the player's result, lets them look at a scored phase again and
+ * leads to the next game as soon as the host opens one.
+ */
+function Winners({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => void }) {
   const st = usePlayer((s) => s.standing)
   const view = usePlayer((s) => s.view)!
+  const [look, setLook] = useState(false)
+  const ended = view.stage === 'closed'
+  const canLook = ended && !!view.planning?.reveal
+  if (look && canLook) {
+    return (
+      <>
+        <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(false)}>← {COPY.backToFinal}</button></div>
+        <Planning w={w} />
+      </>
+    )
+  }
   return (
-    <main style={{ padding: 16, maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <main style={{ padding: 16, width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <section className="panel">
-        <div className="panel-head sun">{view.stage === 'closed' ? COPY.closed : COPY.finalTitle}</div>
+        <div className="panel-head sun">{ended ? COPY.closed : COPY.finalTitle}</div>
         <div className="panel-body">
+          {ended && <p style={{ fontSize: 16 }}>{COPY.closedLine}</p>}
           <div className="num" style={{ fontSize: 48 }}>{st?.ranks.overall ? `#${st.ranks.overall}` : '–'} <span className="muted" style={{ fontSize: 24 }}>of {st?.ranks.of ?? '–'}</span></div>
           <PointsTable />
+          {canLook && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook(true)}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</button>}
         </div>
       </section>
+      {ended && <NewGame after={w.session.code} onJoin={onNewGame} />}
     </main>
+  )
+}
+
+/** The game is gone from the server (ended before a restart of the server, or deleted). */
+function Gone({ session, go }: { session: string; go: (path: string) => void }) {
+  const last = store.last()
+  const mine = last && last.session === session ? last : null
+  const leave = (to: string) => { forgetPlayer(); go(to) }
+  return (
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TownStrip height={120} />
+      <main style={{ padding: 16, width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <h1>{COPY.closed}</h1>
+          <p className="muted" style={{ fontSize: 16 }}>{mine ? COPY.goneLine : COPY.goneNoResult}</p>
+        </div>
+        {mine && <PastGameCard game={mine} />}
+        <NewGame after={session} onJoin={(code) => leave(`/j/${code}`)} />
+        <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => leave('/')}>{COPY.otherCode}</button>
+      </main>
+    </div>
   )
 }
 
@@ -439,7 +460,7 @@ function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
   )
 }
 
-function StageBody({ w }: { w: Welcome }) {
+function StageBody({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => void }) {
   const view = usePlayer((s) => s.view)!
   const [hidden, setHidden] = useState(false)
   const st = view.stage
@@ -451,9 +472,9 @@ function StageBody({ w }: { w: Welcome }) {
   if (view.slide && !(hidden && canLeave)) return <MirroredSlide onBack={canLeave ? () => setHidden(true) : null} />
   const onSlides = view.slide ? () => setHidden(false) : null
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
-  if (st === 'winners' || st === 'closed') return <Winners />
+  if (st === 'winners' || st === 'closed') return <Winners w={w} onNewGame={onNewGame} />
   const phase = phaseOfStage(st)
-  if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning w={w} onSlides={onSlides} />
+  if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning key={view.run} w={w} onSlides={onSlides} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
   if (st.startsWith('break.')) return <Results w={w} phase={st.split('.')[1] as PhaseId} note={COPY.lookAtScreen} />
   if (st === 'reflection') return <Results w={w} phase={null} note={COPY.lookAtScreen} />
@@ -465,7 +486,7 @@ function StageBody({ w }: { w: Welcome }) {
 // ------------------------------------------------------------------------------------------
 export function PlayPage({ go }: { go: (path: string) => void }) {
   const auth = store.player()
-  const { status, welcome, view, start, stop } = usePlayer()
+  const { status, welcome, view, start, stop, restarted, clearRestarted } = usePlayer()
   const [menu, setMenu] = useState(false)
   const [standings, setStandings] = useState(false)
   const [brief, setBrief] = useState(false)
@@ -479,7 +500,16 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A notice when the host starts a phase or the game again. It goes by itself.
+  useEffect(() => {
+    if (!restarted) return
+    setMenu(false); setStandings(false); setBrief(false)
+    const id = setTimeout(clearRestarted, 9000)
+    return () => clearTimeout(id)
+  }, [restarted, clearRestarted])
+
   if (!auth) return null
+  if (status === 'ended') return <Gone session={auth.session} go={go} />
   const leave = (rejoin: boolean) => {
     forgetPlayer()
     stop()
@@ -503,7 +533,13 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
     <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
       {status !== 'open' && <div className="banner" role="status">{COPY.reconnecting}</div>}
-      <StageBody w={welcome} />
+      {restarted && (
+        <div className="restartbar" role="alert">
+          <span>{restarted.kind === 'game' ? COPY.restartedGame : COPY.restartedPhase(STAGE_TITLE[view.stage])}</span>
+          <button type="button" className="btn small" onClick={clearRestarted} aria-label={COPY.close}>✕</button>
+        </div>
+      )}
+      <StageBody w={welcome} onNewGame={(code) => { stop(); go(`/j/${code}`) }} />
       {!codeSeen && (
         <Sheet title={`${COPY.youAreIn} ${welcome.system.name}`} head="sun">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -516,7 +552,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button className="btn go big" autoFocus onClick={() => { store.setFlag(`seen-code-${view.me.id}`); setCodeSeen(true) }}>{COPY.gotIt}</button>
         </Sheet>
       )}
-      {menu && <MenuSheet w={welcome} onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} />}
+      {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} />}
       {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} again />}
       {standings && <StandingsSheet w={welcome} onClose={() => setStandings(false)} />}
     </div>

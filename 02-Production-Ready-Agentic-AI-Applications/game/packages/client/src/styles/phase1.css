@@ -84,6 +84,14 @@ button.ibtn { cursor: pointer; }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
 .newchip { min-height: 30px; padding: 0 10px; background: #fff; color: var(--on); border: 2px solid var(--on); font-weight: 800; font-size: 13px; cursor: pointer; }
 .cards { display: grid; gap: 12px; align-items: start; }
+/* One card per row on a wide column: the card keeps a line length that reads well. */
+.cards.single { max-width: 980px; margin: 0 auto; }
+.rowseg { display: inline-flex; }
+.rowseg button { width: 36px; height: 30px; padding: 0 7px; display: flex; align-items: center; justify-content: center; gap: 3px; background: transparent; border: 2px solid var(--on); color: var(--on); cursor: pointer; }
+.rowseg button + button { margin-left: -2px; }
+.rowseg button[aria-pressed="true"] { background: #fff; }
+.rowseg button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; position: relative; }
+.rowseg i { display: block; flex: 1; height: 14px; border: 2px solid currentColor; }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
 
 .card { background: var(--panel); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); min-width: 0; cursor: pointer; outline: none; transition: box-shadow .15s; }

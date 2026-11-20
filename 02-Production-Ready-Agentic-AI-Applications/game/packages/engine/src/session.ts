@@ -3,7 +3,7 @@
 import type { Pack } from '@lab02/content-schema'
 import { HostCommand } from '@lab02/protocol/host'
 import {
-  AVATARS, PHASES, PLAY_STAGES, STAGES, phaseOfStage,
+  AVATARS, PHASES, PLAY_STAGES, STAGES, phaseOfStage, resetPhaseOf,
   SCENES, type AvatarId, type ErrorCode, type Mode, type PhaseId, type SceneId, type StageId,
 } from '@lab02/protocol'
 import { deckSlides, sectionOf, sectionStartFor } from './deck.ts'
@@ -416,7 +416,8 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
     case 'reset_stage': {
       if (s.mode === 'event') return fail('not_available')
       if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
-      const phase = phaseOfStage(s.stage)
+      // At a break the phase before it starts again. Earlier phases keep their points.
+      const phase = resetPhaseOf(s.stage)
       if (!phase) return fail('wrong_stage')
       for (const p of activePlayers(s)) {
         p.results[phase] = null
@@ -425,7 +426,33 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
       }
       s.closedPhases = s.closedPhases.filter((x) => x !== phase)
       s.opened = s.opened.filter((x) => x !== phase)
+      s.run = (s.run ?? 0) + 1
       return { ok: true, ...enterStage(s, pack, FIRST_STAGE[phase], now) }
+    }
+    case 'restart_game': {
+      // The same room starts over: every player stays, with the same name, character, health
+      // system and rejoin code, and nothing of the game played so far is kept.
+      if (s.mode === 'event') return fail('not_available')
+      if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
+      if (s.closed) return fail('wrong_stage')
+      for (const p of Object.values(s.players)) {
+        p.acted = { planning: false, development: false, maintaining: false }
+        p.submittedAtMs = { planning: null, development: null, maintaining: null }
+        p.live = { planning: { value: 0, sinceMs: now }, development: { value: 0, sinceMs: now }, maintaining: { value: 0, sinceMs: now } }
+        p.results = { planning: null, development: null, maintaining: null }
+        p.planning = null
+        p.development = null
+        p.maintaining = null
+        p.inbox = []
+        p.said = []
+        p.lastCmdMs = null
+      }
+      s.opened = []
+      s.closedPhases = []
+      s.stageLog = []
+      s.run = (s.run ?? 0) + 1
+      s.screen = { ...s.screen, scene: 'auto', slide: 0, spotlight: null, mirror: false }
+      return { ok: true, ...enterStage(s, pack, 'lobby', now) }
     }
     case 'close': {
       if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
@@ -530,6 +557,6 @@ export function apply(s: SessionState, pack: Pack, command: Command, now: GameMs
 
 /** Host commands that the engine applies (the rest act on the server's clock or sockets). */
 export const ENGINE_HOST_COMMANDS = new Set([
-  'next', 'extend', 'end_now', 'rename_player', 'remove_player', 'reset_stage', 'close',
+  'next', 'extend', 'end_now', 'rename_player', 'remove_player', 'reset_stage', 'restart_game', 'close',
   'screen_scene', 'screen_mirror', 'slide_to', 'screen_theme', 'screen_filter', 'slide', 'spotlight',
 ])

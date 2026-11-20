@@ -5,7 +5,7 @@ import { create } from 'zustand'
 import type { ConnStatus, GameConnection, Moment, PhaseContent, PlayerView, Standing, Welcome } from '@lab02/protocol'
 import type { ClockRef } from './clock.ts'
 import { api, connect, reloadForNewBuild } from './net.ts'
-import { store } from './storage.ts'
+import { store, type PastGame } from './storage.ts'
 
 export type Bubble = { key: number; speaker: string; text: string; at: number; inv?: string }
 
@@ -21,12 +21,38 @@ type PlayerStore = {
   said: Bubble[]
   /** Investigations whose card arrived in this browser, with the time it arrived. */
   arrived: Record<string, number>
+  /** The host started a phase or the whole game again while this browser was in it. */
+  restarted: { kind: 'phase' | 'game'; run: number } | null
+  clearRestarted(): void
   start(token: string): void
   stop(): void
   send(type: string, payload: unknown): Promise<{ ok: boolean; error?: string }>
 }
 
 let bubbleKey = 0
+
+/** Keeps the practice and its points in this browser, so they can be shown after the game has gone from the server. */
+let kept = ''
+function remember(w: Welcome | null, view: PlayerView | null, standing: Standing | null): void {
+  if (!w || !view) return
+  const pts = view.points
+  const g: PastGame = {
+    session: w.session.code, label: w.session.label, name: view.me.name, avatar: view.me.avatar, system: w.system.name,
+    points: { planning: pts.planning?.points ?? null, development: pts.development?.points ?? null, maintaining: pts.maintaining?.points ?? null, total: pts.total },
+    rank: standing?.ranks.overall ?? null, of: standing?.ranks.of ?? null,
+    scored: pts.planning !== null || pts.development !== null || pts.maintaining !== null,
+  }
+  const text = JSON.stringify(g)
+  if (text === kept) return
+  kept = text
+  store.setLast(g)
+}
+
+/** A view of a later run: what the browser kept of the run before is stale. */
+function restartOf(prev: PlayerView | null, next: PlayerView): { kind: 'phase' | 'game'; run: number } | null {
+  if (!prev || next.run <= prev.run) return null
+  return { kind: next.stage === 'lobby' ? 'game' : 'phase', run: next.run }
+}
 
 export const usePlayer = create<PlayerStore>((set, get) => ({
   status: 'idle',
@@ -38,12 +64,16 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
   conn: null,
   said: [],
   arrived: {},
+  restarted: null,
+  clearRestarted: () => set({ restarted: null }),
   start(token) {
     get().conn?.close()
     const conn = connect(token)
-    const fetchContent = (stage: string, opened: boolean) => {
-      const phase = stage.split('.')[0]!
-      if (!opened || get().content[phase] || !['planning', 'development', 'maintaining'].includes(phase)) return
+    // The content of a phase is fetched once the phase has opened, also after the game has
+    // ended, so that a player can look at a result again.
+    const fetchContent = (view: PlayerView) => {
+      const phase = 'planning'
+      if (view.planning === null || get().content[phase]) return
       void api.content(token, phase).then((r) => {
         if (r.ok) set((s) => ({ content: { ...s.content, [phase]: r.data } }))
       })
@@ -54,15 +84,23 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
       // Lines of interviews that run now are in the view: the transcript starts from them.
       const said: Bubble[] = []
       for (const r of w.view.planning?.running ?? []) r.lines.forEach((text) => said.push({ key: ++bubbleKey, speaker: '', inv: r.id, text, at: 0 }))
-      set({ welcome: w, view: w.view, clock: { clock: w.clock, at: performance.now() }, said: get().said.length ? get().said : said })
-      fetchContent(w.view.stage, w.view.planning !== null)
+      const again = restartOf(get().view, w.view)
+      set({
+        welcome: w, view: w.view, clock: { clock: w.clock, at: performance.now() },
+        said: get().said.length && !again ? get().said : said,
+        ...(again ? { restarted: again, arrived: {} } : {}),
+      })
+      remember(w, w.view, get().standing)
+      fetchContent(w.view)
     })
     conn.on('view', (m) => {
       const view = (m as unknown as { view: PlayerView }).view
       const prev = get().view
-      if (prev && view.rev < prev.rev && view.stage === prev.stage) return
-      set({ view })
-      fetchContent(view.stage, view.planning !== null)
+      if (prev && view.rev < prev.rev && view.stage === prev.stage && view.run === prev.run) return
+      const again = restartOf(prev, view)
+      set(again ? { view, restarted: again, said: [], arrived: {} } : { view })
+      remember(get().welcome, view, get().standing)
+      fetchContent(view)
     })
     conn.on('moment', (m) => {
       const mo = (m as unknown as { moment: Moment }).moment
@@ -74,7 +112,11 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
       }
     })
     conn.on('clock', (m) => set({ clock: { clock: (m as unknown as { clock: ClockRef['clock'] }).clock, at: performance.now() } }))
-    conn.on('standing', (m) => set({ standing: (m as unknown as { standing: Standing }).standing }))
+    conn.on('standing', (m) => {
+      const standing = (m as unknown as { standing: Standing }).standing
+      set({ standing })
+      remember(get().welcome, get().view, standing)
+    })
     conn.on('reload', () => reloadForNewBuild())
     set({ conn, status: 'connecting' })
   },

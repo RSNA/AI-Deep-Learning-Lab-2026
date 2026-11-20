@@ -269,3 +269,95 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await expect(p2.getByText("Maya's laptop took control")).toBeVisible()
   await ctx2.close()
 })
+
+test('a game that starts again and ends: a dialog keeps its field, the players follow, and the way leads to the next game', async ({ page, browser }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
+  const auth = { authorization: `Bearer ${token}` }
+  const code = (await (await page.request.post('/api/host/session', { data: { label: 'E2E again', mode: 'rehearsal' }, headers: auth })).json()).code as string
+  await page.goto('/host')
+  await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: 'E2E laptop' })), token)
+  await page.goto(`/host?s=${code}`)
+  await expect(page.locator('.sessbar .chip.good')).toHaveText('You have control')
+  const player = await browser.newContext()
+  const pp = await player.newPage()
+  await joinPicked(pp, code, 'Again Tester', /Riverbend/)
+
+  // The console in three columns: the players, the projector, the tools that are seldom needed.
+  const cols = page.locator('.console-grid > .ccol')
+  await expect(cols).toHaveCount(3)
+  await expect(cols.nth(0).locator('.prow')).toContainText('Again Tester')
+  await expect(cols.nth(1).locator('.panel-head').first()).toHaveText('Projector')
+  await expect(cols.nth(2).locator('.panel-head')).toHaveText(['Rehearsal tools', 'End the session', 'Downloads', 'Answer key'])
+  await noOverflow(page)
+
+  // A dialog with a field keeps the caret while it is typed in, letter by letter.
+  await page.getByRole('button', { name: 'Actions for Again Tester' }).click()
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  const field = page.getByLabel('New name')
+  await expect(field).toBeFocused()
+  await field.fill('')
+  await field.pressSequentially('Second Tester', { delay: 40 })
+  await expect(field).toHaveValue('Second Tester')
+  await expect(field).toBeFocused()
+  await page.getByRole('dialog').getByRole('button', { name: 'Rename' }).click()
+  await expect(cols.nth(0).locator('.prow')).toContainText('Second Tester')
+
+  // Phase 1 opens with its letter. The player picks one card per row, and the menu has no ladder.
+  const next = page.getByRole('button', { name: /^Next:/ })
+  await next.click()
+  await next.click()
+  await pp.getByRole('button', { name: 'Start investigating' }).click()
+  const perRow = () => pp.locator('.cards').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)
+  await expect(pp.getByRole('button', { name: 'Two cards per row' })).toHaveAttribute('aria-pressed', 'true')
+  await pp.getByRole('button', { name: 'One card per row' }).click()
+  expect(await perRow()).toBe(1)
+  await pp.getByRole('button', { name: 'Two cards per row' }).click()
+  expect(await perRow()).toBe(2)
+  await pp.getByRole('button', { name: 'Menu' }).click()
+  await expect(pp.getByText('Rejoin code')).toBeVisible()
+  await expect(pp.getByText('The automation ladder')).toHaveCount(0)
+  await pp.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+  await pp.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
+  await expect(pp.locator('.asec[data-class]').first().locator('.acard')).toHaveCount(1)
+
+  // The phase starts again: a rehearsal confirms with one click, the player is told, the letter
+  // opens again and the assessment is empty.
+  await page.getByRole('button', { name: 'Reset Phase 1' }).click()
+  await expect(page.getByRole('dialog').locator('input')).toHaveCount(0)
+  await page.getByRole('dialog').getByRole('button', { name: 'Reset the phase' }).click()
+  await expect(pp.locator('.restartbar')).toContainText('The host started Phase 1 again.')
+  await pp.getByRole('button', { name: 'Start investigating' }).click()
+  await expect(pp.locator('.asec[data-class]').first().locator('.acard')).toHaveCount(0)
+
+  // The whole game starts again: the same player is back in the lobby with no points.
+  await page.getByRole('button', { name: 'Restart the game' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Restart the game' }).click()
+  await expect(pp.locator('.restartbar')).toContainText('The host started the game again.')
+  await expect(pp.getByText('I am in. Waiting for the host to start.')).toBeVisible()
+  await expect(cols.nth(0).locator('.prow')).toContainText('Second Tester')
+  await expect(page.getByText('Now on stage').locator('xpath=following-sibling::*[1]')).toHaveText('Lobby')
+
+  // The session ends: the console says so, the player keeps a result page, and when the host
+  // opens a new session the page leads to it with the practice's name filled in.
+  await page.getByRole('button', { name: 'End the session' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'End the session' }).click()
+  await expect(page.locator('.endedbar')).toContainText('This session has ended.')
+  await expect(pp.getByText('This game has ended')).toBeVisible()
+  await expect(pp.getByText('When the host opens a new game, a button to join it appears here.')).toBeVisible()
+  const code2 = (await (await page.request.post('/api/host/session', { data: { label: 'E2E the next game', mode: 'rehearsal' }, headers: auth })).json()).code as string
+  await expect(pp.getByText('A new game is open')).toBeVisible({ timeout: 15_000 })
+  await expect(pp.locator('.newgame')).toContainText('E2E the next game')
+  await pp.getByRole('button', { name: 'Join the new game' }).click()
+  await expect(pp).toHaveURL(new RegExp(`/j/${code2}$`))
+  await expect(pp.getByLabel('Name your practice')).toHaveValue('Second Tester')
+  // The ended game says so to anyone who opens its link.
+  const late = await browser.newContext()
+  const lp = await late.newPage()
+  await lp.goto(`/j/${code}`)
+  await expect(lp.getByText('This game has ended. Nobody can join it any more.')).toBeVisible()
+  await expect(lp.getByRole('button', { name: 'Join the new game' })).toBeVisible()
+  await noErrorNames(pp)
+  await late.close()
+  await player.close()
+})

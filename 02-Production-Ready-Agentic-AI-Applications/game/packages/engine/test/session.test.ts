@@ -108,6 +108,59 @@ describe('session and stages', () => {
     expect(s.players.p1!.results.planning).toBeNull()
     expect(s.closedPhases).toEqual([])
     expect(s.stageEndsAtMs).toBe(50_000 + PLAY)
+    // A browser learns from the run number that what it kept for the phase is stale.
+    expect(project.playerView(s, pack, 'p1', 'CODE').run).toBe(1)
+  })
+
+  it('reset_stage at a break starts the phase before it again and keeps the earlier phases', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
+    const t = toStage(s, 'break.development')
+    const planning = s.players.p1!.results.planning
+    expect(planning).not.toBeNull()
+    expect(s.players.p1!.results.development).not.toBeNull()
+    expect(host(s, 'reset_stage', { confirm: s.code }, t).ok).toBe(true)
+    expect(s.stage).toBe('development.play')
+    expect(s.players.p1!.results.development).toBeNull()
+    expect(s.players.p1!.results.planning).toEqual(planning)
+    expect(s.closedPhases).toEqual(['planning'])
+    // Outside a phase and its break there is nothing to reset.
+    const lobby = newSession()
+    expect(host(lobby, 'reset_stage', { confirm: lobby.code }).ok).toBe(false)
+  })
+
+  it('restart_game takes the same players back to the lobby with nothing kept, outside event mode only', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
+    join(s, 'p2', 'Beta Branch')
+    const system = s.players.p1!.system
+    const t = toStage(s, 'break.planning')
+    host(s, 'remove_player', { playerId: 'p2' }, t)
+    expect(host(s, 'restart_game', { confirm: 'WRONG' }, t).ok).toBe(false)
+    expect(host(s, 'restart_game', { confirm: s.code.toLowerCase() }, t).ok).toBe(true)
+    expect(s.stage).toBe('lobby')
+    expect(s.stageEndsAtMs).toBeNull()
+    expect(s.opened).toEqual([])
+    expect(s.closedPhases).toEqual([])
+    expect(s.stageLog).toEqual([{ stage: 'lobby', atMs: t }])
+    const p = s.players.p1!
+    expect([p.name, p.system, p.removed]).toEqual(['Alpha Branch', system, false])
+    expect(p.results).toEqual({ planning: null, development: null, maintaining: null })
+    expect(p.planning).toBeNull()
+    expect(p.inbox).toEqual([])
+    expect(s.players.p2!.removed).toBe(true)
+    expect(project.playerView(s, pack, 'p1', 'CODE').points.total).toBe(0)
+    expect(project.playerView(s, pack, 'p1', 'CODE').run).toBe(1)
+    // The game plays again from the start, and a new player may join.
+    expect(join(s, 'p3', 'Gamma Branch', t).ok).toBe(true)
+    toStage(s, 'planning.reveal', t)
+    expect(s.players.p1!.results.planning).not.toBeNull()
+    // A closed session does not start over.
+    host(s, 'close', { confirm: s.code })
+    expect(host(s, 'restart_game', { confirm: s.code }).ok).toBe(false)
+    const ev = createSession(pack, { code: 'EVENT1', label: 'x', mode: 'test' })
+    ev.mode = 'event'
+    expect(host(ev, 'restart_game', { confirm: ev.code }).ok).toBe(false)
   })
 
   it('close needs the session code', () => {

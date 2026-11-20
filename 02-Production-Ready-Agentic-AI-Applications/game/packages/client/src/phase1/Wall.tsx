@@ -6,10 +6,16 @@ import type { PlanningContent, PlanningView, Welcome } from '@lab02/protocol'
 import { usePlayer } from '../lib/player.ts'
 import { CardOverlay, EvidenceCard, FactsBody, cardKey, type CardItem } from './Cards.tsx'
 import { P1 } from './copy.ts'
+import { stripHeight } from '../scene/band.ts'
 import { PlanningRoom } from './Rail.tsx'
 
 const TWO_COLUMNS_FROM = 560
 const PANEL_KEY = 'lab02.panel'
+const CARDS_KEY = 'lab02.cards'
+
+function readPerRow(): 1 | 2 {
+  try { return localStorage.getItem(CARDS_KEY) === '1' ? 1 : 2 } catch { return 2 }
+}
 
 type PanelState = { view: 'room' | 'facts'; open: boolean }
 
@@ -66,11 +72,11 @@ function useFresh(cards: CardItem[], root: React.RefObject<HTMLElement | null>) 
 }
 
 /** The panel above the cards: the reading room or the practice facts, with a switch and a collapse. */
-function Panel({ w, content, pv, phone }: { w: Welcome; content: PlanningContent; pv: PlanningView; phone: boolean }) {
+function Panel({ w, content, pv, phone, width }: { w: Welcome; content: PlanningContent; pv: PlanningView; phone: boolean; width: number }) {
   const [st, setSt] = useState<PanelState>(() => readPanel(phone))
-  const [tall, setTall] = useState(() => window.innerHeight >= 800)
+  const [winH, setWinH] = useState(() => window.innerHeight)
   useEffect(() => {
-    const on = () => setTall(window.innerHeight >= 800)
+    const on = () => setWinH(window.innerHeight)
     window.addEventListener('resize', on)
     return () => window.removeEventListener('resize', on)
   }, [])
@@ -78,7 +84,7 @@ function Panel({ w, content, pv, phone }: { w: Welcome; content: PlanningContent
     setSt(n)
     try { localStorage.setItem(`${PANEL_KEY}.${phone ? 'phone' : 'laptop'}`, JSON.stringify(n)) } catch { /* storage unavailable */ }
   }
-  const viewH = phone ? 200 : tall ? 266 : 180
+  const viewH = stripHeight(phone, width, winH)
   return (
     <div className={`epanel${st.open ? '' : ' shut'}`}>
       <div className="ebar" role="tablist" aria-label={P1.panel}>
@@ -120,7 +126,15 @@ export function Wall({ w, content, pv, phone = false, focusCard, backTo }: {
     setWidth(el.clientWidth)
     return () => ro.disconnect()
   }, [])
-  const cols = !phone && width >= TWO_COLUMNS_FROM ? 2 : 1
+  // Two cards per row is the default on a wide column. The player may choose one, and the
+  // browser remembers the choice.
+  const [perRow, setPerRow] = useState<1 | 2>(readPerRow)
+  const wide = !phone && width >= TWO_COLUMNS_FROM
+  const cols = wide ? perRow : 1
+  const pickPerRow = (n: 1 | 2) => {
+    setPerRow(n)
+    try { localStorage.setItem(CARDS_KEY, String(n)) } catch { /* storage unavailable */ }
+  }
 
   useEffect(() => {
     if (!focusCard) return
@@ -148,12 +162,23 @@ export function Wall({ w, content, pv, phone = false, focusCard, backTo }: {
     <section className={`colbox wall${phone ? ' phone' : ''}`} aria-label={P1.evidence}>
       <div className="colhead lav">
         <span className="l">{!phone && <h2>{P1.evidence}</h2>}<span className="s">{P1.insights(pv.tiles.length, content.investigations.length)}</span></span>
-        <span className="r">{newBtn}</span>
+        <span className="r">
+          {newBtn}
+          {wide && (
+            <span className="rowseg" role="group" aria-label={P1.cardsPerRow}>
+              {([1, 2] as const).map((n) => (
+                <button key={n} type="button" aria-pressed={perRow === n} aria-label={P1.perRow(n)} title={P1.perRow(n)} onClick={() => pickPerRow(n)}>
+                  {Array.from({ length: n }, (_, i) => <i key={i} aria-hidden="true" />)}
+                </button>
+              ))}
+            </span>
+          )}
+        </span>
       </div>
       {backTo}
-      <Panel w={w} content={content} pv={pv} phone={phone} />
+      <Panel w={w} content={content} pv={pv} phone={phone} width={width} />
       <div className="colscroll wall-scroll" ref={scroller}>
-        <div className="cards" ref={grid} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        <div className={`cards${wide && cols === 1 ? ' single' : ''}`} ref={grid} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {cards.map((c, i) => (
             <EvidenceCard key={cardKey(c)} item={c} content={content} system={w.system} art={w.art} fresh={fresh.has(cardKey(c))} onOpen={() => openAt(i)} />
           ))}

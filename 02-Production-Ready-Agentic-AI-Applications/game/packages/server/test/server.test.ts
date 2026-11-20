@@ -111,6 +111,76 @@ describe('restart', () => {
   })
 })
 
+describe('a game that starts again or ends', () => {
+  it('restart_game takes every player back to the lobby in the same session, with a new run number', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const code = session(srv, 'rehearsal')
+    const token = await hostToken(srv.url)
+    const host = hostConn(srv.ws, token, code)
+    cleanups.push(() => host.close())
+    await until(() => host.status === 'open')
+    const bot = await joinBot(srv, code, 'Again Branch')
+    cleanups.push(() => bot.conn.close())
+    await until(() => bot.stage === 'lobby')
+    const view = () => bot.view as unknown as { run: number; points: { planning: unknown; total: number }; planning: unknown; inbox: unknown[] }
+    for (let i = 0; i < 4; i++) await step(srv.app, host, code)
+    await until(() => bot.stage === 'break.planning')
+    expect(view().points.planning).not.toBeNull()
+
+    // At the break the phase before it can start again; the run number tells the browser.
+    expect((await host.command('reset_stage', { confirm: code })).ok).toBe(true)
+    await until(() => bot.stage === 'planning.play' && view().run === 1, 5000, 'phase started again')
+    expect(view().points.planning).toBeNull()
+
+    expect((await host.command('restart_game', { confirm: 'nope' }))).toMatchObject({ ok: false, error: 'confirm_mismatch' })
+    expect((await host.command('restart_game', { confirm: code })).ok).toBe(true)
+    await until(() => bot.stage === 'lobby' && view().run === 2, 5000, 'game started again')
+    expect(view().points.total).toBe(0)
+    expect(view().planning).toBeNull()
+    expect(view().inbox).toEqual([])
+    // The same token and the same rejoin code still hold the practice.
+    expect((await srv.api.rejoin({ code, rejoinCode: bot.rejoinCode })).ok).toBe(true)
+  })
+
+  it('names the session that takes players now, and a browser of an ended session learns that it is gone', async () => {
+    const srv1 = await server()
+    expect((await srv1.api.open())).toMatchObject({ ok: true, data: { session: null } })
+    const code = session(srv1)
+    expect((await srv1.api.open())).toMatchObject({ ok: true, data: { session: { code, label: 'Test session' } } })
+    const token = await hostToken(srv1.url)
+    const host = hostConn(srv1.ws, token, code)
+    await until(() => host.status === 'open')
+    const bot = await joinBot(srv1, code, 'Ending Branch')
+    await until(() => bot.stage === 'lobby')
+    expect((await host.command('close', { confirm: code })).ok).toBe(true)
+    await until(() => bot.stage === 'closed')
+    // An ended session takes no command and no new player, and it is not the open session.
+    expect((await bot.conn.command('planning.set_report', { picks: {} })).ok).toBe(false)
+    expect((await srv1.api.join({ code, name: 'Late Branch' })).ok).toBe(false)
+    expect((await srv1.api.open())).toMatchObject({ ok: true, data: { session: null } })
+    // The next game for its players is a session opened after it, never an older one left open.
+    expect((await srv1.api.open(code))).toMatchObject({ ok: true, data: { session: null } })
+    await sleep(5)
+    const next = session(srv1)
+    expect((await srv1.api.open())).toMatchObject({ ok: true, data: { session: { code: next } } })
+    expect((await srv1.api.open(code))).toMatchObject({ ok: true, data: { session: { code: next } } })
+    expect((await srv1.api.open(next))).toMatchObject({ ok: true, data: { session: null } })
+    host.close()
+    bot.conn.close()
+    await srv1.app.close()
+    cleanups.length = 0
+
+    // After a restart of the server the ended session is not loaded: its browsers are told so.
+    const srv2 = await server(srv1.dataDir)
+    cleanups.push(srv2.cleanup)
+    const back = attach(srv2.ws, bot.token)
+    cleanups.push(() => back.conn.close())
+    await until(() => back.conn.status === 'ended', 5000, 'ended session refused')
+    expect((await srv2.api.open(code))).toMatchObject({ ok: true, data: { session: { code: next } } })
+  })
+})
+
 describe('reconnect and rejoin', () => {
   it('a repeated cid acts once', async () => {
     const srv = await server()

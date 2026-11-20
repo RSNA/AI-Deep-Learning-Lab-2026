@@ -64,6 +64,13 @@ export function phaseOfStage(stage: StageId): PhaseId | null {
   return (PHASES as readonly string[]).includes(head!) ? (head as PhaseId) : null
 }
 
+/** The phase that "Reset this phase" starts again: the phase on stage, or at a break the phase before it. */
+export function resetPhaseOf(stage: StageId): PhaseId | null {
+  const head = stage.split('.')[0]
+  const name = head === 'break' ? stage.split('.')[1] : head
+  return (PHASES as readonly string[]).includes(name!) ? (name as PhaseId) : null
+}
+
 /** Alphabet of rejoin and session codes: no 0, O, 1, I or L. */
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 export const CODE_LENGTH = 6

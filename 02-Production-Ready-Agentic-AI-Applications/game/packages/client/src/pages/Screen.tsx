@@ -226,7 +226,7 @@ function Podium({ rows, v }: { rows: ScreenView['board']['columns']['overall']['
 /** The winners once every phase is scored, with a podium. Before that: the standings so far. */
 function Winners({ v }: { v: ScreenView }) {
   const w = v.winners
-  if (!w) return <TitleCard v={v} text="The winners appear once Phase 1 is scored." />
+  if (!w) return <TitleCard v={v} text={v.stage === 'closed' ? 'This session has ended.' : 'The winners appear once Phase 1 is scored.'} />
   return (
     <div style={{ flexGrow: 1, padding: '28px 48px', display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 40, minHeight: 0 }}>
       <div className="panel" style={{ borderWidth: 4 }}>
@@ -338,7 +338,7 @@ export function ScreenPage() {
   useEffect(() => () => forceTheme(null), [])
 
   if (!token) return <div style={{ padding: 40 }}><h2>Open the big screen from the host console.</h2></div>
-  if (!v) return <div className="banner">{status === 'unauthorized' ? 'This big screen link is no longer valid. Open it again from the host console.' : COPY.reconnecting}</div>
+  if (!v) return <div className="banner">{status === 'unauthorized' ? 'This big screen link is no longer valid. Open it again from the host console.' : status === 'ended' ? 'This session has ended. Open the big screen of the next session from its host console.' : COPY.reconnecting}</div>
   return (
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ position: 'absolute', left: (window.innerWidth - 1920 * scale) / 2, top: (window.innerHeight - 1080 * scale) / 2 }}>

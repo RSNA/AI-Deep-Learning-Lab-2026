@@ -14,6 +14,10 @@ export const SessionPublic = S({
 })
 export type SessionPublic = z.infer<typeof SessionPublic>
 
+/** The session that takes players now: the newest one that is not closed, or null. */
+export const OpenSession = S({ session: S({ code: z.string(), label: Text, title: Text.nullable() }).nullable() })
+export type OpenSession = z.infer<typeof OpenSession>
+
 export const JoinBody = S({
   code: z.string().max(16), name: z.string().max(200), avatar: z.string().max(16).optional(),
   system: z.string().max(40).optional(),   // honored only where the session allows a pick
@@ -51,6 +55,8 @@ export function playerApi(base: string, fetchImpl: typeof fetch = fetch) {
   const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
   return {
     session: (code: string) => call(fetchImpl, `${base}/api/session/${encodeURIComponent(code)}`, {}, SessionPublic),
+    /** The open session, or with `after` the open session that was opened later than that one. */
+    open: (after?: string) => call(fetchImpl, `${base}/api/open${after ? `?after=${encodeURIComponent(after)}` : ''}`, {}, OpenSession),
     join: (body: JoinBody) => call(fetchImpl, `${base}/api/join`, json(body), JoinResult),
     rejoin: (body: RejoinBody) => call(fetchImpl, `${base}/api/rejoin`, json(body), JoinResult),
     content: (token: string, phase: string) =>

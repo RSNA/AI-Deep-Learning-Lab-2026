@@ -12,7 +12,7 @@ import { loadPack, type Pack } from '@lab02/content-schema'
 import { canPickSystem, joinOpen, project } from '@lab02/engine'
 import {
   CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, normalizeCode,
-  type PhaseId, type SessionPublic,
+  type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
 import { CreateSessionBody, HostCmdEnvelope, type SessionSummary } from '@lab02/protocol/host'
 import { hashToken, newToken, samePasscode } from './auth.ts'
@@ -117,6 +117,15 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const room = manager.get(normalizeCode(req.params.code))
     if (!room) return bad(reply, 404, 'unknown_session', manager.broken.get(normalizeCode(req.params.code)))
     return sessionPublic(room)
+  })
+
+  // The session that takes players now. A browser left on a game that has ended asks for the
+  // session opened after it, so its player can move on to the next game without a new link
+  // (section 7.2).
+  fastify.get<{ Querystring: { after?: string } }>('/api/open', async (req): Promise<OpenSession> => {
+    const after = typeof req.query.after === 'string' && /^[A-Za-z0-9]{4,8}$/.test(req.query.after) ? req.query.after : undefined
+    const room = manager.newestOpen(after)
+    return { session: room ? { code: room.code, label: room.state.label, title: pack.game.game.title } : null }
   })
 
   const joinLimit = minuteLimiter(300, config.wallNow)

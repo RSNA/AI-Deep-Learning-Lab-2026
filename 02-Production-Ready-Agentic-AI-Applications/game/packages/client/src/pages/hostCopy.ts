@@ -34,8 +34,8 @@ export const H = {
   mode: { test: 'Test', rehearsal: 'Rehearsal', event: 'Event' } as Record<Mode, string>,
   modeChip: (m: Mode) => ({ test: 'Test session', rehearsal: 'Rehearsal', event: 'Event session' })[m],
   modeLine: {
-    test: 'For trying things alone. The game speed can change and a phase can be reset.',
-    rehearsal: 'A full run with the real timing. The game speed can still change and a phase can be reset.',
+    test: 'For trying things alone. The game speed can change, and a phase or the whole game can start again.',
+    rehearsal: 'A full run with the real timing. The game speed can still change, and a phase or the whole game can start again.',
     event: 'The real session. The game speed is fixed and nothing can be reset.',
   } as Record<Mode, string>,
   pickYes: 'Players may pick their health system when they join.',
@@ -108,6 +108,9 @@ export const H = {
   colActions: 'Actions',
   actionsFor: (name: string) => `Actions for ${name}`,
   noPlayers: 'No player yet.',
+  onlineWord: 'online',
+  offlineWord: 'offline',
+  lastAct: (s: number) => `last act ${s} s ago`,
   yes: 'Yes',
   no: 'No',
   spectate: 'Spectate',
@@ -153,14 +156,23 @@ export const H = {
   resetThisPhase: 'Reset this phase',
   resetPhase: (p: string) => `Reset ${p}`,
   resetLine: 'Starts the phase again for everyone. You are asked to confirm.',
-  resetOff: 'Available while a phase is on stage.',
+  resetOff: 'Available while a phase is on stage, and in the break after it.',
   resetLost: (p: string, n: number) =>
     `This puts all ${players(n)} back at the start of ${p}. Their investigations, insights and assessments in this phase are erased. Points of earlier phases stay.`,
   resetNow: 'Reset the phase',
+  restartGame: 'Restart the game',
+  restartLine: 'Takes everyone back to the lobby with no points. The players stay in the session. You are asked to confirm.',
+  restartLost: (n: number) =>
+    `This takes all ${players(n)} back to the lobby. Every point, investigation and assessment of this session is erased. The players stay, with their names, health systems and rejoin codes.`,
+  restartNow: 'Restart the game',
+  restarted: 'The game is back in the lobby.',
   endSession: 'End the session',
   endLine: 'Ends the game for everyone. You are asked to confirm.',
   endSessionButton: 'End the session',
-  endLost: (n: number) => `This ends the session for all ${players(n)}. Nobody can join or play again. The downloads stay available.`,
+  endLost: (n: number) =>
+    `This ends the session for all ${players(n)}. Nobody can join or play again. The players keep their results on their screens, and the downloads stay available.`,
+  endedShort: 'This session has ended.',
+  endedBar: 'This session has ended. Players keep their results on their screens. When you open a new session, they get a button to join it.',
   typeCode: (code: string) => `Type the join code ${code} to confirm`,
 
   // The projector

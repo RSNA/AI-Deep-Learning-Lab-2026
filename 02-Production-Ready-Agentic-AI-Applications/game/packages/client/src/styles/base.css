@@ -283,11 +283,19 @@ input.field.bad { border-color: var(--bad); }
 .console { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
 .ctlset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .stagebar { padding: 12px 16px; flex-direction: row; align-items: center; gap: 24px; flex-wrap: wrap; }
-.console-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
-.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
-.ptable th { text-align: left; padding: 6px 8px 6px 0; }
-.ptable tr + tr, .ptable tbody tr { border-top: 2px solid var(--soft); }
-.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: start; }
+.console-grid { display: grid; grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.4fr) 280px; gap: 18px; align-items: start; }
+.ccol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.plist { list-style: none; margin: 0; padding: 0; max-height: 62vh; overflow-y: auto; }
+.prow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 6px 10px; min-height: 52px; }
+.prow + .prow { border-top: 2px solid var(--soft); }
+.pmain { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pline { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ppts { display: flex; flex-direction: column; align-items: flex-end; }
+.ppts .num { font-size: 22px; line-height: 1; }
+.ppts .hint { font-size: 11px; white-space: nowrap; }
+.endedbar { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 16px; background: var(--bad-bg); color: var(--bad); border-bottom: 3px solid var(--line); font-weight: 800; }
+.pgroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 20px; align-items: start; }
+.openrow { justify-content: center; }
 .endbox { border-color: var(--bad); }
 .speedbadge { background: var(--sun); color: var(--on); border-color: #1d2140; }
 .ctl { display: flex; flex-direction: column; gap: 3px; }
@@ -297,13 +305,13 @@ input.field.bad { border-color: var(--bad); }
 .bigscreen .group { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 2px solid var(--soft); }
 .bigscreen .group.apart { border-top: 3px dashed var(--line); padding-top: 12px; }
 .btn.picked { background: var(--sun); color: var(--on); }
-.preview { width: 344px; height: 194px; border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); overflow: hidden; align-self: center; pointer-events: none; }
+.preview { box-sizing: border-box; border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); overflow: hidden; align-self: center; pointer-events: none; }
 .pinned { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: var(--sun-bg); border: 3px solid var(--line); font-weight: 800; font-size: 14px; }
 .mirrored { padding: 6px 10px; background: var(--sky-bg); border: 2px solid var(--line); font-weight: 800; font-size: 14px; }
 .slidecount { font-size: 22px; min-width: 120px; text-align: center; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; min-height: 36px; cursor: pointer; }
 .check input { width: 20px; height: 20px; }
-.slidepair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.slidepair { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .minislide { border: 2px solid var(--line); background: var(--inset); padding: 6px 8px; font-size: 12px; min-height: 90px; }
 .minislide .mst { font-weight: 800; font-size: 13px; margin: 2px 0 4px; }
 .minislide ul { margin: 0; padding-left: 16px; }
@@ -352,7 +360,8 @@ input.field.bad { border-color: var(--bad); }
 .sectitle { font-weight: 800; font-size: 14px; }
 .check.off { color: var(--muted); }
 .roomstats { border-bottom: 2px solid var(--soft); padding-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
-.roomstats .kv .v { font-size: 14px; white-space: normal; text-align: right; }
+.roomstats .kv { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+.roomstats .kv .v { font-size: 14px; white-space: normal; text-align: left; }
 .sdl { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
 .sdl .ctl .hint { display: none; }
 .manual-side { width: min(520px, 42vw); flex-shrink: 0; border-left: 3px solid var(--line); background: var(--panel); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; }
@@ -369,12 +378,10 @@ input.field.bad { border-color: var(--bad); }
 
 .psys { display: inline-flex; align-items: center; gap: 6px; max-width: 150px; }
 .psys > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pact { padding: 4px 0; white-space: nowrap; }
-.pstatus { white-space: nowrap; font-size: 13px; }
-.pname { font-weight: 800; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ponline { font-weight: 800; white-space: nowrap; }
-.ptable .pnum { text-align: right; padding-right: 10px; white-space: nowrap; }
-.ptable th { white-space: nowrap; }
+.pstatus { font-size: 12px; color: var(--muted); font-weight: 700; line-height: 1.3; }
+.previewbox { display: flex; justify-content: center; min-width: 0; }
+.pname { font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ponline { font-weight: 800; font-size: 12px; white-space: nowrap; }
 .actmenu { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 170px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
 .actmenu button { text-align: left; padding: 8px 12px; min-height: 38px; font: inherit; font-weight: 800; font-size: 14px; background: none; border: 0; color: inherit; cursor: pointer; }
 .actmenu button + button { border-top: 2px solid var(--soft); }
@@ -392,3 +399,9 @@ input.field.bad { border-color: var(--bad); }
 /* Long values of the practice tables wrap and never run off the panel */
 .panel .kv { gap: 10px; }
 .panel .kv .v { white-space: normal; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+/* A game that ended or started again (sections 10.2 and 10.7). */
+.backstrip { flex-shrink: 0; padding: 8px 16px; border-bottom: 3px solid var(--line); background: var(--inset); }
+.restartbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px;
+  background: var(--sun); color: var(--on); border-bottom: 3px solid var(--line); font-weight: 800; font-size: 15px; }
+.newgame { border-color: var(--good); }

@@ -140,6 +140,7 @@ export const PlayerView = S({
   rev: Int,
   me: S({ id: z.string(), name: Text, avatar: AvatarId, system: z.string(), rejoinCode: z.string() }),
   stage: StageId,
+  run: Int,                         // grows when the host starts a phase or the game again
   points: S({
     planning: PhasePoints.nullable(), development: PhasePoints.nullable(),
     maintaining: PhasePoints.nullable(), total: Int,

@@ -89,6 +89,8 @@ export type SessionState = {
   nextBeatMs: GameMs
   screen: ScreenState
   closed: boolean
+  /** How often the host started a phase or the game again. A browser drops what it kept for the run before. */
+  run?: number
 }
 
 export type EngineEvent =

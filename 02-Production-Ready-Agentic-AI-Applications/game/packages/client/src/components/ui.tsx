@@ -88,12 +88,17 @@ export function Countdown({ clock, big = false, guide = false }: { clock: ClockR
 // ------------------------------------------------------------------------------------------
 export function Sheet({ title, head = '', onClose, children, wide = false }: { title: string; head?: string; onClose?: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  // The sheet takes the focus once, when it opens, and never from a field inside it: a page
+  // that redraws every second must not pull the caret out of a field (section 10.1).
+  const close = useRef(onClose)
+  close.current = onClose
   useEffect(() => {
-    ref.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && onClose) onClose() }
+    const el = ref.current
+    if (el && !el.contains(document.activeElement)) el.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && close.current) close.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
   return (
     <div className="scrim" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}>
       <div className="panel sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref} style={wide ? { width: 'min(820px, 100%)' } : undefined}>

@@ -16,6 +16,7 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('rename_player'), payload: S({ playerId: z.string(), name: z.string().max(100) }) }),
   S({ type: z.literal('remove_player'), payload: S({ playerId: z.string() }) }),
   S({ type: z.literal('reset_stage'), payload: S({ confirm: z.string() }) }),
+  S({ type: z.literal('restart_game'), payload: S({ confirm: z.string() }) }),
   S({ type: z.literal('close'), payload: S({ confirm: z.string() }) }),
   S({ type: z.literal('rejoin_code'), payload: S({ playerId: z.string() }) }),
   S({ type: z.literal('screen_scene'), payload: S({ scene: SceneId, mirror: z.boolean().optional() }) }),

@@ -7,6 +7,7 @@ import { api } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
 import { Avatar, SystemShape } from '../components/ui.tsx'
+import { NewGame, PastGameCard } from '../components/after.tsx'
 
 export function TownStrip({ height = 208, children }: { height?: number; children?: React.ReactNode }) {
   const theme = useTheme()
@@ -31,8 +32,10 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
   const [info, setInfo] = useState<SessionPublic | null>(null)
   const [loadErr, setLoadErr] = useState<string | null>(null)
   const [mode, setMode] = useState<'join' | 'rejoin'>(location.hash === '#rejoin' ? 'rejoin' : 'join')
-  const [avatar, setAvatar] = useState<string>(AVATARS[0])
-  const [name, setName] = useState('')
+  // A browser that played before starts from the practice it had (its name and its character).
+  const [last] = useState(() => store.last())
+  const [avatar, setAvatar] = useState<string>(() => (last && (AVATARS as readonly string[]).includes(last.avatar) ? last.avatar : AVATARS[0]))
+  const [name, setName] = useState(() => last?.name ?? '')
   const [system, setSystem] = useState<string | null>(null)
   const [rejoinCode, setRejoinCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,7 +51,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
     let live = true
     const load = () => api.session(code).then((r) => {
       if (!live) return
-      if (r.ok) { setInfo(r.data); setLoadErr(null) } else setLoadErr(errorText(r.error))
+      if (r.ok) { setInfo(r.data); setLoadErr(null) } else setLoadErr(r.error === 'unknown_session' ? COPY.gameUnknown : errorText(r.error))
     })
     void load()
     const id = setInterval(load, 10_000)
@@ -84,6 +87,9 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
   const rule = info?.nameRule ?? { min: 3, max: 24 }
   const title = info?.title ?? info?.label ?? ''
   const closed = info && !info.joinOpen
+  // A game that has ended, or a code the server does not know: no form, and the way to the open game.
+  const over = info?.stage === 'closed'
+  const past = last && last.scored && last.session !== code ? last : null
 
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -93,12 +99,15 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
           <div className="eyebrow" style={{ fontSize: 13 }}>{COPY.eyebrow}</div>
           <h1>{title || ' '}</h1>
           {info?.title && info.label !== info.title && <div className="muted" style={{ fontWeight: 800 }}>{info.label}</div>}
-          <p className="muted" style={{ fontSize: 16 }}>{COPY.joinIntro}</p>
+          {!over && !loadErr && <p className="muted" style={{ fontSize: 16 }}>{COPY.joinIntro}</p>}
         </div>
 
         {loadErr && <div className="err" role="alert">{loadErr}</div>}
+        {over && <div className="err" role="alert">{COPY.gameEndedJoin}</div>}
+        {(over || loadErr) && <NewGame after={code} onJoin={(c) => go(`/j/${c}`)} />}
+        {(over || loadErr) && last && last.scored && last.session === code && <PastGameCard game={last} title={COPY.lastGame} />}
 
-        {mode === 'join' && !loadErr && (
+        {mode === 'join' && !loadErr && !over && (
           <form onSubmit={submitJoin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <legend className="lbl" style={{ marginBottom: 6, fontWeight: 800, padding: 0 }}>{COPY.pickCharacter}</legend>
@@ -158,7 +167,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
           </form>
         )}
 
-        {mode === 'rejoin' && !loadErr && (
+        {mode === 'rejoin' && !loadErr && !over && (
           <form onSubmit={submitRejoin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <h2>{COPY.rejoinTitle}</h2>
             <p className="muted">{COPY.rejoinHint}</p>
@@ -170,6 +179,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
             <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('join'); setErr(null) }}>{COPY.backToJoin}</button>
           </form>
         )}
+        {past && !over && !loadErr && <PastGameCard game={past} title={COPY.lastGame} />}
       </main>
     </div>
   )

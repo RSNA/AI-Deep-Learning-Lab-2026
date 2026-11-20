@@ -77,7 +77,8 @@ type Tab = 'investigations' | 'evidence' | 'assessment'
 
 function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) {
   const pv = usePlayer((s) => s.view!.planning!)
-  const me = usePlayer((s) => s.view!.me.id)
+  // The letter opens once per run of the phase: again after the host started the phase again.
+  const briefFlag = usePlayer((s) => `brief-planning-${s.view!.me.id}-${s.view!.run}`)
   const board = useBoard(content)
   const phone = useNarrow()
   const warning = useWarnings()
@@ -85,7 +86,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
   const [tab, setTab] = useState<Tab>('investigations')
   const [fromProblem, setFromProblem] = useState<string | null>(null)
   const [sortFocus, setSortFocus] = useState<string | null>(null)
-  const [briefOpen, setBriefOpen] = useState(() => !store.flag(`brief-planning-${me}`))
+  const [briefOpen, setBriefOpen] = useState(() => !store.flag(briefFlag))
   const seenTiles = useRef(pv.tiles.length)
   const [evidenceBadge, setEvidenceBadge] = useState(0)
 
@@ -94,7 +95,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
     seenTiles.current = pv.tiles.length
   }, [pv.tiles.length, phone, tab])
 
-  const closeBrief = () => { store.setFlag(`brief-planning-${me}`); setBriefOpen(false) }
+  const closeBrief = () => { store.setFlag(briefFlag); setBriefOpen(false) }
   const showCard = (inv: string) => { setFocusCard({ key: inv, n: Date.now() }); if (phone) setTab('evidence') }
   const sorted = Object.keys(board.picks).length
 

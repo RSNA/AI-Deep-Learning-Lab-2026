@@ -761,10 +761,31 @@ moves to the reveal.
 
 Host commands: `next`, `pause`, `resume`, `extend` (30 or 60 seconds, added to the current timed
 stage, or to the current month in `maintaining.year`), `end_now`, `rename_player`,
-`remove_player`, `reset_stage` and `close`. Pause and resume act on the clock, not on the engine.
-`reset_stage` puts every player back at the start of the current phase and exists only outside
-`event` mode. The commands of the projector and the deck are in section 6.13. Only the
+`remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
+not on the engine. The commands of the projector and the deck are in section 6.13. Only the
 controlling host console may send a command that changes the session (section 7.10).
+
+**Starting again and ending.** These three commands carry `confirm`, the join code of the
+session, and are refused with `confirm_mismatch` without it.
+
+- `reset_stage` starts one phase again for everyone and exists only outside `event` mode. The
+  phase is the one on stage, or at a break the phase before it; in any other stage the command
+  is refused with `wrong_stage`. Every active player loses the result, the work and the story
+  items of that phase, the phase opens again and its play stage starts at once with its full
+  time. The points of earlier phases stay.
+- `restart_game` starts the whole game again in the same session and exists only outside `event`
+  mode. Every player stays, with the same id, name, character, health system, token and rejoin
+  code. Everything else of the game goes: results, the work of every phase, the inbox and the
+  lines said. No phase is open or closed, the stage log starts again, the projector follows the
+  game from the first slide, and the stage is `lobby`, where new players may join. A removed
+  player stays removed. A closed session is refused with `wrong_stage`.
+- `close` ends the session in any stage. The stage becomes `closed`, the clock stops, and from
+  then on every player command and every join is refused. The views of the session stay
+  readable for as long as the server process holds it (section 7.6).
+
+The session counts how often a phase or the game started again in `run`, which starts at 0. It
+is part of every player view (section 8.4), so that a browser knows that what it kept for the
+run before is stale.
 
 Three words about stages are used below. A *play stage* is `planning.play`,
 `development.play`, `maintaining.setup` or `maintaining.year`. A *slide stage* is a stage that
@@ -774,7 +795,7 @@ interface names `intro` "Intro slides" and never "Starting soon".
 
 **Session modes**
 
-| Mode | Time scale | Provisional anchors | `reset_stage` |
+| Mode | Time scale | Provisional anchors | `reset_stage` and `restart_game` |
 | --- | --- | --- | --- |
 | `test` | Any | Allowed | Yes |
 | `rehearsal` | 1 by default | Allowed, with a warning on the host console | Yes |
@@ -1242,6 +1263,7 @@ session and closing.
 | --- | --- | --- |
 | `GET /` and client routes | Anyone | The client application. `index.html` is never cached. Assets have hashed names and are cached for a year |
 | `GET /api/session/:code` | Anyone | Label, title, mode, stage, whether joining is open, players per health system, and `pickSystem`: the health systems (id, index, name, setting) when a player may pick one in this session, else null |
+| `GET /api/open?after=<code>` | Anyone | `{session}`: the code, label and title of the newest session that is not closed, or null. With `after`, only a session created later than that one counts. A browser whose game has ended asks with its own code, so it is led to the next game and never to an older session that was left open |
 | `POST /api/join` `{code, name, avatar?, system?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name. `system` is honored only where section 6.4 allows a pick, is ignored elsewhere, and gives 400 `unknown_system` for an id the session does not hold |
 | `POST /api/rejoin` `{code, rejoinCode}` | Anyone | Returns a new token for that player, in any stage of an open session. The old token stops working |
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
@@ -1270,8 +1292,12 @@ One endpoint, `/ws`. The first message must be `hello` and must arrive within 5 
 - A browser sends `build` as `web-<build id>`. When it differs from the server's build, the server
   sends `reload`. A browser reloads at most once a minute, so a mismatch cannot loop. Bots send any
   other name and are never asked to reload.
-- Close codes: 4001 unauthorized, 4002 superseded, 4003 removed, 4004 unknown or closed session,
-  4005 no `hello` in time, 4006 send buffer full. The client stops reconnecting on 4001 to 4004.
+- Close codes: 4001 unauthorized, 4002 superseded, 4003 removed, 4004 a session the server no
+  longer holds, 4005 no `hello` in time, 4006 send buffer full. The client stops reconnecting on
+  4001 to 4004. Its connection status is then `unauthorized`, `superseded`, `removed` or, for
+  4004, `ended`. A session that the host ended stays in the server process, so its sockets stay
+  open and show the `closed` stage. 4004 comes only after a restart of the server, which does
+  not load ended sessions.
 - The server pings every 15 seconds and closes a socket that misses two.
 - A message is at most 16 KB. Compression is off, because the messages are small.
 - A second connection with the same player token takes over. The older one receives
@@ -1312,6 +1338,10 @@ SQLite, one file under `DATA_DIR`, WAL mode.
 
 ### 7.6 Recovery
 
+An ended session is not loaded at start. Its rows stay in the database for the downloads and
+the list of the host console, and a browser that still holds one of its tokens is told that the
+game is gone (section 7.7).
+
 For each open session at start:
 
 1. Check the content hash. On a mismatch the session stays closed to play, and the host console
@@ -1348,6 +1378,20 @@ returns the player to the stage the room is in, with all of it.
   the rejoin field, or another name (section 6.4).
 - Rejoining works in every stage until the session is closed, also after late joining has
   ended. Tokens and rejoin codes are in the database, so they survive a restart of the server.
+- **A phase or the game that starts again.** The token and the rejoin code stay the same, so
+  nobody joins again. The view carries a higher `run`. The browser then drops what it kept for
+  the run before (the lines said, the marks of new cards, open sheets), shows the opening letter
+  of the phase again, and says in one bar what happened and what was kept. The bar goes after 9
+  seconds or on its ✕.
+- **A game that has ended.** While the server process holds the ended session, the player's
+  page shows the `closed` stage (section 10.7). After a restart of the server the socket is
+  refused with 4004 and the page says that the game is no longer on the server. Both pages ask
+  `GET /api/open?after=<own code>` every 8 seconds and show a button to join the next game as
+  soon as the host has opened one. The browser keeps a small record of its last game in local
+  storage: the session, the practice's name, character and health system, the points of each
+  phase and the rank. It holds no answer. The page of a game that is gone shows this record,
+  and the join page of another game shows it as "Your last game in this browser" and starts
+  with that name and character filled in.
 - The client reconnects by itself, waiting 0.5 seconds at first and up to 5 seconds, with
   jitter. A banner says "Reconnecting". After `welcome` the client holds the full current view.
 - Every command carries a `cid`. The server remembers the last 50 per player and answers a
@@ -1582,6 +1626,7 @@ type PlayerView = {
   rev: number                                   // grows by one with every change
   me: { id: PlayerId; name: Text; avatar: AvatarId; system: SystemId; rejoinCode: string }
   stage: StageId
+  run: number                                   // grows when a phase or the game starts again (6.3)
   points: { planning: PhasePoints | null; development: PhasePoints | null
             maintaining: PhasePoints | null; total: number }
   planning: PlanningView | null                 // present from the phase's first stage on
@@ -1807,6 +1852,10 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
   pack. The interface says "player" for the people in the room ("1 player", "42 players") and
   never "practices" for them.
 - **Refusals.** No internal name reaches a screen. Section 8.2 has the sentence for each one.
+- **Sheets.** A sheet (a dialog over the page) takes the focus once, when it opens, and never
+  again while it is open. A field inside it that asks for the focus keeps it. A page that
+  redraws while the sheet is open, as the host console does with every view, must never move
+  the caret out of a field. The Escape key and a click beside the sheet close it.
 - **Wake lock.** The player view asks the browser to keep the screen on.
 
 Shared components: button, card, chip, pips, countdown, meter, tabs, sheet, toast, speech bubble,
@@ -1820,9 +1869,9 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
   the player's overall rank once a phase has been scored, and the rank in the live column of
   the phase before that. It opens the standings (section 10.7), which say which of the two it
   is. Before the first leaderboard beat it reads "Rank –".
-- **The menu** holds the settings and the help: how to play, the ladder, the rejoin code and
-  the theme switch. The ladder in the menu is teaching material. It lists the five rungs and
-  marks on each the class it falls in.
+- **The menu** holds the settings and the help: the opening letter of the phase, the rejoin
+  code, the theme switch and how to play. The automation ladder is not in the menu: the head
+  of each class in "Your assessment" says what fits that class (section 10.4).
 - **The resource of a phase** sits where it is spent. In Phase 1 the bandwidth is at the top of
   the Investigations column (section 10.4) and not in the top bar. Phases 2 and 3 keep their
   pilot runs and credits in the top bar until their sections say otherwise.
@@ -1833,8 +1882,13 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
 **Join.** A picture of the town, the game title, the session label, a row of characters to pick
 from with one already picked, one field for the practice name with its length limits, and a
 Join button. When the pack has no title yet, the session label stands alone. A refusal appears
-under the field as a sentence of section 8.2. A link opens "Rejoin with a code". A closed or
-unknown session says so plainly.
+under the field as a sentence of section 8.2. A link opens "Rejoin with a code".
+
+A browser that played before starts with the name and the character of its last practice, and
+shows that game under the form as "Your last game in this browser" (section 7.7). The link of a
+game that has ended shows no form. It says "This game has ended. Nobody can join it any more."
+and leads to the next game once the host has opened one. A code the server does not know says
+"There is no game with this code on the server." in the same way.
 
 **Picking a health system.** When the session allows it (`pickSystem` of section 7.2, in a test
 or a rehearsal), the join page shows one more row under the name field: "Assign me", which is
@@ -2059,11 +2113,24 @@ line and never over a card.
 and a switch between them. It does not scroll away with the cards.
 
 - **"Reading room"** shows the living scene of section 10.3, with its people, bubbles and
-  clicks. The scale is picked as in the lobby: the smallest whole-number scale that covers the
-  panel's width with a crop of 10 percent at most, else the scale below on a backdrop. The
-  panel is about 215 px high on a screen under 800 px high (a bar of 34 px and a view of 180 px,
-  as in the mockups, so that a full row of cards still shows under it at 1280 x 720) and up to
-  300 px from there on, and the camera crops the room to that height around the meeting table.
+  clicks, cropped to a strip around the meeting table. Two rules keep everyone whole in it.
+  - *The strip always shows a band of at least 96 room pixels*, which holds the table, its seats
+    and the posts around it. The scale starts as in the lobby (the smallest whole-number scale
+    that covers the panel's width with a crop of 10 percent at most, else the scale below on a
+    backdrop) and steps down until the band fits the strip. The strip is 192 px high on a
+    window under 800 px high, so that a full row of cards still shows under it at 1280 x 720,
+    and 200 px on a phone. On a higher window it is 266 px at scale 2. A column wide enough for
+    scale 3 or more gets a strip of 96 px times the scale (288 px, 384 px), as long as that is
+    at most 30 percent of the window's height, and otherwise stays at 266 px with the scale
+    stepped down.
+  - *People stand and walk only where they show whole.* A post or a place of the layout counts
+    only when a person there is inside the visible rows, with 2 room pixels free over the head
+    for a marker, and on a laptop inside the visible columns too. The people take those spots
+    in the order of section 10.3. Whoever is left takes a spot moved into view, and so does the
+    player's own character. Nobody walks to a place outside the view, and the walk in from the
+    door is shown only when the door is in view. On a phone the camera crops the sides by
+    design, so there only the rows count. The same two rules hold wherever the scene is
+    cropped, the lobby included.
 - **"Practice facts"** lists every line of `practice_profile` and `baseline` with its unit, in
   two columns, at the same height, and scrolls inside itself. Some evidence is read against one
   of these lines, so the facts stay one click away for the whole phase.
@@ -2076,8 +2143,11 @@ and a switch between them. It does not scroll away with the cards.
 
 *The cards.* Under the panel, a grid of cards.
 
-- **Columns.** Two cards per row when the column is 560 px wide or more, one below that. There
-  is no control for it and never a third column.
+- **Columns.** Two cards per row when the column is 560 px wide or more, one below that, and
+  never a third column. On a column of 560 px or more the head of the Evidence column has a
+  switch of two buttons, "One card per row" and "Two cards per row". Two is the default. The
+  browser remembers the choice. With one card per row the cards are at most 980 px wide and
+  stand in the middle, so a line stays readable.
 - **A card shows everything at reading size**: a colored strip with the method and the title of
   the investigation it came from, the headline, the chart or the findings or the speech bubbles
   or the number, then the body and the note with their bold and italic marks. Nothing is
@@ -2309,6 +2379,17 @@ Step 8 completes this section when the Phase 3 content exists.
   health system and in the current phase, the top three of each column, and the ranking of the
   health systems. It says in words which rank the top bar shows.
 - **Winners.** The player's final rank and points per phase.
+- **A game that has ended** (the `closed` stage). The page is titled "This game has ended" and
+  says that nothing more can be changed. It keeps the rank and the points per phase, and a
+  button "Look at your Phase 1 result" opens the reveal of section 10.4 again, with a way back.
+  Under it one line says that a button to join appears when the host opens a new game, and
+  that button, "Join the new game" with the label of the new session, takes its place as soon
+  as there is one (section 7.7). When the game is gone from the server, the page shows the
+  record the browser kept instead, the same button, and a link to type another session code.
+- **A phase or the game that starts again.** A bar under the top bar says "The host started
+  Phase 1 again. Your work in this phase is cleared. Points from earlier phases are kept." or
+  "The host started the game again. Everyone is back in the lobby and all points are cleared."
+  (section 7.7).
 - **Report card.** The points and the label of the band per phase, the lines that apply with
   their source labels, the closing text and the links.
 
@@ -2348,12 +2429,45 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Session bar | Label, join code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, and who is in control |
 | Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now |
 | Schedule | The run of show against real time, and how far ahead or behind the session is. The stage `intro` is named "Intro slides" |
-| Players | A table that can be filtered by health system: character, name, system, connected, status, points per phase, total, time since the last command. Per row: spectate, spotlight, rename, remove, rejoin code. The filter says "Everyone", then the health systems |
+| Players | A list that can be filtered by health system: character, name, system, connected, status, time since the last command, total, and the points per phase once two phases have opened. Per row, behind one menu button: spectate, spotlight, rename, remove, rejoin code. The filter says "Everyone", then one chip per health system |
 | Projector | See below |
 | Room | The leaderboard and, after each phase, the room statistics |
 | Answer key | Asks for the passcode again, then opens the answer key page. Never on the projector |
 | Downloads, Rehearsal tools, End the session | See below |
 | Manual | A link that opens the manual in a panel beside the console |
+
+**Layout.** Under the stage controls and the schedule the page has three columns, ordered by
+how often the host needs them.
+
+```
+┌──────────────────────┬───────────────────────────────────┬────────────────────┐
+│ Players              │ Projector                         │ Rehearsal tools    │
+│  ▣ name ● online   ☰ │  (the live preview, as wide as    ├────────────────────┤
+│    status · last act │   the column, up to 640 px)       │ End the session    │
+│  ▣ name ● online   ☰ │  Open the big screen              ├────────────────────┤
+├──────────────────────┤  What the projector  │  Slides    │ Downloads          │
+│ Room                 │  shows               │            ├────────────────────┤
+│  statistics, ranking │  Theme                            │ Answer key         │
+└──────────────────────┴───────────────────────────────────┴────────────────────┘
+```
+
+- **The middle column is the main area** and the widest: the projector panel, which the host
+  uses most. Its preview is as wide as the column allows, up to 640 px. Under the preview its
+  two groups stand side by side when there is room for two columns of 260 px, else one under
+  the other.
+- **The left column**, 300 px or more, holds the players and under them the room. A player is
+  one row of two lines: the character, the name, the mark of the health system and "online" or
+  "offline", then the status and the time since the last command. The total stands at the
+  right, and beside it one menu button (☰) with the actions of that player. The list scrolls
+  inside itself beyond 62 percent of the window's height.
+- **The right column**, 280 px, holds what is seldom needed, in this order: Rehearsal tools,
+  End the session, Downloads, Answer key.
+- Below 1200 px, and while the manual is open beside the console, the three columns stand one
+  under the other in the same order.
+- **An ended session** shows a bar under the session bar: "This session has ended. Players keep
+  their results on their screens. When you open a new session, they get a button to join it."
+  with a button back to all sessions. The rehearsal tools and the end button are unavailable.
+  A session that the server no longer holds sends the console back to the first page.
 
 **The projector panel** has two groups with headings, and one line under every control.
 
@@ -2376,9 +2490,10 @@ hosts, for example Maya's laptop". The browser remembers the name.
   leaderboard. Players' screens are not touched." with "Show the slides" and Cancel.
 - **Slides outside a phase** ask first: "Show the slides on every player's screen too?" with
   "Yes, on every screen", "No, only the projector" and Cancel.
-- **A live preview.** A small picture of what the projector shows now, drawn with the big
-  screen's own components from `preview`. Under it "1 projector window open", or "No
-  projector window is open" in the warning color.
+- **A live preview.** A picture of what the projector shows now, drawn with the big screen's
+  own components from `preview`, at the width of the column up to 640 px. Under it the link to
+  the big screen, and beside the link "1 projector window open", or "No projector window is
+  open" in the warning color.
 - **The link** "Open the big screen in a new window" has the line "Opens the projector view
   for this session. Drag it to the projector and make it full screen."
 - **The theme switch** ("Day" and "Night", the one in use marked) stands apart from both
@@ -2422,14 +2537,24 @@ section in the deck shows the leaderboard or a title card in place of the slides
   Four buttons, 1×, 5×, 10× and 50×, the one in use marked. The speed changes only in the lobby
   or while the game is paused, and the box says so. A badge in the session bar shows the speed
   whenever it is not 1×.
-- **Reset this phase.** Before it asks to confirm it says exactly what is lost: "This puts all
-  42 players back at the start of Phase 1. Their investigations, insights and assessments in
-  this phase are erased. Points of earlier phases stay." The host types the join code to
-  confirm.
+- **Reset this phase** ("Reset Phase 1"). Available while a phase is on stage and in the break
+  after it. Before it asks to confirm it says exactly what is lost: "This puts all 42 players
+  back at the start of Phase 1. Their investigations, insights and assessments in this phase are
+  erased. Points of earlier phases stay."
+- **Restart the game**, with the line "Takes everyone back to the lobby with no points. The
+  players stay in the session. You are asked to confirm." Before it asks to confirm it says:
+  "This takes all 42 players back to the lobby. Every point, investigation and assessment of
+  this session is erased. The players stay, with their names, health systems and rejoin codes."
 
 **End the session** stands apart from everything else. Before it asks to confirm it says:
-"This ends the session for all 42 players. Nobody can join or play again. The downloads stay
-available." The host types the join code to confirm.
+"This ends the session for all 42 players. Nobody can join or play again. The players keep
+their results on their screens, and the downloads stay available."
+
+**Confirming.** Each of the three opens a sheet with the sentence above and two buttons, the
+action and Cancel. In a test or a rehearsal one click on the action confirms. In an `event`
+session the host first types the join code into a field of the sheet, and the action stays
+unavailable until the code matches. The field keeps the caret while the console redraws
+(section 10.1). The console sends the join code with the command in every mode (section 6.3).
 
 **Several hosts.** Section 7.10 has the rule. A viewer's console shows a bar at the top,
 "Controlled from Maya's laptop. You are watching.", with "Take control". Its controls for the
@@ -2437,11 +2562,12 @@ stage, the projector, the slides, the players, the rehearsal tools and the end o
 are shown as unavailable. Spectate, rejoin codes, downloads, the answer key and the manual
 work. The controller sees the names of the consoles that watch.
 
-**The players table.** At 1280 px every column and every action of a row is fully inside the
-table, and nothing is cut at its edge. The actions of a row sit behind one "Actions" menu when
-they do not fit in one line. The cell "In this phase" is one short line, such as "3 insights ·
-1 running · 6 sorted". The top bar of a console that is watching shows "Watching" where the
-console in control shows "You have control", and never an empty box.
+**The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
+its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status
+line wraps. The actions of a row sit behind one menu button. The status is one short line, such
+as "3 insights · 1 running · 6 sorted · last act 12 s ago". The top bar of a console that is
+watching shows "Watching" where the console in control shows "You have control", and never an
+empty box.
 
 **The manual.** The console shows `docs/HOST_MANUAL.md` of this repository, which the client
 build includes as text. It opens in a panel beside the console, so the host reads and acts at
@@ -2674,6 +2800,17 @@ repository. The checks run on the Mac before each merge.
 - **The letter.** A player with fewer problems sorted than `letter_empty_below` receives the
   `empty` line, a player at the threshold receives the line of their band, and a letter without
   an `empty` variant falls back to the band.
+- **Starting again.** `reset_stage` in a phase and at the break after it opens that phase again,
+  keeps the results of earlier phases and is refused in the lobby. `restart_game` keeps every
+  player with name, health system and removal, clears results, work and inbox, empties the lists
+  of opened and closed phases, starts the stage log again and lands in the lobby, from where the
+  game plays again. Both raise `run`, need the join code and are refused in `event` mode, and
+  `restart_game` is refused on a closed session.
+- **The visible band of the scene** (a unit test of the client). The rows a cropped view shows
+  for a scale, a height and a focus. The scale steps down until the band is 96 room pixels or
+  more, on a phone not below 2. The strip of Phase 1 has the heights of section 10.4 and never
+  passes 30 percent of a high window. A spot counts only when a person there shows whole, and a
+  spot outside the view is moved into it.
 - **Property.** No points outside 0 to `max_points`. A meter never leaves 0 to 100.
 
 ### 12.3 Content and projection
@@ -2726,6 +2863,12 @@ repository. The checks run on the Mac before each merge.
   `code_invalid`. A code in use is refused with `code_taken`. An `event` session is refused
   with `provisional_anchors` while an anchor is an estimate. A closed session can be deleted
   and an open one cannot.
+- **A game that starts again or ends.** `restart_game` over a host socket puts a player back in
+  the lobby with `run` one higher, no points and an empty inbox, and the rejoin code still
+  works. `reset_stage` at a break opens the phase before it again. `GET /api/open` names the
+  newest open session, with `after` only one created later, and null when there is none. An
+  ended session refuses a player command and a join. After a restart of the server a socket
+  with a token of the ended session gets the status `ended`.
 - **Error sentences.** A unit test of the client walks every name of `ErrorCode` and every
   name an HTTP route can answer with, and fails when the copy file has no sentence for one. A
   browser test triggers a refusal on the join page, on the new session form and on the Phase 1
@@ -2762,8 +2905,8 @@ For the Phase 1 screen it also checks, at both sizes unless said otherwise:
   there, and the pressed card takes its place. No path leaves a class with more problems than
   its capacity.
 - With all 12 investigations of a full-size fixture done, the evidence shows 13 cards, two per
-  row at 1280 px and one per row on a phone, no card is cut, no text on a card is smaller than
-  14 px, and there is no control for the number of cards in a row.
+  row at 1280 px and one per row on a phone, no card is cut and no text on a card is smaller than
+  14 px. The switch in the head of the column shows one card per row and two again (laptop).
 - A card opens large on a click and on Enter, the arrow keys reach its neighbours, Escape
   closes it and returns the focus, and a problem can be sorted while a card is open (laptop).
 - The notice of a new insight sits on the title line of the evidence and covers no card.
@@ -2802,6 +2945,18 @@ For the host console, with two host windows and one big screen window:
 - The rehearsal tools are absent in an event session of the demo pack with measured anchors,
   and the badge shows a game speed other than 1×.
 - The manual opens beside the console.
+- The console has three columns: the players, the projector, then Rehearsal tools, End the
+  session, Downloads and Answer key in that order.
+- A sheet with a field keeps the caret: a name typed letter by letter into "Rename" arrives
+  whole and the field still has the focus.
+- A game that starts again and ends: "Reset Phase 1" and "Restart the game" confirm with one
+  click in a rehearsal, with no field in the sheet. After the reset the player reads the bar,
+  gets the opening letter again and has an empty assessment. After the restart the same player
+  is in the lobby. After "End the session" the console shows its bar, the player's page says
+  "This game has ended", and once a new session exists the page offers "Join the new game" and
+  the join page has the practice's name filled in. The link of the ended game says that nobody
+  can join it and offers the new game too.
+- The menu of the player holds no automation ladder.
 
 The fixture is a neutral pack of full size (10 problems, 12 investigations, texts at their word
 limits, ten people in a health system, a deck of 20 slides) that lives with the tests, so that
@@ -2971,7 +3126,7 @@ report.
 | Step | Adds |
 | --- | --- |
 | 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5. The review of that content also turned Phase 1 from a ladder report into a sorting board with four classes, cut the pack to two health systems and added the pick of a health system in tests and rehearsals (sections 1, 5.5, 6.4, 6.5, 6.9, 7.2, 8.3, 8.4, 9.2, 10.2, 10.4 and 12) |
-| 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15) |
+| 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12) |
 | 6 | Section 10.5 in full, and the final `DevelopmentView` |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |

@@ -32,6 +32,8 @@ export const P1 = {
   transcriptEmpty: 'Click someone with a ! to interview them, or start an investigation below.',
   insights: (n: number, of: number) => `${n} of ${of} insights`,
   newN: (n: number) => `${n} new ↓`,
+  cardsPerRow: 'Cards per row',
+  perRow: (n: number) => (n === 1 ? 'One card per row' : 'Two cards per row'),
   panel: 'Reading room or practice facts',
   readingRoom: 'Reading room',
   practiceFacts: 'Practice facts',
