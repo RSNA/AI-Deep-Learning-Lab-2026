@@ -23,7 +23,8 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('screen_mirror'), payload: S({ mirror: z.boolean() }) }),
   S({ type: z.literal('slide_to'), payload: S({ index: Int.min(0) }) }),
   S({ type: z.literal('screen_theme'), payload: S({ theme: Theme }) }),
-  S({ type: z.literal('screen_filter'), payload: S({ system: z.string().nullable() }) }),
+  // `phase` picks the leaderboard of one phase, with the health systems side by side.
+  S({ type: z.literal('screen_filter'), payload: S({ system: z.string().nullable(), phase: PhaseId.nullable().optional() }) }),
   S({ type: z.literal('slide'), payload: S({ delta: z.union([z.literal(1), z.literal(-1)]) }) }),
   S({ type: z.literal('spotlight'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('spectate'), payload: S({ playerId: z.string().nullable() }) }),
@@ -65,6 +66,8 @@ export const HostView = S({
   board: Board,
   screen: S({
     scene: SceneId, theme: Theme, slide: Int, spotlight: z.string().nullable(), filter: z.string().nullable(), screens: Int,
+    phase: PhaseId.nullable(),      // the leaderboard shows this phase only, by health system
+    rotates: z.boolean(),           // "Follow the game" is rotating through its programme now
     shown: SceneId,                 // what the projector shows now: the scene, or what 'auto' resolves to
     mirror: z.boolean(),            // the slides are on every player's screen too
     available: S({ play: z.boolean(), winners: z.boolean(), slides: z.boolean() }),

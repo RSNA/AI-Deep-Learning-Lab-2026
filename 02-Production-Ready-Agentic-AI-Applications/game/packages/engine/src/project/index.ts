@@ -8,7 +8,7 @@ import type {
   SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
 import type { HostPlayerRow, HostView } from '@lab02/protocol/host'
-import { COLUMNS, PHASES, phaseOfStage } from '@lab02/protocol'
+import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree } from '../phases/planning.ts'
@@ -407,7 +407,58 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       sent: active.filter((p) => p.planning?.submittedAtMs !== null && p.planning?.submittedAtMs !== undefined).length,
     } : null,
     winners,
+    ...followViews(s, pack, active, scene),
   }
+}
+
+/** A stable order that does not follow the join order, so the rotation does not favour early joiners. */
+function mix(id: string): number {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) >>> 0
+  return h
+}
+
+/** "Follow the game" rotates through its programme in a play stage, unless the host pinned a scene. */
+export function projectorRotates(s: SessionState, pack: Pack): boolean {
+  return s.screen.scene === 'auto' && PLAY_STAGES.includes(s.stage) && !!pack.game.leaderboards.projector && shownScene(s, pack) === 'play'
+}
+
+/** The activity of the room, the leaderboard of one phase and the practice cards (section 6.13). */
+function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: ScreenView['scene']): Pick<ScreenView, 'programme' | 'feed' | 'phaseBoard' | 'cards'> {
+  const cfg = pack.game.leaderboards.projector
+  const rotates = projectorRotates(s, pack)
+  const playing = PLAY_STAGES.includes(s.stage) ? phaseOfStage(s.stage) : null
+  const mod = playing ? PHASE_MODULES[playing] : null
+
+  let feed: ScreenView['feed'] = []
+  if (mod?.feed && (rotates || scene === 'feed')) {
+    const all: ScreenView['feed'] = []
+    for (const p of active) for (const e of mod.feed(s, pack, p)) all.push({ name: p.name, avatar: p.avatar, system: p.system, ...e })
+    all.sort((a, b) => b.atMs - a.atMs)
+    feed = all.slice(0, cfg?.feed_rows ?? 12)
+  }
+
+  const boardPhase = rotates ? playing : scene === 'play' ? s.screen.phase ?? null : null
+  let phaseBoard: ScreenView['phaseBoard'] = null
+  if (boardPhase) {
+    const rows = pack.game.leaderboards.big_screen_rows
+    const per = s.systems.map((id) => ({ id, col: boardView(s, pack, { system: id, rows }).columns[boardPhase] }))
+    // A column of one health system is empty when nobody there has a value yet. The state of the
+    // phase is the same for every system, so take it from the whole room.
+    const whole = boardView(s, pack, { system: null, rows: 1 }).columns[boardPhase]
+    phaseBoard = { phase: boardPhase, state: whole.state as 'empty' | 'live' | 'final', label: whole.label, systems: per.map((x) => ({ id: x.id, rows: x.col.rows })) }
+    if (whole.of !== undefined) phaseBoard.of = whole.of
+  }
+
+  let cards: ScreenView['cards'] = []
+  if (rotates && mod?.card && playing && cfg) {
+    const at = s.stageStartedMs
+    cards = active.filter((p) => p.acted[playing])
+      .sort((a, b) => mix(a.id + at) - mix(b.id + at))
+      .slice(0, cfg.cards)
+      .map((p) => ({ name: p.name, avatar: p.avatar, system: p.system, ...mod.card!(s, pack, p) }))
+  }
+  return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards }
 }
 
 /** The results of the phase that closed last, for the room (big screen reveal). */
@@ -532,6 +583,8 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
     screen: {
       scene: s.screen.scene, theme: s.screen.theme, slide: s.screen.slide, spotlight: s.screen.spotlight, filter: s.screen.filter, screens: x.screens,
       shown: shownScene(s, pack),
+      phase: s.screen.phase ?? null,
+      rotates: projectorRotates(s, pack),
       mirror: slidesMirrored(s, pack),
       available: { play: s.opened.length > 0, winners: s.closedPhases.length > 0, slides: deckSlides(pack).length > 0 },
     },

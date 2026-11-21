@@ -188,3 +188,101 @@ describe('the people of a practice', () => {
     for (const b of sys.banter) for (const l of b.lines) expect(sys.cast.some((c) => c.id === l.speaker)).toBe(true)
   })
 })
+
+describe('follow the game while a phase is played', () => {
+  /** Two practices, one in each health system, in planning.play at 1000. */
+  function playing() {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    join(s, 'p2', 'Beta Works', 1)
+    host(s, 'next', {}, 500)
+    host(s, 'next', {}, 1000)
+    expect(s.stage).toBe('planning.play')
+    return s
+  }
+  const sv = (s: ReturnType<typeof newSession>) => project.screenView(s, pack, 'http://x')
+  const act = (s: ReturnType<typeof newSession>, id: string, type: string, payload: unknown, now: number) =>
+    run(s, { actor: 'player', playerId: id, type, payload }, now)
+
+  it('rotates through the programme of the pack, and only while it follows a play stage', () => {
+    const s = newSession()
+    expect(sv(s).programme).toBeNull()
+    join(s, 'p1', 'Alpha Branch', 0)
+    host(s, 'next', {}, 500)
+    host(s, 'next', {}, 1000)
+    expect(sv(s).programme).toEqual(pack.game.leaderboards.projector!.programme)
+    expect(project.projectorRotates(s, pack)).toBe(true)
+    host(s, 'screen_scene', { scene: 'play' }, 1100)
+    expect(sv(s).programme).toBeNull()
+    expect(sv(s).cards).toEqual([])
+    host(s, 'screen_scene', { scene: 'auto' }, 1200)
+    host(s, 'end_now', {}, 2000)
+    expect(s.stage).toBe('planning.reveal')
+    expect(sv(s).programme).toBeNull()
+    expect(sv(s).feed).toEqual([])
+  })
+
+  it('lists what the room does, newest first, with public titles and nothing of what was learned', () => {
+    const s = playing()
+    const sys1 = pack.systems[s.players.p1!.system]!
+    const sys2 = pack.systems[s.players.p2!.system]!
+    const a = sys1.insights!.find((x) => x.method === 'interview')!
+    const b = sys2.insights!.find((x) => x.method !== 'interview')!
+    act(s, 'p1', 'planning.investigate', { id: a.id }, 2000)
+    act(s, 'p2', 'planning.investigate', { id: b.id }, 3000)
+    let feed = sv(s).feed
+    expect(feed.map((e) => [e.name, e.kind, e.text])).toEqual([
+      ['Beta Works', 'started', b.public.title],
+      ['Alpha Branch', 'started', a.public.title],
+    ])
+    advance(s, pack, 2000 + a.seconds * 1000)
+    act(s, 'p1', 'planning.submit', {}, 2000 + a.seconds * 1000 + 500)
+    feed = sv(s).feed
+    expect(feed[0]).toMatchObject({ name: 'Alpha Branch', kind: 'sent', text: null })
+    expect(feed.some((e) => e.name === 'Alpha Branch' && e.kind === 'finished' && e.text === a.public.title)).toBe(true)
+    // The projector never carries a tile, a class or a pick.
+    const text = JSON.stringify(sv(s))
+    for (const sys of [sys1, sys2]) {
+      for (const inv of sys.insights!) expect(text).not.toContain(inv.tile.headline)
+    }
+    expect(text).not.toContain('"picks"')
+    // Pinned to the activity list, the list is still filled. On the leaderboard it is not sent.
+    host(s, 'screen_scene', { scene: 'feed' }, 60_000)
+    expect(sv(s).feed.length).toBeGreaterThan(0)
+    host(s, 'screen_scene', { scene: 'play' }, 61_000)
+    expect(sv(s).feed).toEqual([])
+  })
+
+  it('shows one phase by health system: the running one in the rotation, a picked one on the leaderboard', () => {
+    const s = playing()
+    const a = pack.systems[s.players.p1!.system]!.insights![0]!
+    act(s, 'p1', 'planning.investigate', { id: a.id }, 2000)
+    advance(s, pack, 1000 + pack.game.leaderboards.refresh_seconds * 1000 + a.seconds * 1000)
+    const b = sv(s).phaseBoard!
+    expect(b.phase).toBe('planning')
+    expect(b.state).toBe('live')
+    expect(b.systems.map((x) => x.id)).toEqual(s.systems)
+    expect(b.systems.find((x) => x.id === s.players.p1!.system)!.rows.map((r) => r.name)).toEqual(['Alpha Branch'])
+    expect(b.systems.find((x) => x.id === s.players.p2!.system)!.rows.map((r) => r.name)).toEqual(['Beta Works'])
+    expect(b.systems.every((x) => x.rows.every((r) => r.rank === 1))).toBe(true)
+
+    host(s, 'screen_scene', { scene: 'play' }, 50_000)
+    expect(sv(s).phaseBoard).toBeNull()
+    expect(host(s, 'screen_filter', { system: null, phase: 'planning' }, 50_100).ok).toBe(true)
+    expect(sv(s).phaseBoard!.phase).toBe('planning')
+    expect(host(s, 'screen_filter', { system: s.systems[0], phase: null }, 50_200).ok).toBe(true)
+    expect(sv(s).phaseBoard).toBeNull()
+    expect(sv(s).board.system).toBe(s.systems[0])
+  })
+
+  it('shows a practice at work in counts only', () => {
+    const s = playing()
+    const a = pack.systems[s.players.p1!.system]!.insights![0]!
+    act(s, 'p1', 'planning.investigate', { id: a.id }, 2000)
+    const cards = sv(s).cards
+    expect(cards.map((c) => c.name)).toEqual(['Alpha Branch'])     // only who acted in the phase
+    expect(cards[0]!.now).toEqual([a.public.title])
+    expect(cards[0]!.facts.map((f) => f.label)).toEqual(['Insights found', 'Problems sorted', 'Assessment'])
+    expect(cards[0]!.facts[0]!.value).toBe(`0 of ${pack.game.phases.planning.investigations.per_system}`)
+  })
+})

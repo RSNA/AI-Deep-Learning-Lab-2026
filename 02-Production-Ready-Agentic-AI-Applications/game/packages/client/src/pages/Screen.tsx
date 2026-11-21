@@ -3,7 +3,8 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { COLUMNS, phaseOfStage, type Clock, type ScreenView } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, players } from '../copy.ts'
-import type { ClockRef } from '../lib/clock.ts'
+import { gameNow, useTick, type ClockRef } from '../lib/clock.ts'
+import { ago, programmeSlot } from '../lib/programme.ts'
 import { connect, reloadForNewBuild } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { forceTheme } from '../lib/theme.ts'
@@ -99,6 +100,130 @@ function Leaderboard({ v }: { v: ScreenView }) {
       </div>
     </div>
   )
+}
+
+const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment' } as const
+const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)' } as const
+
+/** The room at work: what practices just started, finished or sent. Never what they learned. */
+function Feed({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
+  useTick(1000)
+  const now = clock ? gameNow(clock) : null
+  const a = v.activity
+  const stats = a ? [
+    { n: `${a.acted} of ${a.players}`, l: a.players === 1 ? 'practice at work' : 'practices at work' },
+    { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
+    { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
+  ] : []
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '24px 32px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1fr)', gap: 24 }}>
+      <div className="panel" style={{ borderWidth: 4, boxShadow: '6px 6px 0 var(--shade)', minHeight: 0 }}>
+        <div className="panel-head sky" style={{ fontSize: 36, borderBottomWidth: 4, padding: '8px 20px' }}>The room at work</div>
+        <div style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {v.feed.map((e, i) => {
+            const ref = v.session.systems.find((x) => x.id === e.system)
+            return (
+              <div key={`${e.name}-${e.atMs}-${e.kind}-${e.text ?? ''}`} style={{ display: 'grid', gridTemplateColumns: '48px 20px minmax(0, 0.9fr) auto minmax(0, 1.6fr) 110px', gap: 14, alignItems: 'center', padding: '0 20px', minHeight: 58, flexShrink: 0, borderBottom: '2px solid var(--soft)', background: i === 0 ? 'var(--sun-bg)' : undefined, fontSize: 26 }}>
+                <Avatar id={e.avatar} size={44} />
+                <SystemShape index={ref?.index ?? 0} size={18} />
+                <span style={{ fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</span>
+                <span style={{ padding: '2px 10px', background: FEED_TONE[e.kind], color: 'var(--on)', fontSize: 20, fontWeight: 800, whiteSpace: 'nowrap' }}>{FEED_VERB[e.kind]}</span>
+                <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.text ?? ''}</span>
+                <span className="muted" style={{ fontSize: 20, fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>{now === null ? '' : ago((now - e.atMs) / 1000)}</span>
+              </div>
+            )
+          })}
+          {!v.feed.length && <div className="muted" style={{ padding: 24, fontSize: 28, fontWeight: 700 }}>Nothing yet. The first move shows here.</div>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0 }}>
+        {stats.map((x) => (
+          <div key={x.l} className="panel" style={{ borderWidth: 4, padding: '14px 22px', boxShadow: '6px 6px 0 var(--shade)' }}>
+            <div className="face" style={{ fontSize: 84, lineHeight: 1 }}>{x.n}</div>
+            <div className="muted" style={{ fontSize: 24, fontWeight: 800 }}>{x.l}</div>
+          </div>
+        ))}
+        <div style={{ flexGrow: 1 }} />
+        <SystemsStrip systems={v.session.systems} standings={v.board.systems} big />
+      </div>
+    </div>
+  )
+}
+
+/** One phase, the health systems side by side. */
+function PhaseBoard({ v }: { v: ScreenView }) {
+  const b = v.phaseBoard
+  if (!b) return <Leaderboard v={v} />
+  const tag = b.state === 'live' ? 'Live' : b.state === 'final' ? 'Final' : ''
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '24px 32px 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <span className="face" style={{ fontSize: 44, lineHeight: 1 }}>{`Phase ${PHASE_NUMBER[b.phase]} · ${v.session.phaseLabels[b.phase]}`}</span>
+        <span className="muted" style={{ fontSize: 26, fontWeight: 800 }}>{b.state === 'empty' ? '' : b.label}</span>
+        {tag && <span style={{ padding: '2px 12px', background: b.state === 'live' ? 'var(--sun)' : 'var(--go)', color: 'var(--on)', fontSize: 22, fontWeight: 800 }}>{tag}</span>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, b.systems.length)}, minmax(0, 1fr))`, gap: 24, flexGrow: 1, minHeight: 0 }}>
+        {b.systems.map((x) => {
+          const ref = v.session.systems.find((s) => s.id === x.id)
+          return (
+            <div key={x.id} className="panel" style={{ borderWidth: 4, boxShadow: '6px 6px 0 var(--shade)', minHeight: 0 }}>
+              <div className="panel-head lav" style={{ borderBottomWidth: 4, padding: '8px 16px', fontSize: 32, justifyContent: 'flex-start', gap: 14 }}>
+                <SystemShape index={ref?.index ?? 0} size={26} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ref?.name}</span>
+              </div>
+              <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <BoardRows rows={x.rows} systems={v.session.systems} big of={b.of} emptyText={b.state === 'empty' ? 'Opens with its phase.' : 'Nobody here is on the board yet.'} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** One practice at work: what runs and how far it is. Counts only, never a class or an insight. */
+function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
+  const c = v.cards.length ? v.cards[round % v.cards.length]! : null
+  if (!c) return null
+  const ref = v.session.systems.find((x) => x.id === c.system)
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, padding: '28px 64px', display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr)', gap: 56, alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <Avatar id={c.avatar} size={256} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+        <div className="muted" style={{ fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>ONE PRACTICE AT WORK</div>
+        <div className="face" style={{ fontSize: 96, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 32, fontWeight: 800 }}><SystemShape index={ref?.index ?? 0} size={28} />{ref?.name}</div>
+        <div className="panel" style={{ borderWidth: 4, padding: '14px 22px', gap: 6, boxShadow: '6px 6px 0 var(--shade)' }}>
+          <div className="muted" style={{ fontSize: 22, fontWeight: 800 }}>Working on now</div>
+          {c.now.length
+            ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 32, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
+            : <div style={{ fontSize: 32, fontWeight: 700 }}>Reading the evidence and deciding</div>}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, c.facts.length)}, minmax(0, 1fr))`, gap: 20 }}>
+          {c.facts.map((f) => (
+            <div key={f.label} className="panel" style={{ borderWidth: 4, padding: '12px 20px', boxShadow: '6px 6px 0 var(--shade)' }}>
+              <div className="face" style={{ fontSize: 52, lineHeight: 1.05 }}>{f.value}</div>
+              <div className="muted" style={{ fontSize: 22, fontWeight: 800 }}>{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** "Follow the game" while a phase is played: the programme of the pack, in a loop (section 6.13). */
+function Follow({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
+  useTick(500)
+  // The turn comes from the session clock, so every screen of the session shows the same view.
+  const t = clock ? gameNow(clock) / (clock.clock.scale || 1) / 1000 : 0
+  const slot = programmeSlot(v.programme ?? [], t)
+  if (slot.show === 'phase_board' && v.phaseBoard) return <PhaseBoard v={v} />
+  if (slot.show === 'player' && v.cards.length) return <PracticeCard v={v} round={slot.round} />
+  return <Feed v={v} clock={clock} />
 }
 
 /** The results of the phase that closed, for the room: how points spread, and each health system. */
@@ -230,11 +355,11 @@ function Winners({ v }: { v: ScreenView }) {
   return (
     <div style={{ flexGrow: 1, padding: '28px 48px', display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 40, minHeight: 0 }}>
       <div className="panel" style={{ borderWidth: 4 }}>
-        <div className="panel-head sun" style={{ fontSize: 40, borderBottomWidth: 4 }}>{w.final ? 'The winners' : 'Standings so far'}</div>
+        <div className="panel-head sun" style={{ fontSize: 40, borderBottomWidth: 4 }}>{w.final ? 'The winners' : v.stage === 'closed' ? 'This session has ended · the standings' : 'Standings so far'}</div>
         {w.final
           ? <Podium rows={w.overall} v={v} />
           : <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}><BoardRows rows={w.overall} systems={v.session.systems} big /></div>}
-        {!w.final && <div className="muted" style={{ padding: '10px 20px', fontSize: 22, fontWeight: 700 }}>Not every phase is scored yet. These are the totals so far.</div>}
+        {!w.final && <div className="muted" style={{ padding: '10px 20px', fontSize: 22, fontWeight: 700 }}>{v.stage === 'closed' ? 'The session ended before every phase was scored. These totals count the phases that were scored.' : 'Not every phase is scored yet. These are the totals so far.'}</div>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div className="panel" style={{ borderWidth: 4 }}>
@@ -360,7 +485,8 @@ export function ScreenStage({ v, clock, scale, themed = false }: { v: ScreenView
     case 'winners': body = <Winners v={v} />; break
     case 'spotlight': body = <Spotlight v={v} />; break
     case 'reveal': body = <Reveal v={v} />; break
-    default: body = <Leaderboard v={v} />
+    case 'feed': body = <Feed v={v} clock={clock} />; break
+    default: body = v.programme ? <Follow v={v} clock={clock} /> : v.phaseBoard ? <PhaseBoard v={v} /> : <Leaderboard v={v} />
   }
   return (
     <div style={{ width: 1920 * scale, height: 1080 * scale, overflow: 'hidden' }}>

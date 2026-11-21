@@ -181,6 +181,15 @@ leaderboards:
     development: [points, fewer_pilot_runs, earlier_submit]
     maintaining: [points, higher_final_month_health, earlier_join]
   winners: {overall_top: 3, per_system_top: 1, top_system: 1}
+  # What "Follow the game" shows on the projector while a phase is played: a loop of views.
+  projector:
+    feed_rows: 12
+    cards: 8
+    programme:
+      - {show: activity, seconds: 20}
+      - {show: phase_board, seconds: 10}
+      - {show: activity, seconds: 20}
+      - {show: player, seconds: 8}
 
 text_limits:
   problem_title: 8

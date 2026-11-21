@@ -351,11 +351,39 @@ input.field.bad { border-color: var(--bad); }
 .sessbar > div { flex-wrap: wrap; row-gap: 6px; }
 .barstage { font-family: var(--face); font-size: 24px; white-space: nowrap; }
 .barsys { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--bar-muted); white-space: nowrap; }
+/* Everything in the session bar is one block high. */
+.sessbar .codebox, .sessbar .chip, .sessbar .countdown, .sessbar .btn, .sessbar .iconbtn {
+  box-sizing: border-box; height: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  border-width: 2px; box-shadow: none; line-height: 1;
+}
+.sessbar .iconbtn { min-width: 36px; }
+.sessbar .countdown { font-size: 26px; min-width: 84px; }
+.sessbar .chip { padding: 0 12px; }
+.sessbar .btn { border-color: #1d2140; }
+/* A flag states something. It has no border and no shadow, so nobody takes it for a button. */
+.flag {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 1px 8px; vertical-align: baseline;
+  background: var(--go-bg); color: var(--good); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+}
+.flag::before { content: ''; width: 7px; height: 7px; background: currentColor; }
+.scenes { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
+.scene { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 12px; align-items: start; }
+/* In a narrow column the line goes under its button, and every button is as wide as the column. */
+@container (max-width: 400px) {
+  .scene { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .scenetext { min-height: 0; }
+}
+.scene > .btn { width: 100%; }
+.scenetext { display: flex; flex-direction: column; gap: 6px; min-height: 36px; justify-content: center; min-width: 0; }
+.scenetext select { width: 100%; }
 .sessbar .chip.good { background: var(--go); color: var(--on); border-color: #1d2140; }
 .sessbar .chip.watch { background: var(--sun); color: var(--on); border-color: #1d2140; }
 .lostctl { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 16px; background: var(--bad-bg); color: var(--bad); border-bottom: 3px solid var(--line); font-weight: 800; }
-.stagectl { display: grid; grid-template-columns: repeat(4, auto); gap: 12px; align-items: start; }
-.stagectl .ctl { max-width: 190px; }
+.stagectl { flex: 1 1 540px; max-width: 760px; margin-left: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+/* One row of controls, one size (section 10.1). Colour marks the main action, never height. */
+.stagectl .btn { width: 100%; min-height: 44px; font-size: 20px; padding: 0 8px; box-shadow: 3px 3px 0 var(--shade); }
+.stagectl .ctl-row { flex-wrap: nowrap; gap: 8px; }
+.stagectl .ctl-row .btn { flex: 1; min-width: 0; }
 .stagectl .hint { font-size: 12px; }
 .sectitle { font-weight: 800; font-size: 14px; }
 .check.off { color: var(--muted); }
@@ -405,3 +433,10 @@ input.field.bad { border-color: var(--bad); }
 .restartbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px;
   background: var(--sun); color: var(--on); border-bottom: 3px solid var(--line); font-weight: 800; font-size: 15px; }
 .newgame { border-color: var(--good); }
+
+/* One row of controls, one size (section 10.1). In the player's top bar the countdown, the rank
+   and the menu button are one block high, large enough for a thumb. */
+.topbar:not(.sessbar) .countdown, .topbar:not(.sessbar) .rankbtn, .topbar:not(.sessbar) .iconbtn {
+  box-sizing: border-box; height: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+}
+.topbar:not(.sessbar) .rankbtn { gap: 6px; }

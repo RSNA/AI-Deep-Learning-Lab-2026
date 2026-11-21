@@ -8,7 +8,7 @@ import {
 } from '@lab02/engine'
 import { ENGINE_HOST_COMMANDS } from '@lab02/engine'
 import {
-  CLOSE, PROTOCOL_VERSION, PlayerCommand, PlayerServerMessage, ScreenServerMessage, normalizeCode,
+  CLOSE, PLAY_STAGES, PROTOCOL_VERSION, PlayerCommand, PlayerServerMessage, ScreenServerMessage, normalizeCode,
   type ErrorCode, type Mode, type StageId,
 } from '@lab02/protocol'
 import { HostServerMessage } from '@lab02/protocol/host'
@@ -174,6 +174,8 @@ export class Room {
       this.hostDirty = true
     }
     const dirty = out.dirty === 'all' ? [...this.players.keys()] : out.dirty
+    // In a play stage the projector lists what the room does, so it follows every player's move.
+    if (dirty.length && PLAY_STAGES.includes(this.state.stage)) this.screenDirty = true
     for (const id of dirty) this.sendView(id)
     let stageChanged = false
     let beat = false

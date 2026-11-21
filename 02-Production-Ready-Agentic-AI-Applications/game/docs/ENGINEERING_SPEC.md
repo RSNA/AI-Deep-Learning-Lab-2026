@@ -47,7 +47,7 @@ phases. Each is played by everyone at once against a shared timer and is worth u
    evidence tile. Several can run at once while bandwidth is free, so time is the limit. The
    player sorts every problem into a class: not a real problem here, real and no AI needed,
    real and one AI model is enough, or real and in need of an agentic system. The player is
-   told how many problems each class holds, in a full pack three, three, three and one, and no
+   told how many problems each class holds, in a full pack two, two, two and one, and no
    class takes more.
 2. **Development.** The player fills a board of choices to design a solution for one problem.
    Pilot runs score the design on four metrics (validity, reliability, cost, complexity) and
@@ -305,6 +305,11 @@ type Game = {
     columns: ['overall', ...PhaseId[]]; refresh_seconds: number; big_screen_rows: number
     tie_breaks: Record<'overall' | PhaseId, string[]>
     winners: { overall_top: number; per_system_top: number; top_system: number }
+    projector?: {                        // what "Follow the game" shows while a phase is played (6.13)
+      feed_rows: number                  // lines of room activity on the screen
+      cards: number                      // how many practices the loop looks at, one per round
+      programme: { show: 'activity' | 'phase_board' | 'player'; seconds: number }[]
+    }
   }
   text_limits?: Record<string, number>   // words. Over the limit gives a warning. The loader
                                          // knows banter_line, click_line, slide_title and
@@ -1161,12 +1166,13 @@ The session holds what the big screen shows and where the deck stands.
 
 ```ts
 type ScreenState = {
-  scene: 'auto' | 'lobby' | 'intro' | 'play' | 'reveal' | 'slides' | 'reflection' | 'winners'
-       | 'spotlight'
+  scene: 'auto' | 'lobby' | 'intro' | 'play' | 'feed' | 'reveal' | 'slides' | 'reflection'
+       | 'winners' | 'spotlight'
   theme: Theme
   slide: number                    // the slide shown last, counted from 0 over the whole deck
   mirror: boolean                  // players' screens show the current slide
   filter: SystemId | null          // the health system the leaderboard shows, null for everyone
+  phase?: PhaseId | null           // the leaderboard shows this phase only, by health system
   spotlight: PlayerId | null
 }
 ```
@@ -1174,8 +1180,9 @@ type ScreenState = {
 `auto` is "Follow the game". Any other scene is *pinned*. The projector then stays on it
 through every stage change until the host picks `auto` again. The scene `help` of the first version is
 now `slides`. The scenes `intro` and `reflection` are title cards, which `auto` falls back to
-when the deck has no section for that stage. The host console offers five choices (section
-10.8), which are Follow the game, Lobby, Leaderboard (`play`), Slides and Winners.
+when the deck has no section for that stage. The host console offers six choices (section
+10.8), which are Follow the game, Lobby, Leaderboard (`play`), Activity (`feed`), Slides and
+Winners.
 
 **What `auto` resolves to**
 
@@ -1184,9 +1191,47 @@ when the deck has no section for that stage. The host console offers five choice
 | `lobby` | The lobby |
 | A slide stage that has a section in the deck | The slides |
 | `intro` or `reflection` without a section | A title card with the name of the stage |
-| A break without a section, and every play stage | The leaderboard |
+| A play stage | The programme of the pack, in a loop (below). Without a programme, the leaderboard |
+| A break without a section | The leaderboard |
 | A reveal | The results of the phase for the room |
 | `winners`, `closed` | The winners |
+
+**The programme of a play stage.** While a phase is played and the scene is `auto`, the
+projector does not stand still. It runs the list `leaderboards.projector.programme` in a loop.
+Each entry names a view and how many seconds it stays.
+
+| `show` | The view |
+| --- | --- |
+| `activity` | The activity list: what practices just started, finished or sent, newest first, with the counts of the room beside it |
+| `phase_board` | The leaderboard of the running phase, the health systems side by side |
+| `player` | One practice at work. Each round of the loop shows the next of up to `cards` practices that acted in the phase |
+
+The engine resolves `auto` to `play` as before and adds `programme` to the screen view. A screen
+that receives a programme draws the entry whose turn it is. The turn comes from the session
+clock, game time divided by the game speed, so the projector and the host's preview show the
+same view, a faster rehearsal does not spin the loop, and a paused game holds it. A pinned
+scene has no programme. The pure function `programmeSlot` in the client does the arithmetic.
+
+**What the projector may say during play.** The room reads the projector while it is still
+deciding, so nothing on it may help a neighbour.
+
+- A line of the activity list names the practice, a verb (`started`, `finished`, `sent`) and
+  the public title of the investigation, "Count room bookings". It never carries a
+  tile, a headline, a problem or a class.
+- A practice card carries the titles of what runs now and counts: insights found, problems
+  sorted, sent or not. It never carries a class, a pick or an insight.
+- Each phase module supplies both through `feed` and `card` (section 6.4), read from the state
+  it already keeps. Nothing new is stored, so a restored session shows the same list.
+- The server marks the screen for a new view whenever a player's state changes in a play stage,
+  and sends at most one view a second.
+
+**Announcements.** A story or game announcement cuts into the loop for a few seconds and the
+loop then goes on. Phase 1 has none. The mechanism is built with the first phase that has one.
+
+**The leaderboard has three kinds.** `filter` null and `phase` null: four columns for everyone.
+`filter` set: the same four columns for one health system. `phase` set: one phase only, one
+column per health system (`ScreenView.phaseBoard`), which the programme also uses for the
+running phase.
 
 **The deck.** There is one deck and one position in it. `slide` is the slide that was shown
 last, and it starts at 0. Whenever the slides come up, by `auto` or by a pin, they show the
@@ -1204,7 +1249,8 @@ they were, and a pinned projector is left alone.
 | `screen_mirror {mirror}` | Turning it on in a play stage, or while the projector does not show the slides (`not_during_play`) | Sets the mirror |
 | `slide {delta}` | The pack has no deck (`no_deck`) | Moves the position by `delta`, which is 1 or -1. It stops at the first and at the last slide |
 | `slide_to {index}` | The pack has no deck (`no_deck`). The index is past the last slide (`unknown_id`) | Moves the position there. The console uses it to jump to the first slide of a section |
-| `screen_theme {theme}`, `screen_filter {system}`, `spotlight {playerId}` | Never | As their names say |
+| `screen_theme {theme}`, `spotlight {playerId}` | Never | As their names say |
+| `screen_filter {system, phase?}` | An unknown health system (`unknown_id`) | Sets which leaderboard the scene `play` shows: everyone, one health system, or with `phase` one phase by health system |
 
 `slide` and `slide_to` are accepted whether or not the slides are up, so a host can line up the
 next slide before showing it.
@@ -1858,7 +1904,18 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
   the caret out of a field. The Escape key and a click beside the sheet close it.
 - **Wake lock.** The player view asks the browser to keep the screen on.
 
-Shared components: button, card, chip, pips, countdown, meter, tabs, sheet, toast, speech bubble,
+- **One row of controls, one size (Pouria, round 10).** Controls that sit next to each other
+  have the same height, border and type size, on every screen of every phase. The main action
+  of a row is marked by its color and never by being taller. Three heights exist: 36 px in a
+  bar and in a dense panel, 44 px for the actions of a screen and everything a thumb presses,
+  60 px for the one large action of a page. A box that only states something (the mode, who is
+  in control, the join code) is as high as the controls beside it. A flag such as "On now" has
+  no border and no shadow, so nobody takes it for a button. Buttons in one list have one
+  width. A control that cannot act in the current state and never will, such as the stage
+  controls of an ended session, is not drawn. Every new screen is checked row by row for this
+  before it is shown.
+
+Shared components: button, card, chip, flag, pips, countdown, meter, tabs, sheet, toast, speech bubble,
 portrait, avatar, the four tile types as evidence cards, the card overlay, problem card, class
 section, class control, ladder legend, leaderboard table, letter, slide.
 
@@ -2058,16 +2115,16 @@ stand on one line.
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │ ☺ practice ◆ system      Phase 1 · Planning    08:12       Rank 3 of 42    ●    ☰        │
 ├──────────────────┬──────────────────────────────────────────┬────────────────────────────┤
-│ Investigations   │ Evidence    5 of 12 insights    1 new ↓  │ Your assessment 6 of 10 Send│
-│ Bandwidth ■■□    │ ┌ Reading room │ Practice facts      ⌃ ┐ │ Find the 3 … and the 1 …   │
-│ 2 of 3 free      │ │ (the living scene, or the facts)     │ │ Unsorted · 4               │
+│ Investigations   │ Evidence    5 of 10 insights    1 new ↓  │ Your assessment 4 of 7  Send│
+│ Bandwidth ■■□    │ ┌ Reading room │ Practice facts      ⌃ ┐ │ Find the 2 … and the 1 …   │
+│ 2 of 3 free      │ │ (the living scene, or the facts)     │ │ Unsorted · 3               │
 │ ──────────────── │ └──────────────────────────────────────┘ │  title                     │
 │ row              │ ┌───────────────┐ ┌───────────────┐      │  description               │
 │ row              │ │ opening       │ │ insight       │      │  [Not] [No AI] [One] [Ag]  │
-│ row              │ │ letter        │ │               │      │ Not a problem · 2 of 3     │
+│ row              │ │ letter        │ │               │      │ Not a problem · 1 of 2     │
 │ row …            │ └───────────────┘ └───────────────┘      │  title  [·][·][·][·]  ↩    │
-│                  │ ┌───────────────┐ ┌───────────────┐      │ No AI · 3 of 3             │
-│                  │ │ insight       │ │ insight       │      │ One model · 1 of 3         │
+│                  │ ┌───────────────┐ ┌───────────────┐      │ No AI · 2 of 2             │
+│                  │ │ insight       │ │ insight       │      │ One model · 1 of 2         │
 │                  │ └───────────────┘ └───────────────┘      │ Agentic · 0 of 1           │
 └──────────────────┴──────────────────────────────────────────┴────────────────────────────┘
 ```
@@ -2189,7 +2246,7 @@ places to fill and no dragging, on any screen size.
   shows how many are left ("Unsorted · 4"). A card here shows the title, the whole description
   and the class control.
 - **The four classes** follow in `class_order`. Each header shows the `short` name of the class
-  and its count against its capacity, "No AI · 2 of 3", and marks a class that is full. A tap
+  and its count against its capacity, "No AI · 1 of 2", and marks a class that is full. A tap
   on the header opens the `fits_when` of the class and the rungs of the ladder it covers. A
   class with nothing in it shows its header and one quiet line.
 - **The class control** is on every card: one button per class in `class_order`, labelled with
@@ -2238,9 +2295,9 @@ column can end before its neighbor.
 ```
 ┌──────────────────────────────────────────────────────────┬───────────────────────────┐
 │ A letter for you                                         │ Your score                │
-│  ▣ sender                                                │  Sorting          525     │
-│  the always text                                         │  Agent project    250     │
-│  the line for this player                                │  Board score      775     │
+│  ▣ sender                                                │  Sorting          500     │
+│  the always text                                         │  Agent project    300     │
+│  the line for this player                                │  Board score      800     │
 │                                                          │  Phase 1 points   742     │
 │                                                          │  Strong                   │
 ├──────────────────────────────────────────────────────────┴───────────────────────────┤
@@ -2284,7 +2341,7 @@ with the two blocks of the agent project one under the other, the three classes,
 line.
 
 **An empty assessment.** When the player sorted nothing, one sentence at the top of the
-corrected assessment says so, "You sent an empty assessment, so no problem scored." The ten
+corrected assessment says so, "You sent an empty assessment, so no problem scored." The
 rows then carry no "not sorted" mark and no "0 points", and the letter uses its `empty` line.
 
 The same screen stays during the break. While the host mirrors the slides the player sees the
@@ -2304,7 +2361,7 @@ after the first version of this section. It asks for the following.
   `**bold**` and `*italic*`, so that a player can skim for the number that matters. The client
   renders these two marks and nothing else. Every other character is shown as text, and no
   HTML is ever interpreted. A pack uses them on two to four places in a tile.
-- **Sizes to design for.** A system has 10 problem cards and 12 investigations. A problem has a
+- **Sizes to design for.** A system has 7 problem cards and 10 investigations (10 and 12 until round 10, when the phase was cut to fit ten minutes of reading). A problem has a
   title of up to 8 words and a description of up to 35. A headline has up to 10 words and a
   body up to 45. An `audit` tile has up to 7 findings with labels of up to 12 words and a note
   of up to 20 words. A `chart` tile has up to 3 series and up to 8 points in a series. An
@@ -2426,8 +2483,8 @@ hosts, for example Maya's laptop". The browser remembers the name.
 
 | Area | Holds |
 | --- | --- |
-| Session bar | Label, join code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, and who is in control |
-| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now |
+| Session bar | Label, join code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, and who is in control. Every box and button in it is 36 px high |
+| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now. Five buttons of one height in four equal columns, Next in the go color. An ended session shows none of them |
 | Schedule | The run of show against real time, and how far ahead or behind the session is. The stage `intro` is named "Intro slides" |
 | Players | A list that can be filtered by health system: character, name, system, connected, status, time since the last command, total, and the points per phase once two phases have opened. Per row, behind one menu button: spectate, spotlight, rename, remove, rejoin code. The filter says "Everyone", then one chip per health system |
 | Projector | See below |
@@ -2471,15 +2528,18 @@ how often the host needs them.
 
 **The projector panel** has two groups with headings, and one line under every control.
 
-*What the projector shows.* Five buttons. The one in use is marked.
+*What the projector shows.* Six buttons of one width. The one in use is marked. In a wide
+column the line stands beside its button, in a narrow one under it. The scene that is on the
+projector without being picked carries the flag "On now".
 
-| Button | The line under it |
+| Button | The line with it |
 | --- | --- |
-| Follow the game | "The normal setting. The projector changes by itself as the game moves." |
-| Lobby | "The join code, the link and the QR code. For people who walk in late." |
-| Leaderboard | "The live ranking." Beside it sits the filter, with "Everyone" and one entry per health system |
-| Slides | "The slide deck, at the slide you showed last." |
-| Winners | "The podium. Before the last phase is scored it shows the standings so far." |
+| Follow the game | "The normal setting. The projector changes by itself as the game moves." While a phase is played: "The normal setting. While the phase runs it rotates: room activity, the phase leaderboard, one practice at work." |
+| Lobby | "The join code, the link and the QR code, for people who walk in late." |
+| Leaderboard | "The ranking of everyone, of one health system, or of one phase by health system." Under it a list picks which: "Everyone · all phases", one entry per health system, and "Phase 1 · by health system" for each phase the pack can run |
+| Activity | "Who is doing what, line by line. Never what they learned." Available while a phase is played |
+| Slides | "The deck, at the slide you showed last." |
+| Winners | "The podium, or the standings so far before the last phase is scored." |
 
 - **A pinned view is called out.** Any button but the first pins the projector. While a view
   is pinned, a banner in the panel says "Pinned to Lobby. The projector will not follow the
@@ -2584,11 +2644,13 @@ in its window changes anything.
 | Scene | Shows |
 | --- | --- |
 | Lobby | The QR code, the join link, the join code, the game title, players appearing by health system, the count |
-| Play (the leaderboard) | The countdown, the four-column leaderboard, the health system strip, and a line of room activity |
+| Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
+| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work |
+| Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
 | Reveal | The results of the phase for the room: the points of the players who played, in steps of 100, and per health system the mean points and, after Phase 1, the share that found the flagship (`ScreenView.reveal`) |
 | Slides | The current slide of the deck |
 | Intro, Reflection | A title card with the name of the stage, when the deck has no section for it |
-| Winners | Once every phase is scored: the top players overall, the top player of each health system, the top health system. Before that: "Standings so far", the overall ranking of the scored phases as a plain table |
+| Winners | Once every phase is scored: the top players overall, the top player of each health system, the top health system. Before that: "Standings so far", the overall ranking of the scored phases as a plain table. A session that ended before the last phase is headed "This session has ended · the standings" |
 | Spotlight | One player's screen, read-only |
 
 **A slide** fills the screen: the title in the heading face, the bullets in large body type,
@@ -2811,6 +2873,11 @@ repository. The checks run on the Mac before each merge.
   more, on a phone not below 2. The strip of Phase 1 has the heights of section 10.4 and never
   passes 30 percent of a high window. A spot counts only when a person there shows whole, and a
   spot outside the view is moved into it.
+- **The projector during play.** The screen view carries the programme only while the scene is
+  `auto` in a play stage. The activity list is newest first, names public titles only, and
+  holds no tile headline of any investigation. `screen_filter` with a phase gives one column
+  per health system, each ranked from 1. A practice card holds counts and the titles of what
+  runs. `programmeSlot` (a unit test of the client) walks the list in order and starts again.
 - **Property.** No points outside 0 to `max_points`. A meter never leaves 0 to 100.
 
 ### 12.3 Content and projection
@@ -3126,7 +3193,7 @@ report.
 | Step | Adds |
 | --- | --- |
 | 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5. The review of that content also turned Phase 1 from a ladder report into a sorting board with four classes, cut the pack to two health systems and added the pick of a health system in tests and rehearsals (sections 1, 5.5, 6.4, 6.5, 6.9, 7.2, 8.3, 8.4, 9.2, 10.2, 10.4 and 12) |
-| 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12) |
+| 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12). Its next round made "Follow the game" a programme during play (the activity list, the leaderboard of one phase by health system, one practice at work), added the scene `feed` and the phase choice of `screen_filter`, set the rule that one row of controls has one size, and took the stage controls off an ended session (sections 5.1, 6.13, 10.1, 10.8, 10.9 and 12) |
 | 6 | Section 10.5 in full, and the final `DevelopmentView` |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |

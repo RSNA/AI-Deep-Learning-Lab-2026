@@ -63,6 +63,7 @@ export type ScreenState = {
   slide: number                     // the slide shown last, across the whole deck
   spotlight: PlayerId | null
   filter: string | null
+  phase?: PhaseId | null            // the leaderboard shows one phase, by health system
   mirror?: boolean                  // the slides are on every player's screen too (outside play only)
 }
 
@@ -109,6 +110,11 @@ export type MomentRef =
   | { type: 'tile'; investigation: string }
   | { type: 'dialogue'; id: string }
   | { type: 'letter'; phase: PhaseId }
+
+/** One line of the room's activity for the projector. `text` is public wording from the pack. */
+export type FeedEntry = { kind: 'started' | 'finished' | 'sent'; text: string | null; atMs: GameMs }
+/** What the projector may say about one practice during play: counts and what runs, nothing else. */
+export type PlayerCard = { now: string[]; facts: { label: string; value: string }[] }
 
 export type Outcome = { dirty: PlayerId[] | 'all'; events: EngineEvent[] }
 export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode })

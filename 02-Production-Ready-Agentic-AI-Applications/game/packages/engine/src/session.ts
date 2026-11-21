@@ -488,6 +488,7 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
     case 'screen_filter':
       if (cmd.payload.system !== null && !s.systems.includes(cmd.payload.system)) return fail('unknown_id')
       s.screen.filter = cmd.payload.system
+      s.screen.phase = cmd.payload.phase ?? null
       break
     case 'slide': {
       const n = deckSlides(pack).length

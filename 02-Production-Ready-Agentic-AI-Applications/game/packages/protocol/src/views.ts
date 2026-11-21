@@ -1,7 +1,7 @@
 // Everything a browser may receive (engineering spec, sections 8.3, 8.4 and 9.2).
 // Every schema is strict: an unknown field stops the message before it is sent.
 import { z } from 'zod'
-import { AvatarId, Method, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
+import { AvatarId, Method, Mode, PhaseId, ProgrammeShow, SceneId, StageId, Theme } from './ids.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 export const Text = z.string()
@@ -231,6 +231,24 @@ export const ScreenView = S({
   }).nullable(),
   slide: SlideView.nullable(),      // only while the scene is 'slides'
   activity: S({ players: Int, acted: Int, insights: Int, sent: Int }).nullable(),   // the room in a play stage
+  // "Follow the game" in a play stage: what the projector rotates through, in a loop on the wall
+  // clock. Null when the host pinned a scene, outside play, and when the pack has no programme.
+  programme: z.array(S({ show: ProgrammeShow, seconds: Int })).nullable(),
+  // What the room just did, newest first. A line names the practice and the source of an
+  // insight (a person, a data pull), never what was learned and never a class.
+  feed: z.array(S({ name: Text, avatar: AvatarId, system: z.string(), kind: z.enum(['started', 'finished', 'sent']), text: Text.nullable(), atMs: Ms })),
+  // One phase, the health systems side by side: the phase the host picked, or the running one.
+  phaseBoard: S({
+    phase: PhaseId, state: z.enum(['empty', 'live', 'final']), label: Text, of: Int.optional(),
+    systems: z.array(S({ id: z.string(), rows: z.array(BoardRow) })),
+  }).nullable(),
+  // Practices the rotation looks at, one per round: what they work on and how far they are.
+  // Counts only. A card never shows a class or an insight.
+  cards: z.array(S({
+    name: Text, avatar: AvatarId, system: z.string(),
+    now: z.array(Text),             // what runs at this moment
+    facts: z.array(S({ label: Text, value: Text })),
+  })),
   winners: S({
     final: z.boolean(),             // every phase is scored. Before that: the standings so far, no podium
     overall: z.array(BoardRow),

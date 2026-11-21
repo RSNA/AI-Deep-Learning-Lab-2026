@@ -160,9 +160,16 @@ from the console.
 | --- | --- |
 | Follow the game | The normal setting. The projector changes by itself as the session moves |
 | Lobby | The join code, the link and the QR code. Use it when someone walks in late |
-| Leaderboard | The live ranking. The filter beside the button shows everyone or one health system |
+| Leaderboard | The ranking. The list under the button picks everyone, one health system, or one phase with the health systems side by side |
+| Activity | Who is doing what, line by line, while a phase is played. It never shows what a player learned |
 | Slides | The slide deck, at the slide you showed last |
 | Winners | The podium. Before the last phase is scored it shows the standings so far |
+
+**While a phase is played, "Follow the game" rotates.** The projector shows the activity of the
+room for 20 seconds, then the leaderboard of the phase for 10, the activity again, and then one
+practice at work for 8, and starts over. Nothing in it gives an answer away: a line names the
+practice and the investigation, never the insight, and a practice is shown with counts only. To
+hold one of these views, pin **Activity** or **Leaderboard**.
 
 With **Follow the game** the projector shows this in each stage.
 
@@ -170,7 +177,7 @@ With **Follow the game** the projector shows this in each stage.
 | --- | --- |
 | People are joining | The lobby with the join code |
 | Intro slides | The opening section of the deck |
-| A phase | The leaderboard and the countdown |
+| A phase | The countdown and a loop: the activity of the room, the leaderboard of the phase, one practice at work |
 | Results of a phase | How the room did in that phase |
 | Break | The slides about that phase |
 | Reflection | The closing slides |
@@ -320,6 +327,9 @@ What the players see: their page says "This game has ended" and keeps their rank
 and they can look at their Phase 1 result again. When you open a new session, a button "Join
 the new game" appears on that page by itself within a few seconds, and the join page already
 holds the name of their practice. You do not need to hand out a new link.
+
+The projector then shows the standings under the heading "This session has ended". The stage
+controls leave the console, because an ended session has no next stage.
 
 Do not end a session to fix a mistake in the middle of a rehearsal. Use Pause, Reset this
 phase, or Restart the game.

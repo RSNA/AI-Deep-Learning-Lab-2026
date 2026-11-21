@@ -361,3 +361,55 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await late.close()
   await player.close()
 })
+
+test('the projector during a phase: the activity of the room, a phase by health system, and rows of controls of one size', async ({ page, browser }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const s = await setup(page, 'E2E projector')
+  await joinPicked(page, s.code, 'Elm Street', /Riverbend/)
+  await s.host('next')
+  await s.host('next')
+  await page.getByRole('button', { name: 'Start investigating' }).click()
+
+  // The big screen, opened the way the console opens it.
+  const link = (await (await page.request.post('/api/host/screen-link', { data: { code: s.code }, headers: { authorization: `Bearer ${s.token}` } })).json()).path as string
+  const sctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } })
+  const screen = await sctx.newPage()
+  await screen.goto(link)
+  // Following a phase, the projector shows one view of its programme.
+  await expect(screen.getByText(/The room at work|ONE PRACTICE AT WORK|Phase 1 · Planning/).first()).toBeVisible()
+
+  // Pinned to the activity list: a started investigation shows with its public title only.
+  expect((await s.host('screen_scene', { scene: 'feed' })).ok).toBe(true)
+  await expect(screen.getByText('The room at work')).toBeVisible()
+  const first = page.locator('.irow').first()
+  const title = (await first.locator('.ttl .t').first().textContent())!.trim()
+  await first.locator('.ibtn.start').click()
+  const line = screen.locator('.panel', { hasText: 'The room at work' })
+  await expect(line.getByText('Elm Street')).toBeVisible()
+  await expect(line.getByText('started', { exact: true })).toBeVisible()
+  await expect(line.getByText(title, { exact: true })).toBeVisible()
+
+  // One phase, the health systems side by side.
+  expect((await s.host('screen_scene', { scene: 'play' })).ok).toBe(true)
+  expect((await s.host('screen_filter', { system: null, phase: 'planning' })).ok).toBe(true)
+  await expect(screen.getByText('Phase 1 · Planning').last()).toBeVisible()
+  await expect(screen.locator('.panel-head.lav')).toHaveCount(2)
+  await expect(screen.locator('.panel-head.lav').first()).toContainText('Riverbend')
+  await sctx.close()
+
+  // The console: every row of controls has one height, and the scene buttons one width.
+  await page.goto('/host')
+  await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Maya's laptop" })), s.token)
+  await page.goto(`/host?s=${s.code}`)
+  await expect(page.getByText('Now on stage')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Leaderboard shows')).toHaveValue('phase:planning')
+  const sizes = (sel: string, side: 'height' | 'width') => page.evaluate(([q, k]) => [...new Set([...document.querySelectorAll(q!)].map((el) => Math.round(el.getBoundingClientRect()[k as 'height' | 'width'])))], [sel, side])
+  expect(await sizes('.stagectl .btn', 'height')).toEqual([44])
+  expect(await sizes('.sessbar .codebox, .sessbar .chip, .sessbar .countdown, .sessbar .btn, .sessbar .iconbtn', 'height')).toEqual([36])
+  expect((await sizes('.scene > .btn', 'height')).length).toBe(1)
+  expect((await sizes('.scene > .btn', 'width')).length).toBe(1)
+  await noErrorNames(page)
+  await noOverflow(page)
+  s.close()
+})

@@ -47,13 +47,18 @@ export const ERROR_CODES = [
 export const ErrorCode = z.enum(ERROR_CODES)
 export type ErrorCode = z.infer<typeof ErrorCode>
 
-export const SCENES = ['auto', 'lobby', 'intro', 'play', 'reveal', 'slides', 'reflection', 'winners', 'spotlight'] as const
+export const SCENES = ['auto', 'lobby', 'intro', 'play', 'feed', 'reveal', 'slides', 'reflection', 'winners', 'spotlight'] as const
 export const SceneId = z.enum(SCENES)
 export type SceneId = z.infer<typeof SceneId>
 
 export const THEMES = ['light', 'dark'] as const
 export const Theme = z.enum(THEMES)
 export type Theme = z.infer<typeof Theme>
+
+/** What "Follow the game" rotates through on the projector while a phase is played (section 6.13). */
+export const PROGRAMME_SHOWS = ['activity', 'phase_board', 'player'] as const
+export const ProgrammeShow = z.enum(PROGRAMME_SHOWS)
+export type ProgrammeShow = z.infer<typeof ProgrammeShow>
 
 /** Stages in which a phase is being played. Slides never reach a player's screen then. */
 export const PLAY_STAGES: readonly StageId[] = ['planning.play', 'development.play', 'maintaining.setup', 'maintaining.year']

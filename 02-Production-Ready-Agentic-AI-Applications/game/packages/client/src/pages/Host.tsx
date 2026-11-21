@@ -2,7 +2,7 @@
 // that says what it does, and every refusal is one plain sentence beside the control it
 // concerns. One console controls the session at a time (section 7.10).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { MODES, PLAY_STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
+import { MODES, PHASES, PLAY_STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
 import type { HostView, SessionSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
@@ -338,9 +338,10 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     }
   }
   const scenes: { id: SceneId; label: string; line: string; off: string | null; onClick?: () => void }[] = [
-    { id: 'auto', label: H.follow, line: H.followLine, off: null },
+    { id: 'auto', label: H.follow, line: sc.rotates ? H.followRotates : H.followLine, off: null },
     { id: 'lobby', label: H.lobby, line: H.lobbyLine, off: null },
     { id: 'play', label: H.leaderboard, line: H.leaderboardLine, off: sc.available.play ? null : H.leaderboardOff },
+    { id: 'feed', label: H.activity, line: H.activityLine, off: playing ? null : H.activityOff },
     { id: 'slides', label: H.slides, line: H.slidesLine, off: sc.available.slides ? null : H.slidesOff, onClick: showSlides },
     { id: 'winners', label: H.winners, line: H.winnersLine, off: sc.available.winners ? null : H.winnersOff },
   ]
@@ -400,28 +401,37 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
         <div className="pgroups">
         <div className="group">
           <div className="eyebrow">{H.whatShows}</div>
-          {scenes.map((x) => (
-            <div key={x.id} className="ctl">
-              <div className="ctl-row">
+          <div className="scenes">
+            {scenes.map((x) => (
+              <div key={x.id} className="scene">
                 <button className={`btn small text${x.id === sc.scene ? ' picked' : ''}`} aria-pressed={x.id === sc.scene} disabled={!!x.off}
                   onClick={x.onClick ?? (() => cmd('screen_scene', { scene: x.id }, 'scene'))}>{x.label}</button>
-                {x.id === 'play' && (
-                  <select className="field slim" aria-label={H.leaderboardShows} value={sc.filter ?? ''} onChange={(e) => cmd('screen_filter', { system: e.target.value || null }, 'scene')}>
-                    <option value="">{H.everyone}</option>
-                    {hv.session.systems.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                )}
-                {x.id === sc.shown && x.id !== sc.scene && <span className="chip">{H.onNow}</span>}
+                <div className="scenetext">
+                  <div className={`hint${x.off ? ' bad' : ''}`}>
+                    {x.off ?? x.line}
+                    {x.id === sc.shown && x.id !== sc.scene && !sc.rotates && <span className="flag">{H.onNow}</span>}
+                  </div>
+                  {x.id === 'play' && !x.off && (
+                    <select className="field slim" aria-label={H.leaderboardShows} value={sc.phase ? `phase:${sc.phase}` : sc.filter ? `sys:${sc.filter}` : ''}
+                      onChange={(e) => {
+                        const [kind, id] = e.target.value.split(':')
+                        void cmd('screen_filter', { system: kind === 'sys' ? id! : null, phase: kind === 'phase' ? id! : null }, 'scene')
+                      }}>
+                      <option value="">{H.boardEveryone}</option>
+                      {hv.session.systems.map((s) => <option key={s.id} value={`sys:${s.id}`}>{H.boardSystem(s.name)}</option>)}
+                      {PHASES.filter((ph) => hv.phasesAvailable[ph]).map((ph) => <option key={ph} value={`phase:${ph}`}>{H.boardPhase(PHASE_NUMBER[ph])}</option>)}
+                    </select>
+                  )}
+                </div>
               </div>
-              <div className={`hint${x.off ? ' bad' : ''}`}>{x.off ?? x.line}</div>
-            </div>
-          ))}
-          {sc.spotlight && (
-            <div className="ctl">
-              <button className="btn small text" onClick={() => cmd('spotlight', { playerId: null }, 'scene')}>{H.endSpotlight}</button>
-              <div className="hint">{H.endSpotlightLine}</div>
-            </div>
-          )}
+            ))}
+            {sc.spotlight && (
+              <div className="scene">
+                <button className="btn small text" onClick={() => cmd('spotlight', { playerId: null }, 'scene')}>{H.endSpotlight}</button>
+                <div className="scenetext"><div className="hint">{H.endSpotlightLine}</div></div>
+              </div>
+            )}
+          </div>
           <Refusal text={refusals.scene} />
         </div>
 
@@ -589,7 +599,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               const s = systems.find((y) => y.id === x.id)
               return <span key={x.id} className="barsys" title={s?.name}><SystemShape index={s?.index ?? 0} size={10} />{H.connections(x.players, x.connected)}</span>
             })}
-            <span className={`chip ${ctl.you ? 'good' : 'watch'}`} title={ctl.you ? undefined : H.controlLine(ctl.holder, false)}>{ctl.you ? H.youControl : H.viewOnly}</span>
+            <span className={`chip state ${ctl.you ? 'good' : 'watch'}`} title={ctl.you ? undefined : H.controlLine(ctl.holder, false)}>{ctl.you ? H.youControl : H.viewOnly}</span>
             <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
           </div>
         </header>
@@ -626,8 +636,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                 <div style={{ textAlign: 'center' }}><div className="num" style={{ fontSize: 32 }}>{hv.counts.total}</div><div className="hint">{hv.counts.total === 1 ? H.playerWord : H.playersWord}</div></div>
                 <div style={{ textAlign: 'center' }}><div className="num good" style={{ fontSize: 32 }}>{hv.counts.connected}</div><div className="hint">{H.online}</div></div>
               </div>
-              <div style={{ flexGrow: 1 }} />
-              <div className="stagectl">
+              {!hv.closed && <div className="stagectl">
                 <div className="ctl">
                   <button className="btn go" onClick={() => cmd('next')} disabled={hv.timed || !hv.next}>
                     {hv.timed ? H.endsByItself : hv.next ? H.nextStage(STAGE_TITLE[hv.next]) : H.done}
@@ -636,22 +645,22 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                 </div>
                 <div className="ctl">
                   {hv.clock.running
-                    ? <button className="btn small" onClick={() => cmd('pause')}>{H.pause}</button>
-                    : <button className="btn small sun" onClick={() => cmd('resume')} disabled={hv.closed}>{H.resume}</button>}
+                    ? <button className="btn" onClick={() => cmd('pause')}>{H.pause}</button>
+                    : <button className="btn sun" onClick={() => cmd('resume')}>{H.resume}</button>}
                   <div className="hint">{H.stageLines.pause}</div>
                 </div>
                 <div className="ctl">
                   <div className="ctl-row">
-                    <button className="btn small" onClick={() => cmd('extend', { seconds: 30 })} disabled={!hv.timed}>+30 s</button>
-                    <button className="btn small" onClick={() => cmd('extend', { seconds: 60 })} disabled={!hv.timed}>+60 s</button>
+                    <button className="btn" onClick={() => cmd('extend', { seconds: 30 })} disabled={!hv.timed}>+30 s</button>
+                    <button className="btn" onClick={() => cmd('extend', { seconds: 60 })} disabled={!hv.timed}>+60 s</button>
                   </div>
                   <div className="hint">{H.stageLines.extend}</div>
                 </div>
                 <div className="ctl">
-                  <button className="btn small danger" onClick={() => cmd('end_now')} disabled={!hv.timed}>{H.endNow}</button>
+                  <button className="btn danger" onClick={() => cmd('end_now')} disabled={!hv.timed}>{H.endNow}</button>
                   <div className="hint">{H.stageLines.endNow}</div>
                 </div>
-              </div>
+              </div>}
               <Refusal text={ref.map.stage} />
             </section>
           </fieldset>
@@ -768,7 +777,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                   <div className="panel-head bad">{H.endSession}</div>
                   <div className="panel-body">
                     <div className="hint">{hv.closed ? H.endedShort : H.endLine}</div>
-                    <button className="btn small danger" onClick={() => openConfirm('close')} disabled={hv.closed}>{H.endSessionButton}</button>
+                    {!hv.closed && <button className="btn small text danger" onClick={() => openConfirm('close')}>{H.endSessionButton}</button>}
                   </div>
                 </section>
               </fieldset>

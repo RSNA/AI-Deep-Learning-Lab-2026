@@ -1,6 +1,6 @@
 import type { Pack } from '@lab02/content-schema'
 import type { ErrorCode, PhaseId } from '@lab02/protocol'
-import type { EngineEvent, GameMs, Outcome, PlayerState, SessionState } from '../state.ts'
+import type { EngineEvent, FeedEntry, GameMs, Outcome, PlayerCard, PlayerState, SessionState } from '../state.ts'
 
 export type CommandHandler = (
   s: SessionState, pack: Pack, p: PlayerState, payload: unknown, now: GameMs,
@@ -23,5 +23,9 @@ export type PhaseModule = {
   nextDue?(s: SessionState, pack: Pack, p: PlayerState): GameMs | null
   /** Run the timers of this player that are due at or before `at`, in order. */
   fire?(s: SessionState, pack: Pack, p: PlayerState, at: GameMs): EngineEvent[]
+  /** What this player did in the phase, for the projector. Public wording only (section 6.13). */
+  feed?(s: SessionState, pack: Pack, p: PlayerState): FeedEntry[]
+  /** What the projector may show of this player during play: what runs and how far they are. */
+  card?(s: SessionState, pack: Pack, p: PlayerState): PlayerCard
   commands: Record<string, CommandHandler>
 }

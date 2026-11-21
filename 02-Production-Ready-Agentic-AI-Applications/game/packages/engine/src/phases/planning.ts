@@ -2,7 +2,7 @@
 // time, and sorts every problem into a class on a board with one spot per problem.
 import type { Pack, PlanningRules } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
-import type { EngineEvent, GameMs, PlanningResult, PlanningState, PlayerState } from '../state.ts'
+import type { EngineEvent, FeedEntry, GameMs, PlanningResult, PlanningState, PlayerState } from '../state.ts'
 import { fireDialogue } from '../story.ts'
 import type { PhaseModule } from './types.ts'
 
@@ -97,6 +97,29 @@ export const planning: PhaseModule = {
   liveValue(_s, _pack, p) {
     const st = p.planning
     return st ? st.done.length + Object.keys(st.picks).length : 0
+  },
+  feed(_s, pack, p) {
+    const st = p.planning
+    if (!st) return []
+    const title = (id: string) => investigation(pack, p, id)?.public.title ?? null
+    const out: FeedEntry[] = []
+    for (const d of st.done) out.push({ kind: 'finished', text: title(d.id), atMs: d.atMs })
+    for (const r of st.running) out.push({ kind: 'started', text: title(r.id), atMs: r.startedAtMs })
+    if (st.submittedAtMs !== null) out.push({ kind: 'sent', text: null, atMs: st.submittedAtMs })
+    return out
+  },
+  card(_s, pack, p) {
+    const st = p.planning
+    const pl = pack.game.phases.planning
+    const now = (st?.running ?? []).map((r) => investigation(pack, p, r.id)?.public.title ?? '').filter(Boolean)
+    return {
+      now,
+      facts: [
+        { label: 'Insights found', value: `${st?.done.length ?? 0} of ${pl.investigations.per_system}` },
+        { label: 'Problems sorted', value: `${Object.keys(st?.picks ?? {}).length} of ${pl.candidates}` },
+        { label: 'Assessment', value: st && st.submittedAtMs !== null ? 'Sent' : 'Not sent yet' },
+      ],
+    }
   },
   liveMax(pack) {
     const pl = pack.game.phases.planning
