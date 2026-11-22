@@ -2,14 +2,16 @@
 // that says what it does, and every refusal is one plain sentence beside the control it
 // concerns. One console controls the session at a time (section 7.10).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { MODES, PHASES, PLAY_STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type PlayerView, type SceneId } from '@lab02/protocol'
-import type { HostView, SessionSummary } from '@lab02/protocol/host'
+import { MODES, PHASES, PLAY_STAGES, STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type SceneId } from '@lab02/protocol'
+import type { HostInspect, HostView, SessionSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
 import { connect, hostFetch } from '../lib/net.ts'
 import { consoleId, store } from '../lib/storage.ts'
 import type { ClockRef } from '../lib/clock.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
+import { SlideThumb } from '../components/slide.tsx'
+import { Inspector, OwnDeck } from './hostParts.tsx'
 import { SystemsStrip } from './Play.tsx'
 import { ScreenStage } from './Screen.tsx'
 import { ManualBody } from './Manual.tsx'
@@ -170,7 +172,7 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
   const phases = pack ? (['planning', 'development', 'maintaining'] as const).filter((p) => pack.phasesAvailable[p]).map((p) => `Phase ${PHASE_NUMBER[p]}`) : []
   const row = (s: Summary) => (
     <div key={s.code} className="srow">
-      <span className="codebox" style={{ fontSize: 20 }}>{s.code}</span>
+      <span className="codebox" style={{ fontSize: 20 }} title={H.sessionCode}>{s.code}</span>
       <span className="sinfo">
         <b>{s.label}</b>
         <span className="muted">{H.mode[s.mode]} · {s.closed ? H.closedWord : STAGE_TITLE[s.stage]} · {players(s.players)}</span>
@@ -265,7 +267,7 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
         <Sheet title={H.deleteTitle(deleting.code)} head="sun" onClose={() => setDeleting(null)}>
           <p>{H.deleteText(deleting.label, deleting.players)}</p>
           {delErr && <div className="err" role="alert">{delErr}</div>}
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="sheet-actions">
             <button className="btn danger" onClick={async () => {
               const r = await hostFetch<{ ok: true }>(token, `/api/host/session/${deleting.code}`, undefined, 'DELETE')
               if (!r.ok) { setDelErr(plainError(r.error)); return }
@@ -277,17 +279,6 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
         </Sheet>
       )}
     </main>
-  )
-}
-
-function SpectateView({ view }: { view: PlayerView }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar id={view.me.avatar} size={32} /><b>{view.me.name}</b><span className="muted">{STAGE_TITLE[view.stage]}</span></div>
-      <div className="kv"><span>{H.points}</span><span className="v">{view.points.total}</span></div>
-      {view.planning && <div className="kv"><span>{H.insights}</span><span className="v">{view.planning.tiles.length}</span></div>}
-      {view.planning && <div className="kv"><span>{H.sorted}</span><span className="v">{Object.keys(view.planning.picks).length}</span></div>}
-    </div>
   )
 }
 
@@ -345,6 +336,25 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     { id: 'slides', label: H.slides, line: H.slidesLine, off: sc.available.slides ? null : H.slidesOff, onClick: showSlides },
     { id: 'winners', label: H.winners, line: H.winnersLine, off: sc.available.winners ? null : H.winnersOff },
   ]
+  // Shared slides that run ahead of the game: the host in charge is asked first, because a
+  // later section may show answers (section 10.8). Nobody is asked while no one can see the slides.
+  const sectionAt = (i: number) => deck.sections.find((x) => i >= x.start && i < x.start + x.count)
+  const roomSees = sc.shown === 'slides' && (sc.screens > 0 || sc.mirror)
+  const slideTo = (index: number) => {
+    const to = Math.max(0, Math.min(deck.count - 1, index))
+    if (to === sc.slide) return
+    const from = sectionAt(sc.slide)
+    const target = sectionAt(to)
+    // A section is due from the stage before its own: the welcome in the lobby, a recap at the reveal.
+    const later = !!target && STAGES.indexOf(target.stage) > STAGES.indexOf(hv.stage) + 1
+    if (roomSees && target && later && target.id !== from?.id) {
+      ask({ title: H.aheadTitle, text: H.ahead(target.title, STAGE_TITLE[hv.stage]), options: [{ label: H.aheadGo, tone: 'danger', run: () => void cmd('slide_to', { index: to }, 'slides') }] })
+      return
+    }
+    void cmd('slide_to', { index: to }, 'slides')
+  }
+  const slideRef = useRef(slideTo)
+  slideRef.current = slideTo
   const pinned = sc.scene !== 'auto'
   const pinnedLabel = scenes.find((x) => x.id === sc.scene)?.label ?? H.spotlightScene
   const cur = deck.current
@@ -353,15 +363,23 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
   // The preview is as wide as the panel allows, up to 640 px, and keeps the projector's 16 to 9.
   const box = useRef<HTMLDivElement>(null)
   const [pw, setPw] = useState(344)
+  // The slide shown now and the next one, side by side, each as wide as half of their row.
+  const pair = useRef<HTMLDivElement>(null)
+  const [tw, setTw] = useState(200)
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const fit = () => setPw(Math.max(240, Math.min(640, el.clientWidth - 6)))
+    const fit = () => {
+      setPw(Math.max(240, Math.min(640, el.clientWidth - 6)))
+      const row = pair.current
+      if (row) setTw(Math.max(140, Math.floor((row.clientWidth - 10) / 2) - 6))
+    }
     const ro = new ResizeObserver(fit)
     ro.observe(el)
+    if (pair.current) ro.observe(pair.current)
     fit()
     return () => ro.disconnect()
-  }, [])
+  }, [deck.count])
 
   // The left and right arrow keys move the slides while no field has the focus.
   useEffect(() => {
@@ -369,12 +387,12 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     const on = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (t && (t.closest('input, select, textarea, [contenteditable]') || t.closest('[role="dialog"]'))) return
-      if (e.key === 'ArrowRight') { e.preventDefault(); void cmd('slide', { delta: 1 }, 'slides') }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); void cmd('slide', { delta: -1 }, 'slides') }
+      if (e.key === 'ArrowRight') { e.preventDefault(); slideRef.current(sc.slide + 1) }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); slideRef.current(sc.slide - 1) }
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [canAct, deck.count, cmd])
+  }, [canAct, deck.count, sc.slide])
 
   return (
     <section className="panel">
@@ -439,16 +457,16 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
           <div className="eyebrow">{H.slidesGroup}</div>
           {deck.count === 0 ? <div className="hint">{H.noSlides}</div> : (
             <>
-              <div className="ctl-row">
-                <button className="btn small" onClick={() => cmd('slide', { delta: -1 }, 'slides')} disabled={sc.slide <= 0}>{H.prev}</button>
+              <div className="slidenav">
+                <button className="btn small" onClick={() => slideTo(sc.slide - 1)} disabled={sc.slide <= 0}>{H.prev}</button>
                 <span className="num slidecount">{H.slideOf(sc.slide + 1, deck.count)}</span>
-                <button className="btn small" onClick={() => cmd('slide', { delta: 1 }, 'slides')} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
+                <button className="btn small" onClick={() => slideTo(sc.slide + 1)} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
               </div>
               {section && <div className="sectitle">{section.title}</div>}
               <div className="hint">{H.keysLine}</div>
               <label className="lbl" htmlFor="jump">{H.jump}</label>
               <select id="jump" className="field slim" value={section?.id ?? ''}
-                onChange={(e) => { const sec = deck.sections.find((s) => s.id === e.target.value); if (sec) void cmd('slide_to', { index: sec.start }, 'slides') }}>
+                onChange={(e) => { const sec = deck.sections.find((s) => s.id === e.target.value); if (sec) slideTo(sec.start) }}>
                 {deck.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
               </select>
               <div className="ctl">
@@ -458,25 +476,25 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
                 </label>
                 {mirrorOff && <div className="hint">{mirrorOff}</div>}
               </div>
-              <div className="slidepair">
-                {[{ l: H.current, s: cur }, { l: H.upNext, s: deck.next }].map(({ l, s }) => (
-                  <div key={l} className="minislide">
-                    <div className="eyebrow">{l}</div>
-                    {s ? (
-                      <>
-                        <div className="mst">{s.slide.title}{s.placeholder && <span className="chip" style={{ marginLeft: 6, fontSize: 11 }}>{H.placeholder}</span>}</div>
-                        <ul>{s.slide.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
-                      </>
-                    ) : <div className="muted">{H.endOfDeck}</div>}
-                  </div>
-                ))}
-              </div>
-              {cur?.notes && <div className="notes"><b>{H.notes}</b> {cur.notes}</div>}
             </>
           )}
           <Refusal text={refusals.slides} />
         </div>
         </div>
+
+        {deck.count > 0 && (
+          <div className="group">
+            <div className="slidepair" ref={pair}>
+              {[{ l: H.current, s: cur }, { l: H.upNext, s: deck.next }].map(({ l, s }) => (
+                <div key={l} className="minislide">
+                  <div className="eyebrow">{l}{s?.placeholder && <span className="flag warn">{H.placeholder}</span>}</div>
+                  {s ? <SlideThumb sl={s.slide} joinUrl={hv.session.joinUrl} width={tw} theme={sc.theme} /> : <div className="muted endofdeck" style={{ width: tw, height: Math.round(tw * 820 / 1920) }}>{H.endOfDeck}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="notes"><b>{H.notes}</b><span>{cur?.notes ?? H.noNotes}</span></div>
+          </div>
+        )}
 
         <div className="group apart">
           <div className="eyebrow">{H.projectorTheme}</div>
@@ -527,13 +545,13 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const [confirm, setConfirm] = useState<null | 'reset_stage' | 'restart_game' | 'close'>(null)
   const [typed, setTyped] = useState('')
   const [confirmErr, setConfirmErr] = useState<string | null>(null)
-  const [spect, setSpect] = useState<{ id: string; view: PlayerView | null } | null>(null)
+  const [spect, setSpect] = useState<{ id: string; view: HostInspect | null } | null>(null)
   const [rename, setRename] = useState<{ id: string; name: string; err?: string } | null>(null)
-  const [keyPass, setKeyPass] = useState<string | null>(null)
-  const [keyErr, setKeyErr] = useState<string | null>(null)
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null)
   const [askSheet, setAskSheet] = useState<Ask | null>(null)
   const [takeOpen, setTakeOpen] = useState(false)
+  const [takePass, setTakePass] = useState('')
+  const [takeErr, setTakeErr] = useState<string | null>(null)
   const [lost, setLost] = useState<string | null>(null)
   const [rowCodes, setRowCodes] = useState<Record<string, string>>({})
   const [manualOpen, setManualOpen] = useState(false)
@@ -548,7 +566,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
     // The console that lost control keeps a notice until it is closed, or until it holds control again.
     c.on('control', (m) => { const x = m as unknown as { from: string | null; to: string }; if (youRef.current && x.to !== name) setLost(H.tookControl(x.to)) })
     c.on('spectate', (m) => {
-      const s = m as unknown as { playerId: string; view: PlayerView | null }
+      const s = m as unknown as { playerId: string; view: HostInspect | null }
       setSpect((cur) => (cur && cur.id === s.playerId ? { id: s.playerId, view: s.view } : cur))
     })
     // A session the server no longer holds (deleted, or ended before a restart) goes back to the list.
@@ -579,7 +597,18 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const openConfirm = (what: 'reset_stage' | 'restart_game' | 'close') => { setTyped(''); setConfirmErr(null); setConfirm(what) }
   // A phase column shows once its phase has opened, so the table fits at 1280 px (section 10.8).
   const shownPhases = (['planning', 'development', 'maintaining'] as const).filter((ph) => hv.board.columns[ph].state !== 'empty')
-  const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else setTakeOpen(true) }
+  const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else { setTakePass(''); setTakeErr(null); setTakeOpen(true) } }
+  const look = (id: string) => { setSpect({ id, view: null }); void cmd('spectate', { playerId: id }, `row:${id}`) }
+  // The key opens with one press (section 10.8). The window is opened at once, inside the press,
+  // so that no browser blocks it, and gets its address when the ticket arrives.
+  const openKey = async () => {
+    const win = window.open('about:blank', '_blank')
+    const r = await hostFetch<{ ticket: string }>(token, '/api/host/key-ticket', {})
+    if (!r.ok) { win?.close(); ref.set('key', plainError(r.error)); return }
+    ref.set('key', null)
+    const url = `/api/host/key?ticket=${encodeURIComponent(r.data.ticket)}`
+    if (win) { win.opener = null; win.location.href = url } else window.open(url, '_blank', 'noopener')
+  }
 
   return (
     <div className={`hostwrap${manualOpen ? ' with-manual' : ''}`}>
@@ -588,7 +617,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <button className="iconbtn" onClick={back} aria-label={H.allSessions}>←</button>
             <span style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hv.session.label}</span>
-            <span className="codebox" title={H.joinCode}>{hv.session.code}</span>
+            <span className="codebox" title={H.sessionCode}>{hv.session.code}</span>
             <span className="chip" style={{ background: hv.session.mode === 'event' ? 'var(--go)' : 'var(--sun)', color: 'var(--on)', borderColor: '#1d2140' }}>{H.modeChip(hv.session.mode)}</span>
             {hv.clock.scale !== 1 && <span className="chip speedbadge" role="status">{H.speedBadge(hv.clock.scale)}</span>}
           </div>
@@ -599,14 +628,16 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               const s = systems.find((y) => y.id === x.id)
               return <span key={x.id} className="barsys" title={s?.name}><SystemShape index={s?.index ?? 0} size={10} />{H.connections(x.players, x.connected)}</span>
             })}
-            <span className={`chip state ${ctl.you ? 'good' : 'watch'}`} title={ctl.you ? undefined : H.controlLine(ctl.holder, false)}>{ctl.you ? H.youControl : H.viewOnly}</span>
+            <span className={`chip state ${ctl.you ? 'good' : 'watch'}`} data-charge={ctl.you ? 'you' : ctl.state}>
+              {ctl.you ? H.youControl : ctl.state === 'held' ? H.inCharge(ctl.holder ?? '') : ctl.state === 'reconnecting' ? H.reconnectingChip(ctl.holder) : H.nobodyChip}
+            </span>
+            {!ctl.you && <button className="btn small sun takebtn" onClick={take}>{H.takeControl}</button>}
             <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
           </div>
         </header>
         {!ctl.you && (
           <div className="viewonly" role="status">
             <span>{ctl.state === 'held' ? H.controlledFrom(ctl.holder ?? '') : ctl.state === 'reconnecting' ? H.reconnecting : H.nobody}</span>
-            <button className="btn small sun" onClick={take}>{H.takeControl}</button>
             <Refusal text={ref.map.take} />
           </div>
         )}
@@ -698,7 +729,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                         <Avatar id={p.avatar} size={32} />
                         <div className="pmain">
                           <div className="pline">
-                            <span className="pname" title={p.name}>{p.name}</span>
+                            <button type="button" className="pname plook" title={H.lookAt(p.name)} onClick={() => look(p.id)}>{p.name}</button>
                             <span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span className="sr-only">{sys?.name}</span></span>
                             <span className={`ponline ${p.connected ? 'good' : 'bad'}`}><span aria-hidden="true">●</span> {p.connected ? H.onlineWord : H.offlineWord}</span>
                           </div>
@@ -711,7 +742,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                           {shownPhases.length > 1 && <span className="hint">{shownPhases.map((ph) => `${H.colPhase(PHASE_NUMBER[ph])} ${p.points[ph] ?? '–'}`).join(' · ')}</span>}
                         </div>
                         <RowActions label={H.actionsFor(p.name)} items={[
-                          { label: H.spectate, run: () => { setSpect({ id: p.id, view: null }); void cmd('spectate', { playerId: p.id }, `row:${p.id}`) } },
+                          { label: H.spectate, run: () => look(p.id) },
                           { label: H.spotlight, off: !ctl.you, run: async () => { const r = await cmd('spotlight', { playerId: p.id }, `row:${p.id}`); if (r?.ok) say(H.spotlightOn) } },
                           { label: H.rename, off: !ctl.you, run: () => setRename({ id: p.id, name: p.name }) },
                           { label: H.code, run: async () => { const r = await cmd('rejoin_code', { playerId: p.id }, `row:${p.id}`); if (r?.ok) setRowCodes((m) => ({ ...m, [p.id]: (r.data as { code: string }).code })) } },
@@ -744,6 +775,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               <fieldset disabled={!ctl.you} className="ctlset">
                 <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
               </fieldset>
+              {hv.deck.count > 0 && <OwnDeck token={token} code={code} joinUrl={hv.session.joinUrl} shown={hv.screen.slide} stage={hv.stage} />}
             </div>
 
             <div className="ccol">
@@ -782,17 +814,18 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                 </section>
               </fieldset>
               <section className="panel">
+                <div className="panel-head sun">{H.answerKey}</div>
+                <div className="panel-body">
+                  <div className="hint">{H.answerKeyLine}</div>
+                  <button className="btn small text" disabled={!hv.answerKey} onClick={() => void openKey()}>{hv.answerKey ? H.openKey : H.noKey}</button>
+                  <Refusal text={ref.map.key} />
+                </div>
+              </section>
+              <section className="panel">
                 <div className="panel-head">{H.downloads}</div>
                 <div className="panel-body">
                   <Downloads token={token} code={code} onError={(x) => ref.set('downloads', x)} />
                   <Refusal text={ref.map.downloads} />
-                </div>
-              </section>
-              <section className="panel">
-                <div className="panel-head sun">{H.answerKey}</div>
-                <div className="panel-body">
-                  <div className="hint">{H.answerKeyLine}</div>
-                  <button className="btn small text" disabled={!hv.answerKey} onClick={() => { setKeyErr(null); setKeyPass('') }}>{hv.answerKey ? H.openKey : H.noKey}</button>
                 </div>
               </section>
             </div>
@@ -822,7 +855,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
             </>
           )}
           {confirmErr && <div className="err" role="alert">{confirmErr}</div>}
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="sheet-actions">
             <button className="btn danger" autoFocus={!mustType} disabled={mustType && typed.trim().toUpperCase() !== hv.session.code} onClick={async () => {
               const r = await cmd(confirm, { confirm: mustType ? typed.trim() : hv.session.code }, 'confirm')
               if (r && !r.ok) { setConfirmErr(plainError(r.error)); return }
@@ -838,38 +871,31 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
           <label className="lbl" htmlFor="rn">{H.newName}</label>
           <input id="rn" className="field" value={rename.name} onChange={(e) => setRename({ ...rename, name: e.target.value, err: undefined })} autoFocus />
           {rename.err && <div className="err" role="alert">{rename.err}</div>}
-          <button className="btn go" onClick={async () => {
-            const r = await cmd('rename_player', { playerId: rename.id, name: rename.name }, 'rename')
-            if (r?.ok) setRename(null)
-            else setRename({ ...rename, err: plainError(r?.error) })
-          }}>{H.rename}</button>
+          <div className="sheet-actions">
+            <button className="btn go" onClick={async () => {
+              const r = await cmd('rename_player', { playerId: rename.id, name: rename.name }, 'rename')
+              if (r?.ok) setRename(null)
+              else setRename({ ...rename, err: plainError(r?.error) })
+            }}>{H.rename}</button>
+            <button className="btn" onClick={() => setRename(null)}>{H.cancel}</button>
+          </div>
         </Sheet>
       )}
       {spect && (
-        <Sheet title={H.spectate} onClose={() => { setSpect(null); void cmd('spectate', { playerId: null }, 'spect') }}>
-          {spect.view ? <SpectateView view={spect.view} /> : <div className="muted">{H.loading}</div>}
-          <button className="btn small text" disabled={!ctl.you} onClick={async () => { const r = await cmd('spotlight', { playerId: spect.id }, 'spect'); if (r?.ok) say(H.spotlightOn) }}>{H.showOnScreen}</button>
+        <Sheet title={spect.view ? H.lookAt(spect.view.name) : H.spectate} head="sky" wide className="inspect-sheet" onClose={() => { setSpect(null); void cmd('spectate', { playerId: null }, 'spect') }}>
+          {spect.view ? <Inspector view={spect.view} systems={systems} /> : <div className="muted">{H.loading}</div>}
           <Refusal text={ref.map.spect} />
-        </Sheet>
-      )}
-      {keyPass !== null && (
-        <Sheet title={H.answerKey} onClose={() => setKeyPass(null)}>
-          <label className="lbl" htmlFor="kp">{H.passcodeAgain}</label>
-          <input id="kp" className="field" type="password" value={keyPass} onChange={(e) => { setKeyPass(e.target.value); setKeyErr(null) }} autoFocus />
-          {keyErr && <div className="err" role="alert">{keyErr}</div>}
-          <button className="btn go" onClick={async () => {
-            const r = await hostFetch<{ ticket: string }>(token, '/api/host/key-ticket', { passcode: keyPass })
-            if (!r.ok) { setKeyErr(plainError(r.error)); return }
-            setKeyPass(null)
-            window.open(`/api/host/key?ticket=${encodeURIComponent(r.data.ticket)}`, '_blank', 'noopener')
-          }}>{H.open}</button>
+          <div className="sheet-actions">
+            <button className="btn" disabled={!ctl.you} onClick={async () => { const r = await cmd('spotlight', { playerId: spect.id }, 'spect'); if (r?.ok) say(H.spotlightOn) }}>{H.showOnScreen}</button>
+            <button className="btn" onClick={() => { setSpect(null); void cmd('spectate', { playerId: null }, 'spect') }}>{H.close}</button>
+          </div>
         </Sheet>
       )}
       {removing && (
         <Sheet title={H.removeTitle} onClose={() => setRemoving(null)}>
           <p>{H.removeText(removing.name)}</p>
           <Refusal text={ref.map.remove} />
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="sheet-actions">
             <button className="btn danger" onClick={async () => { const r = await cmd('remove_player', { playerId: removing.id }, 'remove'); if (r?.ok) setRemoving(null) }}>{H.remove}</button>
             <button className="btn" onClick={() => setRemoving(null)}>{H.cancel}</button>
           </div>
@@ -878,20 +904,29 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
       {askSheet && (
         <Sheet title={askSheet.title} head="sun" onClose={() => setAskSheet(null)}>
           <p>{askSheet.text}</p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div className="sheet-actions">
             {askSheet.options.map((o) => <button key={o.label} className={`btn${o.tone ? ` ${o.tone}` : ''}`} onClick={() => { setAskSheet(null); o.run() }}>{o.label}</button>)}
-            <button className="btn text" onClick={() => setAskSheet(null)}>{H.cancel}</button>
+            <button className="btn" onClick={() => setAskSheet(null)}>{H.cancel}</button>
           </div>
         </Sheet>
       )}
       {takeOpen && (
-        <Sheet title={H.takeControl} head="sun" onClose={() => setTakeOpen(false)}>
-          <p>{H.takeText(ctl.holder)}</p>
-          <Refusal text={ref.map.take} />
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn go" onClick={async () => { const r = await cmd('take_control', {}, 'take'); if (r?.ok) setTakeOpen(false) }}>{H.takeControl}</button>
-            <button className="btn" onClick={() => setTakeOpen(false)}>{H.cancel}</button>
-          </div>
+        <Sheet title={H.takeTitle(ctl.holder)} head="sun" onClose={() => setTakeOpen(false)}>
+          <form style={{ display: 'contents' }} onSubmit={async (e) => {
+            e.preventDefault()
+            const r = await cmd('take_control', { passcode: takePass }, 'take')
+            if (r?.ok) setTakeOpen(false)
+            else setTakeErr(plainError(r?.error))
+          }}>
+            <p>{H.takeText(ctl.holder)}</p>
+            <label className="lbl" htmlFor="take-pass">{H.takePass}</label>
+            <input id="take-pass" className="field" type="password" autoComplete="current-password" value={takePass} onChange={(e) => { setTakePass(e.target.value); setTakeErr(null) }} autoFocus />
+            {takeErr && <div className="err" role="alert">{takeErr}</div>}
+            <div className="sheet-actions">
+              <button type="submit" className="btn go" disabled={!takePass}>{H.takeControl}</button>
+              <button type="button" className="btn" onClick={() => setTakeOpen(false)}>{H.cancel}</button>
+            </div>
+          </form>
         </Sheet>
       )}
       {toast && <div className="toast" role="status">{toast}</div>}

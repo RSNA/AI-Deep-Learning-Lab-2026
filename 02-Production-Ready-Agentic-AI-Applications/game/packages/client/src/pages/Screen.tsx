@@ -1,6 +1,5 @@
 // The big screen (engineering spec, section 10.9). Designed at 1920 x 1080 and scaled as one block.
-import { useEffect, useLayoutEffect, useState } from 'react'
-import QRCode from 'qrcode'
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { COLUMNS, phaseOfStage, type Clock, type ScreenView } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, players } from '../copy.ts'
 import { gameNow, useTick, type ClockRef } from '../lib/clock.ts'
@@ -9,6 +8,7 @@ import { connect, reloadForNewBuild } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { forceTheme } from '../lib/theme.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, SystemShape, columnTag } from '../components/ui.tsx'
+import { Qr, SlideBody } from '../components/slide.tsx'
 import { SystemsStrip } from './Play.tsx'
 
 function useFit(w: number, h: number): number {
@@ -20,15 +20,6 @@ function useFit(w: number, h: number): number {
     return () => window.removeEventListener('resize', on)
   }, [w, h])
   return s
-}
-
-function Qr({ url, size }: { url: string; size: number }) {
-  const [svg, setSvg] = useState('')
-  useEffect(() => {
-    QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1d2140', light: '#ffffff' } })
-      .then(setSvg).catch(() => setSvg(''))
-  }, [url])
-  return <div style={{ width: size, height: size, background: '#fff', border: '6px solid #1d2140' }} dangerouslySetInnerHTML={{ __html: svg }} />
 }
 
 function Street({ theme, height = 128 }: { theme: string; height?: number }) {
@@ -275,11 +266,7 @@ function Lobby({ v }: { v: ScreenView }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'flex-start' }}>
         <Qr url={v.session.joinUrl} size={460} />
         <div className="face" style={{ fontSize: 56, lineHeight: 1 }}>{v.session.joinUrl.replace(/^https?:\/\//, '')}</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-          <span style={{ fontSize: 28, fontWeight: 800 }} className="muted">Join code</span>
-          <span className="face" style={{ fontSize: 72, lineHeight: 1, letterSpacing: 6 }}>{v.session.code}</span>
-        </div>
-        <div style={{ fontSize: 24, fontWeight: 700 }} className="muted">Scan the code or type the link. No account needed.</div>
+        <div style={{ fontSize: 28, fontWeight: 700 }} className="muted">Scan the code with your phone, or type the link on a laptop. No account is needed.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${v.counts.bySystem.length}, 1fr)`, gap: 20 }}>
@@ -389,28 +376,7 @@ function Winners({ v }: { v: ScreenView }) {
 export function Slide({ v }: { v: ScreenView }) {
   const sl = v.slide
   if (!sl) return <TitleCard v={v} text="No slide to show." />
-  return (
-    <div style={{ flexGrow: 1, minHeight: 0, padding: '48px 96px 32px', display: 'flex', flexDirection: 'column', gap: 28, position: 'relative' }}>
-      <div style={{ position: 'absolute', right: 48, top: 28, fontSize: 24, fontWeight: 800, color: 'var(--muted)', textAlign: 'right' }}>{sl.section} · {`${sl.index + 1} of ${sl.count}`}</div>
-      <div className="face" style={{ fontSize: 104, lineHeight: 1 }}>{sl.title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: sl.image || sl.stat ? 'minmax(0, 1.4fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 56, flexGrow: 1, minHeight: 0, alignItems: 'start' }}>
-        <ul style={{ margin: 0, paddingLeft: 48, display: 'flex', flexDirection: 'column', gap: 22, fontSize: 44, lineHeight: 1.25, fontWeight: 600 }}>
-          {sl.bullets.map((b, i) => <li key={i}>{b}</li>)}
-        </ul>
-        {(sl.image || sl.stat) && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'stretch' }}>
-            {sl.image && <img className="px" src={sl.image} alt="" style={{ width: '100%', maxHeight: 460, objectFit: 'contain', border: '4px solid var(--line)', background: 'var(--panel)' }} />}
-            {sl.stat && (
-              <div className="panel" style={{ borderWidth: 4, padding: '20px 28px', boxShadow: '6px 6px 0 var(--shade)' }}>
-                <div className="face" style={{ fontSize: 120, lineHeight: 1 }}>{sl.stat.value}</div>
-                <div style={{ fontSize: 30, fontWeight: 800 }}>{sl.stat.label}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  return <SlideBody sl={sl} joinUrl={v.session.joinUrl} meta={<span>{sl.section} · {`${sl.index + 1} of ${sl.count}`}</span>} style={{ '--u': '1px' } as CSSProperties} />
 }
 
 function Spotlight({ v }: { v: ScreenView }) {

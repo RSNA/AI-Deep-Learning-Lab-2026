@@ -22,6 +22,15 @@ export function boardError(picks: Record<string, string>, problems: readonly { i
   return null
 }
 
+/** How a pick stands against the true class: right, one class off among the real ones, wrong, or not sorted. */
+export function markOf(picked: string | null, truth: string, rules: PlanningRules): 'right' | 'near' | 'wrong' | 'unsorted' {
+  if (picked === null) return 'unsorted'
+  if (picked === truth) return 'right'
+  const real = (id: string) => (rules.classes.find((c) => c.id === id)?.rungs.length ?? 0) > 0
+  const order = rules.class_order
+  return real(picked) && real(truth) && Math.abs(order.indexOf(picked) - order.indexOf(truth)) === 1 ? 'near' : 'wrong'
+}
+
 /** Score one board. The caller has checked it with boardError. */
 export function scoreBoard(picks: Record<string, string>, problems: readonly ProblemKey[], rules: PlanningRules): PlanningResult {
   const order = rules.class_order

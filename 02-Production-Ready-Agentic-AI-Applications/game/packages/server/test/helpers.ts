@@ -7,9 +7,9 @@ import { createApp, type App } from '../src/index.ts'
 
 export const DEMO = fileURLToPath(new URL('../../../content-demo', import.meta.url))
 
-export async function startServer(opts: { dataDir?: string; contentDir?: string; systems?: string[]; wallNow?: () => number } = {}) {
+export async function startServer(opts: { dataDir?: string; contentDir?: string; systems?: string[]; wallNow?: () => number; answerKeyFile?: string } = {}) {
   const dataDir = opts.dataDir ?? mkdtempSync(join(tmpdir(), 'lab02-db-'))
-  const app = createApp({ dataDir, port: 0, host: '127.0.0.1', logLevel: 'silent', contentDir: opts.contentDir ?? DEMO, tickMs: 20, hostPasscode: 'test-passcode', systems: opts.systems, ...(opts.wallNow ? { wallNow: opts.wallNow } : {}) })
+  const app = createApp({ dataDir, port: 0, host: '127.0.0.1', logLevel: 'silent', contentDir: opts.contentDir ?? DEMO, tickMs: 20, hostPasscode: 'test-passcode', systems: opts.systems, ...(opts.wallNow ? { wallNow: opts.wallNow } : {}), ...(opts.answerKeyFile ? { answerKeyFile: opts.answerKeyFile } : {}) })
   const url = await app.listen()
   return { app, url, ws: `${url.replace('http', 'ws')}/ws`, dataDir, api: playerApi(url), cleanup: () => rmSync(dataDir, { recursive: true, force: true }) }
 }

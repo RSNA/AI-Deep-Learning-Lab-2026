@@ -6,7 +6,7 @@ import { plainError } from '../lib/errors.ts'
 import { api } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
-import { Avatar, SystemShape } from '../components/ui.tsx'
+import { Avatar, SystemShape, ThemeButton } from '../components/ui.tsx'
 import { NewGame, PastGameCard } from '../components/after.tsx'
 
 export function TownStrip({ height = 208, children }: { height?: number; children?: React.ReactNode }) {
@@ -35,7 +35,8 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
   // A browser that played before starts from the practice it had (its name and its character).
   const [last] = useState(() => store.last())
   const [avatar, setAvatar] = useState<string>(() => (last && (AVATARS as readonly string[]).includes(last.avatar) ? last.avatar : AVATARS[0]))
-  const [name, setName] = useState(() => last?.name ?? '')
+  // Not in the game it comes from, where that name is taken: there the form starts empty.
+  const [name, setName] = useState(() => (last && last.session !== code ? last.name : ''))
   const [system, setSystem] = useState<string | null>(null)
   const [rejoinCode, setRejoinCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -93,7 +94,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
 
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <TownStrip />
+      <TownStrip><div className="cornerbtn"><ThemeButton plain /></div></TownStrip>
       <main style={{ flexGrow: 1, width: '100%', maxWidth: 520, margin: '0 auto', padding: '18px 16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div className="eyebrow" style={{ fontSize: 13 }}>{COPY.eyebrow}</div>
@@ -188,9 +189,10 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
 export function NoSessionPage({ go }: { go: (path: string) => void }) {
   const [code, setCode] = useState('')
   const [bad, setBad] = useState(false)
+  const [last] = useState(() => store.last())
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <TownStrip />
+      <TownStrip><div className="cornerbtn"><ThemeButton plain /></div></TownStrip>
       <main style={{ maxWidth: 520, width: '100%', margin: '0 auto', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="eyebrow" style={{ fontSize: 13 }}>{COPY.eyebrow}</div>
         <h2>{COPY.noSession}</h2>
@@ -206,6 +208,7 @@ export function NoSessionPage({ go }: { go: (path: string) => void }) {
           {bad && <div id="code-err" className="err" role="alert">{COPY.codeRule}</div>}
           <button className="btn go" type="submit">{COPY.go}</button>
         </form>
+        {last && last.scored && <PastGameCard game={last} title={COPY.lastGame} />}
       </main>
     </div>
   )

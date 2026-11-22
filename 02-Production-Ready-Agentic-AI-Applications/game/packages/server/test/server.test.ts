@@ -1,4 +1,7 @@
 // Server tests (engineering spec, section 12.4).
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import WebSocket from 'ws'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameConnection, STAGES } from '@lab02/protocol'
@@ -441,13 +444,86 @@ describe('host consoles', () => {
     expect(await b.command('screen_theme', { theme: 'dark' })).toMatchObject({ ok: false, error: 'not_in_control' })
     expect((await b.command('spectate', { playerId: null })).ok).toBe(true)
 
-    // Taking control: every console hears of it, and the former controller watches.
-    expect((await b.command('take_control')).ok).toBe(true)
+    // Taking charge from another console asks for the host passcode again.
+    expect(await b.command('take_control')).toMatchObject({ ok: false, error: 'wrong_passcode' })
+    expect(await b.command('take_control', { passcode: 'not-it' })).toMatchObject({ ok: false, error: 'wrong_passcode' })
+    expect(av.view!.control.you).toBe(true)
+    // With it: every console hears of it, and the former controller watches.
+    expect((await b.command('take_control', { passcode: 'test-passcode' })).ok).toBe(true)
     await until(() => av.control.length > 0 && av.view!.control.you === false, 5000, 'control moved')
     expect(av.control.at(-1)).toMatchObject({ from: 'Lectern', to: 'Back row' })
     expect(bv.view!.control.you).toBe(true)
     expect(await a.command('next')).toMatchObject({ ok: false, error: 'not_in_control' })
     expect((await b.command('next')).ok).toBe(true)
+  })
+
+  it('shows a host one player beside the key, in control or not, and never sends that to a player', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const code = session(srv)
+    const token = await hostToken(srv.url)
+    const a = named(srv, token, code, 'Lectern', 'tab-a')
+    await until(() => a.status === 'open')
+    const b = named(srv, token, code, 'Back row', 'tab-b')
+    type Inspect = { name: string; planning: { status: string; problems: { id: string; picked: string | null; truth: string; mark: string; rationale: string; points: number | null }[] } | null }
+    const seen: (Inspect | null)[] = []
+    b.on('spectate', (m) => seen.push((m as unknown as { view: Inspect | null }).view))
+    const bot = await joinBot(srv, code, 'Alpha Branch')
+    cleanups.push(() => { a.close(); b.close(); bot.conn.close() })
+    await until(() => b.status === 'open' && bot.status === 'open')
+    await step(srv.app, a, code) // intro
+    await step(srv.app, a, code) // planning.play
+    // The watching console looks at the player: the key is there before the phase is scored.
+    expect((await b.command('spectate', { playerId: bot.playerId })).ok).toBe(true)
+    await until(() => seen.length > 0 && !!seen.at(-1)?.planning, 5000, 'the inspect view')
+    const first = seen.at(-1)!
+    expect(first.name).toBe('Alpha Branch')
+    expect(first.planning!.status).toBe('playing')
+    expect(first.planning!.problems.every((x) => x.truth.length > 0 && x.rationale.length > 0 && x.mark === 'unsorted' && x.points === null)).toBe(true)
+    // A pick of the player reaches the console as it is made, with its mark.
+    const target = first.planning!.problems[0]!
+    expect((await bot.conn.command('planning.set_report', { picks: { [target.id]: target.truth } })).ok).toBe(true)
+    await until(() => seen.at(-1)?.planning?.problems[0]?.mark === 'right', 5000, 'the pick with its mark')
+    // After the phase the same page carries the points.
+    await step(srv.app, a, code) // planning.reveal
+    await until(() => seen.at(-1)?.planning?.status === 'closed', 5000, 'the scored view')
+    expect(seen.at(-1)!.planning!.problems[0]!.points).toBeGreaterThan(0)
+    // Nothing of it ever went to the player before the reveal: no message carried a rationale.
+    const before = bot.messages.filter((m) => !m.raw.includes('"reveal":{'))
+    expect(before.some((m) => m.raw.includes(target.rationale))).toBe(false)
+    expect(bot.messages.some((m) => m.t === 'spectate')).toBe(false)
+  })
+
+  it('gives a signed-in host the answer key with one request and the deck with its notes, and nobody else', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lab02-key-'))
+    const keyFile = join(dir, 'key.html')
+    writeFileSync(keyFile, '<!doctype html><title>Key</title><p>the demo key</p>')
+    const srv = await startServer({ answerKeyFile: keyFile })
+    cleanups.push(() => srv.app.close().catch(() => {}), srv.cleanup, () => rmSync(dir, { recursive: true, force: true }))
+    const code = session(srv)
+    const token = await hostToken(srv.url)
+    const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
+    // The key: no passcode a second time. A ticket, then the page.
+    expect((await fetch(`${srv.url}/api/host/key-ticket`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(401)
+    const t = await fetch(`${srv.url}/api/host/key-ticket`, { method: 'POST', headers: auth, body: '{}' })
+    expect(t.status).toBe(200)
+    const { ticket } = (await t.json()) as { ticket: string }
+    const page = await fetch(`${srv.url}/api/host/key?ticket=${encodeURIComponent(ticket)}`)
+    expect(page.status).toBe(200)
+    expect(await page.text()).toContain('the demo key')
+    expect((await fetch(`${srv.url}/api/host/key?ticket=nope`)).status).toBe(401)
+    // The deck: every slide with its notes, for a host. A player token gets nothing.
+    expect((await fetch(`${srv.url}/api/host/deck/${code}`)).status).toBe(401)
+    const bot = await joinBot(srv, code, 'Alpha Branch')
+    cleanups.push(() => bot.conn.close())
+    expect((await fetch(`${srv.url}/api/host/deck/${code}`, { headers: { authorization: `Bearer ${bot.token}` } })).status).toBe(401)
+    const d = await fetch(`${srv.url}/api/host/deck/${code}`, { headers: auth })
+    expect(d.status).toBe(200)
+    const deck = (await d.json()) as { slides: { slide: { id: string; layout: string }; notes: string | null }[] }
+    expect(deck.slides.length).toBe(srv.app.pack.deck!.sections.reduce((n, sec) => n + sec.slides.length, 0))
+    expect(deck.slides[0]).toMatchObject({ slide: { id: 'welcome-1', layout: 'title' } })
+    expect(deck.slides.some((x) => !!x.notes)).toBe(true)
+    expect((await fetch(`${srv.url}/api/host/deck/NOPE99`, { headers: auth })).status).toBe(404)
   })
 
   it('keeps control for a console that comes back within 20 seconds, then frees it', async () => {

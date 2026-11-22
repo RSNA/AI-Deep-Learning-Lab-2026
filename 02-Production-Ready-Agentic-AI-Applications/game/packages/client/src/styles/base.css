@@ -251,11 +251,47 @@ input.field.bad { border-color: var(--bad); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* The lobby: how to play and the people on the left, the scene and the health system wide. */
-.lobby { padding: 16px; display: grid; gap: 18px; grid-template-columns: 330px minmax(0, 1fr); align-items: start; }
-.lobby.narrow { grid-template-columns: minmax(0, 1fr); }
-.lobby-left, .lobby-right { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.cast-list { gap: 6px; max-height: 520px; overflow-y: auto; }
+/* The lobby (section 10.2). Wide: who you are and how to play, the practice with its numbers
+   under it, the people. Narrower: two columns. A phone: one. */
+.lobby { padding: 14px 16px 20px; display: grid; gap: 16px; grid-template-columns: 320px minmax(0, 1fr); align-items: start; }
+.lobby.three { grid-template-columns: 300px minmax(0, 1fr) 300px; }
+.lobby.narrow { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+.lobby-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sysnumbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; }
+.cast-hint { padding: 7px 12px; background: var(--sun-bg); border-bottom: 2px solid var(--line); font-size: 13.5px; font-weight: 800; line-height: 1.3; }
+.cast-list { gap: 4px; max-height: 62vh; overflow-y: auto; padding: 8px; }
+.lobby.narrow .cast-list { max-height: none; }
+
+/* A box with an edge to drag (sections 10.2 and 10.4). */
+.sizable { display: flex; flex-direction: column; min-width: 0; }
+.sizable-box { min-width: 0; overflow: hidden; }
+.sizable.dragging .sizable-box { background: var(--inset); }
+.sizable-edge {
+  flex-shrink: 0; height: 16px; display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none;
+  background: var(--inset); border-top: 2px solid var(--line); user-select: none;
+}
+.sizable-edge i { width: 56px; height: 4px; background: var(--muted); box-shadow: 0 -6px 0 -1px transparent; border-radius: 0; }
+.sizable-edge:hover, .sizable.dragging .sizable-edge { background: var(--sun-bg); }
+.sizable-edge:hover i, .sizable.dragging .sizable-edge i { background: var(--ink); }
+.sizable-edge:focus-visible { outline: 3px solid var(--sky); outline-offset: -3px; }
+.sizable.dragging, .sizable.dragging * { cursor: ns-resize !important; }
+
+/* The menu: its entries as one list of rows of one size. */
+.menulist { display: flex; flex-direction: column; gap: 8px; }
+.menulist .btn { justify-content: space-between; gap: 14px; min-height: 44px; white-space: normal; text-align: left; padding: 6px 12px; font-size: 15px; }
+.menulist .btn .muted { font-weight: 700; font-size: 13px; text-align: right; }
+
+/* The actions of a dialog: one row across it, every button the same size, Cancel last
+   (section 10.1). On a narrow dialog they stack, still one size. */
+.sheet-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.sheet-actions .btn { width: 100%; min-height: 44px; font-size: 20px; padding: 0 10px; white-space: normal; line-height: 1.05; text-align: center; }
+@media (max-width: 520px) { .sheet-actions { grid-auto-flow: row; } }
+
+/* Day or night, in a bar */
+.themebtn svg { display: block; }
+.themebtn.plain { border-color: var(--line); color: var(--ink); background: var(--panel); box-shadow: 2px 2px 0 var(--shade); }
+.cornerbtn { position: absolute; right: 10px; top: 10px; z-index: 2; }
+
 .cast-row { background: none; border: 0; padding: 4px; text-align: left; cursor: pointer; color: var(--ink); width: 100%; }
 .cast-row:hover, .cast-row:focus-visible { background: var(--inset); outline: 2px solid var(--line); }
 .cast-row { display: flex; align-items: center; gap: 12px; }
@@ -311,38 +347,22 @@ input.field.bad { border-color: var(--bad); }
 .slidecount { font-size: 22px; min-width: 120px; text-align: center; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; min-height: 36px; cursor: pointer; }
 .check input { width: 20px; height: 20px; }
-.slidepair { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.minislide { border: 2px solid var(--line); background: var(--inset); padding: 6px 8px; font-size: 12px; min-height: 90px; }
-.minislide .mst { font-weight: 800; font-size: 13px; margin: 2px 0 4px; }
-.minislide ul { margin: 0; padding-left: 16px; }
-.notes { font-size: 14px; padding: 6px 8px; background: var(--lav-bg); border: 2px solid var(--line); }
+/* The slide on show and the next one: two real, small slides side by side (section 10.8). */
+.slidepair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.minislide { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.minislide .eyebrow { display: flex; align-items: center; min-height: 18px; }
+.minislide .endofdeck { display: flex; align-items: center; justify-content: center; border: 3px dashed var(--soft); font-weight: 800; font-size: 13px; }
+/* The notes of a slide: as long as they need to be, up to a height, then they scroll. */
+.notes { display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; padding: 8px 10px; background: var(--lav-bg); border: 2px solid var(--line); max-height: 168px; overflow-y: auto; }
+.notes b { font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.owndeck-box { display: flex; justify-content: center; min-width: 0; }
+/* Previous, the count, Next: one row, the two buttons of one width. */
+.slidenav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.slidenav .btn { width: 100%; padding: 0 6px; }
+.slidenav .slidecount { min-width: 0; font-size: 19px; white-space: nowrap; }
+.owndeck-nav .slidecount { min-width: 110px; }
+.flag.warn { background: var(--sun-bg); color: var(--ink); }
 @media (max-width: 1200px) { .console-grid { grid-template-columns: minmax(0, 1fr); } .newsess { grid-template-columns: 1fr 1fr; } }
-
-/* A slide mirrored to the player's screen: it fills the area under the top bar and its type
-   grows with that area, like the projector (section 10.9). --u is one projector pixel. */
-.pslide { flex: 1 1 auto; min-height: 0; display: flex; }
-.pslide-in { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column;
-  gap: calc(28 * var(--u)); padding: calc(48 * var(--u)) calc(96 * var(--u)) calc(32 * var(--u)); }
-.pslide-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-weight: 800; color: var(--muted);
-  font-size: max(13px, calc(24 * var(--u))); }
-.pslide h1 { font-size: max(30px, calc(104 * var(--u))); line-height: 1; font-weight: 400; }
-.pslide ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 0.5em;
-  font-size: max(17px, calc(44 * var(--u))); font-weight: 600; line-height: 1.25; }
-.pslide-one, .pslide-grid { flex-grow: 1; }
-.pslide-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: calc(56 * var(--u)); align-items: start; }
-.pslide-side { display: flex; flex-direction: column; gap: calc(24 * var(--u)); }
-.pslide-side img { width: 100%; max-height: calc(460 * var(--u)); object-fit: contain; border: 3px solid var(--line); background: var(--panel); }
-.pstat { border: 3px solid var(--line); padding: 0.4em 0.7em; background: var(--panel); box-shadow: 4px 4px 0 var(--shade); font-weight: 800;
-  font-size: max(15px, calc(30 * var(--u))); }
-.pstat .num { font-size: 3.6em; line-height: 1; }
-.pslide-back { align-self: flex-start; }
-.pslide.narrow .pslide-in { gap: 14px; padding: 16px; }
-.pslide.narrow .pslide-meta { font-size: 13px; }
-.pslide.narrow h1 { font-size: clamp(30px, 9vw, 56px); }
-.pslide.narrow ul { font-size: clamp(17px, 4.6vw, 24px); }
-.pslide.narrow .pslide-grid { grid-template-columns: minmax(0, 1fr); }
-.pslide.narrow .pslide-side img { max-height: none; }
-.pslide.narrow .pstat { font-size: 16px; }
 
 .hostwrap { min-height: 100%; display: flex; }
 .hostmain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -440,3 +460,26 @@ input.field.bad { border-color: var(--bad); }
   box-sizing: border-box; height: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1;
 }
 .topbar:not(.sessbar) .rankbtn { gap: 6px; }
+
+/* The host in charge, in the session bar: a state and, for the others, one clear button. */
+.sessbar .takebtn { font-family: var(--text); font-size: 14px; font-weight: 800; padding: 0 12px; }
+.viewonly { text-align: center; font-size: 14px; }
+.plook { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; text-decoration: underline; text-decoration-color: var(--soft); text-underline-offset: 3px; }
+.plook:hover, .plook:focus-visible { text-decoration-color: var(--ink); }
+.plook:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+/* One player beside the key (section 10.8). */
+.sheet.inspect-sheet { width: min(1040px, 100%); }
+.inspector { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.inspect-who { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.inspect-pts { display: flex; flex-direction: column; align-items: flex-end; }
+.inspect-pts .num { font-size: 32px; line-height: 1; }
+.inspect { display: flex; flex-direction: column; gap: 10px; }
+.inspect-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.inspect-tally { font-weight: 800; font-size: 14px; }
+.inspect-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 760px) { .inspect-grid { grid-template-columns: minmax(0, 1fr); } }
+.inspect-done summary { cursor: pointer; font-weight: 800; min-height: 32px; }
+.inspect-done ul { margin: 4px 0 0; padding-left: 20px; font-size: 14px; }
+
+.leaverow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

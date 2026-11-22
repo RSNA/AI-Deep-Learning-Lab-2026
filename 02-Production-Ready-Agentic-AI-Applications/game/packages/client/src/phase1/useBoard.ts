@@ -5,7 +5,7 @@ import type { PlanningContent } from '@lab02/protocol'
 import { plainError } from '../lib/errors.ts'
 import { usePlayer } from '../lib/player.ts'
 import { P1 } from './copy.ts'
-import { dropInClass, picksOf, reconcile, replaceIn, unsort, whereIs, type Layout } from './model.ts'
+import { dropInClass, picksOf, reconcile, replaceIn, shownClasses, unsort, whereIs, type Layout } from './model.ts'
 
 const KEY = (player: string) => `lab02.layout.${player}`
 
@@ -85,12 +85,12 @@ export function useBoard(content: PlanningContent) {
     replace: (pid: string, leaving: string) => { commit(replaceIn(layout, pid, leaving)); setAsk(null) },
     cancelAsk: () => setAsk(null),
     clearError: () => setError(null),
-    /** Keys 1 to 4 pick the class in class_order, 0 clears (the keyboard path). */
+    /** Keys 1 to 4 pick the class in the order the buttons show them, 0 clears (the keyboard path). */
     onKey: (pid: string, e: React.KeyboardEvent) => {
       if (locked || e.altKey || e.ctrlKey || e.metaKey) return
       const n = Number(e.key)
       if (e.key === '0') { e.preventDefault(); commit(unsort(layout, pid)) }
-      else if (Number.isInteger(n) && n >= 1 && n <= classes.length) { e.preventDefault(); toClass(pid, classes[n - 1]!.id) }
+      else if (Number.isInteger(n) && n >= 1 && n <= classes.length) { e.preventDefault(); toClass(pid, shownClasses(classes)[n - 1]!.c.id) }
     },
   }
 }

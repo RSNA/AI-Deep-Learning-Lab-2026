@@ -97,6 +97,16 @@ export function isFull(layout: Layout, cls: string): boolean {
 }
 
 /**
+ * The classes as the player reads them (section 10.4): from the most automation at the top to
+ * "not a problem" at the bottom, the ladder as people picture it. The pack lists them the other
+ * way, from none to the most, which is the order the scoring counts steps in. Each class keeps
+ * the color of its place on the ladder.
+ */
+export function shownClasses(classes: PlanningClass[]): { c: PlanningClass; tone: number }[] {
+  return classes.map((c, tone) => ({ c, tone })).reverse()
+}
+
+/**
  * What the board asks of the player, in one line, built from the classes. A class is named by
  * the ladder rungs it covers, which are the game's own: none means "not real", rungs up to 2 need
  * no AI, up to 4 one AI model, and rung 5 an agentic system. Two classes that would read alike

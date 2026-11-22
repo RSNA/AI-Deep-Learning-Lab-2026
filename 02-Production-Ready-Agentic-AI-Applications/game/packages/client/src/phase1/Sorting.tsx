@@ -1,6 +1,6 @@
 // Your assessment (engineering spec, section 10.4): one column with five sections. Unsorted holds
-// every problem at the start, then the four classes in the order of the line that states the
-// task. Each problem card has the four class buttons; a press moves the card into that section,
+// every problem at the start, then the four classes from the most automation to none, the order
+// of the line that states the task. Each problem card has the four class buttons; a press moves the card into that section,
 // where it settles in place. A sorted card is compact and opens on a click. A press on a full
 // class asks which of its problems goes back to Unsorted. The keys 1 to 4 pick a class and 0
 // sends a card back. Laptop and phone work the same way.
@@ -9,7 +9,7 @@ import type { PlanningContent } from '@lab02/protocol'
 import { Sheet } from '../components/ui.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { P1 } from './copy.ts'
-import { askLine, isFull } from './model.ts'
+import { askLine, isFull, shownClasses } from './model.ts'
 import type { Board } from './useBoard.ts'
 
 type Problem = PlanningContent['problems'][number]
@@ -23,11 +23,11 @@ export function ClassControl({ board, pid, big = false }: { board: Board; pid: s
   const at = board.where(pid)
   return (
     <div className={`four${big ? ' big' : ''}`} role="group" aria-label={P1.classOf}>
-      {board.classes.map((c, i) => {
+      {shownClasses(board.classes).map(({ c, tone }, i) => {
         const on = at?.cls === c.id
         const full = !on && isFull(board.layout, c.id)
         return (
-          <button key={c.id} type="button" className={`${classTone(i)}${on ? ' on' : ''}${full ? ' full' : ''}`} aria-pressed={on}
+          <button key={c.id} type="button" className={`${classTone(tone)}${on ? ' on' : ''}${full ? ' full' : ''}`} aria-pressed={on}
             disabled={board.locked} title={`${i + 1}: ${c.label}${full ? ` (${P1.full})` : ''}`}
             onClick={(e) => { e.stopPropagation(); if (!on) board.toClass(pid, c.id) }}>
             <span>{c.short}</span>{full && <small>{P1.full}</small>}
@@ -57,7 +57,7 @@ export function AskSheet({ board, content }: { board: Board; content: PlanningCo
           </button>
         ))}
       </div>
-      <button type="button" className="btn small" style={{ alignSelf: 'flex-end' }} onClick={board.cancelAsk}>{P1.cancel}</button>
+      <div className="sheet-actions"><button type="button" className="btn" onClick={board.cancelAsk}>{P1.cancel}</button></div>
     </Sheet>
   )
 }
@@ -69,9 +69,9 @@ export function SendSheet({ board, content, onClose }: { board: Board; content: 
   return (
     <Sheet title={P1.sendTitle} head="sun" onClose={onClose} wide>
       <div className="sendlist">
-        {board.classes.map((c, i) => (
+        {shownClasses(board.classes).map(({ c, tone }) => (
           <div key={c.id}>
-            <div className={`sendhead ${classTone(i)}`}>{c.label} · {P1.filled(board.layout[c.id]!.filter(Boolean).length, c.capacity)}</div>
+            <div className={`sendhead ${classTone(tone)}`}>{c.label} · {P1.filled(board.layout[c.id]!.filter(Boolean).length, c.capacity)}</div>
             <ul>{board.layout[c.id]!.filter((x): x is string => !!x).map((pid) => <li key={pid}>{content.problems.find((p) => p.id === pid)?.title}</li>)}</ul>
           </div>
         ))}
@@ -83,7 +83,7 @@ export function SendSheet({ board, content, onClose }: { board: Board; content: 
         </div>
       )}
       <p className="muted">{P1.sendText}</p>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="sheet-actions">
         <button type="button" className="btn go" disabled={busy} onClick={async () => {
           setBusy(true)
           await send('planning.submit', {})
@@ -161,10 +161,10 @@ export function Assessment({ board, content, onEvidence, focus, phone = false }:
         <span className="l"><h2>{P1.assessment}</h2><span className="s">{P1.filled(n, content.problems.length)}</span></span>
         <span className="r">{!board.locked && <button type="button" className="btn go small sendbtn" onClick={() => setSending(true)}>{P1.send}</button>}</span>
       </div>
-      <div className="ask">{askLine(board.classes, content.problems.length)}</div>
+      <div className="ask">{askLine(shownClasses(board.classes).map((x) => x.c), content.problems.length)}</div>
       <div className="strip" aria-hidden="true">
-        {board.classes.map((c, i) => (
-          <div key={c.id} className={classTone(i)}>
+        {shownClasses(board.classes).map(({ c, tone }) => (
+          <div key={c.id} className={classTone(tone)}>
             <div className="n">{P1.filled((board.layout[c.id] ?? []).filter(Boolean).length, c.capacity)}</div>
             <div className="l">{c.short}</div>
           </div>
@@ -176,11 +176,11 @@ export function Assessment({ board, content, onEvidence, focus, phone = false }:
           <SectionHead title={P1.unsortedTitle} count={String(unsorted.length)} tone="tone-u" hint={unsorted.length ? P1.pickHint : undefined} />
           {unsorted.length === 0 ? <div className="aempty">{P1.allSorted}</div> : unsorted.map((p) => card(p, false))}
         </div>
-        {board.classes.map((c, i) => {
+        {shownClasses(board.classes).map(({ c, tone }) => {
           const ids = (board.layout[c.id] ?? []).filter((x): x is string => !!x)
           return (
-            <div key={c.id} className={`asec ${classTone(i)}`} data-class={c.id}>
-              <SectionHead title={c.short} count={P1.filled(ids.length, c.capacity)} tone={classTone(i)} full={ids.length >= c.capacity} fits={{ label: c.label, text: c.fitsWhen, rungs: c.rungs }} />
+            <div key={c.id} className={`asec ${classTone(tone)}`} data-class={c.id}>
+              <SectionHead title={c.short} count={P1.filled(ids.length, c.capacity)} tone={classTone(tone)} full={ids.length >= c.capacity} fits={{ label: c.label, text: c.fitsWhen, rungs: c.rungs }} />
               {ids.length === 0 && <div className="muted aempty">{P1.sectionEmpty(c.capacity)}</div>}
               {ids.map((pid) => { const p = content.problems.find((x) => x.id === pid); return p ? card(p, true) : null })}
             </div>

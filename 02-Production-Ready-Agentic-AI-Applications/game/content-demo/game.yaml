@@ -202,6 +202,7 @@ text_limits:
   click_line: 14
   slide_title: 8
   slide_bullet: 16
+  slide_card: 24
 
 sources:
   DEMO-1: {paper: HANDBOOK, locator: Chapter 1, gist: "Fix the process before you buy software for it."}

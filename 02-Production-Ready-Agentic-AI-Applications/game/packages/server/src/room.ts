@@ -12,7 +12,7 @@ import {
   type ErrorCode, type Mode, type StageId,
 } from '@lab02/protocol'
 import { HostServerMessage } from '@lab02/protocol/host'
-import { hashToken, newCode, newPlayerId, newToken } from './auth.ts'
+import { hashToken, newCode, newPlayerId, newToken, samePasscode } from './auth.ts'
 import type { Config } from './config.ts'
 import type { CommandRow, Storage } from './db.ts'
 import type { Logger } from './log.ts'
@@ -278,9 +278,25 @@ export class Room {
 
   private sendView(id: PlayerId): void {
     const sock = this.players.get(id)
-    const view = sock || [...this.hosts].some((h) => h.spectating === id) ? this.playerView(id) : null
-    if (sock && view) this.sendPlayerMsg(sock, { t: 'view', view })
-    for (const h of this.hosts) if (h.spectating === id) this.sendHostMsg(h, { t: 'spectate', playerId: id, view })
+    if (sock) this.sendPlayerMsg(sock, { t: 'view', view: this.playerView(id) })
+    this.sendInspect(id)
+  }
+
+  /** A host who looks at a player sees them beside the key (section 10.8). Host sockets only. */
+  private inspectView(id: PlayerId) {
+    return project.hostInspect(this.state, this.deps.pack, id, this.players.has(id))
+  }
+
+  private sendInspect(id: PlayerId): void {
+    const watching = [...this.hosts].filter((h) => h.spectating === id)
+    if (!watching.length) return
+    const view = this.inspectView(id)
+    for (const h of watching) this.sendHostMsg(h, { t: 'spectate', playerId: id, view })
+  }
+
+  /** Every slide with its notes, for a host who looks through the deck alone. */
+  hostDeck() {
+    return project.hostDeck(this.state, this.deps.pack)
   }
 
   private sendStanding(id: PlayerId): void {
@@ -546,6 +562,9 @@ export class Room {
       case 'take_control': {
         const prev = this.controller
         if (prev?.sock === sock) return ack({ ok: true })
+        // Taking charge from another console asks for the host passcode again, so that nobody
+        // does it by a slip of the hand (section 7.10). Free control is taken with one press.
+        if (prev && !samePasscode(String(p.passcode ?? ''), config.hostPasscode)) return ack({ ok: false, error: 'wrong_passcode' })
         this.controller = { id: sock.consoleId!, name: sock.hostName!, sock, droppedAt: 0 }
         this.everControlled = true
         db.logEvent(this.code, 'control', this.now(), config.wallNow(), { from: prev?.name ?? null, to: sock.hostName ?? '' })
@@ -580,7 +599,7 @@ export class Room {
         if (id !== null && !this.state.players[id]) return ack({ ok: false, error: 'unknown_player' })
         sock.spectating = id
         ack({ ok: true })
-        if (id) this.sendHostMsg(sock, { t: 'spectate', playerId: id, view: this.playerView(id) })
+        if (id) this.sendHostMsg(sock, { t: 'spectate', playerId: id, view: this.inspectView(id) })
         return
       }
     }

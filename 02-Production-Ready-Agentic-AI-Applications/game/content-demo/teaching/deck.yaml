@@ -1,21 +1,30 @@
 # The demo deck: one deck for the session, in sections. A section opens at its stage when the
-# big screen follows the game. Notes reach only the host console.
+# big screen follows the game. Notes reach only the host console. A slide has a layout
+# (section 5.5 of the spec): plain bullets, a title slide with the people and the join code,
+# boxes side by side, pictures side by side, or a closing slide with a QR code and references.
 sections:
   - id: welcome
     title: Welcome
     stage: intro
     slides:
       - id: welcome-1
-        title: You run a branch library
-        bullets:
-          - Each of you is the digital services director of one branch.
-          - Two library networks play side by side.
+        layout: title
+        title: The branch library game
+        subtitle: A sample session with two library networks
+        people:
+          - {name: Ada Brook, role: Moderator}
+          - {name: Noor Vale, role: Presenter}
+        qr: {show: join, label: Join with your phone}
         notes: Wait until most people have joined. Point at the code on the big screen.
       - id: welcome-2
+        layout: cards
         title: Three phases, one season each
+        cards:
+          - {tag: "1", title: Planning, text: Find out what the branch needs.}
+          - {tag: "2", title: Development, text: Build it and try it on a week of requests.}
+          - {tag: "3", title: Maintaining, text: Keep it working as the seasons change.}
         bullets:
-          - Plan what the branch needs.
-          - Build it, then keep it working.
+          - Each phase is worth the same number of points.
         notes: Keep this short. The game explains itself.
         placeholder: true
   - id: after-planning
@@ -34,6 +43,7 @@ sections:
         bullets:
           - A loud complaint is one data point.
           - A tally of a month is many.
+        live_stat: sorting_by_class
   - id: after-development
     title: After Phase 2
     stage: break.development
@@ -57,7 +67,18 @@ sections:
     stage: reflection
     slides:
       - id: closing-1
-        title: What will you try on Monday?
-        bullets:
-          - Pick one problem at your own work and count it first.
+        layout: figures
+        title: Two books behind this game
+        figures:
+          - {title: The Quiet Catalogue, caption: A sample title}
+          - {title: Shelves That Count, caption: Another sample title}
+        notes: Say where the two sample books can be found.
+      - id: closing-2
+        layout: closing
+        title: Thank you
+        subtitle: What will you try on Monday?
+        references:
+          - The Quiet Catalogue. A sample reference for the demo deck.
+          - Shelves That Count. Another sample reference.
+        qr: {show: link, label: Tell us how it went}
         notes: Two or three answers from the room, then the winners.

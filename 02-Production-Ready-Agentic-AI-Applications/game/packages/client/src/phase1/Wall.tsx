@@ -6,7 +6,8 @@ import type { PlanningContent, PlanningView, Welcome } from '@lab02/protocol'
 import { usePlayer } from '../lib/player.ts'
 import { CardOverlay, EvidenceCard, FactsBody, cardKey, type CardItem } from './Cards.tsx'
 import { P1 } from './copy.ts'
-import { stripHeight } from '../scene/band.ts'
+import { Sizable, useHeight } from '../components/sizable.tsx'
+import { STAGE_BAND, stripHeight } from '../scene/band.ts'
 import { PlanningRoom } from './Rail.tsx'
 
 const TWO_COLUMNS_FROM = 560
@@ -84,7 +85,8 @@ function Panel({ w, content, pv, phone, width }: { w: Welcome; content: Planning
     setSt(n)
     try { localStorage.setItem(`${PANEL_KEY}.${phone ? 'phone' : 'laptop'}`, JSON.stringify(n)) } catch { /* storage unavailable */ }
   }
-  const viewH = stripHeight(phone, width, winH)
+  // The height the room takes by itself, until the player drags the edge under it (section 10.4).
+  const [viewH, setViewH] = useHeight(`lab02.striph.${phone ? 'phone' : 'laptop'}`, stripHeight(phone, width, winH))
   return (
     <div className={`epanel${st.open ? '' : ' shut'}`}>
       <div className="ebar" role="tablist" aria-label={P1.panel}>
@@ -95,11 +97,15 @@ function Panel({ w, content, pv, phone, width }: { w: Welcome; content: Planning
         <button type="button" className="hide" aria-expanded={st.open} onClick={() => save({ ...st, open: !st.open })}>{st.open ? P1.hide : P1.show}</button>
       </div>
       {st.open && (
-        <div className="eview" style={{ height: viewH }}>
-          {st.view === 'room'
-            ? <PlanningRoom w={w} content={content} pv={pv} cropHeight={viewH} maxHeight={phone ? 400 : 900} />
-            : <FactsBody system={w.system} />}
-        </div>
+        <Sizable height={viewH} setHeight={setViewH} min={STAGE_BAND * 2} max={Math.max(200, Math.round(winH * 0.6))} label={P1.dragRoom}>
+          {(h) => (
+            <div className="eview" style={st.view === 'room' ? undefined : { height: h }}>
+              {st.view === 'room'
+                ? <PlanningRoom w={w} content={content} pv={pv} cropHeight={h} maxHeight={phone ? 400 : 900} />
+                : <FactsBody system={w.system} />}
+            </div>
+          )}
+        </Sizable>
       )}
     </div>
   )

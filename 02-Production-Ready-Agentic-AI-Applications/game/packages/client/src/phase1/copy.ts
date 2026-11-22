@@ -36,6 +36,7 @@ export const P1 = {
   perRow: (n: number) => (n === 1 ? 'One card per row' : 'Two cards per row'),
   panel: 'Reading room or practice facts',
   readingRoom: 'Reading room',
+  dragRoom: 'Drag to make this taller or lower',
   practiceFacts: 'Practice facts',
   hide: 'Hide ▴',
   show: 'Show ▾',

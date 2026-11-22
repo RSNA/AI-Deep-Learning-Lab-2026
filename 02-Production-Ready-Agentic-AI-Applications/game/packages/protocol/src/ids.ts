@@ -42,7 +42,7 @@ export const ERROR_CODES = [
   // Host and join
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
   // Host console
-  'not_in_control', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
+  'not_in_control', 'wrong_passcode', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
 ] as const
 export const ErrorCode = z.enum(ERROR_CODES)
 export type ErrorCode = z.infer<typeof ErrorCode>

@@ -4,6 +4,7 @@ import type { BoardColumn, BoardRow, Character, ColumnId, SystemRef } from '@lab
 import { portraitUrl, practiceLooks, type Parsed } from '../scene/people.ts'
 import { COPY } from '../copy.ts'
 import { fmt, secondsLeft, useTick, type ClockRef } from '../lib/clock.ts'
+import { setTheme, useTheme } from '../lib/theme.ts'
 
 // ------------------------------------------------------------------------------------------
 // Health systems: a color and a shape each
@@ -66,6 +67,25 @@ export function Portrait({ c, cast, index = 0, size = 56 }: { c: Character; cast
 }
 
 // ------------------------------------------------------------------------------------------
+// Day or night
+// ------------------------------------------------------------------------------------------
+/** One press, in plain sight beside the menu button, so that nobody has to look for it (section 10.1). */
+export function ThemeButton({ plain = false }: { plain?: boolean }) {
+  const theme = useTheme()
+  const to = theme === 'dark' ? 'light' : 'dark'
+  const label = to === 'dark' ? COPY.toNight : COPY.toDay
+  return (
+    <button type="button" className={`iconbtn themebtn${plain ? ' plain' : ''}`} onClick={() => setTheme(to)} aria-label={label} title={label}>
+      <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" shapeRendering="crispEdges">
+        {to === 'dark'
+          ? <path fill="currentColor" d="M6 1h4v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H6v-1h3v-1h1v-2h1V5h-1V3H9V2H6z" />
+          : <path fill="currentColor" d="M7 0h2v2H7zM7 14h2v2H7zM0 7h2v2H0zM14 7h2v2h-2zM2 2h2v2H2zM12 2h2v2h-2zM2 12h2v2H2zM12 12h2v2h-2zM6 4h4v1h1v1h1v4h-1v1h-1v1H6v-1H5v-1H4V6h1V5h1z" />}
+      </svg>
+    </button>
+  )
+}
+
+// ------------------------------------------------------------------------------------------
 // Countdown
 // ------------------------------------------------------------------------------------------
 export function Countdown({ clock, big = false, guide = false }: { clock: ClockRef | null; big?: boolean; guide?: boolean }) {
@@ -86,7 +106,7 @@ export function Countdown({ clock, big = false, guide = false }: { clock: ClockR
 // ------------------------------------------------------------------------------------------
 // Sheet
 // ------------------------------------------------------------------------------------------
-export function Sheet({ title, head = '', onClose, children, wide = false }: { title: string; head?: string; onClose?: () => void; children: ReactNode; wide?: boolean }) {
+export function Sheet({ title, head = '', onClose, children, wide = false, className = '' }: { title: string; head?: string; onClose?: () => void; children: ReactNode; wide?: boolean; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // The sheet takes the focus once, when it opens, and never from a field inside it: a page
   // that redraws every second must not pull the caret out of a field (section 10.1).
@@ -101,7 +121,7 @@ export function Sheet({ title, head = '', onClose, children, wide = false }: { t
   }, [])
   return (
     <div className="scrim" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}>
-      <div className="panel sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref} style={wide ? { width: 'min(820px, 100%)' } : undefined}>
+      <div className={`panel sheet${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref} style={wide && !className ? { width: 'min(820px, 100%)' } : undefined}>
         <div className={`panel-head ${head}`}>
           <span>{title}</span>
           {onClose && <button className="btn small" onClick={onClose} aria-label={COPY.close}>✕</button>}

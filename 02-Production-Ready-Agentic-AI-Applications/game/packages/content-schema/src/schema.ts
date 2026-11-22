@@ -487,12 +487,29 @@ export type StoryFile = z.infer<typeof StoryFile>
 /** teaching/deck.yaml: the one deck of the session, in sections. */
 /** The room statistics a slide may show (section 6.10). */
 export const ROOM_STATS = [
-  'flagship_hit_rate', 'most_reported_decoy', 'class_confusion', 'median_pilot_runs', 'most_common_trace',
+  'flagship_hit_rate', 'sorting_by_class', 'most_reported_decoy', 'class_confusion', 'median_pilot_runs', 'most_common_trace',
   'pilot_to_heldout_drop', 'share_overbuilt', 'monitors_funded', 'silent_events_caught_early', 'most_missed_event',
 ] as const
 
+/** How a slide is laid out (section 10.9). `bullets` is the plain slide and the default. */
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing'] as const
+/** The colors a box of a slide may take. They are the colors of the design system. */
+export const SLIDE_TONES = ['go', 'sky', 'sun', 'lav', 'rose'] as const
+
 export const DeckSlide = W({
-  id: Id, title: Text, bullets: z.array(Text),
+  id: Id, title: Text, bullets: z.array(Text).default([]),
+  layout: z.enum(SLIDE_LAYOUTS).optional(),
+  subtitle: Text.optional(),
+  /** Boxes side by side: a colored head with an optional tag, a title and a text. */
+  cards: z.array(W({ title: Text, text: Text.optional(), tag: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(4).optional(),
+  /** The people who give the session. `photo` is a path under art/. */
+  people: z.array(W({ name: Text, role: Text.optional(), photo: z.string().optional() })).max(6).optional(),
+  /** Pictures side by side, each with a title and a caption. Without an image the title stands in a box. */
+  figures: z.array(W({ image: z.string().optional(), title: Text, caption: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(3).optional(),
+  /** A QR code: the join link of the session, or a link of the pack. A link without a url shows an empty frame. */
+  qr: W({ show: z.enum(['join', 'link']), url: z.string().url().optional(), label: Text.optional() }).optional(),
+  /** Lines to read later, such as the articles behind the session. */
+  references: z.array(Text).max(6).optional(),
   image: z.string().optional(), live_stat: z.enum(ROOM_STATS).optional(), notes: Text.optional(), placeholder: z.boolean().optional(),
 })
 export const DeckFile = W({

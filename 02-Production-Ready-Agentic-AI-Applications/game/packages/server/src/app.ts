@@ -14,7 +14,7 @@ import {
   CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, normalizeCode,
   type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
-import { CreateSessionBody, HostCmdEnvelope, type SessionSummary } from '@lab02/protocol/host'
+import { CreateSessionBody, HostCmdEnvelope, HostDeck, type SessionSummary } from '@lab02/protocol/host'
 import { hashToken, newToken, samePasscode } from './auth.ts'
 import { configFromEnv, type Config } from './config.ts'
 import { Storage } from './db.ts'
@@ -287,12 +287,14 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     return { path: `/screen#${token}` }
   })
 
-  // The answer key: only to a host who entered the passcode again in the last five minutes.
+  // The answer key: to any signed-in host, with one press (section 7.2). The page opens in a
+  // window of its own, which cannot send the host token, so the console first asks for a
+  // ticket that is valid for five minutes.
   const tickets = new Map<string, number>()
   fastify.post('/api/host/key-ticket', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     if (!config.answerKeyFile || !existsSync(config.answerKeyFile)) return bad(reply, 404, 'no_answer_key')
-    if (!(await checkPasscode((req.body as { passcode?: unknown } | null)?.passcode))) return bad(reply, 401, 'wrong_passcode')
+    for (const [t, until] of tickets) if (until < config.wallNow()) tickets.delete(t)
     const ticket = randomBytes(24).toString('base64url')
     tickets.set(ticket, config.wallNow() + 5 * 60_000)
     return { ticket }
@@ -305,6 +307,21 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     // The key page carries its own inline styles and scripts.
     reply.header('content-security-policy-override', '1')
     return reply.type('text/html; charset=utf-8').send(readFileSync(config.answerKeyFile))
+  })
+
+  // The whole deck with its notes, for a host who looks through the slides alone (section 10.8).
+  fastify.get<{ Params: { code: string } }>('/api/host/deck/:code', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const room = manager.get(normalizeCode(req.params.code))
+    if (!room) return bad(reply, 404, 'unknown_session')
+    const deck = room.hostDeck()
+    const checked = HostDeck.safeParse(deck)
+    if (!checked.success) {
+      log.error('deck refused by its schema', { issue: checked.error.issues[0]?.path.join('.') })
+      return bad(reply, 500, 'internal')
+    }
+    reply.header('cache-control', 'no-store')
+    return deck
   })
 
   fastify.get<{ Params: { code: string }; Querystring: { what?: string; format?: string } }>('/api/host/export/:code', async (req, reply) => {

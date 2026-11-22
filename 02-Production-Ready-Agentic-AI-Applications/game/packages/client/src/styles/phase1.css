@@ -83,7 +83,8 @@ button.ibtn { cursor: pointer; }
 @keyframes nudge { 0%, 100% { margin-top: 0; } 50% { margin-top: -3px; } }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
 .newchip { min-height: 30px; padding: 0 10px; background: #fff; color: var(--on); border: 2px solid var(--on); font-weight: 800; font-size: 13px; cursor: pointer; }
-.cards { display: grid; gap: 12px; align-items: start; }
+/* The cards of one row share a height, so the wall reads as tidy rows (section 10.4). */
+.cards { display: grid; gap: 12px; align-items: stretch; }
 /* One card per row on a wide column: the card keeps a line length that reads well. */
 .cards.single { max-width: 980px; margin: 0 auto; }
 .rowseg { display: inline-flex; }
@@ -94,7 +95,8 @@ button.ibtn { cursor: pointer; }
 .rowseg i { display: block; flex: 1; height: 14px; border: 2px solid currentColor; }
 .wall-empty { margin-top: 12px; padding: 12px; border: 3px dashed var(--soft); color: var(--muted); font-size: 15px; font-weight: 700; }
 
-.card { background: var(--panel); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); min-width: 0; cursor: pointer; outline: none; transition: box-shadow .15s; }
+.card { background: var(--panel); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); min-width: 0; cursor: pointer; outline: none; transition: box-shadow .15s; display: flex; flex-direction: column; }
+.card .cbody { flex: 1 1 auto; }
 .card:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .card.fresh { box-shadow: 0 0 0 4px var(--sun), 4px 4px 0 var(--shade); }
 .card.flash { box-shadow: 0 0 0 5px var(--sky), 4px 4px 0 var(--shade); }

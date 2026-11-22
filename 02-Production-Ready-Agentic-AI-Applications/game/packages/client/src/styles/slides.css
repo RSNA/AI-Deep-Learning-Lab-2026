@@ -1,0 +1,154 @@
+/* Slides (engineering spec, section 10.9). Every size is a share of the projector's 1920 px,
+   through --u, one projector pixel. The projector sets --u to 1px inside its scaled stage, a
+   player's screen sets it from the size of the page, and a phone uses a fixed value and stacks
+   the parts. */
+.st-go { --tone: var(--go); --tone-bg: var(--go-bg); }
+.st-sky { --tone: var(--sky); --tone-bg: var(--sky-bg); }
+.st-sun { --tone: var(--sun); --tone-bg: var(--sun-bg); }
+.st-lav { --tone: var(--lav); --tone-bg: var(--lav-bg); }
+.st-rose { --tone: var(--rose); --tone-bg: var(--rose-bg); }
+
+.sl {
+  flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column;
+  gap: calc(26 * var(--u)); padding: calc(40 * var(--u)) calc(88 * var(--u)) calc(28 * var(--u));
+  color: var(--ink);
+}
+.sl-meta {
+  position: absolute; right: calc(48 * var(--u)); top: calc(22 * var(--u)); display: flex; gap: calc(24 * var(--u));
+  font-size: calc(22 * var(--u)); font-weight: 800; color: var(--muted); text-align: right;
+}
+.sl-head { display: flex; flex-direction: column; gap: calc(10 * var(--u)); padding-right: calc(300 * var(--u)); }
+.sl-title { font-family: var(--face); font-weight: 400; font-size: calc(92 * var(--u)); line-height: 1; margin: 0; }
+.sl-sub { font-size: calc(34 * var(--u)); font-weight: 700; color: var(--muted); line-height: 1.25; }
+.sl-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(56 * var(--u)); align-items: start; }
+.sl-main.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.sl-main.with-qr { grid-template-columns: minmax(0, 1fr) auto; }
+.sl-col { display: flex; flex-direction: column; gap: calc(26 * var(--u)); min-width: 0; }
+
+.sl-bullets {
+  margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 0.5em;
+  font-size: calc(42 * var(--u)); font-weight: 600; line-height: 1.25;
+}
+.sl-bullets.small { font-size: calc(34 * var(--u)); gap: 0.35em; }
+
+/* Boxes side by side */
+.sl-cards { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: calc(28 * var(--u)); align-items: stretch; }
+.sl-card {
+  display: flex; flex-direction: column; min-width: 0; background: var(--panel);
+  border: calc(4 * var(--u)) solid var(--line); box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade);
+}
+.sl-card-head {
+  display: flex; align-items: center; gap: calc(14 * var(--u)); padding: calc(10 * var(--u)) calc(18 * var(--u));
+  background: var(--tone); color: var(--on); border-bottom: calc(4 * var(--u)) solid var(--line);
+  font-family: var(--face); font-size: calc(40 * var(--u)); line-height: 1.05; min-height: calc(72 * var(--u));
+}
+.sl-tag {
+  flex-shrink: 0; padding: 0 calc(12 * var(--u)); background: #ffffff; color: #1d2140; border: calc(3 * var(--u)) solid #1d2140;
+  font-size: calc(32 * var(--u)); line-height: 1.25; white-space: nowrap;
+}
+.sl-card-text { padding: calc(16 * var(--u)) calc(20 * var(--u)) calc(20 * var(--u)); font-size: calc(32 * var(--u)); font-weight: 600; line-height: 1.32; }
+/* Beside a number or a chart of the room, the boxes go one under the other. */
+.sl-main.two .sl-cards { grid-template-columns: minmax(0, 1fr); }
+
+/* The people who give the session */
+.sl-people { display: flex; flex-wrap: wrap; gap: calc(26 * var(--u)) calc(22 * var(--u)); }
+.sl-person { width: calc(262 * var(--u)); display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
+.sl-photo {
+  width: calc(220 * var(--u)); height: calc(220 * var(--u)); object-fit: cover; display: flex; align-items: center; justify-content: center;
+  background: var(--tone); color: var(--on); border: calc(4 * var(--u)) solid var(--line);
+  box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade); font-family: var(--face); font-size: calc(96 * var(--u)); line-height: 1;
+}
+.sl-person .nm { margin-top: calc(8 * var(--u)); font-size: calc(28 * var(--u)); font-weight: 800; line-height: 1.15; }
+.sl-person .rl { font-size: calc(22 * var(--u)); font-weight: 700; color: var(--muted); line-height: 1.2; }
+
+/* Pictures, one row each: the picture on the left, its title and caption beside it. A wide
+   picture, such as the head of an article, stays readable this way. */
+.sl-figs { display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+.sl-fig {
+  margin: 0; display: grid; grid-template-columns: calc(610 * var(--u)) minmax(0, 1fr); align-items: stretch; min-width: 0; background: var(--panel);
+  border: calc(4 * var(--u)) solid var(--line); box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade);
+}
+.sl-fig img, .sl-fig .ph { width: 100%; height: calc(178 * var(--u)); border-right: calc(4 * var(--u)) solid var(--line); }
+.sl-fig img { object-fit: cover; object-position: top left; background: #ffffff; display: block; }
+.sl-fig .ph {
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: calc(20 * var(--u));
+  background: var(--tone); color: var(--on); font-family: var(--face); font-size: calc(48 * var(--u)); line-height: 1.05;
+}
+.sl-fig figcaption { padding: calc(12 * var(--u)) calc(26 * var(--u)); display: flex; flex-direction: column; justify-content: center; gap: calc(6 * var(--u)); min-width: 0; }
+.sl-fig .ft { font-size: calc(34 * var(--u)); font-weight: 800; line-height: 1.2; }
+.sl-fig .fc { font-size: calc(26 * var(--u)); font-weight: 700; color: var(--muted); line-height: 1.25; }
+
+/* Lines to read later */
+.sl-refs { margin: 0; padding: 0; list-style: none; counter-reset: ref; display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+.sl-refs li {
+  counter-increment: ref; display: grid; grid-template-columns: calc(52 * var(--u)) minmax(0, 1fr); gap: calc(14 * var(--u)); align-items: start;
+  padding: calc(10 * var(--u)) calc(16 * var(--u)); background: var(--panel); border: calc(3 * var(--u)) solid var(--line);
+  font-size: calc(29 * var(--u)); font-weight: 700; line-height: 1.3;
+}
+.sl-refs li::before { content: counter(ref); font-family: var(--face); font-size: calc(40 * var(--u)); line-height: 1; color: var(--muted); }
+
+/* A QR code with its line */
+.qr { background: #ffffff; border: 6px solid #1d2140; }
+.qr svg { display: block; width: 100%; height: 100%; }
+.sl-qr { display: flex; flex-direction: column; align-items: center; gap: calc(10 * var(--u)); width: calc(400 * var(--u)); }
+.sl-qr .qr { width: calc(380 * var(--u)); height: calc(380 * var(--u)); border-width: calc(6 * var(--u)); }
+.sl-qr .qr.empty {
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: calc(30 * var(--u));
+  border-style: dashed; color: #5c6278; font-size: calc(28 * var(--u)); font-weight: 800;
+}
+.sl-qr .lab { font-family: var(--face); font-size: calc(38 * var(--u)); line-height: 1.05; text-align: center; }
+.sl-qr .sub { font-size: calc(24 * var(--u)); font-weight: 800; color: var(--muted); text-align: center; }
+
+/* The side of a plain slide: a picture, a number or a chart of the room */
+.sl-side { display: flex; flex-direction: column; gap: calc(24 * var(--u)); min-width: 0; }
+.sl-img { width: 100%; max-height: calc(460 * var(--u)); object-fit: contain; border: calc(4 * var(--u)) solid var(--line); background: var(--panel); }
+.sl-stat, .sl-chart {
+  background: var(--panel); border: calc(4 * var(--u)) solid var(--line); box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade);
+  padding: calc(18 * var(--u)) calc(26 * var(--u));
+}
+.sl-stat { font-size: calc(30 * var(--u)); font-weight: 800; }
+.sl-stat .num { font-size: calc(120 * var(--u)); line-height: 1; }
+.sl-chart { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
+.sl-chart .ct { font-size: calc(26 * var(--u)); font-weight: 800; color: var(--muted); }
+.sl-bar { display: grid; grid-template-columns: calc(190 * var(--u)) minmax(0, 1fr) calc(110 * var(--u)); gap: calc(14 * var(--u)); align-items: center; font-size: calc(27 * var(--u)); font-weight: 800; }
+.sl-bar .track { display: block; height: calc(46 * var(--u)); background: var(--inset); border: calc(3 * var(--u)) solid var(--line); }
+.sl-bar .track i { display: block; height: 100%; background: var(--tone); }
+.sl-bar .v { font-size: calc(42 * var(--u)); text-align: right; line-height: 1; }
+
+/* The welcome slide: a larger title */
+.sl.lay-title .sl-title { font-size: calc(118 * var(--u)); }
+.sl.lay-title .sl-sub { font-size: calc(38 * var(--u)); color: var(--ink); }
+.sl.lay-title .sl-head { padding-right: 0; }
+.sl.lay-title .sl-main { align-items: center; }
+.sl.lay-title .sl-main > .sl-col { align-self: start; padding-top: calc(8 * var(--u)); }
+
+/* A phone: one column, a fixed readable size */
+.sl.narrow { --u: 0.5px; padding: 16px; gap: 14px; }
+.sl.narrow .sl-meta { position: static; justify-content: space-between; font-size: 13px; text-align: left; }
+.sl.narrow .sl-head { padding-right: 0; }
+.sl.narrow .sl-title { font-size: clamp(30px, 9vw, 52px); }
+.sl.narrow .sl-main, .sl.narrow .sl-main.two, .sl.narrow .sl-main.with-qr { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.sl.narrow .sl-cards { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.sl.narrow .sl-figs { gap: 12px; }
+.sl.narrow .sl-fig { grid-template-columns: minmax(0, 1fr); }
+.sl.narrow .sl-fig img, .sl.narrow .sl-fig .ph { height: auto; min-height: 64px; border-right: 0; border-bottom: 2px solid var(--line); font-size: 22px; }
+.sl.narrow .sl-bullets { font-size: clamp(17px, 4.6vw, 22px); }
+.sl.narrow .sl-bullets.small, .sl.narrow .sl-card-text { font-size: 16px; }
+.sl.narrow .sl-refs li, .sl.narrow .sl-fig .ft { font-size: 15px; }
+.sl.narrow .sl-fig .fc, .sl.narrow .sl-person .rl { font-size: 13px; }
+.sl.narrow .sl-person .nm { font-size: 15px; }
+.sl.narrow .sl-people { gap: 14px; }
+.sl.narrow .sl-person { width: 140px; }
+.sl.narrow .sl-photo { width: 132px; }
+.sl.narrow .sl-photo { height: 132px; }
+.sl.narrow .sl-qr { width: 100%; }
+.sl.narrow .sl-qr .qr { width: 220px; height: 220px; }
+.sl.narrow .sl-bar { grid-template-columns: 96px minmax(0, 1fr) 56px; font-size: 14px; }
+.sl.narrow .sl-stat, .sl.narrow .sl-sub { font-size: 16px; }
+
+/* A slide mirrored to a player's screen fills the area under the top bar and scrolls if it must. */
+.pslide { flex: 1 1 auto; min-height: 0; display: flex; overflow-y: auto; }
+.pslide-back { align-self: flex-start; flex-shrink: 0; }
+
+/* A small slide on the host console */
+.sl-thumb { overflow: hidden; border: 3px solid var(--line); background: var(--bg); color: var(--ink); flex-shrink: 0; pointer-events: none; }

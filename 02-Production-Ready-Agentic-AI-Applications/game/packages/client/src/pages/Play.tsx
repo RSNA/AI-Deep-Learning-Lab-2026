@@ -1,14 +1,17 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { COLUMNS, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
+import { api } from '../lib/net.ts'
 import { usePlayer, forgetPlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
-import { setTheme, useTheme } from '../lib/theme.ts'
+import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
-import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
+import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
 import { NewGame, PastGameCard } from '../components/after.tsx'
+import { Sizable, useHeight } from '../components/sizable.tsx'
+import { SLIDE_H, SLIDE_W, SlideBody } from '../components/slide.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
 
@@ -81,31 +84,34 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
       <div className="right">
         {rankBtn}
         {!narrow && <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />}
+        <ThemeButton />
         <button className="iconbtn" onClick={onMenu} aria-label={COPY.menu}>☰</button>
       </div>
     </header>
   )
 }
 
-function MenuSheet({ onClose, onBrief }: { onClose: () => void; onBrief: () => void }) {
+function MenuSheet({ onClose, onBrief, onResult, onLeave }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onLeave: () => void }) {
   const view = usePlayer((s) => s.view)!
-  const theme = useTheme()
   const brief = view.inbox.find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
-      {brief && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start', whiteSpace: 'normal', textAlign: 'left', height: 'auto', minHeight: 36, padding: '4px 10px' }} onClick={onBrief}>{COPY.letterAgain}: {brief.title}</button>}
+      {(brief || onResult) && (
+        <div className="menulist">
+          {brief && <button type="button" className="btn small text" onClick={onBrief}><span>{COPY.letterAgain}</span><span className="muted">{brief.title}</span></button>}
+          {onResult && <button type="button" className="btn small text" onClick={onResult}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</span><span className="muted">{COPY.lookAgainLine}</span></button>}
+        </div>
+      )}
       <div className="eyebrow">{COPY.rejoinCode}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className="codebox" style={{ fontSize: 36 }}>{view.me.rejoinCode}</span>
         <span className="hint" style={{ maxWidth: 260 }}>{COPY.keepCode}</span>
       </div>
-      <div className="eyebrow">{COPY.theme}</div>
-      <div className="seg" role="group" aria-label={COPY.theme}>
-        <button aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>{COPY.light}</button>
-        <button aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>{COPY.dark}</button>
-      </div>
       <div className="eyebrow">{COPY.howToPlay}</div>
       <HowToPlay compact />
+      <div className="menulist">
+        <button type="button" className="btn small text" onClick={onLeave}><span>{COPY.newPlayer}</span><span className="muted">{COPY.newPlayerLine}</span></button>
+      </div>
     </Sheet>
   )
 }
@@ -193,18 +199,31 @@ function HowToPlay({ compact = false }: { compact?: boolean }) {
   )
 }
 
+/** Who the player is in this game: the health system and the premise, in the pack's words. */
+function WhoPanel({ w }: { w: Welcome }) {
+  const sys = w.system
+  return (
+    <section className="panel">
+      <div className="panel-head sky">{COPY.whoYouAre}</div>
+      <div className="panel-body">
+        <div>
+          <div style={{ fontSize: 19, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2 }}><SystemShape index={sys.index} size={16} />{sys.name}</div>
+          <div className="muted" style={{ fontSize: 14 }}>{sys.setting}</div>
+        </div>
+        <p style={{ fontSize: 15, lineHeight: 1.45 }}>{sys.premise}</p>
+      </div>
+    </section>
+  )
+}
+
+/** The numbers of the practice, and nothing else. */
 function SystemPanel({ w }: { w: Welcome }) {
   const sys = w.system
   return (
     <section className="panel">
-      <div className="panel-head sky">{COPY.yourSystem}</div>
+      <div className="panel-head sky">{COPY.yourSystem}<span className="sub">{sys.name}</span></div>
       <div className="panel-body">
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}><SystemShape index={sys.index} size={16} />{sys.name}</div>
-          <div className="muted" style={{ fontSize: 14 }}>{sys.setting}</div>
-        </div>
-        <p style={{ fontSize: 15, lineHeight: 1.45 }}>{sys.premise}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+        <div className="sysnumbers">
           <div>
             <div className="eyebrow">{COPY.yourPractice}</div>
             {sys.practiceProfile.map((r) => <div key={r.label} className="kv"><span style={{ fontSize: 14 }}>{r.label}</span><span className="v">{r.value}</span></div>)}
@@ -223,12 +242,13 @@ function CastPanel({ w, onPoke }: { w: Welcome; onPoke?: (id: string) => void })
   return (
     <section className="panel">
       <div className="panel-head sun">{COPY.people}</div>
+      <div className="cast-hint">{COPY.peopleHint}</div>
       <div className="panel-body cast-list">
         {w.system.cast.map((c, i) => (
           <button key={c.id} type="button" className="cast-row" onClick={() => onPoke?.(c.id)} aria-label={`${c.name}, ${c.role}. ${COPY.sayHello}`}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Portrait c={c} cast={w.system.cast} index={i} size={60} />
-              <span><span style={{ display: 'block', fontSize: 16, fontWeight: 800 }}>{c.name}</span><span className="muted" style={{ fontSize: 14 }}>{c.role}</span></span>
+              <Portrait c={c} cast={w.system.cast} index={i} size={52} />
+              <span><span style={{ display: 'block', fontSize: 16, fontWeight: 800, lineHeight: 1.2 }}>{c.name}</span><span className="muted" style={{ fontSize: 14 }}>{c.role}</span></span>
             </span>
           </button>
         ))}
@@ -237,31 +257,38 @@ function CastPanel({ w, onPoke }: { w: Welcome; onPoke?: (id: string) => void })
   )
 }
 
-/** The practice scene. With `fit`, a room taller than the space left under it in the window is
- * cropped a little at top and bottom, so a player who arrives sees all of it without a scroll. */
-function RoomPanel({ w, title, maxHeight = 600, poke = null, fit = false }: { w: Welcome; title?: string; maxHeight?: number; poke?: { id: string; n: number } | null; fit?: boolean }) {
-  const view = usePlayer((s) => s.view)!
-  const theme = useTheme()
-  const box = useRef<HTMLDivElement>(null)
-  const [crop, setCrop] = useState<number | undefined>(undefined)
-  useLayoutEffect(() => {
-    if (!fit) return
-    const on = () => {
-      const el = box.current
-      if (!el) return
-      const top = el.getBoundingClientRect().top + window.scrollY
-      setCrop(Math.max(360, Math.floor(window.innerHeight - top - 14)))
-    }
-    on()
+/** The lowest the scene goes: the band with the table and the people at twice its size, so nobody turns tiny. */
+const ROOM_MIN = 192
+
+function useWindowHeight(): number {
+  const [h, setH] = useState(() => window.innerHeight)
+  useEffect(() => {
+    const on = () => setH(window.innerHeight)
     window.addEventListener('resize', on)
     return () => window.removeEventListener('resize', on)
-  }, [fit])
+  }, [])
+  return h
+}
+
+/**
+ * The practice scene (section 10.2). The player drags its bottom edge: a lower scene first loses
+ * wall and floor and keeps the people, then steps down in size. The default leaves the numbers
+ * of the practice in sight under it. `sizable` is off where the scene is only decoration.
+ */
+function RoomPanel({ w, title, poke = null, sizable = true, phone = false }: { w: Welcome; title?: string; poke?: { id: string; n: number } | null; sizable?: boolean; phone?: boolean }) {
+  const view = usePlayer((s) => s.view)!
+  const theme = useTheme()
+  const winH = useWindowHeight()
+  const [height, setHeight] = useHeight(`lab02.roomh.${phone ? 'phone' : 'laptop'}`, phone ? 240 : Math.round(Math.max(240, Math.min(460, winH * 0.42))))
+  const room = (h: number) => (
+    <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} cropHeight={h} focusY={96} poke={poke} />
+  )
   return (
-    <section className="panel">
+    <section className="panel roompanel">
       <div className="panel-head lav">{title ?? COPY.yourPractice}<span className="sub">{COPY.sceneHint}</span></div>
-      <div ref={box}>
-        <Room art={w.art} cast={w.system.cast} banter={w.system.banter} me={{ avatar: view.me.avatar }} theme={theme} maxHeight={maxHeight} cropHeight={crop} focusY={96} poke={poke} />
-      </div>
+      {sizable
+        ? <Sizable height={height} setHeight={setHeight} min={ROOM_MIN} max={Math.max(200, Math.round(winH * 0.8))} label={COPY.dragRoom}>{room}</Sizable>
+        : room(360)}
     </section>
   )
 }
@@ -269,6 +296,7 @@ function RoomPanel({ w, title, maxHeight = 600, poke = null, fit = false }: { w:
 function Lobby({ w }: { w: Welcome }) {
   const view = usePlayer((s) => s.view)!
   const narrow = useNarrow(1024)
+  const wide = !useNarrow(1240)
   const short = useShort(820)
   const [poke, setPoke] = useState<{ id: string; n: number } | null>(null)
   const onPoke = (id: string) => setPoke((p) => ({ id, n: (p?.n ?? 0) + 1 }))
@@ -278,31 +306,30 @@ function Lobby({ w }: { w: Welcome }) {
       <div className="panel-body"><HowToPlay /></div>
     </section>
   )
+  const who = <WhoPanel w={w} />
+  const people = <CastPanel w={w} onPoke={onPoke} />
+  const room = <RoomPanel w={w} title={COPY.practiceOf(w.system.name)} poke={poke} phone={narrow} />
+  const numbers = <SystemPanel w={w} />
   return (
     <>
-      <TownStrip height={narrow ? 120 : short ? 96 : 160}>
-        <div className="bubble" style={{ position: 'absolute', left: '50%', top: 14, transform: 'translateX(-50%)', width: 'min(320px, 86vw)' }}>
+      <TownStrip height={narrow ? 96 : short ? 72 : 112}>
+        <div className="bubble" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', width: 'min(320px, 86vw)' }}>
           <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.introWait : COPY.waitingHost}
         </div>
       </TownStrip>
       {narrow ? (
-        <main className="lobby narrow">
-          <SystemPanel w={w} />
-          <RoomPanel w={w} title={COPY.practiceOf(w.system.name)} maxHeight={360} poke={poke} />
-          <CastPanel w={w} onPoke={onPoke} />
-          {howTo}
+        <main className="lobby narrow">{who}{room}{people}{numbers}{howTo}</main>
+      ) : wide ? (
+        // Who you are and how to play, the practice with its numbers under it, the people (section 10.2).
+        <main className="lobby three">
+          <div className="lobby-col">{who}{howTo}</div>
+          <div className="lobby-col">{room}{numbers}</div>
+          <div className="lobby-col">{people}</div>
         </main>
       ) : (
         <main className="lobby">
-          <div className="lobby-left">
-            {howTo}
-            <CastPanel w={w} onPoke={onPoke} />
-          </div>
-          {/* The scene first, so that a player who arrives sees the living room without a scroll (section 10.2). */}
-          <div className="lobby-right">
-            <RoomPanel w={w} title={COPY.practiceOf(w.system.name)} poke={poke} fit />
-            <SystemPanel w={w} />
-          </div>
+          <div className="lobby-col">{who}{howTo}{people}</div>
+          <div className="lobby-col">{room}{numbers}</div>
         </main>
       )}
     </>
@@ -325,7 +352,7 @@ function PhaseStub({ w, phase }: { w: Welcome; phase: PhaseId }) {
           <Countdown clock={clock} big />
         </div>
       </section>
-      <RoomPanel w={w} />
+      <RoomPanel w={w} sizable={false} />
     </main>
   )
 }
@@ -349,7 +376,7 @@ function Results({ w, phase, note }: { w: Welcome; phase: PhaseId | null; note: 
           <p className="muted">{note}</p>
         </div>
       </section>
-      <RoomPanel w={w} />
+      <RoomPanel w={w} sizable={false} />
     </main>
   )
 }
@@ -372,7 +399,7 @@ function PointsTable() {
  * more commands. Its page keeps the player's result, lets them look at a scored phase again and
  * leads to the next game as soon as the host opens one.
  */
-function Winners({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => void }) {
+function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: string) => void; onLeave: () => void }) {
   const st = usePlayer((s) => s.standing)
   const view = usePlayer((s) => s.view)!
   const [look, setLook] = useState(false)
@@ -398,6 +425,12 @@ function Winners({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => vo
         </div>
       </section>
       {ended && <NewGame after={w.session.code} onJoin={onNewGame} />}
+      {ended && (
+        <div className="leaverow">
+          <button type="button" className="btn small text" onClick={onLeave}>{COPY.leaveEnded}</button>
+          <span className="hint">{COPY.leaveEndedLine}</span>
+        </div>
+      )}
     </main>
   )
 }
@@ -424,10 +457,10 @@ function Gone({ session, go }: { session: string; go: (path: string) => void }) 
 }
 
 /** The slide the host mirrors to every screen. It follows the host; at a reveal the player can step back to the board. */
-function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
+function MirroredSlide({ w, onBack }: { w: Welcome; onBack: (() => void) | null }) {
   const sl = usePlayer((s) => s.view!.slide)!
-  // The slide fills the area under the top bar, like the slide on the projector, and its type
-  // grows with the screen (section 10.9): every size is a share of the projector's 1920 x 1080.
+  // The slide fills the area under the top bar, like the slide area of the projector, and every
+  // size in it is a share of that area (section 10.9). A phone stacks the parts instead.
   const box = useRef<HTMLElement>(null)
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   useLayoutEffect(() => {
@@ -438,29 +471,19 @@ function MirroredSlide({ onBack }: { onBack: (() => void) | null }) {
     setSize({ w: el.clientWidth, h: el.clientHeight })
     return () => ro.disconnect()
   }, [])
-  const narrow = !!size && size.w < 700
-  const u = size ? Math.min(size.w / 1920, size.h / 1080) : 0.5
+  const narrow = !!size && size.w < 760
+  const u = size ? Math.min(size.w / SLIDE_W, size.h / SLIDE_H) : 0.5
   return (
-    <main ref={box} className={`pslide${narrow ? ' narrow' : ''}`} aria-label={COPY.presenting} style={{ '--u': `${u}px` } as React.CSSProperties}>
-      <div className="pslide-in">
-        <div className="pslide-meta"><span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span><span>{COPY.presenting}</span></div>
-        <h1 className="face">{sl.title}</h1>
-        <div className={sl.image || sl.stat ? 'pslide-grid' : 'pslide-one'}>
-          <ul>{sl.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
-          {(sl.image || sl.stat) && (
-            <div className="pslide-side">
-              {sl.image && <img className="px" src={sl.image} alt="" />}
-              {sl.stat && <div className="pstat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
-            </div>
-          )}
-        </div>
+    <main ref={box} className="pslide" aria-label={COPY.presenting} style={narrow ? undefined : ({ '--u': `${u}px` } as CSSProperties)}>
+      <SlideBody sl={sl} joinUrl={w.session.joinUrl} narrow={narrow}
+        meta={<><span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span><span>{COPY.presenting}</span></>}>
         {onBack && <button type="button" className="btn go pslide-back" onClick={onBack}>{COPY.backToBoard}</button>}
-      </div>
+      </SlideBody>
     </main>
   )
 }
 
-function StageBody({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => void }) {
+function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: string) => void; onLeave: () => void }) {
   const view = usePlayer((s) => s.view)!
   const [hidden, setHidden] = useState(false)
   const st = view.stage
@@ -469,10 +492,10 @@ function StageBody({ w, onNewGame }: { w: Welcome; onNewGame: (code: string) => 
   const mirrored = !!view.slide
   useEffect(() => { if (!mirrored) setHidden(false) }, [mirrored])
   const canLeave = st.endsWith('.reveal') || st.startsWith('break.')
-  if (view.slide && !(hidden && canLeave)) return <MirroredSlide onBack={canLeave ? () => setHidden(true) : null} />
+  if (view.slide && !(hidden && canLeave)) return <MirroredSlide w={w} onBack={canLeave ? () => setHidden(true) : null} />
   const onSlides = view.slide ? () => setHidden(false) : null
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
-  if (st === 'winners' || st === 'closed') return <Winners w={w} onNewGame={onNewGame} />
+  if (st === 'winners' || st === 'closed') return <Winners w={w} onNewGame={onNewGame} onLeave={onLeave} />
   const phase = phaseOfStage(st)
   if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning key={view.run} w={w} onSlides={onSlides} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
@@ -490,6 +513,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const [menu, setMenu] = useState(false)
   const [standings, setStandings] = useState(false)
   const [brief, setBrief] = useState(false)
+  const [look, setLook] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
   useWakeLock()
 
@@ -503,7 +528,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   // A notice when the host starts a phase or the game again. It goes by itself.
   useEffect(() => {
     if (!restarted) return
-    setMenu(false); setStandings(false); setBrief(false)
+    setMenu(false); setStandings(false); setBrief(false); setLook(false)
     const id = setTimeout(clearRestarted, 9000)
     return () => clearTimeout(id)
   }, [restarted, clearRestarted])
@@ -529,6 +554,22 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   if (!welcome || !view) return <div className="banner">{COPY.reconnecting}</div>
 
   const fill = view.stage === 'planning.play' && !!view.planning
+  // Starting fresh in this browser (section 10.7): the browser lets go of this practice and
+  // keeps what it remembers of the game. It leads to the game that takes players now: the
+  // same one while it is open, else the newest open one, else the page that asks for a code.
+  const startFresh = async () => {
+    const here = view.stage === 'closed' ? null : auth.session
+    const open = here ? null : await api.open()
+    const to = here ?? (open?.ok ? open.data.session?.code ?? null : null)
+    forgetPlayer()
+    stop()
+    go(to ? `/j/${to}` : '/')
+  }
+  // A scored phase can be opened again from the menu, in any later stage (section 10.7). The
+  // stages that already show the result do not offer it.
+  const onResult = ['planning.play', 'planning.reveal', 'break.planning', 'closed'].includes(view.stage)
+  const canLook = !!view.planning?.reveal && !onResult
+  const looking = look && canLook && !view.slide
   return (
     <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
@@ -539,7 +580,12 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button type="button" className="btn small" onClick={clearRestarted} aria-label={COPY.close}>✕</button>
         </div>
       )}
-      <StageBody w={welcome} onNewGame={(code) => { stop(); go(`/j/${code}`) }} />
+      {looking ? (
+        <>
+          <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(false)}>← {COPY.backToGame}</button></div>
+          <Planning w={welcome} />
+        </>
+      ) : <StageBody w={welcome} onNewGame={(code) => { stop(); go(`/j/${code}`) }} onLeave={() => void startFresh()} />}
       {!codeSeen && (
         <Sheet title={`${COPY.youAreIn} ${welcome.system.name}`} head="sun">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -552,8 +598,22 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button className="btn go big" autoFocus onClick={() => { store.setFlag(`seen-code-${view.me.id}`); setCodeSeen(true) }}>{COPY.gotIt}</button>
         </Sheet>
       )}
-      {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} />}
+      {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook(true) } : null}
+        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else setLeaving(true) }} />}
       {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} again />}
+      {leaving && (
+        <Sheet title={COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
+          <p>{COPY.newPlayerText(view.me.name)}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span className="codebox" style={{ fontSize: 32 }}>{view.me.rejoinCode}</span>
+            <span className="hint" style={{ maxWidth: 300 }}>{COPY.newPlayerCode}</span>
+          </div>
+          <div className="sheet-actions">
+            <button type="button" className="btn sun" onClick={() => void startFresh()}>{COPY.newPlayerGo}</button>
+            <button type="button" className="btn" onClick={() => setLeaving(false)}>{COPY.stay}</button>
+          </div>
+        </Sheet>
+      )}
       {standings && <StandingsSheet w={welcome} onClose={() => setStandings(false)} />}
     </div>
   )

@@ -94,7 +94,7 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   const next = page.getByRole('button', { name: /^Next:/ })
   await next.click()
   // Following the game, the intro opens the deck at its section, on the projector and on every player's screen.
-  await expect(screen.getByText('You run a branch library')).toBeVisible()
+  await expect(screen.getByText('The branch library game')).toBeVisible()
   await expect(pp.getByText('The host is presenting.')).toBeVisible()
   // The slide fills the player's screen under the top bar (section 10.9).
   const vh = pp.viewportSize()!.height

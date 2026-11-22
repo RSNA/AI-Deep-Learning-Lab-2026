@@ -354,10 +354,28 @@ function checkReferences(
     if (deck.sections.findIndex((x) => x.stage === sec.stage) !== i) err('teaching/deck.yaml', `sections[${i}].stage`, `two sections open at "${sec.stage}"`)
     sec.slides.forEach((sl, j) => {
       unique(sl.id, 'teaching/deck.yaml', `sections[${i}].slides[${j}].id`)
-      if (sl.image !== undefined && !/^[a-z0-9_/-]+\.(png|webp)$/.test(sl.image)) err('teaching/deck.yaml', `sections[${i}].slides[${j}].image`, 'an image is a path under art/, ending in .png or .webp')
-      else if (sl.image !== undefined && !artFiles.includes(sl.image)) err('teaching/deck.yaml', `sections[${i}].slides[${j}].image`, `art/${sl.image} does not exist`)
-      words(sl.title, 'slide_title', 'teaching/deck.yaml', `sections[${i}].slides[${j}].title`)
-      sl.bullets.forEach((b, k) => words(b, 'slide_bullet', 'teaching/deck.yaml', `sections[${i}].slides[${j}].bullets[${k}]`))
+      const at = `sections[${i}].slides[${j}]`
+      // Every picture of a slide is a file under art/, which is public by definition.
+      const picture = (path: string | undefined, where: string) => {
+        if (path === undefined) return
+        if (!/^[a-z0-9_/-]+\.(png|webp)$/.test(path)) err('teaching/deck.yaml', where, 'an image is a path under art/, ending in .png or .webp')
+        else if (!artFiles.includes(path)) err('teaching/deck.yaml', where, `art/${path} does not exist`)
+      }
+      picture(sl.image, `${at}.image`)
+      sl.people?.forEach((p, k) => picture(p.photo, `${at}.people[${k}].photo`))
+      sl.figures?.forEach((f, k) => picture(f.image, `${at}.figures[${k}].image`))
+      const layout = sl.layout ?? 'bullets'
+      if (layout === 'cards' && !sl.cards?.length) err('teaching/deck.yaml', `${at}.cards`, 'a slide with the layout "cards" needs cards')
+      if (layout === 'figures' && !sl.figures?.length) err('teaching/deck.yaml', `${at}.figures`, 'a slide with the layout "figures" needs figures')
+      if (sl.qr?.show === 'join' && sl.qr.url !== undefined) err('teaching/deck.yaml', `${at}.qr.url`, 'the join code takes its link from the session')
+      words(sl.title, 'slide_title', 'teaching/deck.yaml', `${at}.title`)
+      if (sl.subtitle !== undefined) words(sl.subtitle, 'slide_bullet', 'teaching/deck.yaml', `${at}.subtitle`)
+      sl.bullets.forEach((b, k) => words(b, 'slide_bullet', 'teaching/deck.yaml', `${at}.bullets[${k}]`))
+      sl.cards?.forEach((c, k) => {
+        words(c.title, 'slide_title', 'teaching/deck.yaml', `${at}.cards[${k}].title`)
+        if (c.text !== undefined) words(c.text, 'slide_card', 'teaching/deck.yaml', `${at}.cards[${k}].text`)
+      })
+      sl.figures?.forEach((f, k) => { if (f.caption !== undefined) words(f.caption, 'slide_card', 'teaching/deck.yaml', `${at}.figures[${k}].caption`) })
     })
   })
   reportCard?.sections.forEach((s, i) => unique(s.id, 'teaching/report-card.yaml', `sections[${i}].id`))

@@ -2,7 +2,7 @@
 // receive these.
 import { z } from 'zod'
 import { AvatarId, ErrorCode, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
-import { Board, Clock, PlayerView, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
+import { Board, Clock, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Int = z.number().int()
@@ -29,7 +29,8 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('spotlight'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('spectate'), payload: S({ playerId: z.string().nullable() }) }),
   S({ type: z.literal('set_scale'), payload: S({ scale: z.number().positive().max(100) }) }),
-  S({ type: z.literal('take_control'), payload: S({}) }),
+  // A console takes charge. The passcode is asked again when another console holds control.
+  S({ type: z.literal('take_control'), payload: S({ passcode: z.string().max(200).optional() }) }),
 ])
 export type HostCommand = z.infer<typeof HostCommand>
 
@@ -95,7 +96,38 @@ export type HostView = z.infer<typeof HostView>
 export const HostWelcome = S({ t: z.literal('welcome'), protocol: Int, build: z.string(), role: z.literal('host'), view: HostView })
 export const HostViewMsg = S({ t: z.literal('host_view'), view: HostView })
 export const HostAck = S({ t: z.literal('ack'), cid: z.string(), ok: z.boolean(), error: ErrorCode.optional(), data: z.unknown().optional() })
-export const SpectateMsg = S({ t: z.literal('spectate'), playerId: z.string(), view: PlayerView.nullable() })
+/**
+ * One player as a host sees them (section 10.8): what they did in each phase so far, beside the
+ * key. Only a host socket receives this, in any stage, so a host can help a player who is stuck.
+ */
+export const HostInspect = S({
+  id: z.string(), name: Text, avatar: AvatarId, system: z.string(), connected: z.boolean(),
+  points: S({ planning: Int.nullable(), development: Int.nullable(), maintaining: Int.nullable(), total: Int }),
+  planning: S({
+    status: z.enum(['playing', 'submitted', 'closed']),
+    insights: Int, investigations: Int,       // insights in hand, of how many
+    running: z.array(Text),                   // titles of what runs now
+    done: z.array(Text),                      // titles of the investigations that are done
+    classes: z.array(S({ id: z.string(), label: Text, short: Text, capacity: Int })),   // in class_order
+    problems: z.array(S({
+      id: z.string(), title: Text,
+      picked: z.string().nullable(),          // the player's class now, or as sent
+      mark: z.enum(['right', 'near', 'wrong', 'unsorted']),
+      truth: z.string(), tier: Rung.nullable(), flagship: z.boolean(), rationale: Text,
+      points: z.number().nullable(),          // once the phase is scored
+    })),
+    classify: z.number().nullable(), flagship: z.number().nullable(),
+  }).nullable(),
+})
+export type HostInspect = z.infer<typeof HostInspect>
+
+export const SpectateMsg = S({ t: z.literal('spectate'), playerId: z.string(), view: HostInspect.nullable() })
+
+/** Every slide of the deck with its notes, for a host who looks through it alone (section 10.8). */
+export const HostDeck = S({
+  slides: z.array(S({ slide: SlideView, notes: Text.nullable(), placeholder: z.boolean(), section: z.string() })),
+})
+export type HostDeck = z.infer<typeof HostDeck>
 
 /** Control of the session moved from one console to another. */
 export const ControlMsg = S({ t: z.literal('control'), from: Text.nullable(), to: Text })

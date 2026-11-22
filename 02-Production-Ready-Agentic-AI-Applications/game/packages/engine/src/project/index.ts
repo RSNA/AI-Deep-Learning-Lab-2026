@@ -7,11 +7,11 @@ import type {
   PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo, SlideView, Standing, StageId,
   SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
-import type { HostPlayerRow, HostView } from '@lab02/protocol/host'
+import type { HostDeck, HostInspect, HostPlayerRow, HostView } from '@lab02/protocol/host'
 import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
-import { bandwidthFree } from '../phases/planning.ts'
+import { bandwidthFree, markOf } from '../phases/planning.ts'
 import { deckSlides } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
 import type { GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
@@ -268,28 +268,82 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
 // ------------------------------------------------------------------------------------------
 // Slides
 // ------------------------------------------------------------------------------------------
+/** The players whose Phase 1 is scored. */
+function planningDone(s: SessionState): PlayerState[] {
+  if (!s.closedPhases.includes('planning')) return []
+  return s.order.map((id) => s.players[id]!).filter((p) => !p.removed && p.acted.planning && p.planning?.result)
+}
+
 /**
- * A room statistic that a slide shows live (`live_stat`, section 6.10). Step 11 fixes their
- * shapes. Until then the share of the room that found the agent project is drawn, and the
- * others show nothing.
+ * A room statistic that a slide shows live (`live_stat`, section 6.10). Two are drawn so far:
+ * the share of the room that found the agent project, as one number, and how well the room
+ * placed the problems of each class, as bars. The others show nothing until Step 11.
  */
-function liveStat(s: SessionState, pack: Pack, name: string): SlideView['stat'] {
-  if (name !== 'flagship_hit_rate' || !s.closedPhases.includes('planning')) return null
-  const done = s.order.map((id) => s.players[id]!).filter((p) => !p.removed && p.acted.planning && p.planning?.result)
+function liveStat(s: SessionState, name: string): SlideView['stat'] {
+  if (name !== 'flagship_hit_rate') return null
+  const done = planningDone(s)
   if (!done.length) return null
   const hits = done.filter((p) => (p.planning!.result!.flagship ?? 0) > 0).length
   return { label: 'of the room found the agent project', value: `${Math.round((100 * hits) / done.length)}%` }
 }
 
+const CLASS_TONES = ['lav', 'sky', 'sun', 'go'] as const
+
+/** Per class, in the order of the ladder from the top: the share of its problems the room placed right. */
+function liveChart(s: SessionState, pack: Pack, name: string): SlideView['chart'] {
+  if (name !== 'sorting_by_class') return null
+  const done = planningDone(s)
+  if (!done.length) return null
+  const rules = pack.game.phases.planning
+  const bars = rules.class_order.map((cid, i) => {
+    const c = rules.classes.find((x) => x.id === cid)!
+    let right = 0
+    let all = 0
+    for (const p of done) {
+      const keys = pack.systems[p.system]!.problems ?? []
+      for (const g of p.planning!.result!.graded) {
+        if (keys.find((k) => k.id === g.problem)?.key.class !== cid) continue
+        all++
+        if (g.picked === cid) right++
+      }
+    }
+    return { label: c.short, value: all ? Math.round((100 * right) / all) : 0, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]! }
+  }).reverse()
+  return { title: 'Placed in the right class, by the room', bars }
+}
+
+const SLIDE_TONES = ['sky', 'sun', 'go', 'lav', 'rose'] as const
+
 export function slideView(s: SessionState, pack: Pack, index: number): SlideView | null {
   const all = deckSlides(pack)
   const x = all[Math.max(0, Math.min(all.length - 1, index))]
   if (!x) return null
+  const sl = x.slide
+  const art = packArt(pack).base
   return {
-    id: x.slide.id, index: x.index, count: all.length,
-    section: x.section.title, title: x.slide.title, bullets: [...x.slide.bullets],
-    image: x.slide.image ? `${packArt(pack).base}${x.slide.image}` : null,
-    stat: x.slide.live_stat ? liveStat(s, pack, x.slide.live_stat) : null,
+    id: sl.id, index: x.index, count: all.length,
+    section: x.section.title,
+    layout: sl.layout ?? 'bullets',
+    title: sl.title,
+    subtitle: sl.subtitle ?? null,
+    bullets: [...sl.bullets],
+    cards: (sl.cards ?? []).map((c, i) => ({ title: c.title, text: c.text ?? null, tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
+    people: (sl.people ?? []).map((p) => ({ name: p.name, role: p.role ?? null, photo: p.photo ? `${art}${p.photo}` : null })),
+    figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
+    qr: sl.qr ? { show: sl.qr.show, url: sl.qr.show === 'link' ? sl.qr.url ?? null : null, label: sl.qr.label ?? null } : null,
+    references: [...(sl.references ?? [])],
+    image: sl.image ? `${art}${sl.image}` : null,
+    stat: sl.live_stat ? liveStat(s, sl.live_stat) : null,
+    chart: sl.live_stat ? liveChart(s, pack, sl.live_stat) : null,
+  }
+}
+
+/** Every slide with its notes, for a host who looks through the deck alone. Never for a player. */
+export function hostDeck(s: SessionState, pack: Pack): HostDeck {
+  return {
+    slides: deckSlides(pack).map((x) => ({
+      slide: slideView(s, pack, x.index)!, notes: x.slide.notes ?? null, placeholder: !!x.slide.placeholder, section: x.section.id,
+    })),
   }
 }
 
@@ -517,6 +571,54 @@ function playerStatus(s: SessionState, p: PlayerState): string {
     return `${st.done.length} insights · ${st.running.length} running · ${Object.keys(st.picks).length} sorted${sent}`
   }
   return ph === 'development' ? 'Designing' : 'Running the year'
+}
+
+/**
+ * One player beside the key, for a host (section 10.8). The classes of the player are those held
+ * now, or those sent. The key is on it in every stage, so it never goes to a player or a screen.
+ */
+export function hostInspect(s: SessionState, pack: Pack, playerId: PlayerId, connected: boolean): HostInspect | null {
+  const p = s.players[playerId]
+  if (!p) return null
+  const sp = pack.systems[p.system]!
+  const rules = pack.game.phases.planning
+  const st = p.planning
+  let planning: HostInspect['planning'] = null
+  if (st) {
+    const title = (id: string) => sp.insights?.find((x) => x.id === id)?.public.title ?? id
+    const graded = new Map((st.result?.graded ?? []).map((g) => [g.problem, g]))
+    planning = {
+      status: s.closedPhases.includes('planning') ? 'closed' : st.submittedAtMs !== null ? 'submitted' : 'playing',
+      insights: st.done.length,
+      investigations: sp.insights?.length ?? 0,
+      running: st.running.map((r) => title(r.id)),
+      done: st.done.map((d) => title(d.id)),
+      classes: rules.class_order.map((id) => {
+        const c = rules.classes.find((x) => x.id === id)!
+        return { id: c.id, label: c.label, short: c.short, capacity: c.capacity }
+      }),
+      problems: (sp.problems ?? []).map((x) => {
+        const g = graded.get(x.id)
+        const picked = g ? g.picked : st.picks[x.id] ?? null
+        return {
+          id: x.id, title: x.public.title,
+          picked, mark: markOf(picked, x.key.class, rules),
+          truth: x.key.class, tier: x.key.tier, flagship: x.key.flagship, rationale: x.key.rationale,
+          points: g ? g.points : null,
+        }
+      }),
+      classify: st.result?.classify ?? null,
+      flagship: st.result?.flagship ?? null,
+    }
+  }
+  return {
+    id: p.id, name: p.name, avatar: p.avatar, system: p.system, connected,
+    points: {
+      planning: p.results.planning?.points ?? null, development: p.results.development?.points ?? null,
+      maintaining: p.results.maintaining?.points ?? null, total: overallPoints(s, p),
+    },
+    planning,
+  }
 }
 
 export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {

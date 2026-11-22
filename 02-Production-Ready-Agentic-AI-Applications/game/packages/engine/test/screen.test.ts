@@ -142,6 +142,83 @@ describe('the screen by stage', () => {
   })
 })
 
+describe('a slide as a browser gets it', () => {
+  const at = (id: string) => flat.findIndex((f) => f.slide.id === id)
+  it('carries its layout and its parts, with a color for every box and the photo as a URL', () => {
+    const s = newSession()
+    const title = project.slideView(s, pack, at('welcome-1'))!
+    expect(title).toMatchObject({ layout: 'title', subtitle: 'A sample session with two library networks', bullets: [], cards: [], references: [] })
+    expect(title.people).toEqual([{ name: 'Ada Brook', role: 'Moderator', photo: null }, { name: 'Noor Vale', role: 'Presenter', photo: null }])
+    // The join link is the session's own: the slide only says that it wants it.
+    expect(title.qr).toEqual({ show: 'join', url: null, label: 'Join with your phone' })
+    const cards = project.slideView(s, pack, at('welcome-2'))!
+    expect(cards.layout).toBe('cards')
+    expect(cards.cards.map((c) => c.tag)).toEqual(['1', '2', '3'])
+    expect(new Set(cards.cards.map((c) => c.tone)).size).toBe(3)
+    // A plain slide of the pack has the default layout and no part it did not ask for.
+    expect(project.slideView(s, pack, at('planning-1'))).toMatchObject({ layout: 'bullets', subtitle: null, qr: null, people: [], figures: [], chart: null })
+    const closing = project.slideView(s, pack, at('closing-2'))!
+    expect(closing.qr).toEqual({ show: 'link', url: null, label: 'Tell us how it went' })
+    expect(closing.references.length).toBe(2)
+    expect(project.slideView(s, pack, at('closing-1'))!.figures.map((f) => f.image)).toEqual([null, null])
+  })
+
+  it('draws how the room sorted each class once Phase 1 is scored, from the top of the ladder down', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    join(s, 'p2', 'Beta Works', 1)
+    host(s, 'next', {}, 500)
+    host(s, 'next', {}, 1000)
+    const i = at('planning-2')
+    expect(project.slideView(s, pack, i)!.chart).toBeNull()
+    // One practice puts every problem in its true class, the other sorts nothing.
+    const keys = pack.systems[s.players.p1!.system]!.problems!
+    const picks = Object.fromEntries(keys.map((k) => [k.id, k.key.class]))
+    expect(run(s, { actor: 'player', playerId: 'p1', type: 'planning.set_report', payload: { picks } }, 1500).ok).toBe(true)
+    const other = pack.systems[s.players.p2!.system]!.problems![0]!
+    const wrong = pack.game.phases.planning.class_order.find((c) => c !== other.key.class)!
+    expect(run(s, { actor: 'player', playerId: 'p2', type: 'planning.set_report', payload: { picks: { [other.id]: wrong } } }, 1600).ok).toBe(true)
+    host(s, 'end_now', {}, 2000)
+    const chart = project.slideView(s, pack, i)!.chart!
+    const order = [...pack.game.phases.planning.class_order].reverse()
+    expect(chart.bars.map((b) => b.label)).toEqual(order.map((id) => pack.game.phases.planning.classes.find((c) => c.id === id)!.short))
+    // Half of the room placed each class right: every bar is at 50 percent.
+    expect(chart.bars.every((b) => b.value === 50)).toBe(true)
+  })
+
+  it('gives a host the whole deck with the notes, and one player beside the key', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    const deck = project.hostDeck(s, pack)
+    expect(deck.slides.map((x) => x.slide.id)).toEqual(flat.map((f) => f.slide.id))
+    expect(deck.slides[0]!.notes).toBe(flat[0]!.slide.notes)
+    expect(project.hostInspect(s, pack, 'nobody', false)).toBeNull()
+    expect(project.hostInspect(s, pack, 'p1', true)).toMatchObject({ name: 'Alpha Branch', connected: true, planning: null })
+    host(s, 'next', {}, 500)
+    host(s, 'next', {}, 1000)
+    const keys = pack.systems[s.players.p1!.system]!.problems!
+    const rules = pack.game.phases.planning
+    const real = rules.class_order.filter((id) => rules.classes.find((c) => c.id === id)!.rungs.length > 0)
+    // One right, one a class off among the real ones, the rest not sorted.
+    const a = keys[0]!
+    const b = keys.find((k) => k.id !== a.id && real.includes(k.key.class))!
+    const near = real[real.indexOf(b.key.class) + 1] ?? real[real.indexOf(b.key.class) - 1]!
+    expect(run(s, { actor: 'player', playerId: 'p1', type: 'planning.set_report', payload: { picks: { [a.id]: a.key.class, [b.id]: near } } }, 1500).ok).toBe(true)
+    const v = project.hostInspect(s, pack, 'p1', true)!.planning!
+    expect(v.status).toBe('playing')
+    expect(v.classes.map((c) => c.id)).toEqual(rules.class_order)
+    expect(v.problems.find((x) => x.id === a.id)).toMatchObject({ picked: a.key.class, truth: a.key.class, mark: 'right', points: null })
+    expect(v.problems.find((x) => x.id === b.id)).toMatchObject({ picked: near, mark: 'near' })
+    expect(v.problems.filter((x) => x.mark === 'unsorted').length).toBe(keys.length - 2)
+    expect(v.problems.every((x) => x.rationale === keys.find((k) => k.id === x.id)!.key.rationale)).toBe(true)
+    host(s, 'end_now', {}, 2000)
+    const done = project.hostInspect(s, pack, 'p1', true)!.planning!
+    expect(done.status).toBe('closed')
+    expect(done.problems.find((x) => x.id === a.id)!.points).toBe(rules.scoring.classify.exact)
+    expect(done.classify).toBeGreaterThan(0)
+  })
+})
+
 describe('the letter and the points a player sees', () => {
   const play = (picks: Record<string, string>) => {
     const s = newSession()

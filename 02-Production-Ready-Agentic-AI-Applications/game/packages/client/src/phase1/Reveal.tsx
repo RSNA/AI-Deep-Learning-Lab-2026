@@ -8,6 +8,7 @@ import { Portrait } from '../components/ui.tsx'
 import { Marks, Paragraphs } from '../lib/marks.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { P1 } from './copy.ts'
+import { shownClasses } from './model.ts'
 import { classTone } from './Sorting.tsx'
 
 type Mark = 'right' | 'near' | 'wrong' | 'unsorted'
@@ -124,9 +125,9 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
           {empty ? <div className="empty-board">{P1.emptyBoard}</div> : <p className="muted">{P1.correctedHint}</p>}
           {flagRow}
           <div className="rthree">
-            {classes.slice(0, -1).map((c, i) => (
+            {shownClasses(classes).filter((x) => x.c.id !== flagCls.id).map(({ c, tone }) => (
               <div key={c.id} className="rbin">
-                <div className={`rhead ${classTone(i)}`}><span>{c.label}</span><span className="num">{rv.problems.filter((p) => p.class === c.id).length}</span></div>
+                <div className={`rhead ${classTone(tone)}`}><span>{c.label}</span><span className="num">{rv.problems.filter((p) => p.class === c.id).length}</span></div>
                 {rv.problems.filter((p) => p.class === c.id).map((p) => {
                   const pr = content.problems.find((x) => x.id === p.id)
                   const g = graded(p.id)

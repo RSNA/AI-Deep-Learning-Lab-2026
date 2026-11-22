@@ -63,41 +63,44 @@ test('the laptop screen: three columns, the assessment, a full class, a refresh,
   await page.getByRole('button', { name: 'Start investigating' }).click()
   await expect(page.locator('.colhead h2')).toHaveText(['Investigations', 'Evidence', 'Your assessment'])
   await expect(page.locator('.cards .card').first()).toHaveAttribute('data-card', 'letter')
-  await expect(page.locator('.ask')).toHaveText('Find the 2 problems that are not real, the 2 that need no AI, the 1 that needs one AI model and the 1 that needs an agentic system.')
+  await expect(page.locator('.ask')).toHaveText('Find the 1 problem that needs an agentic system, the 1 that needs one AI model, the 2 that need no AI and the 2 that are not real.')
   await expect(page.locator('.asec.unsorted .acard')).toHaveCount(6)
   await expect(page.locator('.asec[data-class]')).toHaveCount(4)
   await expect(page.locator('.spot, [draggable="true"]')).toHaveCount(0)
   await noOverflow(page)
 
+  // The classes read from the most automation down: Agentic, One model, No AI, Not a problem.
+  await expect(page.locator('.asec[data-class] .ahead .an')).toContainText(['Agentic', 'One model', 'No AI', 'Not real'])
+  await expect(page.locator('.asec.unsorted .acard').first().locator('.four button:not(.clr)')).toContainText(['Agentic', 'One model', 'No AI', 'Not real'])
   // A press moves the card into its section, at the end. Back to Unsorted keeps pack order.
   const all = await unsortedTitles(page)
-  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
-  await expect.poll(() => classTitles(page, 0)).toEqual([all[0]])
-  await expect(page.locator('.asec[data-class]').nth(0).locator('.ahead')).toContainText('1 of 2')
-  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
-  await expect.poll(() => classTitles(page, 0)).toEqual([all[0], all[1]])
+  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(3).click()
+  await expect.poll(() => classTitles(page, 3)).toEqual([all[0]])
+  await expect(page.locator('.asec[data-class]').nth(3).locator('.ahead')).toContainText('1 of 2')
+  await page.locator('.asec.unsorted .acard').first().locator('.four button').nth(3).click()
+  await expect.poll(() => classTitles(page, 3)).toEqual([all[0], all[1]])
   // Straight to another class, then back to Unsorted.
-  await page.locator('.asec[data-class]').nth(0).locator('.acard').first().locator('.four button').nth(1).click()
-  await expect.poll(() => classTitles(page, 1)).toEqual([all[0]])
-  await page.locator('.asec[data-class]').nth(1).locator('.acard').first().getByRole('button', { name: 'Back to Unsorted' }).click()
+  await page.locator('.asec[data-class]').nth(3).locator('.acard').first().locator('.four button').nth(2).click()
+  await expect.poll(() => classTitles(page, 2)).toEqual([all[0]])
+  await page.locator('.asec[data-class]').nth(2).locator('.acard').first().getByRole('button', { name: 'Back to Unsorted' }).click()
   await expect.poll(() => unsortedTitles(page)).toEqual(all.filter((t) => t !== all[1]))
 
-  // The keys: 1 to 4 pick a class, 0 sends back.
+  // The keys: 1 to 4 pick a class in the order shown, 0 sends back.
   const card = page.locator('.asec.unsorted .acard').first()
   const t1 = (await card.locator('.at').textContent())!
   await card.focus()
-  await page.keyboard.press('4')
-  await expect.poll(() => classTitles(page, 3)).toEqual([t1])
+  await page.keyboard.press('1')
+  await expect.poll(() => classTitles(page, 0)).toEqual([t1])
   // A full class asks which problem goes back to Unsorted.
   const next = page.locator('.asec.unsorted .acard').first()
   const t2 = (await next.locator('.at').textContent())!
-  await next.locator('.four button').nth(3).click()
+  await next.locator('.four button').nth(0).click()
   await expect(page.getByText('Agentic is full. Which problem goes back to Unsorted?')).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: new RegExp(t1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click()
-  await expect.poll(() => classTitles(page, 3)).toEqual([t2])
+  await expect.poll(() => classTitles(page, 0)).toEqual([t2])
   await expect.poll(() => unsortedTitles(page)).toContain(t1)
   // A sorted card is compact and opens on a click.
-  const sorted = page.locator('.asec[data-class]').nth(3).locator('.acard').first()
+  const sorted = page.locator('.asec[data-class]').nth(0).locator('.acard').first()
   await expect(sorted.locator('.ad')).toHaveCount(0)
   await sorted.locator('button.at').click()
   await expect(sorted.locator('.ad')).toHaveCount(1)
@@ -109,7 +112,7 @@ test('the laptop screen: three columns, the assessment, a full class, a refresh,
   // A refresh brings the same assessment back, and the letter does not pop up again.
   await page.waitForTimeout(800)
   await page.reload()
-  await expect.poll(() => classTitles(page, 3)).toEqual([t2])
+  await expect.poll(() => classTitles(page, 0)).toEqual([t2])
   await expect(page.getByText('A letter for you')).toHaveCount(0)
 
   // The panel: the practice facts, then collapsed.
@@ -119,6 +122,7 @@ test('the laptop screen: three columns, the assessment, a full class, a refresh,
   await expect(page.locator('.eview')).toHaveCount(0)
   await page.locator('.ebar button', { hasText: 'Reading room' }).click()
   await expect(page.locator('.eview .room')).toBeVisible()
+  await expect(page.locator('.wall .sizable-edge')).toHaveAttribute('role', 'separator')
 
   // An interview, its lines under its row, its card on the wall, opened large.
   await page.locator('.irow:has(.m-int) .ibtn.start').first().click()
@@ -173,9 +177,9 @@ test('the phone: three tabs, the same assessment, a full class, the evidence and
   await expect(page.locator('.bwrow')).toBeVisible()
   await page.locator('.ptabs button', { hasText: 'Assessment' }).tap()
   await expect(page.locator('.asec.unsorted .acard')).toHaveCount(6)
-  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(3).tap()
-  await expect(page.locator('.strip > div').nth(3)).toContainText('1 of 1')
-  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(3).tap()
+  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(0).tap()
+  await expect(page.locator('.strip > div').nth(0)).toContainText('1 of 1')
+  await page.locator('.asec.unsorted .acard').nth(0).locator('.four button').nth(0).tap()
   await expect(page.getByText(/is full/).first()).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).tap()
   // From a problem to the evidence and back. The panel starts collapsed on a phone.
@@ -196,8 +200,28 @@ test('the lobby: the people in a list, pixel portraits, a click that makes a per
   await expect(page.locator('.cast-row')).toHaveCount(5)
   await expect(page.locator('.cast-row .portrait img')).toHaveCount(5)
   await expect(page.locator('.initials')).toHaveCount(0)
-  // On a laptop the scene comes first in the right area, titled with the health system (section 10.2).
-  if (info.project.name === 'laptop') await expect(page.locator('.lobby-right > .panel').first().locator('.panel-head')).toContainText('Your practice · Riverbend')
+  // Who the player is, the practice with an edge to drag, its numbers, and a line that invites a click (section 10.2).
+  await expect(page.locator('.lobby .panel-head').filter({ hasText: 'Who you are' })).toBeVisible()
+  await expect(page.locator('.roompanel .panel-head')).toContainText('Your practice · Riverbend')
+  await expect(page.locator('.cast-hint')).toContainText('Click a person to meet them')
+  if (info.project.name === 'laptop') {
+    // Three columns: who and how, the practice and its numbers, the people.
+    await expect(page.locator('.lobby.three > .lobby-col')).toHaveCount(3)
+    await expect(page.locator('.lobby-col').nth(1).locator('.panel-head')).toContainText(['Your practice', 'Your health system'])
+    // The bottom edge of the room: the arrow keys make it lower, and the browser keeps the height.
+    await expect(page.locator('.room[data-ready]')).toBeVisible({ timeout: 15_000 })
+    const edge = page.locator('.roompanel .sizable-edge')
+    const before = (await page.locator('.roompanel .room').boundingBox())!.height
+    await edge.focus()
+    await page.keyboard.press('ArrowUp')
+    await page.keyboard.press('ArrowUp')
+    await expect.poll(async () => (await page.locator('.roompanel .room').boundingBox())!.height).toBeLessThan(before)
+    expect(await page.evaluate(() => Number(localStorage.getItem('lab02.roomh.laptop')))).toBeGreaterThan(0)
+  }
+  // Day or night with one press, beside the menu button.
+  const themeBefore = await page.evaluate(() => document.documentElement.dataset.theme)
+  await page.getByRole('button', { name: /^Switch to the (day|night) theme$/ }).click()
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).not.toBe(themeBefore)
   // A row of the list: that person says one of their click lines in the scene.
   await page.locator('.cast-row').filter({ hasText: 'Ola Berg' }).click()
   await expect(page.locator('.say-bubble')).toContainText('Ola')
@@ -213,44 +237,79 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Maya's laptop" })), token)
   await page.goto('/host')
   await page.getByLabel('Label').fill('E2E two hosts')
-  await page.getByLabel('Join code').fill('AB')
-  await expect(page.getByText('A join code needs 4 to 8 letters or digits.')).toBeVisible()
+  await page.getByLabel('Link name (optional)').fill('AB')
+  await expect(page.getByText('A link name needs 4 to 8 letters or digits.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled()
   await noErrorNames(page)
-  await page.getByLabel('Join code').fill('')
+  await page.getByLabel('Link name (optional)').fill('')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Now on stage')).toBeVisible()
-  await expect(page.getByText('You have control').first()).toBeVisible()
+  await expect(page.getByText('You are in charge').first()).toBeVisible()
 
-  // A second console watches, and takes control after a confirmation.
+  // A second host watches, and takes charge with the passcode, after a confirmation that names who loses it.
   const ctx2 = await browser.newContext()
   const p2 = await ctx2.newPage()
   await p2.goto('/host')
   await p2.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Sam's laptop" })), token)
   await p2.goto(page.url())
-  await expect(p2.getByText("Controlled from Maya's laptop. You are watching.")).toBeVisible()
+  await expect(p2.locator('.sessbar .chip.watch')).toHaveText("Maya's laptop is in charge")
   await expect(p2.getByRole('button', { name: /^Next:/ })).toBeDisabled()
-  await p2.getByRole('button', { name: 'Take control' }).click()
-  await p2.getByRole('dialog').getByRole('button', { name: 'Take control' }).click()
-  await expect(p2.getByText('You have control').first()).toBeVisible()
-  await expect(page.getByText("Sam's laptop took control")).toBeVisible()
+  // A watching host still goes through the deck alone, with the notes, and changes nothing for the room.
+  await p2.getByRole('button', { name: 'Look through the slides' }).click()
+  await expect(p2.locator('.owndeck .notes')).toContainText('Wait until most people have joined')
+  await p2.locator('.owndeck').getByRole('button', { name: 'Next →' }).click()
+  await expect(p2.locator('.owndeck .notes')).toContainText('Keep this short')
+  await expect(p2.locator('.owndeck .slidecount')).toHaveText('Slide 2 of 8')
+  await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 8')
+  await p2.locator('.owndeck').getByRole('button', { name: 'Close' }).click()
+  await p2.getByRole('button', { name: 'Take charge' }).click()
+  await expect(p2.getByRole('dialog')).toContainText("Take charge from Maya's laptop?")
+  await expect(p2.getByRole('dialog').getByRole('button', { name: 'Take charge' })).toBeDisabled()
+  await p2.getByLabel('Host passcode, to confirm').fill('not the passcode')
+  await p2.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
+  await expect(p2.getByRole('dialog')).toContainText('That passcode is not right.')
+  await expect(page.getByText('You are in charge').first()).toBeVisible()
+  await p2.getByLabel('Host passcode, to confirm').fill(PASS)
+  await p2.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
+  await expect(p2.getByText('You are in charge').first()).toBeVisible()
+  await expect(page.getByText("Sam's laptop took charge. You are watching now.")).toBeVisible()
   await expect(page.getByRole('button', { name: /^Next:/ })).toBeDisabled()
-  // A watching console says so in its top bar.
-  await expect(page.locator('.sessbar .chip.watch')).toHaveText('Watching')
+  // A watching console says who is in charge in its top bar, beside the button that takes it.
+  await expect(page.locator('.sessbar .chip.watch')).toHaveText("Sam's laptop is in charge")
+  await expect(page.locator('.sessbar').getByRole('button', { name: 'Take charge' })).toBeVisible()
 
   // The pin banner and the slides, outside a phase: the console asks about players' screens.
   await p2.getByRole('button', { name: 'Lobby', exact: true }).click()
   await expect(p2.getByText('Pinned to Lobby. The projector will not follow the game.')).toBeVisible()
   await p2.getByRole('button', { name: 'Slides', exact: true }).click()
   await expect(p2.getByText("Show the slides on every player's screen too?")).toBeVisible()
-  await p2.getByRole('button', { name: 'Yes, on every screen' }).click()
+  // The actions of a dialog are one row of buttons of one size, Cancel last.
+  const actions = await p2.locator('.sheet-actions .btn').evaluateAll((els) => els.map((el) => { const b = el.getBoundingClientRect(); return { h: Math.round(b.height), w: Math.round(b.width), y: Math.round(b.top), t: el.textContent } }))
+  expect(actions.map((a) => a.t)).toEqual(['Yes, every screen', 'No, projector only', 'Cancel'])
+  expect(new Set(actions.map((a) => a.h)).size).toBe(1)
+  expect(new Set(actions.map((a) => a.w)).size).toBe(1)
+  expect(new Set(actions.map((a) => a.y)).size).toBe(1)
+  await p2.getByRole('button', { name: 'Yes, every screen' }).click()
   await expect(p2.getByText("The slides are on every player's screen too.")).toBeVisible()
-  await expect(p2.getByText('Slide 1 of 7')).toBeVisible()
+  await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 8')
+  // The slide on show and the next one are drawn as slides, and the notes sit under them.
+  await expect(p2.locator('.slidepair .sl-thumb')).toHaveCount(2)
+  await expect(p2.locator('.slidepair .sl-thumb').first().locator('.sl-person')).toHaveCount(2)
   await p2.locator('body').press('ArrowRight')
-  await expect(p2.getByText('Slide 2 of 7')).toBeVisible()
-  await expect(p2.locator('.notes')).toContainText('Keep this short')
-  await p2.getByRole('button', { name: 'Previous' }).click()
-  await expect(p2.locator('.notes')).toContainText('Wait until most people have joined')
+  await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 2 of 8')
+  await expect(p2.locator('.bigscreen > .group > .notes')).toContainText('Keep this short')
+  await p2.locator('.slidenav').getByRole('button', { name: '← Back' }).click()
+  await expect(p2.locator('.bigscreen > .group > .notes')).toContainText('Wait until most people have joined')
+  // Slides of a later part: the room can see them, so the host in charge is asked first.
+  await p2.getByLabel('Go to section').selectOption({ label: 'After Phase 1' })
+  await expect(p2.getByRole('dialog')).toContainText('These slides come later')
+  await p2.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+  await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 8')
+  await p2.getByLabel('Go to section').selectOption({ label: 'After Phase 1' })
+  await p2.getByRole('dialog').getByRole('button', { name: 'Show it anyway' }).click()
+  await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 3 of 8')
+  await p2.getByLabel('Go to section').selectOption({ label: 'Welcome' })
+  await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 8')
   // Leaderboard and Winners are unavailable before any score, and say why.
   await expect(p2.getByText('No scores yet. The leaderboard opens with Phase 1.')).toBeVisible()
   await expect(p2.getByText('No phase has been scored yet.')).toBeVisible()
@@ -261,12 +320,13 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await expect(p2.locator('.manual-side h1')).toHaveText('Host manual')
   await noErrorNames(p2)
   await noOverflow(p2)
-  // Maya takes control back: the notice that Sam took control goes away by itself.
-  await page.getByRole('button', { name: 'Take control' }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Take control' }).click()
-  await expect(page.locator('.sessbar .chip.good')).toHaveText('You have control')
-  await expect(page.getByText("Sam's laptop took control")).toHaveCount(0)
-  await expect(p2.getByText("Maya's laptop took control")).toBeVisible()
+  // Maya takes charge back: the notice that Sam took it goes away by itself.
+  await page.locator('.sessbar').getByRole('button', { name: 'Take charge' }).click()
+  await page.getByLabel('Host passcode, to confirm').fill(PASS)
+  await page.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
+  await expect(page.locator('.sessbar .chip.good')).toHaveText('You are in charge')
+  await expect(page.getByText("Sam's laptop took charge. You are watching now.")).toHaveCount(0)
+  await expect(p2.getByText("Maya's laptop took charge. You are watching now.")).toBeVisible()
   await ctx2.close()
 })
 
@@ -278,7 +338,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await page.goto('/host')
   await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: 'E2E laptop' })), token)
   await page.goto(`/host?s=${code}`)
-  await expect(page.locator('.sessbar .chip.good')).toHaveText('You have control')
+  await expect(page.locator('.sessbar .chip.good')).toHaveText('You are in charge')
   const player = await browser.newContext()
   const pp = await player.newPage()
   await joinPicked(pp, code, 'Again Tester', /Riverbend/)
@@ -288,7 +348,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await expect(cols).toHaveCount(3)
   await expect(cols.nth(0).locator('.prow')).toContainText('Again Tester')
   await expect(cols.nth(1).locator('.panel-head').first()).toHaveText('Projector')
-  await expect(cols.nth(2).locator('.panel-head')).toHaveText(['Rehearsal tools', 'End the session', 'Downloads', 'Answer key'])
+  await expect(cols.nth(2).locator('.panel-head')).toHaveText(['Rehearsal tools', 'End the session', 'Answer key', 'Downloads'])
   await noOverflow(page)
 
   // A dialog with a field keeps the caret while it is typed in, letter by letter.
@@ -318,8 +378,21 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await expect(pp.getByText('Rejoin code')).toBeVisible()
   await expect(pp.getByText('The automation ladder')).toHaveCount(0)
   await pp.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+  const picked = (await pp.locator('.asec.unsorted .acard').first().locator('.at').textContent())!
   await pp.locator('.asec.unsorted .acard').first().locator('.four button').nth(0).click()
   await expect(pp.locator('.asec[data-class]').first().locator('.acard')).toHaveCount(1)
+  // The host looks at the player: every problem under its true class, the pick with its mark, the reason behind a button.
+  await page.locator('.plook').first().click()
+  const look = page.getByRole('dialog')
+  await expect(look).toContainText('Only hosts see this page')
+  await expect(look.locator('.inspect-grid .rbin')).toHaveCount(4)
+  await expect(look.locator('.rprob')).toHaveCount(6)
+  await expect(look.locator('.rprob').filter({ hasText: picked }).locator('.pchip')).toHaveText('Agentic')
+  await expect(look.locator('.rprob-body')).toHaveCount(0)
+  await look.getByRole('button', { name: /^Why/ }).first().click()
+  await expect(look.locator('.rprob-body')).toHaveCount(1)
+  await noErrorNames(page)
+  await look.getByRole('button', { name: 'Close' }).last().click()
 
   // The phase starts again: a rehearsal confirms with one click, the player is told, the letter
   // opens again and the assessment is empty.
@@ -345,6 +418,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await expect(page.locator('.endedbar')).toContainText('This session has ended.')
   await expect(pp.getByText('This game has ended')).toBeVisible()
   await expect(pp.getByText('When the host opens a new game, a button to join it appears here.')).toBeVisible()
+  await expect(pp.getByRole('button', { name: 'Leave this game and join as a new player' })).toBeVisible()
   const code2 = (await (await page.request.post('/api/host/session', { data: { label: 'E2E the next game', mode: 'rehearsal' }, headers: auth })).json()).code as string
   await expect(pp.getByText('A new game is open')).toBeVisible({ timeout: 15_000 })
   await expect(pp.locator('.newgame')).toContainText('E2E the next game')
@@ -359,6 +433,17 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await expect(lp.getByRole('button', { name: 'Join the new game' })).toBeVisible()
   await noErrorNames(pp)
   await late.close()
+  // In the new game, the menu lets a player start fresh: the browser lets go of the practice and
+  // the join form opens empty, because that name is taken there.
+  await pp.getByRole('button', { name: 'Join', exact: true }).click()
+  await pp.getByRole('button', { name: 'Got it' }).click()
+  await pp.getByRole('button', { name: 'Menu' }).click()
+  await pp.getByRole('button', { name: /Join as a new player/ }).click()
+  await expect(pp.getByRole('dialog')).toContainText('This browser lets go of "Second Tester"')
+  await pp.getByRole('dialog').getByRole('button', { name: 'Leave and join again' }).click()
+  await expect(pp).toHaveURL(new RegExp(`/j/${code2}$`))
+  await expect(pp.getByLabel('Name your practice')).toHaveValue('')
+  expect(await pp.evaluate(() => localStorage.getItem('lab02.player'))).toBeNull()
   await player.close()
 })
 

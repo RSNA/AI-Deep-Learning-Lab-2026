@@ -25,6 +25,7 @@ describe('outgoing types', () => {
   const types: Record<string, z.ZodType> = {
     PlayerView: P.PlayerView, Welcome: P.Welcome, ScreenView: P.ScreenView, Standing: P.Standing,
     Clock: P.Clock, PlanningContent: P.PlanningContent, Moment: P.Moment, HostView: H.HostView,
+    HostInspect: H.HostInspect, HostDeck: H.HostDeck,
   }
   for (const [name, schema] of Object.entries(types)) {
     it(name, () => expect(fields(schema).sort()).toMatchSnapshot())
