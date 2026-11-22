@@ -48,6 +48,7 @@ export const COPY = {
   toNight: 'Switch to the night theme',
   toDay: 'Switch to the day theme',
   lookAgainLine: 'Your corrected assessment and the reasons',
+  lookAgainLine2: 'Your map beside the reference map, case by case',
   backToGame: 'Back to the game',
   newPlayer: 'Join as a new player',
   newPlayerLine: 'Leave this practice in this browser',

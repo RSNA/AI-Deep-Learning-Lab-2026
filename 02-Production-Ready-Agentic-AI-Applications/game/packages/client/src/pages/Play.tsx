@@ -14,6 +14,9 @@ import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
+import { Development, Purse } from '../phase2/Phase2.tsx'
+import { P2 } from '../phase2/copy.ts'
+import type { DevelopmentContent } from '@lab02/protocol'
 
 function useWakeLock() {
   useEffect(() => {
@@ -59,10 +62,14 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const narrow = useNarrow(1024)
   const sys = w.session.systems.find((s) => s.id === view.me.system)
   const phase = phaseOfStage(view.stage)
-  const title = phase ? `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}` : STAGE_TITLE[view.stage]
+  const devPlay = view.stage === 'development.play' && !narrow
+  const title = phase ? (devPlay ? `Phase ${PHASE_NUMBER[phase]}` : `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}`) : STAGE_TITLE[view.stage]
   const phaseRank = standing?.ranks.phase ?? null
   const rank = phaseRank ?? standing?.ranks.overall ?? null
   const timed = clock?.clock.stageEndsAtMs !== null && clock?.clock.stageEndsAtMs !== undefined
+  // Phase 2 spends money, developers and validations: they stand in the top bar (section 10.5).
+  const devContent = usePlayer((s) => s.content.development) as DevelopmentContent | undefined
+  const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} /> : null
   const rankBtn = (
     <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
       {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
@@ -79,6 +86,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
         <div className="mid">
           <span className="phase">{title}</span>
           {timed && <Countdown clock={clock} />}
+          {purse}
         </div>
       ) : <div className="mid">{timed && <Countdown clock={clock} />}</div>}
       <div className="right">
@@ -91,15 +99,16 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ onClose, onBrief, onResult, onLeave }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onLeave: () => void }) {
+function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onLeave: () => void }) {
   const view = usePlayer((s) => s.view)!
-  const brief = view.inbox.find((m) => m.kind === 'brief')
+  const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
-      {(brief || onResult) && (
+      {(brief || onResult || onResult2) && (
         <div className="menulist">
           {brief && <button type="button" className="btn small text" onClick={onBrief}><span>{COPY.letterAgain}</span><span className="muted">{brief.title}</span></button>}
           {onResult && <button type="button" className="btn small text" onClick={onResult}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</span><span className="muted">{COPY.lookAgainLine}</span></button>}
+          {onResult2 && <button type="button" className="btn small text" onClick={onResult2}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.development}`)}</span><span className="muted">{COPY.lookAgainLine2}</span></button>}
         </div>
       )}
       <div className="eyebrow">{COPY.rejoinCode}</div>
@@ -402,14 +411,15 @@ function PointsTable() {
 function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: string) => void; onLeave: () => void }) {
   const st = usePlayer((s) => s.standing)
   const view = usePlayer((s) => s.view)!
-  const [look, setLook] = useState(false)
+  const [look, setLook] = useState<'planning' | 'development' | null>(null)
   const ended = view.stage === 'closed'
   const canLook = ended && !!view.planning?.reveal
-  if (look && canLook) {
+  const canLook2 = ended && !!view.development?.reveal
+  if ((look === 'planning' && canLook) || (look === 'development' && canLook2)) {
     return (
       <>
-        <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(false)}>← {COPY.backToFinal}</button></div>
-        <Planning w={w} />
+        <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToFinal}</button></div>
+        {look === 'planning' ? <Planning w={w} /> : <Development w={w} />}
       </>
     )
   }
@@ -421,7 +431,8 @@ function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: stri
           {ended && <p style={{ fontSize: 16 }}>{COPY.closedLine}</p>}
           <div className="num" style={{ fontSize: 48 }}>{st?.ranks.overall ? `#${st.ranks.overall}` : '–'} <span className="muted" style={{ fontSize: 24 }}>of {st?.ranks.of ?? '–'}</span></div>
           <PointsTable />
-          {canLook && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook(true)}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</button>}
+          {canLook && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook('planning')}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</button>}
+          {canLook2 && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook('development')}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.development}`)}</button>}
         </div>
       </section>
       {ended && <NewGame after={w.session.code} onJoin={onNewGame} />}
@@ -508,6 +519,7 @@ function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: st
   if (st === 'winners' || st === 'closed') return <Winners w={w} onNewGame={onNewGame} onLeave={onLeave} />
   const phase = phaseOfStage(st)
   if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning key={view.run} w={w} onSlides={onSlides} />
+  if ((st === 'development.play' || st === 'development.reveal' || st === 'break.development') && view.development) return <Development key={view.run} w={w} onSlides={onSlides} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
   if (st.startsWith('break.')) return <Results w={w} phase={st.split('.')[1] as PhaseId} note={COPY.lookAtScreen} />
   if (st === 'reflection') return <Results w={w} phase={null} note={COPY.lookAtScreen} />
@@ -523,7 +535,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const [menu, setMenu] = useState(false)
   const [standings, setStandings] = useState(false)
   const [brief, setBrief] = useState(false)
-  const [look, setLook] = useState(false)
+  const [look, setLook] = useState<'planning' | 'development' | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
   useWakeLock()
@@ -538,7 +550,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   // A notice when the host starts a phase or the game again. It goes by itself.
   useEffect(() => {
     if (!restarted) return
-    setMenu(false); setStandings(false); setBrief(false); setLook(false)
+    setMenu(false); setStandings(false); setBrief(false); setLook(null)
     const id = setTimeout(clearRestarted, 9000)
     return () => clearTimeout(id)
   }, [restarted, clearRestarted])
@@ -579,7 +591,9 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   // stages that already show the result do not offer it.
   const onResult = ['planning.play', 'planning.reveal', 'break.planning', 'closed'].includes(view.stage)
   const canLook = !!view.planning?.reveal && !onResult
-  const looking = look && canLook && !view.slide
+  const onResult2 = ['development.play', 'development.reveal', 'break.development', 'closed'].includes(view.stage)
+  const canLook2 = !!view.development?.reveal && !onResult2
+  const looking = ((look === 'planning' && canLook) || (look === 'development' && canLook2)) && !view.slide
   return (
     <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
@@ -592,8 +606,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       )}
       {looking ? (
         <>
-          <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(false)}>← {COPY.backToGame}</button></div>
-          <Planning w={welcome} />
+          <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToGame}</button></div>
+          {look === 'planning' ? <Planning w={welcome} /> : <Development w={welcome} />}
         </>
       ) : <StageBody w={welcome} onNewGame={(code) => { stop(); go(`/j/${code}`) }} onLeave={() => void startFresh()} />}
       {!codeSeen && (
@@ -608,9 +622,14 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button className="btn go big" autoFocus onClick={() => { store.setFlag(`seen-code-${view.me.id}`); setCodeSeen(true) }}>{COPY.gotIt}</button>
         </Sheet>
       )}
-      {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook(true) } : null}
+      {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook('planning') } : null}
+        onResult2={canLook2 ? () => { setMenu(false); setLook('development') } : null}
         onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else setLeaving(true) }} />}
-      {brief && <BriefSheet w={welcome} onClose={() => setBrief(false)} again />}
+      {brief && (() => {
+        const last = [...view.inbox].reverse().find((m) => m.kind === 'brief')
+        const phase = last?.id.split(':')[0] ?? 'planning'
+        return <BriefSheet w={welcome} onClose={() => setBrief(false)} again phase={phase} words={phase === 'development' ? { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays } : undefined} />
+      })()}
       {leaving && (
         <Sheet title={COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
           <p>{COPY.newPlayerText(view.me.name)}</p>

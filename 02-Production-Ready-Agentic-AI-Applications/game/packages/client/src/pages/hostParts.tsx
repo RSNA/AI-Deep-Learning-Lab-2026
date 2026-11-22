@@ -10,6 +10,8 @@ import { Avatar, SystemShape } from '../components/ui.tsx'
 import { SlideThumb } from '../components/slide.tsx'
 import { Marks } from '../lib/marks.tsx'
 import { H } from './hostCopy.ts'
+import { Grid } from '../canvas/Grid.tsx'
+import { gridWords } from '../phase2/Phase2.tsx'
 
 type Mark = 'right' | 'near' | 'wrong' | 'unsorted'
 const MARK_ICON: Record<Mark, string> = { right: '✓', near: '≈', wrong: '✗', unsorted: '–' }
@@ -84,11 +86,68 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
   )
 }
 
+/**
+ * A player's Phase 2 beside the key: the draft map drawn read-only, the money, the actions and
+ * every validation, and beside them what only the key knows: the share solved of every case
+ * for the draft, every flag of the scoring, and the reference map.
+ */
+function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> }) {
+  const [shown, setShown] = useState<string | null>(null)
+  const none = { stray: d.key.flags.stray, incomplete: [], privateData: d.key.flags.privateData }
+  const raised = Object.entries(d.key.flags).filter(([, ids]) => ids.length > 0)
+  const v = d.validations.find((x) => x.id === shown)
+  const minutes = Object.entries(d.key.running.minutes).map(([k, n]) => `${k} ${n} min`).join(' · ')
+  return (
+    <div className="inspect">
+      <div className="inspect-top">
+        <span className={`chip ${d.status === 'playing' ? 'sun' : 'good'}`}>{H.dev[d.status]}</span>
+        <span className="chip">{H.dev.money(d.money)}</span>
+        <span className="chip">{H.dev.devs(d.developers.free, d.developers.total)}</span>
+      </div>
+      <div className="eyebrow">{H.dev.draft}</div>
+      <div className="gridscroll insp-map"><Grid v={d.legend} map={d.map} flags={none} compact words={gridWords} label={H.dev.draft} /></div>
+      <div className="hint">{d.ready.ok && d.key.accuracy !== null ? H.dev.ready(d.key.accuracy) : H.dev.notReady(d.ready.reasons.join(', '))} {H.dev.running(d.key.running.money, minutes, d.key.running.complexity)}</div>
+      <div className="insp-two">
+        <div>
+          <div className="eyebrow">{H.dev.validations}</div>
+          {d.validations.length ? (
+            <div className="insp-vals">
+              {d.validations.map((x) => (
+                <button key={x.id} type="button" className={`hchip${shown === x.id ? ' on' : ''}${d.submitId === x.id ? ' send' : ''}`} onClick={() => setShown(shown === x.id ? null : x.id)}>
+                  {x.id} · {Math.round(100 * x.accuracy)}%{d.submitId === x.id ? ` · ${H.dev.sends}` : ''}
+                </button>
+              ))}
+            </div>
+          ) : <div className="muted">{H.dev.noValidations}</div>}
+          {v && <div className="gridscroll insp-map"><Grid v={d.legend} map={v.map} compact words={gridWords} /></div>}
+          <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.actions}</div>
+          <div className="insp-acts">{d.actions.map((a) => <span key={a.id} className={`chip ${a.state === 'done' ? 'good' : a.state === 'running' ? 'sun' : ''}`}>{a.title} · {H.dev.state[a.state]}</span>)}</div>
+        </div>
+        <div>
+          <div className="eyebrow">{H.dev.key} · {H.dev.cases}</div>
+          <div className="insp-cases">
+            {d.key.cases.map((k) => (
+              <div key={k.id} className="kv"><span>{k.title} <span className="muted">· {H.dev.weight} {k.weight}</span></span><span className="v">{k.solved === null ? '–' : `${Math.round(100 * k.solved)}%`}</span></div>
+            ))}
+          </div>
+          <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.flags}</div>
+          {raised.length ? <ul className="insp-flags">{raised.map(([k, ids]) => <li key={k}>{H.dev.flagName[k]}: {ids.join(', ')}</li>)}</ul> : <div className="muted">{H.dev.noFlags}</div>}
+        </div>
+      </div>
+      <details className="inspect-done">
+        <summary>{H.dev.reference(d.key.reference.accuracy)}</summary>
+        <div className="gridscroll insp-map"><Grid v={d.legend} map={d.key.reference.map} compact words={gridWords} /></div>
+        <p style={{ fontSize: 14 }}>{d.key.reference.summary}</p>
+      </details>
+    </div>
+  )
+}
+
 /** One player as a host sees them. The phases that have something to show are tabs. */
 export function Inspector({ view, systems }: { view: HostInspect; systems: SystemRef[] }) {
   const sys = systems.find((s) => s.id === view.system)
-  const tabs = (['planning'] as const).filter((ph) => view[ph] !== null)
-  const [tab, setTab] = useState<(typeof tabs)[number]>('planning')
+  const tabs = (['planning', 'development'] as const).filter((ph) => view[ph] !== null)
+  const [tab, setTab] = useState<'planning' | 'development'>(() => tabs.at(-1) ?? 'planning')
   return (
     <div className="inspector">
       <div className="inspect-who">
@@ -108,7 +167,8 @@ export function Inspector({ view, systems }: { view: HostInspect; systems: Syste
           {tabs.map((t) => <button key={t} role="tab" aria-selected={tab === t} aria-pressed={tab === t} onClick={() => setTab(t)}>{H.phaseTab(PHASE_NUMBER[t])}</button>)}
         </div>
       )}
-      {view.planning ? <PlanningInspect p={view.planning} /> : <div className="muted">{H.notStarted}</div>}
+      {tab === 'development' && view.development ? <DevelopmentInspect d={view.development} />
+        : view.planning ? <PlanningInspect p={view.planning} /> : <div className="muted">{H.notStarted}</div>}
     </div>
   )
 }

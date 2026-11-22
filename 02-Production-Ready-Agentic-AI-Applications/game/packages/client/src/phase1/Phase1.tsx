@@ -27,16 +27,19 @@ export function useNarrow(px = PHONE_BELOW): boolean {
   return narrow
 }
 
-/** The opening letter: it pops up once when the phase starts and stays as the first card. */
-export function BriefSheet({ w, onClose, again = false }: { w: Welcome; onClose: () => void; again?: boolean }) {
+export type BriefWords = { started: string; start: string; stays: string }
+const P1_BRIEF: BriefWords = { started: P1.phaseStarted, start: P1.briefStart, stays: P1.letterStays }
+
+/** The opening letter of a phase: it pops up once when the phase starts and stays as the first card. */
+export function BriefSheet({ w, onClose, again = false, phase = 'planning', words = P1_BRIEF }: { w: Welcome; onClose: () => void; again?: boolean; phase?: string; words?: BriefWords }) {
   const view = usePlayer((s) => s.view)!
-  const brief = view.inbox.find((m) => m.id === 'planning:brief')
+  const brief = view.inbox.find((m) => m.id === `${phase}:brief`)
   if (!brief) return null
   const idx = w.system.cast.findIndex((c) => c.id === brief.from)
   const c = w.system.cast[idx]
   return (
     <Sheet title={P1.letterTitle} head="sun" onClose={onClose} wide>
-      {!again && <div className="brief-started">{P1.phaseStarted}</div>}
+      {!again && <div className="brief-started">{words.started}</div>}
       {c && (
         <div className="speaker">
           <Portrait c={c} cast={w.system.cast} index={idx} size={64} />
@@ -46,15 +49,15 @@ export function BriefSheet({ w, onClose, again = false }: { w: Welcome; onClose:
       <h2 className="brief-title">{brief.title}</h2>
       <div className="brief-text"><Paragraphs text={brief.text} /></div>
       <div className="brief-foot">
-        <span className="muted">{again ? P1.letterStays : `${P1.clockRuns} ${P1.letterStays}`}</span>
-        <button type="button" className="btn go big" autoFocus onClick={onClose}>{again ? P1.close : P1.briefStart}</button>
+        <span className="muted">{again ? words.stays : `${P1.clockRuns} ${words.stays}`}</span>
+        <button type="button" className="btn go big" autoFocus onClick={onClose}>{again ? P1.close : words.start}</button>
       </div>
     </Sheet>
   )
 }
 
 /** Notices at the times of `clock.warnings_seconds_left`. */
-function useWarnings(): string | null {
+export function useWarnings(say: (s: number) => string = P1.warn): string | null {
   useTick(500)
   const clock = usePlayer((s) => s.clock)
   const [text, setText] = useState<string | null>(null)
@@ -65,11 +68,11 @@ function useWarnings(): string | null {
     for (const w of clock.clock.warnings) {
       if (left <= w && left > w - 3 && !fired.current.has(w)) {
         fired.current.add(w)
-        setText(P1.warn(w))
+        setText(say(w))
         setTimeout(() => setText(null), 6000)
       }
     }
-  }, [left, clock])
+  }, [left, clock, say])
   return text
 }
 

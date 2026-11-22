@@ -10,6 +10,8 @@ import { forceTheme } from '../lib/theme.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, SystemShape, columnTag } from '../components/ui.tsx'
 import { Qr, SlideBody } from '../components/slide.tsx'
 import { SystemsStrip } from './Play.tsx'
+import { Grid } from '../canvas/Grid.tsx'
+import { gridWords } from '../phase2/Phase2.tsx'
 
 function useFit(w: number, h: number): number {
   const [s, setS] = useState(1)
@@ -183,6 +185,34 @@ function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
   const c = v.cards.length ? v.cards[round % v.cards.length]! : null
   if (!c) return null
   const ref = v.session.systems.find((x) => x.id === c.system)
+  const legend = c.map ? v.legends.find((l) => l.system === c.system)?.legend : undefined
+  // Phase 2: the practice at work is shown as its map (section 6.13).
+  if (c.map && legend) {
+    return (
+      <div style={{ flexGrow: 1, minHeight: 0, padding: '22px 40px', display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 36, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <div className="muted" style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>ONE PRACTICE AT WORK</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}><Avatar id={c.avatar} size={96} /><div className="face" style={{ fontSize: 56, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.name}</div></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 26, fontWeight: 800 }}><SystemShape index={ref?.index ?? 0} size={24} />{ref?.name}</div>
+          <div className="panel" style={{ borderWidth: 4, padding: '10px 18px', gap: 4, boxShadow: '6px 6px 0 var(--shade)' }}>
+            <div className="muted" style={{ fontSize: 20, fontWeight: 800 }}>Working on now</div>
+            {c.now.length
+              ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 26, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
+              : <div style={{ fontSize: 26, fontWeight: 700 }}>Building the map</div>}
+          </div>
+          {c.facts.map((f) => (
+            <div key={f.label} className="panel" style={{ borderWidth: 4, padding: '8px 18px', boxShadow: '6px 6px 0 var(--shade)' }}>
+              <div className="face" style={{ fontSize: 40, lineHeight: 1.05 }}>{f.value}</div>
+              <div className="muted" style={{ fontSize: 20, fontWeight: 800 }}>{f.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="panel screen-map" style={{ borderWidth: 4, boxShadow: '6px 6px 0 var(--shade)', minWidth: 0, minHeight: 0 }}>
+          <Grid v={legend} map={c.map} readOnly words={gridWords} label={`${c.name}`} />
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{ flexGrow: 1, minHeight: 0, padding: '28px 64px', display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr)', gap: 56, alignItems: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
