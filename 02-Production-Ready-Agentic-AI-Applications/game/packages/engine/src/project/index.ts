@@ -1,17 +1,19 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import type { Pack, Tile as PackTile } from '@lab02/content-schema'
+import { fromPackMap, readyReasons, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
 import type {
-  Board, BoardColumn, BoardRow, Character, Clock, ColumnId, LadderRung, Moment, PackArt, PhaseId,
-  PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo, SlideView, Standing, StageId,
-  SystemPublic, SystemRef, Tile,
+  Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
+  LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, Running, ScreenView, SessionInfo,
+  SlideView, Standing, StageId, SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
 import type { HostDeck, HostInspect, HostPlayerRow, HostView } from '@lab02/protocol/host'
 import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
+import { developersFree, submitted, unlockedOf } from '../phases/development.ts'
+import { evaluate, running as runningOf, type Running as EngineRunning } from '../canvas.ts'
 import { deckSlides } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
 import type { GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
@@ -210,6 +212,137 @@ function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView
   }
 }
 
+
+// ------------------------------------------------------------------------------------------
+// Phase 2: the canvas
+// ------------------------------------------------------------------------------------------
+/** A map in the form of the protocol. Field by field, like everything that leaves the server. */
+export function mapView(m: PackCanvasMap): CanvasMap {
+  return {
+    tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runsOn: t.runsOn, prompt: t.prompt })),
+    lines: m.lines.map((l) => ({ from: l.from, to: l.to })),
+  }
+}
+
+/** The grid and the public names of what can stand on it, to draw a map read-only. */
+export function canvasLegend(b: BuildFile): CanvasLegend {
+  return {
+    cols: b.grid.cols, rows: b.grid.rows,
+    sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, icon: x.public.icon, privateData: x.private_data })),
+    result: { id: b.result.id, label: b.result.public.label },
+    workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon })),
+    models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short })),
+    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, protectsPrivateData: x.protects_private_data })),
+    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label })),
+  }
+}
+
+export function developmentContent(s: SessionState, pack: Pack, playerId: PlayerId): DevelopmentContent {
+  const p = s.players[playerId]!
+  const sp = pack.systems[p.system]!
+  const b = sp.build!
+  const rules = pack.game.phases.development
+  const brief = sp.story?.briefs?.development
+  const problem = sp.problems?.find((x) => x.id === b.problem)
+  return {
+    phase: 'development',
+    brief: brief ? { from: brief.from, title: brief.title, text: brief.text } : null,
+    problem: { id: b.problem, title: problem?.public.title ?? '', description: problem?.public.description ?? '' },
+    rules: {
+      cols: b.grid.cols, rows: b.grid.rows, money: b.budget.money, developers: b.budget.developers,
+      validations: b.validate.runs, validateSeconds: b.validate.seconds, showRunning: rules.show_running ?? true,
+      pools: b.pools.map((x) => ({ id: x.id, label: x.public.label, max: x.max })),
+      actionGroups: (rules.action_groups ?? []).map((g) => ({ id: g.id, label: g.label })),
+    },
+    sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, icon: x.public.icon, privateData: x.private_data })),
+    result: { id: b.result.id, label: b.result.public.label, description: b.result.public.description },
+    workers: b.workers.map((x) => ({
+      id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, description: x.public.description, icon: x.public.icon,
+      costLine: x.public.cost_line ?? null, needsModel: x.needs_model,
+      models: Object.keys(x.by_model ?? {}),
+      pool: x.pool ?? null,
+      minutes: x.minutes ? { decide: x.minutes.decide, check: x.minutes.check, perLine: { easy: x.minutes.per_line.easy, hard: x.minutes.per_line.hard } } : null,
+    })),
+    models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, runsOn: [...x.runs_on] })),
+    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, protectsPrivateData: x.protects_private_data })),
+    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, sample: x.public.sample })),
+    actions: b.actions.map((x) => ({
+      id: x.id, group: x.group, title: x.public.title, teaser: x.public.teaser,
+      money: x.money, developers: x.developers, seconds: x.seconds,
+      requires: [...x.requires], unlocks: [...x.unlocks], storyTime: x.story_time ?? null,
+    })),
+  }
+}
+
+function runningView(r: EngineRunning): Running {
+  const minutes: Record<string, number> = {}
+  for (const [k, v] of Object.entries(r.minutes)) minutes[k] = v
+  return { money: r.money, minutes, complexity: r.complexity }
+}
+
+/** The words of a missed case: its public text and why the map missed it. */
+function missedView(b: BuildFile, m: { case: string; reason: 'missing' | 'weak' | 'decision'; fact: string | null } | null) {
+  if (!m) return null
+  const k = b.cases.find((x) => x.id === m.case)
+  if (!k) return null
+  const f = m.fact ? b.facts.find((x) => x.id === m.fact) : undefined
+  const why = m.reason === 'missing' ? f?.miss.missing : m.reason === 'weak' ? f?.miss.weak : k.decision_miss
+  return { title: k.public.title, text: k.public.text, why: why ?? k.decision_miss }
+}
+
+/** The tiles that need a model and lack a model or a place to run. */
+function incompleteTiles(b: BuildFile, m: PackCanvasMap): string[] {
+  return m.tiles.filter((t) => b.workers.find((w) => w.id === t.kind)?.needs_model && (t.model === null || t.runsOn === null)).map((t) => t.id)
+}
+
+function developmentView(s: SessionState, pack: Pack, p: PlayerState): DevelopmentView | null {
+  const st = p.development
+  if (!st) return null
+  const b = pack.systems[p.system]!.build!
+  const show = pack.game.phases.development.show_running ?? true
+  const closed = s.closedPhases.includes('development')
+  const reasons = readyReasons(st.map, b)
+  const run = runningOf(st.map, b)
+  const insights: DevelopmentView['insights'] = []
+  for (const d of st.actionsDone) {
+    const a = b.actions.find((x) => x.id === d.id)
+    if (a?.insight) insights.push({ action: a.id, tile: tileView(a.insight) })
+  }
+  let reveal: DevelopmentView['reveal'] = null
+  if (closed && st.result) {
+    const ref = fromPackMap(b.key.reference.map)
+    const refEval = evaluate(ref, b)
+    reveal = {
+      accuracy: st.result.accuracy, raw: st.result.raw,
+      cases: b.cases.map((k) => ({ title: k.public.title, text: k.public.text, solved: st.result!.perCase[k.id] ?? 0, reference: refEval.perCase[k.id] ?? 0 })),
+      reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: refEval.accuracy },
+    }
+  }
+  const sub = submitted(st)
+  return {
+    money: st.money,
+    developers: { total: b.budget.developers, free: developersFree(pack, p) },
+    unlocked: [...unlockedOf(pack, p)].sort(),
+    actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs })),
+    actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
+    insights,
+    map: mapView(st.map),
+    ready: { ok: reasons.length === 0, reasons: [...reasons] },
+    flags: { stray: run.stray, incomplete: incompleteTiles(b, st.map), privateData: run.privateData },
+    running: show ? runningView(run.running) : null,
+    validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),
+    validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
+    validations: st.validations.map((v) => ({
+      id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, rank: v.rank, of: v.of,
+      missed: missedView(b, v.missed),
+      note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
+      running: show ? runningView(v.running) : null,
+    })),
+    submitId: closed ? st.result?.validation ?? null : sub?.id ?? null,
+    reveal,
+  }
+}
+
 /** A moment for one player, built from what the engine announced. */
 export function moment(s: SessionState, pack: Pack, playerId: PlayerId, ref: MomentRef): Moment | null {
   const p = s.players[playerId]
@@ -231,6 +364,10 @@ export function moment(s: SessionState, pack: Pack, playerId: PlayerId, ref: Mom
     }
     case 'letter':
       return { kind: 'letter', phase: ref.phase }
+    case 'insight':
+      return { kind: 'insight', action: ref.action }
+    case 'validated':
+      return { kind: 'validated', id: ref.id }
   }
 }
 
@@ -253,7 +390,7 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
       total: overallPoints(s, p),
     },
     planning: planningView(s, pack, p),
-    development: null,
+    development: developmentView(s, pack, p),
     maintaining: null,
     inbox: p.inbox.map((m) => {
       const item: PlayerView['inbox'][number] = { id: m.id, kind: m.kind, from: m.from, text: m.text, atMs: m.atMs }
@@ -485,6 +622,12 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       acted: active.filter((p) => p.acted.planning).length,
       insights: active.reduce((n, p) => n + (p.planning?.done.length ?? 0), 0),
       sent: active.filter((p) => p.planning?.submittedAtMs !== null && p.planning?.submittedAtMs !== undefined).length,
+    } : s.stage === 'development.play' ? {
+      // Phase 2: practices at work, insights from actions, practices that validated a map.
+      players: active.length,
+      acted: active.filter((p) => p.acted.development).length,
+      insights: active.reduce((n, p) => n + (p.development?.actionsDone.length ?? 0), 0),
+      sent: active.filter((p) => (p.development?.validations.length ?? 0) > 0).length,
     } : null,
     winners,
     ...followViews(s, pack, active, scene),
@@ -504,7 +647,7 @@ export function projectorRotates(s: SessionState, pack: Pack): boolean {
 }
 
 /** The activity of the room, the leaderboard of one phase and the practice cards (section 6.13). */
-function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: ScreenView['scene']): Pick<ScreenView, 'programme' | 'feed' | 'phaseBoard' | 'cards'> {
+function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: ScreenView['scene']): Pick<ScreenView, 'programme' | 'feed' | 'phaseBoard' | 'cards' | 'legends'> {
   const cfg = pack.game.leaderboards.projector
   const rotates = projectorRotates(s, pack)
   const playing = PLAY_STAGES.includes(s.stage) ? phaseOfStage(s.stage) : null
@@ -536,9 +679,14 @@ function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: 
     cards = active.filter((p) => p.acted[playing])
       .sort((a, b) => mix(a.id + at) - mix(b.id + at))
       .slice(0, cfg.cards)
-      .map((p) => ({ name: p.name, avatar: p.avatar, system: p.system, ...mod.card!(s, pack, p) }))
+      .map((p) => {
+        const c = mod.card!(s, pack, p)
+        return { name: p.name, avatar: p.avatar, system: p.system, now: c.now, facts: c.facts.map((f) => ({ label: f.label, value: f.value })), map: c.map ? mapView(c.map) : null }
+      })
   }
-  return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards }
+  // The maps of the cards are drawn with the public names of their health system.
+  const legends = cards.some((c) => c.map) ? s.systems.filter((id) => pack.systems[id]?.build).map((id) => ({ system: id, legend: canvasLegend(pack.systems[id]!.build!) })) : []
+  return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards, legends }
 }
 
 /** The results of the phase that closed last, for the room (big screen reveal). */
@@ -596,7 +744,17 @@ function playerStatus(s: SessionState, p: PlayerState): string {
     const sent = st.submittedAtMs !== null ? ' · sent' : ''
     return `${st.done.length} insights · ${st.running.length} running · ${Object.keys(st.picks).length} sorted${sent}`
   }
-  return ph === 'development' ? 'Designing' : 'Running the year'
+  if (ph === 'development') {
+    const st = p.development
+    if (!st) return 'Development'
+    const top = st.validations.reduce((m, v) => Math.max(m, v.accuracy), -1)
+    const parts = [`${st.map.tiles.length} tiles`, `${st.actionsDone.length} actions done`]
+    if (st.actionsRunning.length) parts.push(`${st.actionsRunning.length} running`)
+    parts.push(st.validations.length ? `${st.validations.length} validated · best ${Math.round(100 * top)}%` : 'not validated')
+    if (st.validating) parts.push('validating')
+    return parts.join(' · ')
+  }
+  return 'Running the year'
 }
 
 /**
@@ -644,6 +802,42 @@ export function hostInspect(s: SessionState, pack: Pack, playerId: PlayerId, con
       maintaining: p.results.maintaining?.points ?? null, total: overallPoints(s, p),
     },
     planning,
+    development: developmentInspect(s, pack, p),
+  }
+}
+
+/** Phase 2 of one player beside the key, for a host only (section 10.8). */
+function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostInspect['development'] {
+  const st = p.development
+  const b = pack.systems[p.system]?.build
+  if (!st || !b) return null
+  const reasons = readyReasons(st.map, b)
+  const ready = reasons.length === 0
+  const ev = ready ? evaluate(st.map, b) : null
+  const run = runningOf(st.map, b)
+  const ref = fromPackMap(b.key.reference.map)
+  const done = new Set(st.actionsDone.map((d) => d.id))
+  const going = new Set(st.actionsRunning.map((r) => r.id))
+  return {
+    status: s.closedPhases.includes('development') ? 'closed' : 'playing',
+    money: st.money,
+    developers: { total: b.budget.developers, free: developersFree(pack, p) },
+    legend: canvasLegend(b),
+    actions: b.actions.map((a) => ({ id: a.id, title: a.public.title, group: a.group, state: done.has(a.id) ? 'done' : going.has(a.id) ? 'running' : 'open' })),
+    map: mapView(st.map),
+    ready: { ok: ready, reasons: [...reasons] },
+    validations: st.validations.map((v) => ({ id: v.id, atMs: v.atMs, accuracy: v.accuracy, map: mapView(v.map) })),
+    submitId: s.closedPhases.includes('development') ? st.result?.validation ?? null : submitted(st)?.id ?? null,
+    key: {
+      accuracy: ev ? ev.accuracy : null,
+      cases: b.cases.map((k) => ({ id: k.id, title: k.public.title, weight: k.weight, solved: ev ? ev.perCase[k.id] ?? 0 : null })),
+      flags: {
+        privateData: run.privateData, stray: run.stray,
+        overloaded: ev ? [...ev.flags.overloaded] : [], distracting: ev ? [...ev.flags.distracting] : [], prompt: ev ? [...ev.flags.prompt] : [],
+      },
+      running: runningView(run.running),
+      reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: evaluate(ref, b).accuracy },
+    },
   }
 }
 

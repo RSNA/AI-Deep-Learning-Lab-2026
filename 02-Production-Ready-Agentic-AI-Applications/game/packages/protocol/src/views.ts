@@ -92,8 +92,70 @@ export const PlanningContent = S({
 })
 export type PlanningContent = z.infer<typeof PlanningContent>
 
-/** Phase 2 and Phase 3 content are added by their build steps. */
-export const PhaseContent = z.discriminatedUnion('phase', [PlanningContent])
+// ------------------------------------------------------------------------------------------
+// Phase 2: the canvas (section 6.6). The map, its legend and the content of the phase.
+// ------------------------------------------------------------------------------------------
+const Id = z.string().max(64)
+export const CanvasTile = S({
+  id: z.string().max(16), kind: Id, col: Int, row: Int,
+  model: Id.nullable(), runsOn: Id.nullable(), prompt: Id.nullable(),
+})
+export type CanvasTile = z.infer<typeof CanvasTile>
+export const CanvasLine = S({ from: Id, to: Id })
+export type CanvasLine = z.infer<typeof CanvasLine>
+/** A map: tiles on the cells of the grid, and lines that only run to the right. */
+export const CanvasMap = S({ tiles: z.array(CanvasTile).max(64), lines: z.array(CanvasLine).max(160) })
+export type CanvasMap = z.infer<typeof CanvasMap>
+
+/** What it takes to draw a map read-only: the grid and the public names of everything on it. */
+export const CanvasLegend = S({
+  cols: Int, rows: Int,
+  sources: z.array(S({ id: z.string(), label: Text, icon: z.string(), privateData: z.boolean() })),
+  result: S({ id: z.string(), label: Text }),
+  workers: z.array(S({ id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, icon: z.string() })),
+  models: z.array(S({ id: z.string(), label: Text, short: Text })),
+  compute: z.array(S({ id: z.string(), label: Text, short: Text, protectsPrivateData: z.boolean() })),
+  prompts: z.array(S({ id: z.string(), label: Text })),
+})
+export type CanvasLegend = z.infer<typeof CanvasLegend>
+
+/** What a map would take to run a month: money, minutes per case of each pool, complexity. */
+export const Running = S({ money: z.number(), minutes: z.record(z.string(), z.number()), complexity: z.number() })
+export type Running = z.infer<typeof Running>
+
+const Part = { id: z.string(), label: Text, short: Text, description: Text, costLine: Text.nullable() }
+export const DevelopmentContent = S({
+  phase: z.literal('development'),
+  brief: Brief,
+  problem: S({ id: z.string(), title: Text, description: Text }),
+  rules: S({
+    cols: Int, rows: Int, money: z.number(), developers: Int,
+    validations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
+    pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
+    actionGroups: z.array(S({ id: z.string(), label: Text })),
+  }),
+  sources: z.array(S({ id: z.string(), label: Text, description: Text, icon: z.string(), privateData: z.boolean() })),
+  result: S({ id: z.string(), label: Text, description: Text }),
+  workers: z.array(S({
+    id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, description: Text, icon: z.string(),
+    costLine: Text.nullable(), needsModel: z.boolean(),
+    models: z.array(z.string()),          // the models this kind of worker may carry
+    pool: z.string().nullable(),
+    minutes: S({ decide: z.number(), check: z.number(), perLine: S({ easy: z.number(), hard: z.number() }) }).nullable(),
+  })),
+  models: z.array(S({ ...Part, runsOn: z.array(z.string()) })),
+  compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),
+  prompts: z.array(S({ id: z.string(), label: Text, description: Text, sample: Text })),   // the first is the default
+  actions: z.array(S({
+    id: z.string(), group: z.string(), title: Text, teaser: Text,
+    money: z.number(), developers: Int, seconds: z.number(),
+    requires: z.array(z.string()), unlocks: z.array(z.string()), storyTime: Text.nullable(),
+  })),
+})
+export type DevelopmentContent = z.infer<typeof DevelopmentContent>
+
+/** Phase 3 content is added by its build step. */
+export const PhaseContent = z.discriminatedUnion('phase', [PlanningContent, DevelopmentContent])
 export type PhaseContent = z.infer<typeof PhaseContent>
 
 // ------------------------------------------------------------------------------------------
@@ -150,6 +212,36 @@ export const PlanningView = S({
 })
 export type PlanningView = z.infer<typeof PlanningView>
 
+const Missed = S({ title: Text, text: Text, why: Text })
+export const DevelopmentView = S({
+  money: z.number(),
+  developers: S({ total: Int, free: Int }),
+  unlocked: z.array(z.string()),
+  actionsDone: z.array(S({ id: z.string(), atMs: Ms })),
+  actionsRunning: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms })),
+  insights: z.array(S({ action: z.string(), tile: Tile })),
+  map: CanvasMap,                                   // the draft
+  ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),
+  flags: S({ stray: z.array(z.string()), incomplete: z.array(z.string()), privateData: z.array(z.string()) }),
+  running: Running.nullable(),                      // null when the pack does not show it
+  validationsLeft: Int,
+  validating: S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms }).nullable(),
+  validations: z.array(S({
+    id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
+    rank: Int.nullable(), of: Int,                  // the rank in the live column right after it
+    missed: Missed.nullable(),
+    note: Text.nullable(),
+    running: Running.nullable(),
+  })),
+  submitId: z.string().nullable(),                  // the validation that would be submitted now
+  reveal: S({
+    accuracy: z.number(), raw: z.number(),
+    cases: z.array(S({ title: Text, text: Text, solved: z.number(), reference: z.number() })),
+    reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),
+  }).nullable(),
+})
+export type DevelopmentView = z.infer<typeof DevelopmentView>
+
 export const InboxItem = S({
   id: z.string(), kind: z.enum(['brief', 'letter', 'announcement']), from: z.string(),
   title: Text.optional(), text: Text, atMs: Ms,
@@ -166,7 +258,7 @@ export const PlayerView = S({
     maintaining: PhasePoints.nullable(), total: Int,
   }),
   planning: PlanningView.nullable(),
-  development: z.null(),            // Step 7 defines DevelopmentView
+  development: DevelopmentView.nullable(),
   maintaining: z.null(),            // Step 9 defines MaintainingView
   inbox: z.array(InboxItem),
   reportCard: z.null(),             // Step 9 defines the report card
@@ -256,7 +348,7 @@ export const ScreenView = S({
   programme: z.array(S({ show: ProgrammeShow, seconds: Int })).nullable(),
   // What the room just did, newest first. A line names the practice and the source of an
   // insight (a person, a data pull), never what was learned and never a class.
-  feed: z.array(S({ name: Text, avatar: AvatarId, system: z.string(), kind: z.enum(['started', 'finished', 'sent']), text: Text.nullable(), atMs: Ms })),
+  feed: z.array(S({ name: Text, avatar: AvatarId, system: z.string(), kind: z.enum(['started', 'finished', 'sent', 'validated']), text: Text.nullable(), atMs: Ms })),
   // One phase, the health systems side by side: the phase the host picked, or the running one.
   phaseBoard: S({
     phase: PhaseId, state: z.enum(['empty', 'live', 'final']), label: Text, of: Int.optional(),
@@ -268,7 +360,9 @@ export const ScreenView = S({
     name: Text, avatar: AvatarId, system: z.string(),
     now: z.array(Text),             // what runs at this moment
     facts: z.array(S({ label: Text, value: Text })),
+    map: CanvasMap.nullable(),      // Phase 2: the practice's draft, drawn with the legend of its system
   })),
+  legends: z.array(S({ system: z.string(), legend: CanvasLegend })),   // for the maps of the cards
   winners: S({
     final: z.boolean(),             // every phase is scored. Before that: the standings so far, no podium
     overall: z.array(BoardRow),

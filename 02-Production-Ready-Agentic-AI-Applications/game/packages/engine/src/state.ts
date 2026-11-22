@@ -1,5 +1,7 @@
 // Session state. Plain JSON data: no classes, maps, sets or dates (engineering spec, 6.1).
+import type { CanvasMap } from '@lab02/content-schema'
 import type { AvatarId, ColumnId, ErrorCode, InboxItem, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
+import type { Missed, NoteId, Running } from './canvas.ts'
 
 export type PlayerId = string
 export type GameMs = number
@@ -23,6 +25,45 @@ export type PlanningState = {
   result: PlanningResult | null
 }
 
+/** One validation of a map (section 6.6). The map is the copy that was validated. */
+export type DevelopmentValidation = {
+  id: string
+  atMs: GameMs
+  map: CanvasMap
+  accuracy: number
+  missed: Missed | null
+  note: NoteId | null
+  running: Running
+  /** The rank in the live column right after this validation, of how many players. */
+  rank: number | null
+  of: number
+}
+
+export type DevelopmentResult = {
+  /** The validation that was submitted, or null for a player who never validated. */
+  validation: string | null
+  accuracy: number
+  raw: number
+  perCase: Record<string, number>
+  map: CanvasMap | null
+}
+
+export type DevelopmentState = {
+  money: number
+  actionsDone: { id: string; atMs: GameMs }[]
+  actionsRunning: { id: string; startedAtMs: GameMs; completesAtMs: GameMs }[]
+  /** The draft. */
+  map: CanvasMap
+  validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs; map: CanvasMap } | null
+  validations: DevelopmentValidation[]
+  shownCases: string[]
+  shownNotes: string[]
+  /** The validation the player chose to submit, or null for the default. */
+  chosen: string | null
+  /** Set when the stage ends. With the money, the actions and the shown items it goes into Phase 3. */
+  result: DevelopmentResult | null
+}
+
 export type PlayerState = {
   id: PlayerId
   name: string
@@ -40,7 +81,7 @@ export type PlayerState = {
   live: Record<PhaseId, { value: number; sinceMs: GameMs }>
   results: Record<PhaseId, PhaseResult | null>
   planning: PlanningState | null
-  development: null
+  development: DevelopmentState | null
   maintaining: null
   inbox: InboxItem[]
   /** Dialogue lines that have fired for this player (each fires once). */
@@ -110,11 +151,13 @@ export type MomentRef =
   | { type: 'tile'; investigation: string }
   | { type: 'dialogue'; id: string }
   | { type: 'letter'; phase: PhaseId }
+  | { type: 'insight'; action: string }
+  | { type: 'validated'; id: string }
 
 /** One line of the room's activity for the projector. `text` is public wording from the pack. */
-export type FeedEntry = { kind: 'started' | 'finished' | 'sent'; text: string | null; atMs: GameMs }
-/** What the projector may say about one practice during play: counts and what runs, nothing else. */
-export type PlayerCard = { now: string[]; facts: { label: string; value: string }[] }
+export type FeedEntry = { kind: 'started' | 'finished' | 'sent' | 'validated'; text: string | null; atMs: GameMs }
+/** What the projector may say about one practice during play: counts and what runs, and in Phase 2 its map. */
+export type PlayerCard = { now: string[]; facts: { label: string; value: string }[]; map?: CanvasMap | null }
 
 export type Outcome = { dirty: PlayerId[] | 'all'; events: EngineEvent[] }
 export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode })

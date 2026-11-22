@@ -30,8 +30,10 @@ function tieKey(name: string, column: ColumnId, s: SessionState): Key {
     case 'points': return { get: (p) => (phase ? phasePoints(p, phase) : overallPoints(s, p)), desc: true }
     case 'earlier_join': return { get: (p) => p.joinSeq, desc: false }
     case 'earlier_submit': return { get: (p) => (phase ? p.submittedAtMs[phase] ?? Number.MAX_SAFE_INTEGER : 0), desc: false }
+    // Phase 2: fewer validations used. `fewer_pilot_runs` is its name from the first version.
+    case 'fewer_validations':
+    case 'fewer_pilot_runs': return { get: (p) => p.development?.validations.length ?? 0, desc: false }
     // The phase steps fill these in. Until then every practice ties on them.
-    case 'fewer_pilot_runs': return { get: () => 0, desc: false }
     case 'fewer_credits_spent': return { get: () => 0, desc: false }
     case 'higher_final_month_health': return { get: () => 0, desc: true }
     default: return { get: () => 0, desc: false }

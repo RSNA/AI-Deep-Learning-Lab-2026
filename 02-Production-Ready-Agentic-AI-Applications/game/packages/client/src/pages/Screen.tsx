@@ -96,18 +96,20 @@ function Leaderboard({ v }: { v: ScreenView }) {
   )
 }
 
-const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment' } as const
-const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)' } as const
+const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment', validated: 'validated a map' } as const
+const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)', validated: 'var(--sky)' } as const
 
 /** The room at work: what practices just started, finished or sent. Never what they learned. */
 function Feed({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
   useTick(1000)
   const now = clock ? gameNow(clock) : null
   const a = v.activity
+  // Phase 2 counts actions done and practices that validated a map (section 6.13).
+  const dev = v.stage === 'development.play'
   const stats = a ? [
     { n: `${a.acted} of ${a.players}`, l: a.players === 1 ? 'practice at work' : 'practices at work' },
-    { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
-    { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
+    dev ? { n: String(a.insights), l: a.insights === 1 ? 'action done' : 'actions done' } : { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
+    dev ? { n: String(a.sent), l: a.sent === 1 ? 'practice validated a map' : 'practices validated a map' } : { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
   ] : []
   return (
     <div style={{ flexGrow: 1, minHeight: 0, padding: '24px 32px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1fr)', gap: 24 }}>

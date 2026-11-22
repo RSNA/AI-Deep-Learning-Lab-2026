@@ -25,9 +25,10 @@ describe('the demo pack', () => {
     expect(r.ok ? [] : r.errors).toEqual([])
     expect(r.warnings).toEqual([])
   })
-  it('can run Phase 1 and is provisional', () => {
+  it('can run Phases 1 and 2 and is provisional', () => {
     if (!r.ok) throw new Error('not ok')
     expect(r.pack.phasesAvailable.planning).toBe(true)
+    expect(r.pack.phasesAvailable.development).toBe(true)
     expect(r.pack.provisional).toBe(true)
     expect(Object.isFrozen(r.pack.game)).toBe(true)
   })
@@ -95,6 +96,19 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a banter line by someone who is not in the system', `${RB}/story.yaml`, (t) => t.replace('{speaker: demo-mara, text: Who moved', '{speaker: demo-nobody, text: Who moved'), /banter\[0\]\.lines\[0\]\.speaker/],
   ['an exchange of one line', `${RB}/story.yaml`, (t) => t.replace(/ {6}- \{speaker: demo-tom, text: It was evidence[^\n]*\n/, ''), /banter\[0\]\.lines/],
   ['a letter variant for a band that does not exist', `${RB}/story.yaml`, (t) => t.replace('      empty: You sent', '      hollow: You sent'), /unknown band "hollow"/],
+  // Phase 2: the canvas (section 12.3)
+  ['an unlock of an item that does not exist', `${RB}/build.yaml`, (t) => t.replace('unlocks: [rb-s-mailbox]', 'unlocks: [rb-s-nowhere]'), /actions\[2\]\.unlocks\[0\].*unknown item "rb-s-nowhere"/],
+  ['a model on a compute that does not exist', `${RB}/build.yaml`, (t) => t.replace('runs_on: [rb-c-rented, rb-c-owned]', 'runs_on: [rb-c-rented, rb-c-moon]'), /models\[2\]\.runs_on\[1\].*unknown compute "rb-c-moon"/],
+  ['numbers for a model that does not exist', `${RB}/build.yaml`, (t) => t.replace('      rb-m-open:  {fetch: {easy: 0.94', '      rb-m-gone:  {fetch: {easy: 0.94'), /workers\[0\]\.by_model\.rb-m-gone.*unknown model/],
+  ['a case that needs a fact no source gives', `${RB}/build.yaml`, (t) => t.replace('    gives: {rb-f-copies: 0.9, rb-f-terms: 1.0}', '    gives: {rb-f-copies: 0.9}'), /cases\[2\]\.needs\[2\].*no source gives fact "rb-f-terms"/],
+  ['a person without a pool', `${RB}/build.yaml`, (t) => t.replace('    pool: librarian\n', ''), /workers\[3\]\.pool.*a person needs a pool/],
+  ['a person without minutes', `${RB}/build.yaml`, (t) => t.replace('    minutes: {decide: 6, check: 2, per_line: {easy: 1, hard: 5}}\n', ''), /workers\[3\]\.minutes.*a person needs minutes/],
+  ['an action that does nothing', `${RB}/build.yaml`, (t) => t.replace('    unlocks: [rb-m-open]\n', ''), /actions\[3\]: an action unlocks nothing and has no insight/],
+  ['a reference map that is refused', `${RB}/build.yaml`, (t) => t.replace('        - {id: t2, kind: rb-w-librarian, col: 4, row: 2}', '        - {id: t2, kind: rb-w-librarian, col: 1, row: 2}'), /key\.reference\.map.*refused: line_backward/],
+  ['a reference map that is not ready', `${RB}/build.yaml`, (t) => t.replace('    needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]', '    needs_actions: [rb-a-mailbox, rb-a-workshop]'), /key\.reference\.map.*refused: bad_compute/],
+  ['reference actions the budget cannot pay', `${RB}/build.yaml`, (t) => t.replace('budget: {money: 100, developers: 3}', 'budget: {money: 30, developers: 3}'), /needs_actions.*cost 50, the budget is 30/],
+  ['an action in a group that does not exist', `${RB}/build.yaml`, (t) => t.replace('    group: negotiate', '    group: bargain'), /actions\[5\]\.group.*unknown group "bargain"/],
+  ['two items with one id', `${RB}/build.yaml`, (t) => t.replace('  - id: rb-c-owned', '  - id: rb-c-rented'), /compute\[3\]\.id.*used twice/],
 ]
 
 describe('broken packs fail with the right path', () => {
@@ -118,6 +132,19 @@ describe('broken packs fail with the right path', () => {
     const r = loadPack(broken('game.yaml', (t) => t.replace('version: 1', 'version: 1\nauthor_note: hello')))
     expect(r.ok).toBe(true)
     expect(r.warnings.map((w) => w.path)).toContain('author_note')
+  })
+
+  it('a pack without build.yaml still plays Phase 1, and one whose game.yaml is not on the canvas waits for it', () => {
+    const dir = broken('game.yaml', (t) => t.replace('    board: canvas\n', ''))
+    const r = loadPack(dir)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.pack.phasesAvailable).toMatchObject({ planning: true, development: false })
+    expect(r.warnings.map((w) => w.path)).toContain('phases.development.board')
+    rmSync(join(dir, 'systems/rb-riverbend/build.yaml'))
+    rmSync(join(dir, 'systems/ls-lakeshore/build.yaml'))
+    const none = loadPack(dir)
+    expect(none.ok && none.pack.phasesAvailable).toMatchObject({ planning: true, development: false })
   })
 
   it('a rule the loader does not read yet is quiet, and a misspelling of it still warns', () => {

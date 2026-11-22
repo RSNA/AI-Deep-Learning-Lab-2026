@@ -24,7 +24,6 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
   })
   // Slide notes are for the host console only.
   pack.deck?.sections.forEach((sec) => sec.slides.forEach((sl) => add(sl.notes, 'never', `deck.${sl.id}.notes`)))
-  pack.palette?.components.forEach((c) => add(c.key, 'never', `palette.${c.id}.key`))
   pack.monitors?.monitors.forEach((m) => add(m.key, 'never', `monitors.${m.id}.key`))
 
   for (const id of pack.systemIds) {
@@ -38,16 +37,16 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
     })
     sp.insights?.forEach((x) => add(x.key, 'never', `${x.id}.key`))
     if (sp.build) {
+      // Every `key` of the canvas stays on the server. The reference map's summary comes out at
+      // the reveal. The texts of a case, a missed fact and a note reach a player one at a time,
+      // with a validation: the leak scan checks them per player (`perPlayerTexts`).
       const b = sp.build
-      b.rules?.forEach((r) => add(r.key, 'never', `${r.id}.key`))
-      b.cases.forEach((c) => {
-        add(c.key, 'never', `${c.id}.key`)
-        c.extra_cost?.forEach((e, i) => add(e.note, 'never', `${c.id}.extra_cost[${i}].note`))
-      })
-      b.offers?.forEach((o) => add(o.key, 'never', `${o.id}.key`))
+      for (const list of [b.facts, b.sources, b.workers, b.models, b.compute, b.prompts, b.actions, b.cases]) {
+        for (const x of list as readonly { id: string; key?: unknown }[]) add(x.key, 'never', `${id}.build.${x.id}.key`)
+      }
       const { reference, ...other } = b.key
-      add(reference.rationale, 'development.reveal', `${id}.build.key.reference.rationale`)
       add(reference.public_summary, 'development.reveal', `${id}.build.key.reference.public_summary`)
+      add(reference.rationale, 'never', `${id}.build.key.reference.rationale`)
       add(other, 'never', `${id}.build.key`)
     }
     if (sp.maintain) {
@@ -78,8 +77,11 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
     // Banter is public, but it is not allowed to repeat a protected string: it stays out of the
     // published set, so the scan flags a line that does.
     if (sp.story) pub({ ...sp.story, banter: undefined }, true)
+    // The ids of the canvas are part of every map that a player builds.
+    const b = sp.build
+    if (b) for (const list of [b.facts, b.sources, b.workers, b.models, b.compute, b.prompts, b.actions, b.cases, [b.result]]) for (const x of list) published.add(x.id)
   }
-  pub([pack.palette, pack.monitors], false)
+  pub([pack.monitors], false)
   for (let i = out.length - 1; i >= 0; i--) if (published.has(out[i]!.text)) out.splice(i, 1)
 
   // The same text may be listed twice with different moments. Keep the strictest.
@@ -90,4 +92,31 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
     if (!prev || rank[p.from] > rank[prev.from]) best.set(p.text, p)
   }
   return [...best.values()]
+}
+
+/**
+ * Texts of Phase 2 that a player receives one at a time, with their own validation or action:
+ * the title and text of a case, what a missed fact or a decision says, a note, and the insight of
+ * an action. They are in no list above, and the leak scan checks them per player.
+ */
+export function perPlayerTexts(pack: Pack, system: string): {
+  cases: Record<string, string[]>; facts: Record<string, string[]>; notes: Record<string, string>; insights: Record<string, string[]>
+} {
+  const b = pack.systems[system]?.build
+  const out = { cases: {} as Record<string, string[]>, facts: {} as Record<string, string[]>, notes: {} as Record<string, string>, insights: {} as Record<string, string[]> }
+  if (!b) return out
+  for (const c of b.cases) out.cases[c.id] = [c.public.title, c.public.text, c.decision_miss]
+  for (const f of b.facts) out.facts[f.id] = [f.miss.missing, f.miss.weak]
+  for (const n of b.notes) out.notes[n.id] = n.text
+  for (const a of b.actions) {
+    if (!a.insight) continue
+    const t = a.insight
+    const texts = [t.headline, t.body]
+    if (t.type === 'stat') texts.push(t.data.label, String(t.data.value), t.data.comparison ?? '')
+    if (t.type === 'chart') texts.push(t.data.note ?? '', t.data.x_label, t.data.y_label)
+    if (t.type === 'audit') texts.push(t.data.note ?? '', ...t.data.findings.map((f) => f.label))
+    if (t.type === 'quote') texts.push(...t.data.text.split('\n'))
+    out.insights[a.id] = texts.filter((x) => x.length >= LEAK_MIN_CHARS)
+  }
+  return out
 }

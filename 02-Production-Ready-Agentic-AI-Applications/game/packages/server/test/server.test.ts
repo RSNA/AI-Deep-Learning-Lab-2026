@@ -359,7 +359,7 @@ describe('limits', () => {
     await step(srv.app, host, code)
     expect(room.state.stage).toBe('planning.play')
     const later = await srv.api.content(r.data.token, 'planning')
-    expect(later.ok && later.data.problems.length).toBe(6)
+    expect(later.ok && later.data.phase === 'planning' && later.data.problems.length).toBe(6)
   })
 
   it('refuses the host API without a token and slows down wrong passcodes', async () => {

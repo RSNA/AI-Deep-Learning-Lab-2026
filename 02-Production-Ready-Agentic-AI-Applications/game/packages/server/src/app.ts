@@ -170,8 +170,8 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const p = room.state.players[row.player_id]
     if (!p || p.removed) return bad(reply, 403, 'removed')
     if (!room.state.opened.includes(phase)) return bad(reply, 403, 'not_open')
-    if (phase !== 'planning') return bad(reply, 404, 'not_available')
-    const content = project.planningContent(room.state, pack, row.player_id)
+    if (phase === 'maintaining') return bad(reply, 404, 'not_available')
+    const content = phase === 'planning' ? project.planningContent(room.state, pack, row.player_id) : project.developmentContent(room.state, pack, row.player_id)
     const checked = PhaseContent.safeParse(content)
     if (!checked.success) {
       log.error('content refused by its schema', { phase, issue: checked.error.issues[0]?.path.join('.') })

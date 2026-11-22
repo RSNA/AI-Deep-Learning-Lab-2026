@@ -49,7 +49,6 @@ story_time:
     investigation_stands_for: {1: an afternoon, 2: a week, 3: two weeks}
   development:
     span: four months
-    pilot_run_stands_for: a one-week trial
   maintaining:
     span: one year
     tick_stands_for: one month
@@ -150,16 +149,22 @@ phases:
       flagship: {bonus: 250}
   development:
     label: Development
-    play_seconds: 150
+    play_seconds: 180
     reveal_seconds: 30
-    pilot: {runs: 6, seconds: 8, concurrent: 1}
-    offers:
-      per_system: 1
-      announce_at_seconds: [45]
-      claim_window_seconds: 30
-      claim_fraction: 0.5
-    live_leaderboard: {label: Best trial score}
-    scoring: {pilot_weight: 0.30, heldout_weight: 0.70}
+    board: canvas
+    action_groups:
+      - {id: learn, label: Learn}
+      - {id: build, label: Build}
+      - {id: buy, label: Buy}
+      - {id: negotiate, label: Negotiate}
+    show_running: true
+    submission:
+      default: best_validation
+      player_may_choose: any_own_validation
+      none_at_the_end: validate_the_draft_if_ready
+    live_leaderboard: {metric: best_validation_accuracy, label: Best accuracy}
+    scoring: {raw: the accuracy of the map that is sent, times a thousand}
+    carries_over: [map, money, unlocked]
   maintaining:
     label: Maintaining
     reveal_seconds: 30
@@ -178,7 +183,7 @@ leaderboards:
   tie_breaks:
     overall: [total_points, maintaining_points, development_points, planning_points, earlier_join]
     planning: [points, earlier_submit]
-    development: [points, fewer_pilot_runs, earlier_submit]
+    development: [points, fewer_validations, earlier_submit]
     maintaining: [points, higher_final_month_health, earlier_join]
   winners: {overall_top: 3, per_system_top: 1, top_system: 1}
   # What "Follow the game" shows on the projector while a phase is played: a loop of views.

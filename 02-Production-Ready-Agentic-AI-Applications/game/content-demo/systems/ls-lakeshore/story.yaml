@@ -1,5 +1,13 @@
 # Demo story text. Nothing here affects a score.
 briefs:
+  development:
+    from: demo-priya
+    title: Build the grant report system
+    text: >-
+      The grant office approved our project. Build me the system that writes the **monthly
+      grant report**: put workers on the map, give each one what it may read, and join them to
+      the report. Actions cost money and time. Validate as you go. *We will live with this
+      system for a long time.*
   planning:
     from: demo-priya
     title: The grant pays for one project
@@ -8,6 +16,17 @@ briefs:
       requests. Sort them for me, and keep the big project for the one that truly needs it.
 
 letters:
+  development_reveal:
+    from: demo-priya
+    always: >-
+      The trial months are done. The report needs the branch inboxes for the missing numbers, a
+      model that decides with a clear goal, and the grant officer checking rather than writing.
+    variants:
+      empty: You never validated a map, so there is no system to run. Validate early next time.
+      rough: Your map writes the plain months. The silent branches still sink the report.
+      steady: A map that works most months. Look at the facts it lost on the way.
+      strong: A sound system, with the strong model where the judgment is.
+      outstanding: The grant office will not send this one back.
   planning_reveal:
     from: demo-priya
     always: >-
@@ -21,6 +40,22 @@ letters:
       outstanding: Exactly the board I hoped for.
 
 dialogue:
+  - id: ls-d-dev-start
+    speaker: demo-tom
+    text: The developers have cleared their desks.
+    trigger: {phase: development, on: start}
+  - id: ls-d-dev-read
+    speaker: demo-mara
+    text: Seven returned reports. That is a lot of red ink.
+    trigger: {phase: development, on: insight:ls-a-read}
+  - id: ls-d-dev-result
+    speaker: demo-idris
+    text: The first number is always the hardest.
+    trigger: {phase: development, on: run_result}
+  - id: ls-d-dev-reveal
+    speaker: demo-priya
+    text: Now we know what it takes.
+    trigger: {phase: development, on: reveal}
   - id: ls-d-start
     speaker: demo-tom
     text: The printer works, by the way. Just saying.

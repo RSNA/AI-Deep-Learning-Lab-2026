@@ -221,8 +221,12 @@ function openPhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): Eng
   return events
 }
 
-/** Whether the player sorted fewer problems than `submission.letter_empty_below` (Phase 1 only). */
+/**
+ * Whether the letter of the reveal takes its `empty` line: in Phase 1 a board with fewer problems
+ * sorted than `submission.letter_empty_below`, in Phase 2 a player who never validated a map.
+ */
 function emptyBoard(pack: Pack, p: PlayerState, phase: PhaseId): boolean {
+  if (phase === 'development') return !p.development?.result?.validation
   if (phase !== 'planning') return false
   const below = pack.game.phases.planning.submission?.letter_empty_below
   return below !== undefined && Object.keys(p.planning?.picks ?? {}).length < below
