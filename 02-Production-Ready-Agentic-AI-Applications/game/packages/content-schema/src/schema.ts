@@ -132,6 +132,7 @@ const DevelopmentRules = W({
   board: z.literal('canvas').optional(),          // required once a health system has a build.yaml
   action_groups: z.array(W({ id: Id, label: Text })).min(1).optional(),
   show_running: z.boolean().optional(),           // show what the map would take to run. Never scored here
+  money_unit: Text.optional(),                    // what one unit of money is, written after a sum, such as k$
   // Each of these has one implemented value, which the loader asks for once `board` is canvas.
   submission: W({
     default: z.string().optional(),               // best_validation
@@ -327,12 +328,14 @@ export type InsightsFile = z.infer<typeof InsightsFile>
 // stays on the server.
 // ------------------------------------------------------------------------------------------
 const Unit = Num.min(0).max(1)
-const Effort = z.enum(['easy', 'hard'])
+// How much digging a fact takes at a source: easy and hard in the contract. A pack may name more
+// kinds, as the reference scorer allows, as long as every worker has numbers for each.
+const Effort = Id
 export type Effort = z.infer<typeof Effort>
 const Difficulty = z.enum(['plain', 'hard'])
 export type Difficulty = z.infer<typeof Difficulty>
 const Quality = S({
-  fetch: S({ easy: Unit, hard: Unit }),
+  fetch: z.record(Id, Unit),
   decide: S({ plain: Unit, hard: Unit }),
   catch: Unit.optional(),
 })
@@ -387,7 +390,7 @@ export const BuildFile = W({
     run: NonNeg.optional(),
     complexity: NonNeg.optional(),
     pool: Id.optional(),
-    minutes: S({ decide: NonNeg, check: NonNeg, per_line: S({ easy: NonNeg, hard: NonNeg }) }).optional(),
+    minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
     key: K({}).optional(),
   })).min(1),
   models: z.array(W({

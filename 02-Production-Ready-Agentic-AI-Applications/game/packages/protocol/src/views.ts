@@ -131,6 +131,7 @@ export const DevelopmentContent = S({
   rules: S({
     cols: Int, rows: Int, money: z.number(), developers: Int,
     validations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
+    moneyUnit: Text.nullable(),         // written after a sum of money, such as k$
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actionGroups: z.array(S({ id: z.string(), label: Text })),
   }),
@@ -141,7 +142,7 @@ export const DevelopmentContent = S({
     costLine: Text.nullable(), needsModel: z.boolean(),
     models: z.array(z.string()),          // the models this kind of worker may carry
     pool: z.string().nullable(),
-    minutes: S({ decide: z.number(), check: z.number(), perLine: S({ easy: z.number(), hard: z.number() }) }).nullable(),
+    minutes: S({ decide: z.number(), check: z.number(), perLine: z.record(z.string(), z.number()) }).nullable(),
   })),
   models: z.array(S({ ...Part, runsOn: z.array(z.string()) })),
   compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),

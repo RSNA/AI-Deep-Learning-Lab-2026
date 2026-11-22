@@ -16,7 +16,7 @@ import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import { TileBody } from '../phase1/Cards.tsx'
 import { BriefSheet, PHONE_BELOW, useNarrow, useWarnings } from '../phase1/Phase1.tsx'
-import { P2 } from './copy.ts'
+import { P2, money, setMoneyUnit } from './copy.ts'
 import { DevReveal } from './Reveal.tsx'
 import { useMap } from './useMap.ts'
 
@@ -48,12 +48,16 @@ const labelOf = (c: DevelopmentContent, id: string): string =>
   c.sources.find((x) => x.id === id)?.label ?? c.workers.find((x) => x.id === id)?.label ?? c.models.find((x) => x.id === id)?.label
   ?? c.compute.find((x) => x.id === id)?.label ?? c.prompts.find((x) => x.id === id)?.label ?? (c.result.id === id ? c.result.label : id)
 
+/** A reason why a map cannot be validated, in words. No reason id reaches a screen. */
+export function reasonText(r: string, pools: { id: string; label: string }[]): string {
+  if (r.startsWith('too_many_minutes:')) return P2.ready.minutes(pools.find((x) => x.id === r.split(':')[1])?.label ?? '')
+  return (P2.ready as unknown as Record<string, string | undefined>)[r] ?? P2.ready.nothing_reaches_result
+}
+
 /** The first reason the map cannot be validated, in words. */
 function readySentence(c: DevelopmentContent, reasons: string[]): string | null {
   const r = reasons[0]
-  if (!r) return null
-  if (r.startsWith('too_many_minutes:')) return P2.ready.minutes(c.rules.pools.find((x) => x.id === r.split(':')[1])?.label ?? '')
-  return (P2.ready as unknown as Record<string, string | undefined>)[r] ?? P2.ready.nothing_reaches_result
+  return r ? reasonText(r, c.rules.pools) : null
 }
 
 // ------------------------------------------------------------------------------------------
@@ -73,7 +77,7 @@ function Toast({ text, onShow, onClose }: { text: string; onShow?: () => void; o
 export function Purse({ dv, content }: { dv: DevelopmentView; content: DevelopmentContent }) {
   return (
     <div className="purse" aria-label={`${P2.money} ${dv.money}. ${P2.developers} ${P2.freeOf(dv.developers.free, dv.developers.total)}. ${P2.validations} ${P2.left(dv.validationsLeft)}`}>
-      <span className="pf"><span className="pl">{P2.money}</span><b className="num">{Math.round(dv.money * 10) / 10}</b></span>
+      <span className="pf"><span className="pl">{P2.money}</span><b className="num">{money(dv.money)}</b>{content.rules.moneyUnit && <span className="unit">{content.rules.moneyUnit}</span>}</span>
       <span className="pf"><span className="pl">{P2.developers}</span><span className="devs" aria-hidden="true">{Array.from({ length: dv.developers.total }, (_, i) => <i key={i} className={i < dv.developers.total - dv.developers.free ? 'held' : ''} />)}</span><b>{P2.freeOf(dv.developers.free, dv.developers.total)}</b></span>
       <span className="pf" title={`${dv.validationsLeft} of ${content.rules.validations}`}><span className="pl">{P2.validations}</span><b>{P2.left(dv.validationsLeft)}</b></span>
     </div>
@@ -211,6 +215,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   useTick(500)
   const view = usePlayer((s) => s.view)!
   const dv = view.development!
+  setMoneyUnit(content.rules.moneyUnit)
   const send = usePlayer((s) => s.send)
   const clock = usePlayer((s) => s.clock)
   const phone = useNarrow(PHONE_BELOW)
@@ -288,7 +293,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const onNode = (id: string) => {
     if (mode.kind === 'join') { if (id === mode.from) setMode({ kind: 'idle' }); else join(mode.from, id); return }
     if (mode.kind !== 'idle') return
-    setSel((s) => (s?.kind === 'tile' && s.id === id ? null : { kind: 'tile', id }))
+    setSel({ kind: 'tile', id })
   }
   const onPort = (id: string) => {
     setSel(null)

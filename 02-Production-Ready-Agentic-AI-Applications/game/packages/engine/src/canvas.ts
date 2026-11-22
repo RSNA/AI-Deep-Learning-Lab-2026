@@ -111,7 +111,7 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   for (const n of sh.order) {
     const tile = sh.tiles.get(n)!
     const w = workers.get(tile.kind)!
-    let q: { fetch: { easy: number; hard: number }; decide: { plain: number; hard: number }; catch?: number }
+    let q: { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number }
     let pf = 1, pd = 1, c = 1
     if (w.needs_model) {
       q = w.by_model![tile.model!]!
@@ -119,7 +119,8 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
       pf = pe.fetch; pd = pe.decide; c = cap
       if (Math.max(pf, pd) <= 1 && Math.min(pf, pd) < 1) prompt.push(n)
     } else q = w.quality!
-    const fetch = { easy: Math.min(c, q.fetch.easy * pf), hard: Math.min(c, q.fetch.hard * pf) }
+    const fetch: Record<string, number> = {}
+    for (const [e, x] of Object.entries(q.fetch)) fetch[e] = Math.min(c, x * pf)
     let decide = { plain: Math.min(c, q.decide.plain * pd), hard: Math.min(c, q.decide.hard * pd) }
     let catchQ = q.catch ?? 0
 
@@ -149,7 +150,7 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
       for (const s of srcIn) {
         const src = sources.get(s)!
         const trust = src.gives[f.id]
-        if (trust !== undefined) best = Math.max(best, fetch[src.effort] * trust)
+        if (trust !== undefined) best = Math.max(best, (fetch[src.effort] ?? 0) * trust)
       }
       for (const u of wrkIn) best = Math.max(best, A.get(u)![f.id]! * keep)
       a[f.id] = best

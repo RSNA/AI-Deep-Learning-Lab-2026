@@ -158,6 +158,7 @@ phases:
       - {id: buy, label: Buy}
       - {id: negotiate, label: Negotiate}
     show_running: true
+    money_unit: k$
     submission:
       default: best_validation
       player_may_choose: any_own_validation

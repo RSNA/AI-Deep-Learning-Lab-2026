@@ -3,7 +3,14 @@ import type { GridWords } from '../canvas/Grid.tsx'
 
 const secs = (s: number) => `${Math.max(0, Math.ceil(s))} s`
 const pct = (x: number) => `${Math.round(100 * x)}%`
+/** A sum of money: whole when it is whole, else two decimals below 10 and one above. */
+export const money = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: Math.abs(x) < 10 ? 2 : 1 }))
 const num = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: 1 }))
+/** The unit of money of the pack, written after a sum. */
+let unit = ''
+export const setMoneyUnit = (u: string | null) => { unit = u ? ` ${u}` : '' }
+
+const moneyOf = (x: number) => money(x)
 
 export const P2 = {
   phase: 'Phase 2',
@@ -82,16 +89,16 @@ export const P2 = {
   done: 'Done',
   noCancel: 'An action is paid when it starts and cannot be stopped. Several can run at once while money and developers allow.',
   cost: (money: number, devs: number, s: number, story: string | null) =>
-    [money ? `${num(money)} money` : 'No money', devs ? `${devs} developer${devs === 1 ? '' : 's'}` : 'no developers', story ? `${s} s · ${story}` : `${s} s`].join(' · '),
+    [money ? (unit ? `${moneyOf(money)}${unit}` : `${moneyOf(money)} money`) : 'No money', devs ? `${devs} developer${devs === 1 ? '' : 's'}` : 'no developers', story ? `${s} s · ${story}` : `${s} s`].join(' · '),
   opens: (list: string) => `Opens: ${list}`,
   leftS: (s: number) => `${secs(s)} left`,
   holds: (n: number) => `holds ${n}`,
   needsFirst: (title: string) => `Do “${title}” first.`,
-  needsMoney: (n: number) => `Needs ${num(n)} money.`,
+  needsMoney: (n: number) => `Needs ${moneyOf(n)}${unit || ' money'}.`,
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Running and validating
   toRun: 'To run this map:',
-  perMonth: (x: number) => `${num(Math.round(x * 10) / 10)} a month`,
+  perMonth: (x: number) => `${moneyOf(x)}${unit} a month`,
   minutes: (label: string, used: number, max: number) => `${label} ${num(used)} of ${num(max)} a case`,
   complexity: (n: number) => `complexity ${n}`,
   privateWarn: 'Private data goes through a service that does not protect it.',

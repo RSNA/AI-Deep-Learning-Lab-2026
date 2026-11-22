@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { GameConnection, playerApi, type ConnStatus, type PlanningContent } from '@lab02/protocol'
+import { GameConnection, playerApi, type CanvasMap, type ConnStatus, type DevelopmentContent, type DevelopmentView, type PlanningContent } from '@lab02/protocol'
 import { createApp, type App } from '../src/index.ts'
 
 export const DEMO = fileURLToPath(new URL('../../../content-demo', import.meta.url))
@@ -107,6 +107,54 @@ export function playPlanning(bot: Bot, base: string, seed = 1): () => void {
       content.problems.forEach((p, i) => { if (rand() > 0.15) picks[p.id] = spots[i]! })
       void bot.conn.command('planning.set_report', { picks })
     }
+  }
+  bot.conn.on('view', act)
+  bot.conn.on('welcome', act)
+  return act
+}
+
+/**
+ * A bot that plays Phase 2 the way a player could: it starts every action it can afford, builds
+ * one AI tile on every open source with the first model and place that fit, joins it to the
+ * result, and validates whenever the map is ready and a validation is left.
+ */
+export function playDevelopment(bot: Bot, base: string): () => void {
+  let content: DevelopmentContent | null = null
+  let fetching = false
+  let last: unknown = null
+  let sentMap = ''
+  const act = (msg?: unknown) => {
+    const fromMsg = (msg as { view?: unknown } | undefined)?.view
+    if (fromMsg) last = fromMsg
+    const v = (last ?? bot.view) as { stage?: string; development?: DevelopmentView | null } | null
+    const dv = v?.development
+    if (!v || v.stage !== 'development.play' || !dv) return
+    if (!content) {
+      if (fetching) return
+      fetching = true
+      void playerApi(base).content(bot.token, 'development').then((r) => { fetching = false; if (r.ok && r.data.phase === 'development') { content = r.data; act() } })
+      return
+    }
+    const open = new Set(dv.unlocked)
+    let money = dv.money, free = dv.developers.free
+    const busy = new Set([...dv.actionsDone, ...dv.actionsRunning].map((a) => a.id))
+    for (const a of content.actions) {
+      if (busy.has(a.id) || a.money > money || a.developers > free || a.requires.some((r) => !dv.actionsDone.some((d) => d.id === r))) continue
+      money -= a.money; free -= a.developers
+      void bot.conn.command('development.act', { id: a.id })
+    }
+    const w = content.workers.find((x) => x.needsModel && open.has(x.id))
+    const m = w && content.models.find((x) => open.has(x.id) && w.models.includes(x.id) && x.runsOn.some((c) => open.has(c)))
+    const c = m && m.runsOn.find((x) => open.has(x))
+    if (w && m && c) {
+      const map: CanvasMap = {
+        tiles: [{ id: 't1', kind: w.id, col: 2, row: 2, model: m.id, runsOn: c, prompt: null }],
+        lines: [...content.sources.filter((x) => open.has(x.id)).map((x) => ({ from: x.id, to: 't1' })), { from: 't1', to: content.result.id }],
+      }
+      const key = JSON.stringify(map)
+      if (key !== sentMap) { sentMap = key; void bot.conn.command('development.set_map', { map }) }
+    }
+    if (dv.ready.ok && !dv.validating && dv.validationsLeft > 0) void bot.conn.command('development.validate', {})
   }
   bot.conn.on('view', act)
   bot.conn.on('welcome', act)

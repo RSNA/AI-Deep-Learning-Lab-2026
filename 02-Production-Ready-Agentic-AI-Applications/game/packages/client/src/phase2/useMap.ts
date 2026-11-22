@@ -48,15 +48,20 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey])
 
+  // Every change gets a number. Only the answer to the newest change ends the wait, so a view of
+  // an older draft never overwrites a newer one.
+  const seq = useRef(0)
   const push = useCallback((map: CanvasMap) => {
     pending.current = true
+    const mine = ++seq.current
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       void send('development.set_map', { map }).then((r) => {
+        if (mine !== seq.current) return
         pending.current = false
+        const now = usePlayer.getState().view?.development?.map
         if (!r.ok) {
           setError(`${P2.refusedMap} ${plainError(r.error)}`)
-          const now = usePlayer.getState().view?.development?.map
           if (now) setH((prev) => ({ ...prev, map: now }))
         }
       })

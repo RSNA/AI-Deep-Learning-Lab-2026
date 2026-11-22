@@ -114,6 +114,51 @@ describe('restart', () => {
   })
 })
 
+describe('Phase 2 across a restart', () => {
+  it('an action and a validation that run when the server stops finish after it starts again, and the draft is kept', async () => {
+    const srv1 = await server()
+    const code = session(srv1)
+    const token = await hostToken(srv1.url)
+    const host1 = hostConn(srv1.ws, token, code)
+    await until(() => host1.status === 'open')
+    const bot = await joinBot(srv1, code, 'Canvas Restart')
+    await until(() => bot.status === 'open')
+    for (const t of ['next', 'next', 'end_now', 'next', 'next']) expect((await host1.command(t)).ok).toBe(true)
+    const room1 = srv1.app.manager.get(code)!
+    expect(room1.state.stage).toBe('development.play')
+    const map = { tiles: [{ id: 't1', kind: 'rb-w-agent', col: 2, row: 2, model: 'rb-m-small', runsOn: 'rb-c-api', prompt: null }],
+      lines: [{ from: 'rb-s-form', to: 't1' }, { from: 'rb-s-catalog', to: 't1' }, { from: 't1', to: 'rb-result' }] }
+    expect((await bot.conn.command('development.set_map', { map })).ok).toBe(true)
+    expect((await bot.conn.command('development.act', { id: 'rb-a-mailbox' })).ok).toBe(true)
+    expect((await bot.conn.command('development.validate', {})).ok).toBe(true)
+    const p1 = room1.state.players[bot.playerId]!.development!
+    expect(p1.actionsRunning).toHaveLength(1)
+    expect(p1.validating).not.toBeNull()
+    host1.close()
+    bot.conn.close()
+    await srv1.app.close()
+    cleanups.length = 0
+
+    const srv2 = await server(srv1.dataDir)
+    cleanups.push(srv2.cleanup)
+    const room2 = srv2.app.manager.get(code)!
+    const st = () => room2.state.players[bot.playerId]!.development!
+    expect(st().map.tiles).toHaveLength(1)
+    expect(st().money).toBe(p1.money)
+    // The game clock goes on: the validation (6 s) and the action (20 s) end on the server.
+    const host2 = hostConn(srv2.ws, token, code)
+    cleanups.push(() => host2.close())
+    await until(() => host2.status === 'open')
+    expect((await host2.command('pause')).ok).toBe(true)
+    expect((await host2.command('set_scale', { scale: 50 })).ok).toBe(true)
+    expect((await host2.command('resume')).ok).toBe(true)
+    await until(() => st().validations.length === 1 && st().actionsDone.length === 1, 10_000, 'the timers after a restart')
+    const back = attach(srv2.ws, bot.token)
+    cleanups.push(() => back.conn.close())
+    await until(() => !!(back.view as { development?: { validations: unknown[] } } | null)?.development?.validations.length, 5000, 'the view after a restart')
+  })
+})
+
 describe('a game that starts again or ends', () => {
   it('restart_game takes every player back to the lobby in the same session, with a new run number', async () => {
     const srv = await server()

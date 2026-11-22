@@ -133,7 +133,7 @@ export const H = {
     devs: (free: number, total: number) => `${free} of ${total} developers free`,
     draft: 'Their draft map now',
     ready: (acc: number) => `Ready. It would score ${Math.round(100 * acc)}% if validated now.`,
-    notReady: (reasons: string) => `Not ready to validate: ${reasons}.`,
+    notReady: (reasons: string) => `Not ready to validate. ${reasons}`,
     actions: 'Actions',
     state: { open: 'not started', running: 'running', done: 'done' } as Record<string, string>,
     validations: 'Their validations',

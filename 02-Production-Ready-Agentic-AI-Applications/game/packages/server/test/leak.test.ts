@@ -3,10 +3,10 @@
 // The scan fails if a protected string of the pack appears before its moment.
 // `npm run test:leak` runs it on the pack in CONTENT_DIR (with SYSTEMS if set).
 import { describe, expect, it } from 'vitest'
-import { loadPack, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
+import { loadPack, perPlayerTexts, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
 import { STAGES, type StageId } from '@lab02/protocol'
 import { deckSlides, shownScene, slidesMirrored } from '@lab02/engine'
-import { DEMO, attach, hostConn, hostToken, joinBot, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
+import { DEMO, attach, hostConn, hostToken, joinBot, playDevelopment, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
 import type { Room } from '../src/room.ts'
 
 /** Every text of a tile, with the interview lines apart (they may arrive one by one before the tile). */
@@ -59,6 +59,39 @@ function forbiddenFor(room: Room, pack: Pack, playerId: string, open: Set<string
   return out
 }
 
+/**
+ * Phase 2 texts that must not have reached this player yet: a case, what a missed fact or a
+ * decision says, and a note reach a player with their own validation; an insight with their own
+ * action. At the reveal every case arrives with its title and text.
+ */
+function devForbiddenFor(room: Room, pack: Pack, playerId: string): string[] {
+  const p = room.state.players[playerId]
+  if (!p) return []
+  const t = perPlayerTexts(pack, p.system)
+  const st = p.development
+  const revealed = room.state.closedPhases.includes('development')
+  const allowed = new Set<string>()
+  const b = pack.systems[p.system]?.build
+  for (const v of st?.validations ?? []) {
+    if (v.missed) {
+      const k = b?.cases.find((x) => x.id === v.missed!.case)
+      if (k) { allowed.add(k.public.title); allowed.add(k.public.text) }
+      const f = v.missed.fact ? b?.facts.find((x) => x.id === v.missed!.fact) : undefined
+      if (v.missed.reason === 'missing' && f) allowed.add(f.miss.missing)
+      if (v.missed.reason === 'weak' && f) allowed.add(f.miss.weak)
+      if (v.missed.reason === 'decision' && k) allowed.add(k.decision_miss)
+    }
+    if (v.note && t.notes[v.note]) allowed.add(t.notes[v.note]!)
+  }
+  if (revealed) for (const k of b?.cases ?? []) { allowed.add(k.public.title); allowed.add(k.public.text) }
+  for (const d of st?.actionsDone ?? []) for (const x of t.insights[d.id] ?? []) allowed.add(x)
+  const out: string[] = []
+  for (const list of [...Object.values(t.cases), ...Object.values(t.facts), Object.values(t.notes), ...Object.values(t.insights)]) {
+    for (const x of list) if (x.length >= 12 && !allowed.has(x)) out.push(x)
+  }
+  return out
+}
+
 const usePrivate = process.env.LEAK_PACK === '1'
 const dir = usePrivate ? process.env.CONTENT_DIR! : DEMO
 
@@ -86,6 +119,8 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const tileLeaks: string[] = []
       const open = publicTexts(loaded.pack)
       let tilesSeen = 0
+      let devSeen = 0
+      const devLeaks: string[] = []
       const token = await hostToken(srv.url)
       const host = hostConn(srv.ws, token, code)
       await until(() => host.status === 'open')
@@ -101,8 +136,13 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           for (const x of forbiddenFor(room, loaded.pack, b.playerId, open)) {
             if (text.includes(JSON.stringify(x).slice(1, -1))) { tileLeaks.push(`a tile text reached ${b.playerId} during ${room.state.stage} before its investigation ended: ${x.slice(0, 24)}`); break }
           }
+          if (text.includes('"development":{') || text.includes('"phase":"development"')) devSeen++
+          for (const x of devForbiddenFor(room, loaded.pack, b.playerId)) {
+            if (text.includes(JSON.stringify(x).slice(1, -1))) { devLeaks.push(`a Phase 2 text reached ${b.playerId} during ${room.state.stage} before it was theirs: ${x.slice(0, 24)}`); break }
+          }
         })
         playPlanning(b, srv.url, i + 7)
+        playDevelopment(b, srv.url)
         bots.push(b)
       }
       const scrLink = await fetch(`${srv.url}/api/host/screen-link`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ code }) })
@@ -142,8 +182,9 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           await new Promise((r) => setTimeout(r, 300))
           expect((await host.command('screen_scene', { scene: 'auto' })).ok).toBe(true)
         }
-        // Phase 1 runs on its own clock, so the bots earn their tiles. Later phases are stubs.
-        if (before !== 'planning.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
+        // Phases 1 and 2 run on their own clock, so the bots earn their tiles, actions and
+        // validations. Phase 3 is a stub.
+        if (before !== 'planning.play' && before !== 'development.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
         await until(() => room.state.stage !== before, 40_000, `leaving ${before}`)
       }
       clearInterval(watchSlides)
@@ -166,6 +207,10 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const early = records.filter((r) => idx(r.stage) < idx('planning.reveal'))
       const fields = ['"tier":', '"rationale":', '"burden":', '"graded":', '"justification"', '"class":"']
       const structural = fields.filter((f) => early.some((r) => r.text.includes(f)))
+      // No number of the canvas scoring and no case list reaches anyone before the Phase 2 reveal.
+      const early2 = records.filter((r) => idx(r.stage) < idx('development.reveal'))
+      const fields2 = ['"weight":', '"needs":', '"difficulty":', '"gives":', '"effort":', '"distracts":', '"keep":', '"fetch":', '"catch":', '"by_model"', '"perCase"', '"solved":', '"overloaded"', '"distracting"', '"summary":', '"reference":']
+      structural.push(...fields2.filter((f) => early2.some((r) => r.text.includes(f))))
       // A slide reaches a browser only while it is shown there. Notes never do (they are protected).
       const slideLeaks: string[] = []
       const openText = [...open].join('\n')
@@ -191,6 +236,12 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       expect(tilesSeen).toBeGreaterThan(0)
       expect(structural).toEqual([])
       expect(tileLeaks).toEqual([])
+      expect(devLeaks).toEqual([])
+      if (loaded.pack.phasesAvailable.development) {
+        expect(devSeen).toBeGreaterThan(0)
+        // The bots validated, so cases and notes did reach their own players.
+        expect(Object.values(room.state.players).some((p) => (p.development?.validations.length ?? 0) > 0)).toBe(true)
+      }
       expect(leaks).toEqual([])
     } finally {
       await srv.app.close()

@@ -61,6 +61,13 @@ export function checkBuild(
       if (!w.minutes) err(`${at}.minutes`, 'a person needs minutes')
     } else if (w.pool || w.minutes) err(`${at}.pool`, 'only a person takes minutes from a pool')
   })
+  // Every worker has numbers for every effort a source names, and every person minutes for it.
+  const efforts = [...new Set(b.sources.map((x) => x.effort))]
+  b.workers.forEach((w, i) => {
+    const qs = w.by_model ? Object.entries(w.by_model).map(([m, q]) => [`by_model.${m}`, q] as const) : w.quality ? [['quality', w.quality] as const] : []
+    for (const [at, q] of qs) for (const e of efforts) if (q.fetch[e] === undefined) err(`workers[${i}].${at}.fetch`, `no number for the effort "${e}" of a source`)
+    if (w.minutes) for (const e of efforts) if (w.minutes.per_line[e] === undefined) err(`workers[${i}].minutes.per_line`, `no minutes for the effort "${e}" of a source`)
+  })
   b.models.forEach((m, i) => m.runs_on.forEach((c, j) => { if (!computeIds.has(c)) err(`models[${i}].runs_on[${j}]`, `unknown compute "${c}"`) }))
   b.prompts.forEach((p, i) => {
     for (const w of Object.keys(p.by_worker ?? {})) if (!workerIds.has(w)) err(`prompts[${i}].by_worker.${w}`, `unknown worker "${w}"`)

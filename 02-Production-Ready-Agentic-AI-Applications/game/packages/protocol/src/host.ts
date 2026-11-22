@@ -124,6 +124,7 @@ export const HostInspect = S({
     status: z.enum(['playing', 'closed']),
     money: z.number(), developers: S({ total: Int, free: Int }),
     legend: CanvasLegend,
+    pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actions: z.array(S({ id: z.string(), title: Text, group: z.string(), state: z.enum(['open', 'running', 'done']) })),
     map: CanvasMap,
     ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),

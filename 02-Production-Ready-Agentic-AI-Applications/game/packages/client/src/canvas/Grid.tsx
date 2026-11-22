@@ -70,6 +70,8 @@ export function Grid(p: GridProps) {
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
   const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
+  // A press on a port starts a line, never the native drag of the tile around it.
+  const onPort = useRef(false)
   const flags = p.flags ?? { stray: [], incomplete: [], privateData: [] }
   const mode = p.mode ?? { kind: 'idle' }
   const unlocked = p.unlocked
@@ -139,6 +141,7 @@ export function Grid(p: GridProps) {
   // Drag from a port draws a line that follows the pointer (laptop). A click joins in two clicks.
   const startDrag = (from: string, e: React.PointerEvent) => {
     if (readOnly || e.button !== 0 || e.pointerType === 'touch') return
+    onPort.current = true
     const el = box.current!
     const root = el.getBoundingClientRect()
     const k = root.width / Math.max(1, el.offsetWidth)
@@ -152,6 +155,7 @@ export function Grid(p: GridProps) {
       setOver(el?.dataset.target ?? null)
     }
     const up = (ev: PointerEvent) => {
+      onPort.current = false
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       if (moved) {
@@ -204,7 +208,11 @@ export function Grid(p: GridProps) {
         role={readOnly ? undefined : 'button'} tabIndex={readOnly ? undefined : 0}
         aria-label={`${label}${stray ? `. ${words.stray}` : ''}${warn ? `. ${words.privateData}` : ''}${target ? `. ${words.joinHere(label)}` : ''}`}
         draggable={!readOnly && !compact}
-        onDragStart={(e) => { e.dataTransfer.setData('text/x-lab02-tile', t.id); e.dataTransfer.effectAllowed = 'move' }}
+        onDragStart={(e) => {
+          // A drag from the port draws a line, it does not move the tile.
+          if (onPort.current) { e.preventDefault(); return }
+          e.dataTransfer.setData('text/x-lab02-tile', t.id); e.dataTransfer.effectAllowed = 'move'
+        }}
         onClick={readOnly ? undefined : () => p.onNode?.(t.id)}
         onKeyDown={readOnly ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNode?.(t.id) } }}>
         <div className="ct-head">
@@ -217,7 +225,7 @@ export function Grid(p: GridProps) {
           return readOnly
             ? <div key={part} className={`ct-part${pl.missing ? ' missing' : ''}`} title={pl.title}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></div>
             : <button key={part} type="button" className={`ct-part${pl.missing ? ' missing' : ''}`} title={pl.title} aria-label={pl.title}
-                onClick={(e) => { e.stopPropagation(); p.onPart?.(t.id, part) }}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></button>
+                onClick={(e) => { e.stopPropagation(); if (mode.kind === 'idle') p.onPart?.(t.id, part); else p.onNode?.(t.id) }}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></button>
         })}
         {isAi && compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)

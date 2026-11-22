@@ -11,7 +11,7 @@ export type CanvasTile = {
 export type CanvasLine = { from: string; to: string }
 export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[] }
 
-type Quality = { fetch: { easy: number; hard: number }; decide: { plain: number; hard: number }; catch?: number }
+type Quality = { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number }
 
 /**
  * Everything of a build file that the rules and the scoring read. A `BuildFile` is one, and so is
@@ -24,7 +24,7 @@ export type CanvasTables = {
   quality_cap?: number
   facts: readonly { id: string }[]
   sources: readonly {
-    id: string; gives: Readonly<Record<string, number>>; effort: 'easy' | 'hard'
+    id: string; gives: Readonly<Record<string, number>>; effort: string
     private_data?: boolean; distracts?: number; run?: number
   }[]
   result: { id: string }
@@ -32,7 +32,7 @@ export type CanvasTables = {
     id: string; kind: string; needs_model?: boolean
     by_model?: Readonly<Record<string, Quality>>; quality?: Quality
     load?: { free: number; factor: number }; calls?: number; run?: number; complexity?: number
-    pool?: string; minutes?: { decide: number; check: number; per_line: { easy: number; hard: number } }
+    pool?: string; minutes?: { decide: number; check: number; per_line: Readonly<Record<string, number>> }
   }[]
   models?: readonly { id: string; run?: number; runs_on: readonly string[] }[]
   compute?: readonly { id: string; protects_private_data?: boolean; price_factor?: number; run_fixed?: number }[]
@@ -202,7 +202,7 @@ export function peopleMinutes(m: CanvasMap, t: CanvasTables): Record<string, num
     const mn = w.minutes
     if (!mn) continue
     let used = hasWorkerIn.has(n) ? mn.check : mn.decide
-    for (const s of srcIn.get(n)!) used += mn.per_line[sources.get(s)!.effort]
+    for (const s of srcIn.get(n)!) used += mn.per_line[sources.get(s)!.effort] ?? 0
     const pool = w.pool!
     out[pool] = (out[pool] ?? 0) + used
   }
