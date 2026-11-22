@@ -179,7 +179,7 @@ test('stages, groups and numbered tiles: a cell under a line takes the click, th
   // The toolbox under its two headings, each row with its task.
   await expect(page.locator('.tbgroup-t')).toHaveText(['Operators', 'Tools'])
   await expect(tool(page, 'Card reader')).toContainText('Reads the scanned card files')
-  await expect(tool(page, 'Card reader')).toBeDisabled()
+  await expect(tool(page, 'Card reader')).toHaveAttribute('aria-disabled', 'true')
   // A legend says what the two kinds of line are.
   await expect(page.locator('.lglegend')).toContainText('hands its work on')
 

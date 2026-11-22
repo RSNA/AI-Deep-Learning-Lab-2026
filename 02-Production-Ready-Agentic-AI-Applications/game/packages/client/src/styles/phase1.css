@@ -255,6 +255,7 @@ button.ibtn { cursor: pointer; }
 .bigpts .face { font-size: 24px; }
 .buildnext { padding: 10px 12px; border: 3px solid var(--line); background: var(--sky-bg); font-weight: 800; font-size: 15px; }
 .brief-text p { font-size: 16px; line-height: 1.5; }
+.brief-text p + p { margin-top: 10px; }
 
 @media (max-width: 1023px) {
   .reveal { padding: 10px 10px 20px; }

@@ -31,7 +31,7 @@ export const P2 = {
   models: 'Models',
   computes: 'Where they run',
   kinds: { ai: 'AI', fixed: 'Fixed', person: 'Person' } as Record<string, string>,
-  pickHint: 'Click a worker, then an empty cell. Or drag it there.',
+  pickHint: 'Tap a worker, then an empty cell of the map.',
   picked: 'Now click an empty cell. Esc cancels.',
   locked: (action: string) => `Opens with: ${action}`,
   lockedNoAction: 'Not open in this phase',
@@ -47,7 +47,7 @@ export const P2 = {
   cancel: 'Cancel',
   // Hints in the bar of the map
   hint: {
-    idle: 'Join with the round port on the right edge.',
+    idle: 'Pick a worker in the toolbox, then a cell. Join with the round port.',
     place: (label: string) => `Click an empty cell for the ${label}. Esc cancels.`,
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
     join: (label: string) => `Click a lit tile or the result to join ${label}. Esc cancels.`,

@@ -2810,7 +2810,7 @@ titled columns whose titles stand on one line, both themes, every row of control
 ```
 
 **Layout.** Under the top bar three columns: Actions (236 to 300 px), the map (all the width that
-is left) and the Toolbox (190 to 250 px). The three fill the height of the window, so at 1280 by
+is left) and the Toolbox (200 to 260 px). The three fill the height of the window, so at 1280 by
 720 the whole grid, the shelves and the Validate button are in view without a scroll. The last
 validation and the insights stand under them, side by side, and are reached by scrolling the
 page. The reading room is not shown in this phase.
@@ -2910,8 +2910,11 @@ them. On a laptop a row is compact: the icon in the worker's color, the label an
 Fixed, Person) on one line, and the `task` under it. The description, the cost line and, for a
 person, the minutes a case for deciding alone and for checking appear in the row when it is
 picked, and in a card beside the toolbox while the pointer rests on it. A locked kind is dimmed
-with its action. The picked one is marked, and a line under the column's title says how placing
-works. Nine kinds under two headings fit at 1280 by 720. On a phone the rows show everything.
+with its action on one line (the whole sentence in the card). A locked row is not a disabled
+button, so pointing at it still shows its card. The picked one is marked. On a laptop the map's
+title bar says how placing works ("Pick a worker in the toolbox, then a cell."); on a phone a line
+under the toolbox says it. Nine kinds under two headings fit at 1280 by 720. On a phone the rows
+show everything.
 
 **Actions.** Grouped under the headings of `action_groups`. A row is compact: the title, one line
 with money, developers and seconds, and the Start button. A click on the title opens the teaser,

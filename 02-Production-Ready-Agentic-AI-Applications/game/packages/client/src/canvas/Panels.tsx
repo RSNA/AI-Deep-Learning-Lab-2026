@@ -93,22 +93,24 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
       {w.extra && <span className="tb-c">{w.extra}</span>}
     </>
   )
+  // A locked row is not a disabled button, so that pointing at it still shows its card.
+  const lockLine = (w: ToolboxItem) => <span className="tb-lock" title={lockText(lockedBy, w.id, words)}><Icon name="lock" size={11} /> <span>{lockText(lockedBy, w.id, words)}</span></span>
   const row = (w: ToolboxItem) => {
     const lock = !unlocked.has(w.id)
     const on = picked === w.id
     return (
-      <button key={w.id} type="button" className={`tbrow k-${w.kind}${on ? ' on' : ''}${lock ? ' is-locked' : ''}`} disabled={lock} aria-pressed={on}
+      <button key={w.id} type="button" className={`tbrow k-${w.kind}${on ? ' on' : ''}${lock ? ' is-locked' : ''}`} aria-disabled={lock || undefined} aria-pressed={on}
         data-worker={w.id} draggable={!lock && !phone}
         aria-label={[w.label, words.kinds[w.kind ?? ''], w.task, w.description, w.costLine, w.extra, lock ? lockText(lockedBy, w.id, words) : null].filter(Boolean).join('. ')}
         onDragStart={(e) => { setHover(null); e.dataTransfer.setData('text/x-lab02-kind', w.id); e.dataTransfer.effectAllowed = 'copy' }}
         onMouseEnter={(e) => point(w.id, e.currentTarget)} onMouseLeave={() => setHover(null)}
-        onClick={() => { setHover(null); onPick(on ? null : w.id) }}>
+        onClick={() => { if (lock) return; setHover(null); onPick(on ? null : w.id) }}>
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
           <span className="tb-l"><span className="tb-ln">{w.label}</span><span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
           {w.task && <span className="tb-task">{w.task}</span>}
           {(phone || on) && details(w)}
-          {lock && <span className="tb-lock"><Icon name="lock" size={11} /> <span>{lockText(lockedBy, w.id, words)}</span></span>}
+          {lock && lockLine(w)}
           {on && <span className="tb-on">{words.picked}</span>}
         </span>
       </button>
@@ -117,7 +119,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
   const hw = hover ? workers.find((w) => w.id === hover.id && w.id !== picked) : undefined
   return (
     <div className={`toolbox${phone ? ' phone' : ''}`}>
-      <div className="tb-hint">{words.pickHint}</div>
+      {phone && <div className="tb-hint">{words.pickHint}</div>}
       {sections.map((sec) => (
         <div key={sec.id} className="tbgroup">
           {sec.label && <div className="tbgroup-t">{sec.label}</div>}
@@ -128,6 +130,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
         <div className={`tb-pop k-${hw.kind}`} style={{ top: hover.top, right: hover.right }} aria-hidden="true">
           <span className="tb-l">{hw.label}</span>
           {details(hw)}
+          {!unlocked.has(hw.id) && <span className="tb-lock">{lockText(lockedBy, hw.id, words)}</span>}
         </div>, document.body)}
     </div>
   )
