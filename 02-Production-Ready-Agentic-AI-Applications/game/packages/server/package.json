@@ -1,0 +1,16 @@
+{
+  "name": "@lab02/server",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "dev": "tsx watch src/main.ts" },
+  "dependencies": {
+    "@fastify/static": "10.1.11",
+    "@lab02/content-schema": "*",
+    "@lab02/engine": "*",
+    "@lab02/protocol": "*",
+    "fastify": "5.12.8",
+    "ws": "8.23.0"
+  },
+  "devDependencies": { "@types/ws": "8.18.2" }
+}

@@ -1,0 +1,81 @@
+- id: rb-look-mara
+  method: interview
+  character: demo-mara
+  public:
+    title: Ask Mara about the desk
+    teaser: The head of circulation sees every queue first.
+  bandwidth: 1
+  seconds: 10
+  tile:
+    type: quote
+    headline: Mara on the weekly rhythm
+    body: An opinion from the person who runs the desk.
+    data:
+      speaker: demo-mara
+      text: "Mondays bury us. Tuesdays I could knit.\nThe partner requests are what patrons shout about.\nThe kiosks? Those were last year."
+- id: rb-look-queue
+  method: data_pull
+  character: null
+  public:
+    title: Pull the desk queue by weekday
+    teaser: How long patrons wait at the desk on each day.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: chart
+    headline: Desk wait by weekday
+    body: Median wait in minutes over the last eight weeks. **Monday** is the only day past the target.
+    data:
+      kind: line
+      x_label: Weekday
+      y_label: Minutes
+      series:
+        - name: Median wait
+          points: [[Mon, 18], [Tue, 4], [Wed, 9], [Thu, 5], [Fri, 6], [Sat, 7]]
+        - name: Target (10 minutes)
+          points: [[Mon, 10], [Tue, 10], [Wed, 10], [Thu, 10], [Fri, 10], [Sat, 10]]
+      note: Staffing is *the same* every weekday.
+- id: rb-look-partner
+  method: data_pull
+  character: null
+  public:
+    title: Count partner requests
+    teaser: How partner requests end.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: stat
+    headline: Partner requests that end in a loan
+    body: Out of every request placed last quarter.
+    data: {value: 64, unit: "%", label: arrive and are borrowed, comparison: "Each one took 4 to 11 different steps."}
+- id: rb-look-shelf
+  method: audit
+  character: null
+  public:
+    title: Audit the shelves
+    teaser: Walk the stacks with a scanner.
+  bandwidth: 2
+  seconds: 15
+  tile:
+    type: audit
+    headline: Shelf audit of 1,000 books
+    body: Every book checked against the catalog.
+    data:
+      sample_size: 1000
+      findings:
+        - {label: In the right place, count: 998}
+        - {label: On the wrong shelf, count: 2}
+      note: Both were on the cart to be reshelved.
+- id: rb-look-floor
+  method: observation
+  character: null
+  public:
+    title: Watch the floor for a day
+    teaser: Shadow the desk and the phones from open to close.
+  bandwidth: 3
+  seconds: 20
+  tile:
+    type: stat
+    headline: Questions at the desk and on the phone
+    body: One Thursday, counted by hand.
+    data: {value: 41, label: questions about events, comparison: "The answers were all in the event calendar."}

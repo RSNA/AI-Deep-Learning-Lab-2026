@@ -1,0 +1,93 @@
+# The demo deck: one deck for the session, in sections. A section opens at its stage when the
+# big screen follows the game. Notes reach only the host console. A slide has a layout
+# (section 5.5 of the spec): plain bullets, a title slide with the people and the join code,
+# boxes side by side (a box may carry a few points under its text), pictures in rows, or a
+# closing slide with a QR code and references. A slide may show one or two room statistics.
+sections:
+  - id: welcome
+    title: Welcome
+    stage: intro
+    slides:
+      - id: welcome-1
+        layout: title
+        title: The branch library game
+        subtitle: A sample session with two library networks
+        people:
+          - {name: Ada Brook, role: Moderator}
+          - {name: Noor Vale, role: Presenter}
+        qr: {show: join, label: Join with your phone}
+        notes: Wait until most people have joined. Point at the code on the big screen.
+      - id: welcome-2
+        layout: cards
+        title: Three phases, one season each
+        cards:
+          - {tag: "1", title: Planning, text: Find out what the branch needs., points: [Ask the staff, Count the requests]}
+          - {tag: "2", title: Development, text: Build it and try it on a week of requests.}
+          - {tag: "3", title: Maintaining, text: Keep it working as the seasons change.}
+        bullets:
+          - Each phase is worth the same number of points.
+        notes: Keep this short. The game explains itself.
+        placeholder: true
+      - id: welcome-3
+        layout: cards
+        title: Two library networks
+        cards:
+          - {system: rb, tag: Half of you, title: Riverbend, text: Branches along the river.}
+          - {system: ls, tag: Half of you, title: Lakeshore, text: Branches around the lake.}
+        bullets:
+          - A box of a network takes that network's color and shape.
+  - id: after-planning
+    title: After Phase 1
+    stage: break.planning
+    slides:
+      - id: planning-1
+        title: What the room found
+        bullets:
+          - Most requests were smaller than they sounded.
+          - Only one needed a system that plans its own steps.
+        live_stat: flagship_hit_rate
+        notes: Ask one player who found the big project to say what gave it away.
+      - id: planning-2
+        title: Counts beat complaints
+        bullets:
+          - A loud complaint is one data point.
+          - A tally of a month is many.
+        live_stat: [sorting_by_class, flagship_by_system]
+  - id: after-development
+    title: After Phase 2
+    stage: break.development
+    slides:
+      - id: development-1
+        title: Trials before trust
+        bullets:
+          - Every design was tried on a week of requests.
+        placeholder: true
+  - id: after-maintaining
+    title: After Phase 3
+    stage: break.maintaining
+    slides:
+      - id: maintaining-1
+        title: Systems drift
+        bullets:
+          - What worked in spring needed care by winter.
+        placeholder: true
+  - id: closing
+    title: Reflection
+    stage: reflection
+    slides:
+      - id: closing-1
+        layout: figures
+        title: Two books behind this game
+        figures:
+          - {title: The Quiet Catalogue, caption: A sample title}
+          - {title: Shelves That Count, caption: Another sample title}
+        notes: Say where the two sample books can be found.
+      - id: closing-2
+        layout: closing
+        title: Thank you
+        subtitle: What will you try on Monday?
+        references:
+          - The Quiet Catalogue. A sample reference for the demo deck.
+          - Shelves That Count. Another sample reference.
+        qr: {show: link, label: Tell us how it went}
+        notes: Two or three answers from the room, then the winners.

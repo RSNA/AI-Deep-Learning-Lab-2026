@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Git pre-commit hook of Lab 02: stops when check:no-private fails. Enable it for one worktree with
+#   git config extensions.worktreeConfig true
+#   git config --worktree core.hooksPath 02-Production-Ready-Agentic-AI-Applications/game/scripts/hooks
+set -euo pipefail
+exec "$(git rev-parse --show-toplevel)/02-Production-Ready-Agentic-AI-Applications/game/scripts/no-private-gate.sh"

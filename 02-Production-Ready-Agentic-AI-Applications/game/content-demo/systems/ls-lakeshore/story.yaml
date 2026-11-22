@@ -1,0 +1,46 @@
+# Demo story text. Nothing here affects a score.
+briefs:
+  planning:
+    from: demo-priya
+    title: The grant pays for one project
+    text: >-
+      The district grant pays for **one** large project at our branch. The staff have six
+      requests. Sort them for me, and keep the big project for the one that truly needs it.
+
+letters:
+  planning_reveal:
+    from: demo-priya
+    always: >-
+      The grant project goes to the grant reports, which pull numbers from many systems and chase
+      what is missing. The room bookings need a rule, and the bus needs a better timetable.
+    variants:
+      empty: You sent me an almost empty board. Next time, sort what you can, even if you are unsure.
+      rough: Your board took the complaints at their word. Look again at the counts.
+      steady: Part of your board holds up. Check the problems you gave more than they needed.
+      strong: A sound board, with the big project where it belongs.
+      outstanding: Exactly the board I hoped for.
+
+dialogue:
+  - id: ls-d-start
+    speaker: demo-tom
+    text: The printer works, by the way. Just saying.
+    trigger: {phase: planning, on: start}
+  - id: ls-d-reveal
+    speaker: demo-priya
+    text: Let us get the grant reports off our desks.
+    trigger: {phase: planning, on: reveal}
+
+banter:
+  - id: ls-b-coffee
+    lines:
+      - {speaker: demo-mara, text: Who moved the good mug?}
+      - {speaker: demo-tom, text: It was evidence. I needed it for a test.}
+  - id: ls-b-printer
+    lines:
+      - {speaker: demo-idris, text: The printer says it is out of cyan.}
+      - {speaker: demo-tom, text: We only print in black.}
+      - {speaker: demo-idris, text: That is what makes it so sad.}
+  - id: ls-b-story
+    lines:
+      - {speaker: demo-sami, text: Who left the big chair by the door again?}
+      - {speaker: demo-priya, text: Story time. The dragon needed a throne.}

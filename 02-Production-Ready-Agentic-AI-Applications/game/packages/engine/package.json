@@ -1,0 +1,7 @@
+{
+  "name": "@lab02/engine",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@lab02/content-schema": "*", "@lab02/protocol": "*" }
+}

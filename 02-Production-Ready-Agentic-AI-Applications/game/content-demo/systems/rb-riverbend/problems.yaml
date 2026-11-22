@@ -1,0 +1,72 @@
+- id: rb-q-monday
+  public:
+    title: Holds pile up on Mondays
+    description: Weekend returns and new holds meet on Monday morning, and the desk falls behind until Wednesday.
+  key:
+    real: true
+    class: no_ai
+    tier: 1
+    flagship: false
+    rationale: The Monday desk has one person where the volume needs two. A schedule change fixes it.
+    burden: {kind: staff_time, size: moderate, note: About nine staff hours lost each week.}
+    source: [DEMO-1]
+- id: rb-q-email
+  public:
+    title: Overdue notices bounce
+    description: Notices go to addresses that patrons stopped using years ago.
+  key:
+    real: true
+    class: no_ai
+    tier: 2
+    flagship: false
+    rationale: A fixed rule that asks for a fresh address at every renewal solves it.
+    burden: {kind: lost_books, size: moderate, note: One notice in five bounces.}
+    source: [DEMO-1]
+- id: rb-q-events
+  public:
+    title: The same event questions all day
+    description: Staff answer the same questions about story hours and classes by phone and at the desk.
+  key:
+    real: true
+    class: single_model
+    tier: 4
+    flagship: false
+    rationale: Answers come from the event calendar in one step, so a language model with that calendar is enough.
+    burden: {kind: staff_time, size: moderate, note: Forty calls on a normal day.}
+    source: [DEMO-2]
+- id: rb-q-partner
+  public:
+    title: Partner requests take weeks
+    description: A book that another library holds can take a month to arrive, and patrons give up.
+  key:
+    real: true
+    class: agentic
+    tier: 5
+    flagship: true
+    rationale: Each request takes a different path through catalogs, emails and shipping, so it needs an agent with tools.
+    burden: {kind: lost_patrons, size: large, note: A third of patrons cancel before the book arrives.}
+    source: [DEMO-2]
+- id: rb-q-kiosk
+  public:
+    title: Self-checkout kiosks freeze
+    description: Staff remember kiosks that froze and lines that formed behind them.
+  key:
+    real: false
+    class: not_real
+    tier: null
+    flagship: false
+    rationale: A vendor update fixed the kiosks in the spring. Three tickets last month.
+    burden: {kind: complaints, size: none, note: Three tickets in a month.}
+    source: [DEMO-1]
+- id: rb-q-shelf
+  public:
+    title: Books go back to the wrong shelf
+    description: A misplaced book is as good as lost, and volunteers do the reshelving.
+  key:
+    real: false
+    class: not_real
+    tier: null
+    flagship: false
+    rationale: The shelf audit finds very few misplaced books. Too rare to matter.
+    burden: {kind: lost_books, size: small, note: Two books in a thousand.}
+    source: [DEMO-1]

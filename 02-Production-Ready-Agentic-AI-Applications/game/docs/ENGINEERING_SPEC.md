@@ -4,7 +4,8 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1. The foundation and Phase 1 are specified in full. Phase 2 and Phase 3 are
+**Status.** Version 1.1. It adds the changes the lab director asked for after the first play of
+Phase 1 (section 16, row 5). The foundation and Phase 1 are specified in full. Phase 2 and Phase 3 are
 specified as far as the content format fixes them: their rules are complete, and their screens
 are outlined. Section 16 lists what later steps add.
 
@@ -27,20 +28,27 @@ Words used with a fixed meaning:
 | Game time | The session clock, in milliseconds. It stops when the host pauses |
 | Pack | A folder of content files in the format of section 5 |
 | Rung | One of the five levels of the automation ladder, from no software to an agentic system |
+| Class | One of the answers a player can give for a problem in Phase 1: not a real problem, real without AI, real with one AI model, real with an agentic system. A class covers the rungs listed for it in `game.yaml` |
+| Deck | The one set of slides of a session, in sections, shown on the big screen and driven from the host console (section 6.13) |
+| Controller | The one host console that may change a session at a given moment (section 7.10) |
+| Extra | A person of a health system who has no interview and no letter, and who walks, talks and answers clicks like everyone else |
 
 ---
 
 ## 1. The game in mechanics
 
 A session holds up to 150 players, each on a laptop or a phone. A player joins with a link,
-names a practice and is assigned to a health system. The session then moves through three
+names a practice and is assigned to one of the health systems of the pack. The event pack has
+two. The session then moves through three
 phases. Each is played by everyone at once against a shared timer and is worth up to 1000 points.
 
 1. **Planning.** The player sees a list of candidate problems and investigates the practice.
    An investigation holds part of the player's bandwidth for some seconds and then unlocks one
    evidence tile. Several can run at once while bandwidth is free, so time is the limit. The
-   player reports which problems are real and puts each on a rung of the ladder. The top rung
-   holds one problem.
+   player sorts every problem into a class: not a real problem here, real and no AI needed,
+   real and one AI model is enough, or real and in need of an agentic system. The player is
+   told how many problems each class holds, in a full pack two, two, two and one, and no
+   class takes more.
 2. **Development.** The player fills a board of choices to design a solution for one problem.
    Pilot runs score the design on four metrics (validity, reliability, cost, complexity) and
    return one traced failure. At the end, the submitted design is tested again on a second set
@@ -50,6 +58,9 @@ phases. Each is played by everyone at once against a shared timer and is worth u
 
 State resets between phases, and only points carry over. A live leaderboard runs throughout.
 After each phase the players see what the right answers were.
+
+The presenter's slides are part of the game. One deck serves the whole session. The big screen
+shows it, the host console drives it, and between the phases every player's screen follows it.
 
 ---
 
@@ -72,7 +83,7 @@ After each phase the players see what the right answers were.
 8. **All waits are in game time.** A time scale speeds up tests and changes nothing else.
    **Nobody just waits.** No wait blocks the screen, waits are short, and while something runs
    the player can read, decide and start other work. This holds in every phase.
-9. **Laptop first, phone must work.** Every action can be done by tapping. Drag is an extra.
+9. **Laptop first, phone must work.** Every action can be done by tapping. Nothing needs a drag.
 10. **Develop on the Mac.** Nothing is built or tested on a server. `scripts/deploy.sh` ships a
     finished build.
 
@@ -136,14 +147,14 @@ that describe a pack with its keys therefore cannot reach client code.
 | Area | Choice |
 | --- | --- |
 | Runtime | Node 22, on the Mac and on the server |
-| Language | TypeScript, strict mode, ES modules |
+| Language | TypeScript 6.0, strict mode, ES modules. Not 7.0: typescript-eslint supports TypeScript below 6.1 (Step 3) |
 | Workspace | npm workspaces. No other package manager |
 | Schemas | Zod. YAML parsed with the `yaml` package |
 | HTTP and WebSocket | Fastify, with `ws` for the sockets |
 | Storage | SQLite through the built-in `node:sqlite` module, WAL mode. It runs without a flag on Node 22 and prints an experimental warning. If Step 3 finds a problem on the server, `better-sqlite3` replaces it behind the same small storage interface |
 | Client | React with Vite. Zustand for state. Plain CSS with custom properties |
 | Scene | PixiJS 8, one canvas |
-| Tests | Vitest for unit and integration tests. Playwright for browser tests, on the Mac only |
+| Tests | Vitest for unit and integration tests. Playwright for browser tests, on the Mac only, in the Chrome installed on the Mac so no browser is downloaded |
 | Server bundle | esbuild, one file, so the server needs no `npm install` |
 
 Use the latest stable release of each library at Step 3 and commit the lockfile.
@@ -185,9 +196,11 @@ systems/<id>-<slug>/
   maintain.yaml           Phase 3 start meters, actions, events
   story.yaml              briefs, letters, dialogue, announcements
 teaching/
-  help-slides.yaml        outlines of the slides the big screen renders
+  deck.yaml               the one slide deck of the session, in sections
   report-card.yaml        rules and text of the personal report card
 art/                      optional images that belong to the pack (section 11.4)
+  room/                   the room of the practice and its layout
+  slides/                 images that slides name
 ```
 
 A pack may be partial. The loader requires `game.yaml`, `characters.yaml` and, for each health
@@ -229,7 +242,8 @@ both. Validation has three layers.
 2. **References.** Every id that a file mentions exists: characters, problems, monitors, events,
    offers, components, choices and options inside conditions, source ids.
 3. **Counts from `game.yaml`.** The number of problems, investigations and offers match what
-   `game.yaml` states. Every investigation uses a bandwidth level that exists, with the seconds
+   `game.yaml` states. The class of every problem exists, agrees with `real` and `tier`, and
+   the number of problems in each class equals `class_mix` (section 5.5). Every investigation uses a bandwidth level that exists, with the seconds
    of that level, and one that its method allows. The work of all investigations of a system
    (bandwidth times seconds, summed) lies inside `total_work`.
 
@@ -240,9 +254,14 @@ enforces the design rules: how hard the puzzle is, how the evidence fits togethe
 numbers balance. The public loader does not know those rules.
 
 A setting that has one implemented value is validated to hold that value. For example
-`join.assignment` must be `balanced`. A pack cannot ask for behavior that does not exist.
+`join.assignment` must be `balanced`, and `phases.planning.live_leaderboard.metric` must be
+`progress`. A pack cannot ask for behavior that does not exist.
 
 `npm run check:content` loads the pack in `CONTENT_DIR` and prints every error and warning.
+
+The loader can load a subset of the health systems (`SYSTEMS`, section 7.9). A play check uses it
+while the private pack holds only some systems. The other folders still count toward the hash.
+A field named `source` is accepted anywhere, because every scored item cites one.
 
 ### 5.5 Schema reference
 
@@ -257,6 +276,7 @@ type Game = {
   game: { title: Text | null; phase_order: PhaseId[]; health_systems: SystemId[] }
   join: {
     assignment: 'balanced'; tie_order: SystemId[]
+    choose_system_in_modes?: Mode[]      // session modes in which a player may pick the system (6.4)
     practice_name: { min_chars: number; max_chars: number; unique_per_session: true;
                      filter_profanity: boolean; host_can_rename: boolean; host_can_remove: boolean }
     reconnect: 'token'
@@ -266,7 +286,7 @@ type Game = {
   }
   clock: { time_scale_default: number; warnings_seconds_left: number[]; idle_seconds?: number;
            auto_submit_at_zero: true; pause_freezes: 'all' }
-  run_of_show: { start: number; end: number; segment: string; driver: string }[]   // minutes
+  run_of_show: { start: number; end: number; segment: Segment; driver: string }[]   // minutes
   story_time?: {                         // display strings only, see below
     planning?: { span: Text; investigation_stands_for?: Record<number, Text> }   // by bandwidth level
     development?: { span: Text; pilot_run_stands_for?: Text }
@@ -277,35 +297,59 @@ type Game = {
     phase_max_points: number
     normalization: { floor_points: number; max_points: number }
     four_metric_score: { weights: Record<Metric, number> }
-    score_bands: { id: string; min: number; max: number }[]
+    score_bands: { id: string; min: number; max: number
+                   label?: Text }[]       // the name of the band that a player reads (6.8)
   }
   phases: { planning: PlanningRules; development: DevelopmentRules; maintaining: MaintainingRules }
   leaderboards: {
     columns: ['overall', ...PhaseId[]]; refresh_seconds: number; big_screen_rows: number
     tie_breaks: Record<'overall' | PhaseId, string[]>
     winners: { overall_top: number; per_system_top: number; top_system: number }
+    projector?: {                        // what "Follow the game" shows while a phase is played (6.13)
+      feed_rows: number                  // lines of room activity on the screen
+      cards: number                      // how many practices the loop looks at, one per round
+      programme: { show: 'activity' | 'phase_board' | 'player'; seconds: number }[]
+    }
   }
-  text_limits?: Record<string, number>   // words. Over the limit gives a warning
+  text_limits?: Record<string, number>   // words. Over the limit gives a warning. The loader
+                                         // knows banter_line, click_line, slide_title and
+                                         // slide_bullet among others
   sources: Record<string, { paper: string; locator: Text; gist: Text }>
   public_source_labels: Record<string, Text>     // by paper
 }
 type PhaseId = 'planning' | 'development' | 'maintaining'
+type Mode = 'test' | 'rehearsal' | 'event'
+type Segment = 'join' | 'intro_slides' | 'planning' | 'help_slides_1' | 'development' | 'help_slides_2'
+             | 'maintaining' | 'help_slides_3' | 'reflection' | 'winners'   // each maps to stages (6.3)
 type Metric = 'validity' | 'reliability' | 'cost' | 'complexity'
 
 type PlanningRules = {
   label: Text; play_seconds: number; reveal_seconds: number
-  candidates: number; report_slots: number; agent_rung_capacity: number
+  candidates: number                                       // problems per health system
+  classes: PlanningClass[]                                 // the answers a player can give
+  class_order: ClassId[]                                   // the spectrum, every class once
+  class_mix: Record<ClassId, number>                       // problems per class, in every system
+  flagship_class: ClassId                                  // the flagship in this class earns the bonus
+  show_class_mix: true                                     // the screen states the mix and counts each class
   investigations: { per_system: number
+                    story?: number                          // read by the private checker only
                     bandwidth: number                       // blocks a player can commit at once
                     levels: { bandwidth: number; seconds: number }[]
                     method_levels: Record<Method, number[]>  // bandwidth levels a method may use
                     total_work: { min: number; max: number } // sum of bandwidth x seconds
                     reachable_work: number                  // read by the private checker only
                     parallel: true; cancel: 'none' }
-  live_leaderboard: { label: Text }
-  scoring: { identify: { per_real: number; per_decoy: number; component_floor: number }
-             ladder: { exact: number; adjacent: number }
+  submission?: { letter_empty_below?: number }             // fewer problems sorted than this gets
+                                                           // the `empty` line of the letter (6.11)
+  live_leaderboard: { metric: 'progress'; label: Text }
+  scoring: { classify: { exact: number; adjacent: number }
              flagship: { bonus: number } }
+}
+type PlanningClass = {
+  id: ClassId; label: Text; short: Text      // `short` is the two-word name on sections and buttons
+  fits_when: Text
+  rungs: (1|2|3|4|5)[]                       // the ladder rungs the class covers
+  capacity: number                           // the most problems the class may hold. Equals its class_mix
 }
 type DevelopmentRules = {
   label: Text; play_seconds: number; reveal_seconds: number
@@ -322,6 +366,17 @@ type MaintainingRules = {
   live_leaderboard: { label: Text }
 }
 ```
+
+The classes of Phase 1 follow four rules that the loader checks. Exactly one class has empty
+`rungs`. It is the class of the problems that are not real, and `class_order` lists it first.
+Every rung of the ladder belongs to exactly one class. `class_mix` names every class and adds up
+to `candidates`. Every class has a `capacity`, the most problems a player may put in it, and it equals the
+class's share of `class_mix`, so the capacities add up to the number of problems.
+`flagship_class` is the class of the flagship problem. `class_order` lists it last, and its
+capacity is one.
+
+A band of `score_bands` may carry a `label`, such as "Strong". It is the only name of a band
+that a player ever reads. The `id` is for letters, the report card and the code.
 
 `story_time` says what the play time stands for in the story, for example that a pilot run
 stands for a two-week pilot. The client shows these strings next to the waits. They never affect
@@ -363,8 +418,22 @@ type Monitor = {
 type Character = {
   id: string; system: SystemId | 'all'
   public: { name: Text; role: Text; portrait: string }      // portrait is an art key
+  extra?: boolean                 // true for a person with no interview and no letter
+  click_lines?: Text[]            // what the person says when clicked. Three or more
+  look?: { hair: string; hair_style: 'short' | 'long' | 'bald' | 'covered'
+           skin: string; top: string; detail?: string }     // the input of the sprite (11.4)
 }
 ```
+
+`extra`, `click_lines` and `look` sit beside `public`. None of them is a key, and all three
+travel with the cast at join. The people of a health system are the characters of
+`system.public.cast` in that order, followed by every character of that system with
+`extra: true` that the list does not name, in file order. A pack may list its extras in `cast`
+or leave them out. The client receives all of them as one list and shows them the same way, so
+nothing on a screen tells an extra from the rest. `look` holds free words. The sprite builder of
+the client turns them into the person's own pixel character (section 11.4), and a word it does
+not know falls back to a pick by a hash of the id. A click line is within
+`text_limits.click_line` words. A character with fewer than three click lines gives a warning.
 
 **`system.yaml`**
 
@@ -387,13 +456,21 @@ type System = {
 type Problem = {
   id: ProblemId
   public: { title: Text; description: Text }
-  key: { real: boolean; tier: 1|2|3|4|5 | null; flagship: boolean; rationale: Text
+  key: { real: boolean
+         class: ClassId                    // the true answer of Phase 1
+         tier: 1|2|3|4|5 | null            // the ladder rung of a real problem, null when not real
+         flagship: boolean; rationale: Text
          burden?: { kind: string; size: string; note: Text }
          source?: SourceIds }
 }
 ```
 
-Exactly one problem has `flagship: true`. It is real, and it equals `system.key.flagship_problem`.
+`class` is the id of one of `phases.planning.classes`. A problem that is not real has the class
+with empty `rungs` and `tier: null`. A real problem has a `tier`, and its class is the one whose
+`rungs` hold that tier. The number of problems in each class equals `class_mix`. Exactly one
+problem has `flagship: true`. It sits in `flagship_class`, and it equals
+`system.key.flagship_problem`. The rationale is read by the player at the reveal, so it says
+what solves the problem and why the class below would fall short.
 
 **`insights.yaml`** is a list.
 
@@ -420,6 +497,9 @@ type Tile =
 ```
 
 The `tile` is mechanics until the investigation completes. Then it is sent to that player.
+Only an interview fixes its tile type (`quote`). Every other method may give any tile type. An
+`audit` tile also serves as the tally of an observation, and its findings may then count
+different things, each with its own denominator in the label.
 
 **`build.yaml`**
 
@@ -528,20 +608,51 @@ type Story = {
   dialogue?: { id: string; speaker: CharacterId; text: Text
                trigger: { phase: PhaseId; on: string } }[]
      // on: start | idle | insight:<id> | run_result | trace:<case id> | event:<id> | month:<n> | reveal
+  banter?: { id: string
+             lines: { speaker: CharacterId; text: Text }[] }[]   // two or three lines an exchange
   announcements?: { id: string; phase: PhaseId; offer?: OfferId; at_seconds?: number | null
                     from: CharacterId; text: Text }[]
 }
 ```
 
-**`teaching/help-slides.yaml`** and **`teaching/report-card.yaml`**
+`briefs.planning` is the opening letter of Phase 1. It pops up when the phase starts and stays
+as the first card of the evidence (section 10.4), so it states the task and explains the
+bandwidth. A letter may carry the variant `empty` beside its bands. The planning reveal uses it
+for a player who sorted fewer problems than `phases.planning.submission.letter_empty_below`
+(section 6.11).
+
+`banter` is small talk between the people of the practice. The scene plays one exchange at a
+time (section 10.3). Every speaker is a person of that health system, an exchange has two or
+three lines, and a line is within `text_limits.banter_line` words. Banter is flavor. It is sent
+with the health system at join, so a pack keeps anything that bears on a score out of it. The
+private checker enforces that for the private pack.
+
+**`teaching/deck.yaml`** and **`teaching/report-card.yaml`**
 
 ```ts
-type HelpSlides = {
-  intro?: Slide[]
-  breaks: Partial<Record<'after_planning' | 'after_development' | 'after_maintaining', Slide[]>>
-  reflection_prompts?: Text[]
+type Deck = { sections: DeckSection[] }
+type DeckSection = {
+  id: string; title: Text
+  stage: 'intro' | 'break.planning' | 'break.development' | 'break.maintaining' | 'reflection'
+  slides: Slide[]                 // one or more
 }
-type Slide = { id: string; title: Text; bullets: Text[]; live_stat?: RoomStatId; notes?: Text }
+type Slide = { id: string; title: Text
+               layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'   // 'bullets' when absent (10.9)
+               subtitle?: Text
+               bullets?: Text[]         // none is allowed on a slide that has other parts
+               cards?: { title: Text; text?: Text; points?: Text[]   // up to 4 boxes side by side, each with up
+                         tag?: Text; tone?: Tone                      // to 4 short points under its text
+                         system?: SystemId }[]                        // a box of one health system: it takes that
+                                                                      // system's color and shape (10.9)
+               people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
+               figures?: { image?: string; title: Text; caption?: Text; tone?: Tone }[]   // up to 3, one row each
+               qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
+               references?: Text[]      // lines to read later
+               image?: string           // every picture is a path under art/, ending in .png or .webp
+               live_stat?: RoomStatId | RoomStatId[]   // one room statistic, or two (6.10)
+               notes?: Text             // for the host console only
+               placeholder?: boolean }  // a slide whose text is still to be written
+type Tone = 'go' | 'sky' | 'sun' | 'lav' | 'rose'   // a color of the design system. Boxes take them in turn when none is named
 
 type ReportCard = {
   sections: { id: string; title: Text
@@ -551,6 +662,22 @@ type ReportCard = {
   links?: { label: Text; url: string }[]
 }
 ```
+
+The deck is one list of slides for the whole session. It replaces `help-slides.yaml` and the
+separate intro deck of earlier plans. The order of the slides is the order of the sections and,
+inside a section, of its slides. `stage` is the id of the engine stage (section 6.3) in which
+the deck opens at that section (section 6.13). It is one of the five stages that the run of show
+gives to the presenter. A stage has one section at most, and a pack may leave a stage without
+one. A slide title is within `text_limits.slide_title` words and a bullet within
+`text_limits.slide_bullet`. `placeholder: true` marks a slide that stands in for one still to be
+written. The host console counts the placeholders of a pack and shows the number, and an `event`
+session can still be opened with them.
+
+The loader checks of this round, beside the ones above. Every banter speaker exists and belongs
+to the health system of the file or to `all`. Banter ids, section ids and slide ids are unique in
+the pack. A section's `stage` is one of the five stage ids, and no two sections share one. A section
+has one slide or more. Every picture of a slide (`image`, a `photo`, the `image` of a figure) is a file under `art/`, and a `live_stat` names a statistic that exists. A slide with the layout `cards` has cards and one with `figures` has figures. The `system` of a box is a health system of the pack. A `qr` that shows `join` carries no `url`: the link is the session's. The word limits are `slide_title` (titles, also of a box), `slide_bullet` (bullets, the subtitle and the points of a box) and `slide_card` (the text of a box and a caption). `letter_empty_below`
+lies between 0 and `candidates`. Word limits give warnings, like everywhere.
 
 ### 5.6 The content hash
 
@@ -576,11 +703,18 @@ is written from scratch for the purpose.
   a design that the team cannot build, a year amount that differs from the pilot amount, an
   advisory, a case with `extra_cost`, a loud event and a silent one, an event that another
   option arms, `grants_monitor`, a one-time check, a change action with a month window, every
-  dialogue trigger, letters with all bands, help slides with a live statistic, and a report card.
+  dialogue trigger, letters with all bands and the `empty` line, band labels, banter, click
+  lines and a `look` on every person, one extra in each system, a deck with a section for every
+  slide stage, a slide with a live statistic, a slide with notes, a placeholder slide, and a
+  report card.
+- **Phase 1 rules.** Its `game.yaml` has the four classes, a `class_mix` that adds up to its 6
+  problems and uses every class (2, 2, 1 and 1), a `capacity` on every class that equals its
+  share, and `test` and `rehearsal` in `join.choose_system_in_modes`.
 - **Calibration.** Its anchors are estimates marked provisional until `scripts/simulate`
   exists in Step 9. From then on they are measured.
-- **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, Phase 2 in
-  Step 7, Phase 3 and the teaching files in Step 9.
+- **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, the deck,
+  the banter, the click lines and the extras in Step 5, Phase 2 in Step 7, Phase 3 and the
+  report card in Step 9.
 - **Sources.** Its source registry holds two invented entries.
 
 ---
@@ -644,13 +778,41 @@ moves to the reveal.
 
 Host commands: `next`, `pause`, `resume`, `extend` (30 or 60 seconds, added to the current timed
 stage, or to the current month in `maintaining.year`), `end_now`, `rename_player`,
-`remove_player`, `reset_stage` and `close`. Pause and resume act on the clock, not on the engine.
-`reset_stage` puts every player back at the start of the current phase and exists only outside
-`event` mode.
+`remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
+not on the engine. The commands of the projector and the deck are in section 6.13. Only the
+controlling host console may send a command that changes the session (section 7.10).
+
+**Starting again and ending.** These three commands carry `confirm`, the join code of the
+session, and are refused with `confirm_mismatch` without it.
+
+- `reset_stage` starts one phase again for everyone and exists only outside `event` mode. The
+  phase is the one on stage, or at a break the phase before it; in any other stage the command
+  is refused with `wrong_stage`. Every active player loses the result, the work and the story
+  items of that phase, the phase opens again and its play stage starts at once with its full
+  time. The points of earlier phases stay.
+- `restart_game` starts the whole game again in the same session and exists only outside `event`
+  mode. Every player stays, with the same id, name, character, health system, token and rejoin
+  code. Everything else of the game goes: results, the work of every phase, the inbox and the
+  lines said. No phase is open or closed, the stage log starts again, the projector follows the
+  game from the first slide, and the stage is `lobby`, where new players may join. A removed
+  player stays removed. A closed session is refused with `wrong_stage`.
+- `close` ends the session in any stage. The stage becomes `closed`, the clock stops, and from
+  then on every player command and every join is refused. The views of the session stay
+  readable for as long as the server process holds it (section 7.6).
+
+The session counts how often a phase or the game started again in `run`, which starts at 0. It
+is part of every player view (section 8.4), so that a browser knows that what it kept for the
+run before is stale.
+
+Three words about stages are used below. A *play stage* is `planning.play`,
+`development.play`, `maintaining.setup` or `maintaining.year`. A *slide stage* is a stage that
+the run of show gives to the presenter: `intro`, `break.planning`, `break.development`,
+`break.maintaining` and `reflection`. A section of the deck names one of these five ids. The
+interface names `intro` "Intro slides" and never "Starting soon".
 
 **Session modes**
 
-| Mode | Time scale | Provisional anchors | `reset_stage` |
+| Mode | Time scale | Provisional anchors | `reset_stage` and `restart_game` |
 | --- | --- | --- | --- |
 | `test` | Any | Allowed | Yes |
 | `rehearsal` | 1 by default | Allowed, with a warning on the host console | Yes |
@@ -659,7 +821,16 @@ stage, or to the current month in `maintaining.year`), `end_now`, `rename_player
 ### 6.4 Joining
 
 - `join` adds a player to the health system with the fewest active players. `join.tie_order`
-  breaks a tie. A removed player does not count.
+  breaks a tie. A removed player does not count. With two health systems this sends players to
+  A, B, A, B in order of arrival, so the two halves of the room differ by one player at most,
+  and the balance repairs itself after the host removes someone.
+- **Picking a health system.** `join.choose_system_in_modes` lists the session modes in which a
+  player may choose. In a session of such a mode the join request may carry `system`, and the
+  player goes there. A request without it is assigned as above, and the players who picked count
+  toward the balance. An id that the session does not hold is refused with `unknown_system`. In
+  a session of any other mode a `system` in the request is ignored and the player is assigned.
+  The choice exists for play checks and rehearsals, where the person testing wants to play one
+  side. The event pack lists `test` and `rehearsal`, so nobody picks at the event.
 - The practice name is trimmed and checked for length and profanity by the server. A name
   that a practice of the session already has, compared without regard to case, is refused
   with `name_taken`. The engine never makes a second practice by adding a number, because the
@@ -677,6 +848,12 @@ stage, or to the current month in `maintaining.year`), `end_now`, `rename_player
 
 ### 6.5 Phase 1: Planning
 
+The player investigates and sorts every candidate problem into a class. The classes come from
+`phases.planning.classes`, and `class_order` is the spectrum from "not a real problem" to the
+class that asks for the most. Below, the *decoy class* is the class with empty `rungs`, the
+*real classes* are the others, and the *flagship class* is `flagship_class`. A class holds at
+most `capacity` problems, and the capacities of all classes add up to the number of problems.
+
 **State of a player**
 
 ```ts
@@ -684,9 +861,13 @@ type PlanningState = {
   done: { id: InvestigationId; atMs: GameMs }[]            // in order of completion
   running: { id: InvestigationId; startedAtMs: GameMs; completesAtMs: GameMs }[]
                                                             // free bandwidth = total - held by these
-  picks: Record<ProblemId, 1|2|3|4|5>
+  picks: Record<ProblemId, ClassId>                         // a problem without an entry is unsorted
   submittedAtMs: GameMs | null
   result: PlanningResult | null                             // set when the stage ends
+}
+type PlanningResult = {
+  graded: { problem: ProblemId; picked: ClassId | null; points: number }[]   // every problem, in pack order
+  classify: number; flagship: number; raw: number
 }
 ```
 
@@ -695,8 +876,11 @@ type PlanningState = {
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `planning.investigate {id}` | Stage is `planning.play`. Not submitted. The id is neither done nor running. Its bandwidth fits in what is free | The investigation holds its bandwidth and runs for its `seconds`. It cannot be cancelled |
-| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. At most `report_slots` picks. At most `agent_rung_capacity` picks on rung 5. Every id exists | Replaces the draft |
-| `planning.submit {}` | Stage is `planning.play`. Not submitted | Locks the report. The player waits for the stage to end |
+| `planning.set_report {picks}` | Stage is `planning.play`. Not submitted. Every problem id and every class id exists. No class holds more problems than its `capacity` | Replaces the draft. A problem that the draft leaves out is unsorted |
+| `planning.submit {}` | Stage is `planning.play`. Not submitted | Locks the board. The player waits for the stage to end |
+
+A draft that breaks a rule is refused with `invalid_report` and changes nothing. A draft may be
+empty, and any number of problems may stay unsorted.
 
 When an investigation completes, its tile joins the player's view and its bandwidth is free
 again. Any number may run at once while their bandwidth adds up to at most
@@ -713,20 +897,39 @@ independently.
 **At the end of the stage** the draft of every player who did not submit is submitted as it
 stands. Investigations that are still running are dropped.
 
-**Scoring.** `R` is the number of real problems in the report and `D` the number that are not
-real.
+**Scoring.** Every sorted problem earns points by where the player put it.
 
 ```
-identify = max(component_floor, per_real × R + per_decoy × D)
-ladder   = for each real problem in the report: exact on the true rung, adjacent one rung off, else 0
-flagship = bonus if the flagship problem is in the report on rung 5, else 0
-raw      = identify + ladder + flagship
+points(problem) =
+  exact     the picked class is the true class
+  adjacent  the problem is real, the picked class is a real class, and the two classes are
+            one step apart in class_order
+  0         in every other case
+classify = sum of points over the sorted problems
+flagship = bonus if the flagship problem is in the flagship class, else 0
+raw      = classify + flagship
 ```
 
-**Live column.** The number of tiles unlocked. Correctness stays hidden until the reveal.
+A real problem that is called not real, a problem that is not real and is put in a real class,
+a real problem two steps from its class, and an unsorted problem all earn 0. Nothing earns less
+than 0. The most a player can reach is `candidates × exact + bonus`, which a pack sets to 1000.
+Because every class is counted, a problem in the wrong class takes the place of another.
+
+**Random play.** The floor anchor of a system (section 6.8) is the mean raw score of random
+boards made like this: the problems are shuffled and dealt into the classes until every class
+holds its `capacity`, every arrangement with equal chance.
+
+**Live column.** `progress`: the number of insights unlocked plus the number of problems sorted.
+Its largest value is `investigations.per_system + candidates`, and the column carries it, so a
+row reads "17 of 22". A tie goes to the player who reached the value first. Every player can
+reach the top, so the column shows who is how far and never who is right. Correctness stays
+hidden until the reveal.
 
 **Reveal.** Each player receives the truth of every problem (section 9.2), their own picks
-graded one by one, the three parts of the score, the points, the band and the letter.
+graded one by one, the two parts of the score, the points, the label of the band and the
+letter. The letter holds the `always` text and one more line. That line is the variant `empty`
+when the letter has one and the player sorted fewer problems than
+`submission.letter_empty_below`, and the variant of the player's band in every other case.
 
 ### 6.6 Phase 2: Development
 
@@ -893,8 +1096,13 @@ raw ≥ ceiling          points = max_points
 
 Points are rounded half up (`floor(x + 0.5)`), once per phase. When an anchor is missing, which
 only a provisional pack allows, points are the raw score rounded and kept within 0 and
-`max_points`, and the host console marks them provisional. The band of a phase is the entry of
-`score_bands` that holds its points.
+`max_points`. The band of a phase is the entry of `score_bands` that holds its points.
+
+**What a player reads.** A player's screen shows the parts of a score, the points and the
+`label` of the band. It never shows the word "raw", the word "provisional" or the id of a band.
+A band without a label is not named to the player at all. Whether the anchors of a pack are
+estimates is a matter for the host, so only the host console says that scores are not
+calibrated yet.
 
 **The reference scorer.** The private pack carries a Python module that is the executable
 definition of these rules. The engine must return the same numbers. Section 12.2 says how the
@@ -907,19 +1115,24 @@ ranking.
 
 | Column | While its phase is in play | After its phase closed |
 | --- | --- | --- |
-| Phase 1 | Tiles unlocked | Phase points |
+| Phase 1 | Progress: insights unlocked plus problems sorted | Phase points |
 | Phase 2 | Best pilot design score | Phase points |
 | Phase 3 | Points from the seen meters so far | Phase points |
 | Overall | Sum of the closed phases | Sum of the closed phases |
 
-- The column of the phase in play is marked provisional. The engine recomputes the whole board
+- The column of the phase in play is marked live. The engine recomputes the whole board
   every `refresh_seconds` of game time, and at every stage change. Everyone sees the same board
   between two beats.
+- A live column may carry `of`, the largest value it can reach. Phase 1 sets it, and the page
+  then shows a value as "17 of 22".
 - A filter shows the same four columns inside one health system. A strip ranks the health
   systems. A system's score is the sum over closed phases of the mean points of its players who
   acted in that phase. A player acted when the engine accepted one command or more from them.
 - Final rankings follow `leaderboards.tie_breaks`. A live column breaks ties by who reached the
-  value first.
+  value first. The keys are `total_points`, `points`, `planning_points`, `development_points`,
+  `maintaining_points`, `earlier_join`, `earlier_submit`, `fewer_pilot_runs`,
+  `higher_final_month_health` and `fewer_credits_spent`. The last one ties everyone in Phase 1,
+  which spends no credits. Join order breaks any tie that remains.
 - A player's view carries their own rank overall, in their system and in the current phase,
   and the top three. The big screen carries the top `big_screen_rows` of each column.
 - Every row carries the practice's name, avatar and health system.
@@ -927,17 +1140,30 @@ ranking.
 
 ### 6.10 Room statistics
 
-When a phase closes the engine computes the statistics the help slides can show, for the room
-and per health system: `flagship_hit_rate`, `most_reported_decoy`, `rung_confusion`,
+When a phase closes the engine computes the statistics the slides can show, for the room
+and per health system: `flagship_hit_rate`, `most_reported_decoy` (the problem that is not real and was most often
+put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
-`live_stat`. Each is a small typed object that the big screen knows how to draw. Step 11 fixes
-their exact shapes.
+`live_stat`, or two in a list. Each is a small typed object that the big screen knows how to
+draw. Three are drawn so far. `flagship_hit_rate` is one number, the share of the room that
+found the agent project. `sorting_by_class` is a set of bars, one per class from the agentic
+class down to the class of problems that are not real: the share of the problems of that
+class that the room put in it, both health systems counted together. `flagship_by_system` is
+one bar per health system: the share of its practices that found the agent project. Before
+the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
+in when the phase is scored", so a host who goes through the deck sees that a chart belongs
+on the slide. The others show nothing. Step 11 fixes their exact shapes.
 
 ### 6.11 Story hooks
 
-- **Briefs** open with a phase. **Letters** arrive with a reveal: the `always` text and the
-  variant for the player's band.
+- **Briefs** open with a phase. The brief of Phase 1 is the opening letter. It pops up at the
+  start of the phase and stays as the first evidence card (section 10.4).
+- **Letters** arrive with a reveal. A letter is the `always` text and one variant. The variant
+  is the one of the player's band, except that the planning reveal uses `empty` for a board
+  with fewer problems sorted than `letter_empty_below` (section 6.5).
+- **Banter and click lines** are played by the browser from what it received at join (section
+  10.3). The engine does not know them, and no command or timer depends on them.
 - **Dialogue.** The engine fires a line when its trigger occurs for a player, once per player.
   `idle` fires when the player has sent no command for `clock.idle_seconds` (45 when absent).
 - **Announcements** go to one health system at their time, or with their offer.
@@ -950,6 +1176,139 @@ At `winners` each player gets a card: the points and band of each phase, the lin
 mean of the three phases, and the links. The engine computes a flat record of facts per player,
 and a line's `when` is a set of fact values that must all match. Step 9 builds the card and the
 facts that the scoring already produces. Step 11 fixes the full list of facts.
+
+### 6.13 The projector and the deck
+
+The session holds what the big screen shows and where the deck stands.
+
+```ts
+type ScreenState = {
+  scene: 'auto' | 'lobby' | 'intro' | 'play' | 'feed' | 'reveal' | 'slides' | 'reflection'
+       | 'winners' | 'spotlight'
+  theme: Theme
+  slide: number                    // the slide shown last, counted from 0 over the whole deck
+  mirror: boolean                  // players' screens show the current slide
+  filter: SystemId | null          // the health system the leaderboard shows, null for everyone
+  phase?: PhaseId | null           // the leaderboard shows this phase only, by health system
+  spotlight: PlayerId | null
+}
+```
+
+`auto` is "Follow the game". Any other scene is *pinned*. The projector then stays on it
+through every stage change until the host picks `auto` again. The scene `help` of the first version is
+now `slides`. The scenes `intro` and `reflection` are title cards, which `auto` falls back to
+when the deck has no section for that stage. The host console offers six choices (section
+10.8), which are Follow the game, Lobby, Leaderboard (`play`), Activity (`feed`), Slides and
+Winners.
+
+**What `auto` resolves to**
+
+| Stage | The projector shows |
+| --- | --- |
+| `lobby` | The lobby |
+| A slide stage that has a section in the deck | The slides |
+| `intro` or `reflection` without a section | A title card with the name of the stage |
+| A play stage | The programme of the pack, in a loop (below). Without a programme, the leaderboard |
+| A break without a section | The leaderboard |
+| A reveal | The results of the phase for the room |
+| `winners`, `closed` | The winners |
+
+**The programme of a play stage.** While a phase is played and the scene is `auto`, the
+projector does not stand still. It runs the list `leaderboards.projector.programme` in a loop.
+Each entry names a view and how many seconds it stays.
+
+| `show` | The view |
+| --- | --- |
+| `activity` | The activity list: what practices just started, finished or sent, newest first, with the counts of the room beside it |
+| `phase_board` | The leaderboard of the running phase, the health systems side by side |
+| `player` | One practice at work. Each round of the loop shows the next of up to `cards` practices that acted in the phase |
+
+The engine resolves `auto` to `play` as before and adds `programme` to the screen view. A screen
+that receives a programme draws the entry whose turn it is. The turn comes from the session
+clock, game time divided by the game speed, so the projector and the host's preview show the
+same view, a faster rehearsal does not spin the loop, and a paused game holds it. A pinned
+scene has no programme. The pure function `programmeSlot` in the client does the arithmetic.
+
+**What the projector may say during play.** The room reads the projector while it is still
+deciding, so nothing on it may help a neighbour.
+
+- A line of the activity list names the practice, a verb (`started`, `finished`, `sent`) and
+  the public title of the investigation, "Count room bookings". It never carries a
+  tile, a headline, a problem or a class.
+- A practice card carries the titles of what runs now and counts: insights found, problems
+  sorted, sent or not. It never carries a class, a pick or an insight.
+- Each phase module supplies both through `feed` and `card` (section 6.4), read from the state
+  it already keeps. Nothing new is stored, so a restored session shows the same list.
+- The server marks the screen for a new view whenever a player's state changes in a play stage,
+  and sends at most one view a second.
+
+**Announcements.** A story or game announcement cuts into the loop for a few seconds and the
+loop then goes on. Phase 1 has none. The mechanism is built with the first phase that has one.
+
+**The leaderboard has three kinds.** `filter` null and `phase` null: four columns for everyone.
+`filter` set: the same four columns for one health system. `phase` set: one phase only, one
+column per health system (`ScreenView.phaseBoard`), which the programme also uses for the
+running phase.
+
+**The deck.** There is one deck and one position in it. `slide` is the slide that was shown
+last, and it starts at 0. Whenever the slides come up, by `auto` or by a pin, they show the
+slide at that position. The host therefore always continues where they stopped. The one
+exception is the entry into a slide stage. When the session moves into a slide stage that has a
+section, the scene is `auto`, and the current slide lies outside that section, the position
+moves to the first slide of the section. A host who was already inside the section stays where
+they were, and a pinned projector is left alone.
+
+**Commands.** All of them come from the controlling host console.
+
+| Command | Refused when | Effect |
+| --- | --- | --- |
+| `screen_scene {scene, mirror?}` | `play` before any phase has opened, and `winners` before any phase is scored (`no_scores_yet`). `slides` in a pack without a deck (`no_deck`). `mirror` true with a scene other than `slides`, or in a play stage (`not_during_play`). `spotlight` with nobody in the spotlight (`unknown_player`) | Sets the scene. The mirror is on only when the scene is `slides` and `mirror` is true |
+| `screen_mirror {mirror}` | Turning it on in a play stage, or while the projector does not show the slides (`not_during_play`) | Sets the mirror |
+| `slide {delta}` | The pack has no deck (`no_deck`) | Moves the position by `delta`, which is 1 or -1. It stops at the first and at the last slide |
+| `slide_to {index}` | The pack has no deck (`no_deck`). The index is past the last slide (`unknown_id`) | Moves the position there. The console uses it to jump to the first slide of a section |
+| `screen_theme {theme}`, `spotlight {playerId}` | Never | As their names say |
+| `screen_filter {system, phase?}` | An unknown health system (`unknown_id`) | Sets which leaderboard the scene `play` shows: everyone, one health system, or with `phase` one phase by health system |
+
+`slide` and `slide_to` are accepted whether or not the slides are up, so a host can line up the
+next slide before showing it.
+
+**The mirror.** While the projector shows the slides and `mirror` is true, every player's view
+carries the current slide, and the player's screen shows it in place of the game (section
+10.9). The rules are few.
+
+- In a play stage the mirror is always off. A host may still put the slides on the projector
+  during a phase, and no player's screen is touched.
+- When `auto` brings the slides up at the entry into a slide stage, the mirror turns on. The
+  host can turn it off with `screen_mirror`.
+- When the host pins the slides outside a play stage, the console asks first whether the
+  players' screens should follow, and sends the answer as `mirror` in `screen_scene`.
+- The mirror ends when the projector leaves the slides for any reason, and when a play stage
+  starts. Every mirrored screen then returns to the game by itself.
+- The mirror follows the host. A player cannot move the slides.
+
+**Which scene the host may pick, by stage.** The host console shows an unavailable button as
+such, with the reason beside it (section 10.8).
+
+| Stage | Lobby | Leaderboard | Slides | Winners |
+| --- | --- | --- | --- | --- |
+| `lobby`, `intro` | Yes | No. No phase has opened, so there is nothing to rank | Yes. Asks about the mirror | No. No phase has been scored |
+| `planning.play` | Yes | Yes | Yes, after a confirmation. Never mirrored | No. No phase has been scored |
+| A later play stage | Yes | Yes | Yes, after a confirmation. Never mirrored | Yes, as the standings so far |
+| A reveal, a break, `reflection` | Yes | Yes | Yes. Asks about the mirror | Yes, as the standings so far, and as the winners once every phase is scored |
+| `winners` | Yes | Yes | Yes. Asks about the mirror | Yes, as the winners |
+
+**Winners before the end.** The winners scene has two forms, and the view says which with
+`final`. Until every phase of the session is scored it is titled "Standings so far" and shows
+the overall ranking of the phases that are scored, with no podium and no fanfare. Its list of
+health systems names every health system of the session, also one that has no points yet. Once every
+phase is scored it is the podium of section 10.9. Before any phase is scored the scene is not
+available.
+
+**What leaves the server.** A slide is sent to the big screen, and to the players when
+mirrored, only while it is the current slide and the slides are up. The host console receives
+the current slide and the next one, with their notes and whether each is a placeholder. Notes
+go to host consoles only. The help slides discuss the answers of the phase that just closed, so
+a slide counts as protected text until it is shown (section 9.2).
 
 ---
 
@@ -966,17 +1325,22 @@ session and closing.
 | Route | Who | Does |
 | --- | --- | --- |
 | `GET /` and client routes | Anyone | The client application. `index.html` is never cached. Assets have hashed names and are cached for a year |
-| `GET /api/session/:code` | Anyone | Label, title, stage, whether joining is open, players per health system |
-| `POST /api/join` `{code, name, avatar?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name |
+| `GET /api/session/:code` | Anyone | Label, title, mode, stage, whether joining is open, players per health system, and `pickSystem`: the health systems (id, index, name, setting) when a player may pick one in this session, else null |
+| `GET /api/open?after=<code>` | Anyone | `{session}`: the code, label and title of the newest session that is not closed, or null. With `after`, only a session created later than that one counts. A browser whose game has ended asks with its own code, so it is led to the next game and never to an older session that was left open |
+| `POST /api/join` `{code, name, avatar?, system?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name. `system` is honored only where section 6.4 allows a pick, is ignored elsewhere, and gives 400 `unknown_system` for an id the session does not hold |
 | `POST /api/rejoin` `{code, rejoinCode}` | Anyone | Returns a new token for that player, in any stage of an open session. The old token stops working |
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
-| `POST /api/host/session` | Host | Creates a session: label and mode |
-| `GET /api/host/sessions` | Host | Lists sessions |
+| `POST /api/host/session` `{label, mode, code?}` | Host | Creates a session. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates |
+| `GET /api/host/sessions` | Host | Lists sessions, open and closed, each with `closed` and, for a session the server cannot resume, the reason. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
+| `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session that is still open |
 | `GET /api/host/export/:code` | Host | Results, commands and timing as JSON or CSV |
-| `GET /api/host/key` | Host, passcode entered again in the last 5 minutes | The answer key page, from the file in `ANSWER_KEY_FILE` |
-| `GET /healthz` | Anyone | Build id, uptime, open sessions, stage of each |
+| `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log. Typing `/screen` without it shows one line that says to open the big screen from the host console |
+| `POST /api/host/key-ticket` | Host | A ticket valid for 5 minutes. The host token is enough: the console opens the key with one press (section 10.8). The ticket exists because the key opens in a window of its own, which cannot send the token |
+| `GET /api/host/deck/:code` | Host | Every slide of the deck as a `SlideView`, with its notes, its placeholder mark and the id of its section, for a host who looks through the deck alone (section 10.8). Never cached. A player token and a screen token are refused |
+| `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
+| `GET /healthz` | Anyone | Build id, uptime, and for each open session its stage and its number of players. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the newest open session. The QR code holds
 `PUBLIC_URL/j/<code>`.
@@ -985,7 +1349,19 @@ The root URL sends a visitor to the join page of the newest open session. The QR
 
 One endpoint, `/ws`. The first message must be `hello` and must arrive within 5 seconds.
 
-- Roles: `player`, `host`, `screen`. The token in `hello` decides the role.
+- Roles: `player`, `host`, `screen`. The token in `hello` decides the role. A host token is not
+  bound to a session, so a host's `hello` also names the session it drives. It carries the
+  `name` of that host console, up to 40 characters, and `console`, a random id that the
+  browser tab keeps (section 7.10).
+- A browser sends `build` as `web-<build id>`. When it differs from the server's build, the server
+  sends `reload`. A browser reloads at most once a minute, so a mismatch cannot loop. Bots send any
+  other name and are never asked to reload.
+- Close codes: 4001 unauthorized, 4002 superseded, 4003 removed, 4004 a session the server no
+  longer holds, 4005 no `hello` in time, 4006 send buffer full. The client stops reconnecting on
+  4001 to 4004. Its connection status is then `unauthorized`, `superseded`, `removed` or, for
+  4004, `ended`. A session that the host ended stays in the server process, so its sockets stay
+  open and show the `closed` stage. 4004 comes only after a restart of the server, which does
+  not load ended sessions.
 - The server pings every 15 seconds and closes a socket that misses two.
 - A message is at most 16 KB. Compression is off, because the messages are small.
 - A second connection with the same player token takes over. The older one receives
@@ -1026,6 +1402,10 @@ SQLite, one file under `DATA_DIR`, WAL mode.
 
 ### 7.6 Recovery
 
+An ended session is not loaded at start. Its rows stay in the database for the downloads and
+the list of the host console, and a browser that still holds one of its tokens is told that the
+game is gone (section 7.7).
+
 For each open session at start:
 
 1. Check the content hash. On a mismatch the session stays closed to play, and the host console
@@ -1062,6 +1442,20 @@ returns the player to the stage the room is in, with all of it.
   the rejoin field, or another name (section 6.4).
 - Rejoining works in every stage until the session is closed, also after late joining has
   ended. Tokens and rejoin codes are in the database, so they survive a restart of the server.
+- **A phase or the game that starts again.** The token and the rejoin code stay the same, so
+  nobody joins again. The view carries a higher `run`. The browser then drops what it kept for
+  the run before (the lines said, the marks of new cards, open sheets), shows the opening letter
+  of the phase again, and says in one bar what happened and what was kept. The bar goes after 9
+  seconds or on its ✕.
+- **A game that has ended.** While the server process holds the ended session, the player's
+  page shows the `closed` stage (section 10.7). After a restart of the server the socket is
+  refused with 4004 and the page says that the game is no longer on the server. Both pages ask
+  `GET /api/open?after=<own code>` every 8 seconds and show a button to join the next game as
+  soon as the host has opened one. The browser keeps a small record of its last game in local
+  storage: the session, the practice's name, character and health system, the points of each
+  phase and the rank. It holds no answer. The page of a game that is gone shows this record,
+  and the join page of another game shows it as "Your last game in this browser" and starts
+  with that name and character filled in.
 - The client reconnects by itself, waiting 0.5 seconds at first and up to 5 seconds, with
   jitter. A banner says "Reconnecting". After `welcome` the client holds the full current view.
 - Every command carries a `cid`. The server remembers the last 50 per player and answers a
@@ -1098,9 +1492,59 @@ the room.
 | `CONTENT_DIR` | The pack | `./content-demo` |
 | `DATA_DIR` | Database folder | `./data` |
 | `HOST_PASSCODE` | Host passcode, at least 16 characters when `NODE_ENV` is `production`. The server refuses to start in production without one | `demo` in development |
+| `ALLOW_WEAK_PASSCODE` | `1` lets a production server start with a passcode shorter than 16 characters, for development weeks on the event server (Step 5, at the lab director's request). The server logs a warning at start. Never set at the event | unset |
 | `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
 | `LOG_LEVEL` | Log detail | `info` |
+| `SYSTEMS` | Load only these health systems, comma separated. For play checks while the pack is incomplete | all |
+| `CLIENT_DIR` | The client build to serve. The bundled server finds `../client` next to itself | none |
+| `BUILD_ID` | Set at build time by `deploy.sh`. The browser and the server compare it | `dev` |
+
+`npm run dev` runs the game server on port 3100, because 3000 is often taken on a laptop, and the
+client's dev server on 5173.
+
+### 7.10 One controlling host
+
+Several people may open the host console of one session, each with the passcode. Only one of
+those consoles changes the session at a time. The server keeps this rule, not the engine,
+because it is about sockets.
+
+- **A host has a name.** The sign-in page asks for the passcode and for the host's name, such as
+  "Maya", up to 40 characters. The browser keeps the name, and
+  each tab keeps a random console id. A host socket sends both in `hello`. The id lets the
+  server know a console that comes back after a reload. Two tabs of one browser are two
+  consoles.
+- **The first console in holds control.** It is the *controller*. Every other console of that
+  session is a *viewer*. A viewer sees everything the controller sees, live, and says at the
+  top who is in charge ("Maya is in charge").
+- **What a viewer may do.** Everything that changes nothing for the room: look at any player
+  beside the key (`spectate`, section 8.5), read a rejoin code, open the answer key, go through
+  the deck alone (`GET /api/host/deck/:code`), download the exports and read the manual. Every
+  command that changes the session, the clock, the projector or the shared deck is refused for
+  a viewer with `not_in_control`. The console does not offer those controls to a viewer, so the
+  refusal is a guard and not the interface.
+- **Taking charge.** The console names the controller as the host who is "in charge", by the
+  name they signed in with. A viewer has a "Take charge" button in the session bar. It opens a
+  dialog that names who would lose control and asks for the host passcode again, so that
+  nobody takes charge by a slip of the hand. `take_control {passcode}` then makes that viewer
+  the controller, and a wrong or missing passcode is refused with `wrong_passcode`. The
+  controller is not asked. It becomes a viewer in the same moment. The server sends `control`
+  with the two names to every console of the session, and the console that lost control shows
+  a notice that stays until it is closed ("Sam took charge. You are watching now."). The
+  notice also goes away by itself when that console holds control again. Control that is free
+  (nobody holds it) is taken with one press and no passcode.
+- **A controller that drops.** When the controller's socket closes, control stays with that
+  console for 20 seconds of wall time, so that a reload or a short network loss changes
+  nothing. During that time the viewers see "The controller is reconnecting". A viewer can
+  still take control, with the confirmation. After 20 seconds control is free. A free control
+  goes by itself to a console that is the only one connected. With two or more connected, each
+  shows "Nobody is in charge" and "Take charge", which then needs no passcode.
+- **The big screen is never a controller.** A screen socket sends nothing but `hello`. No key
+  pressed in the projector window changes anything.
+- **The first page** of the console (the list of sessions) is not under this rule. Any host
+  may create a session, and any host may delete a closed one.
+- Control is not stored. After a restart of the server the first console that reconnects holds
+  it.
 
 ---
 
@@ -1123,29 +1567,88 @@ Client to server:
 
 | Message | Fields |
 | --- | --- |
-| `hello` | `token`, `build` (the client's build id) |
+| `hello` | `token`, `build` (the client's build id), `session` (a host only) |
 | `cmd` | `cid`, `type`, `payload`. The types are the commands of sections 6.5 to 6.7 |
 
 Server to client:
 
 | Message | When | Fields |
 | --- | --- | --- |
-| `welcome` | After `hello` | `protocol`, `build`, `me`, `session`, `system` (the `public` of the health system and its cast), `ladder`, `clock`, `view` |
+| `welcome` | After `hello` | `protocol`, `build`, `me`, `session`, `system` (the `public` of the health system, its people with their click lines, and its banter), `ladder` (each rung with the id and the `short` label of the class it falls in), `clock`, `view` |
 | `ack` | After each `cmd` | `cid`, `ok`, `error?` |
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
 | `standing` | On each leaderboard beat | The player's ranks and the top three per column |
-| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue`, `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter` |
+| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter`. The engine announces a moment by reference and the projection builds it |
 | `reload` | The client's build is not the server's | none. The client reloads the page |
 | `superseded` | The token connected elsewhere | none |
+
+The `tile` of a view uses camel case like every other protocol type (`xLabel`, `sampleSize`), and
+a quote carries its `lines` already split on `\n`.
 
 A `view` is always complete. A `moment` only tells the client to animate something that the
 view already holds, so a client that misses one loses nothing. A bot can ignore moments.
 
-**Error codes:** `bad_message`, `rate_limited`, `wrong_stage`, `already_submitted`, `busy`,
-`unknown_id`, `already_done`, `no_bandwidth`, `not_enough_credits`, `invalid_report`, `invalid_design`,
-`not_buildable`, `no_runs_left`, `offer_closed`, `offer_full`, `not_available`, `window_closed`,
-`action_used`, `removed`.
+**Errors.** A refusal carries an error name. The name is for the code and the logs. **No
+error name ever reaches a screen**, on the player screens, the join page, the host console or
+the big screen. The client turns every name into one plain sentence from the table below, and
+shows it at the field or the control that the refusal concerns: under the field for a form,
+beside the button for a command. A sentence may name the thing at hand, such as the phase. A
+name that the client does not know gets the sentence of `bad_message`. Where the client can
+tell beforehand that a command would be refused, it does not offer the command and says why,
+so most of these sentences are rarely seen.
+
+| Name | Comes from | What the person reads |
+| --- | --- | --- |
+| `bad_message` | Any request that fails its schema | "That did not go through. Reload the page and try again." |
+| `rate_limited` | Section 7.8 | "That was too fast. Wait a moment and try again." |
+| `wrong_stage` | A command outside its stage | "That is not possible at this point of the game." |
+| `already_submitted` | A change after sending | "You have already sent this. It can no longer be changed." |
+| `busy` | A second pilot run while one runs | "A run is still going. Wait for its result." |
+| `unknown_id` | An id that the pack does not hold | "The game does not know that item. Reload the page." |
+| `already_done` | An investigation started twice | "You have already done this investigation." |
+| `no_bandwidth` | Section 6.5 | "Not enough free bandwidth. Wait for an investigation to finish." |
+| `not_enough_credits` | Section 6.7 | "You do not have enough credits for that." |
+| `invalid_report` | Section 6.5 | "That class is full. Move one of its problems out first." |
+| `invalid_design` | Section 6.6 | "That choice does not fit the rest of your design." |
+| `not_buildable` | Section 6.6 | "Your team cannot build this design. It needs more developers than you have." |
+| `no_runs_left` | Section 6.6 | "You have no pilot runs left." |
+| `offer_closed` | Section 6.6 | "That offer has closed." |
+| `offer_full` | Section 6.6 | "That offer was claimed by enough practices and is gone." |
+| `not_available` | Something the mode, the stage or the pack does not allow | "That is not available right now." The host console replaces it with the reason of section 6.13 or 10.8 |
+| `window_closed` | An answer after its deadline | "The time to answer that has passed." |
+| `action_used` | Section 6.7 | "You have already used that action." |
+| `removed` | A player the host removed | "The host removed this practice from the game." |
+| `name_taken` | Section 6.4 | "A practice with that name is already in the game. If it is yours, rejoin with your code. If not, pick another name." |
+| `name_invalid` | Section 6.4 | "A practice name needs 3 to 24 characters and no rude words." The two numbers come from `join.practice_name` |
+| `join_closed` | Section 6.4 | "This game no longer takes new players." |
+| `session_full` | Section 7.8 | "This game is full." |
+| `unknown_player` | A host command on a player who is gone | "That player is no longer in the game." |
+| `unknown_system` | Section 6.4 | "That health system is not part of this game." |
+| `unknown_session` | A join code that no open session has | "There is no open game with that code. Check the code on the big screen." |
+| `not_open` | Content of a phase before it opens | "That phase has not started yet." |
+| `not_found` | A rejoin code that matches nobody | "That rejoin code does not match a practice in this game." |
+| `unauthorized` | A missing or expired token | "Your sign-in has ended. Sign in again." |
+| `wrong_passcode` | The host sign-in | "That passcode is not right." |
+| `code_invalid` | A new session | "A link name needs 4 to 8 letters or digits." |
+| `no_scores_yet` | Leaderboard or Winners on the projector too early | "There are no scores yet. The leaderboard opens with Phase 1, and the winners after the first phase is scored." |
+| `no_deck` | Slides in a pack without a deck | "This content has no slides." |
+| `not_during_play` | The mirror during a phase | "Players' screens stay on the game while a phase is running." |
+| `confirm_mismatch` | Reset or end with the wrong code typed | "That is not the session code. Type it exactly to confirm." |
+| `pause_first` | A change of the game speed while the clock runs | "Pause the game first, then change the speed." |
+| `code_taken` | A new session | "Another session already uses that link name. Pick another one." |
+| `provisional_anchors` | A new `event` session | "Scores are not calibrated yet, so an event session cannot be opened. Use rehearsal or test." |
+| `not_in_control` | Section 7.10 | "Another host is in charge. Take charge first." |
+| `wrong_passcode` | Signing in, and taking charge from another host | "That passcode is not right." |
+| `no_answer_key` | The answer key | "This server has no answer key file." |
+| `internal` | A fault of the server | "Something went wrong on the server. Try again, and tell the host if it happens twice." |
+
+The first nineteen names, the six of joining and the six of the host console
+(`not_in_control`, `no_scores_yet`, `no_deck`, `not_during_play`, `confirm_mismatch`,
+`pause_first`) are the `ErrorCode` of the protocol. The rest come from HTTP routes.
+`code_invalid` is new in this version. Until now a join code that broke the rule came back as
+`bad_message`. All of the sentences live in the client's copy file, and a test fails when a name
+has none (section 12.4).
 
 ### 8.3 Static content of a phase
 
@@ -1153,8 +1656,10 @@ Fetched once per phase. All of it is public by construction.
 
 ```ts
 type PlanningContent = {
-  brief: { from: CharacterId; title: Text; text: Text } | null
-  rules: { bandwidth: number; reportSlots: number; agentRungCapacity: number }
+  brief: { from: CharacterId; title: Text; text: Text } | null    // the opening letter
+  rules: { bandwidth: number
+           classes: { id: ClassId; label: Text; short: Text; fitsWhen: Text
+                      rungs: number[]; capacity: number }[] }   // in class_order
   problems: { id: ProblemId; title: Text; description: Text }[]
   investigations: { id: InvestigationId; method: Method; character: CharacterId | null
                     title: Text; teaser: Text; bandwidth: number; seconds: number
@@ -1192,6 +1697,7 @@ type PlayerView = {
   rev: number                                   // grows by one with every change
   me: { id: PlayerId; name: Text; avatar: AvatarId; system: SystemId; rejoinCode: string }
   stage: StageId
+  run: number                                   // grows when a phase or the game starts again (6.3)
   points: { planning: PhasePoints | null; development: PhasePoints | null
             maintaining: PhasePoints | null; total: number }
   planning: PlanningView | null                 // present from the phase's first stage on
@@ -1199,9 +1705,32 @@ type PlayerView = {
   maintaining: MaintainingView | null
   inbox: { id: string; kind: 'brief' | 'letter' | 'announcement'; from: CharacterId
            title?: Text; text: Text; atMs: GameMs }[]
+  slide: SlideView | null                       // set while the host mirrors the slides (6.13)
   reportCard: ReportCardView | null             // at winners
 }
-type PhasePoints = { points: number; band: BandId; provisional: boolean }
+type PhasePoints = { points: number
+                     band: Text | null }        // the label of the band, null when it has none
+type SlideView = {
+  id: string
+  index: number; count: number                  // "Slide 2 of 6" is index + 1 of count
+  section: Text                                 // the title of its section
+  layout: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'
+  title: Text; subtitle: Text | null; bullets: Text[]
+  cards: { title: Text; text: Text | null; points: Text[]; tag: Text | null; tone: Tone
+           system: number | null }[]            // the index of a health system of the session, or null
+  people: { name: Text; role: Text | null; photo: string | null }[]        // photo: a URL under the pack's art
+  figures: { image: string | null; title: Text; caption: Text | null; tone: Tone }[]
+  qr: { show: 'join' | 'link'; url: string | null; label: Text | null } | null
+                                                // 'join': the client draws the join link of its session.
+                                                // 'link': its own URL, or null for a frame that waits for one
+  references: Text[]
+  image: string | null                          // a URL under the pack's art
+  stat: { label: Text; value: Text } | null     // a live statistic that is one number, "–" until the room has it
+  charts: { title: Text                         // live statistics that are bars, in percent. A bar has
+            bars: { label: Text; value: number | null   // no value until its phase is scored
+                    note: Text | null; tone: Tone
+                    system: number | null }[] }[]       // a bar of one health system
+}
 
 type PlanningView = {
   status: 'playing' | 'submitted' | 'closed'
@@ -1209,15 +1738,21 @@ type PlanningView = {
   running: { id: InvestigationId; startedAtMs: GameMs; completesAtMs: GameMs
              lines: Text[] }[]                  // interview lines released so far
   tiles: { investigation: InvestigationId; unlockedAtMs: GameMs; tile: Tile }[]
-  picks: Record<ProblemId, 1|2|3|4|5>
+  picks: Record<ProblemId, ClassId>             // a problem without an entry is unsorted
   reveal: {
-    problems: { id: ProblemId; real: boolean; tier: number | null; flagship: boolean
+    problems: { id: ProblemId; class: ClassId; tier: number | null; flagship: boolean
                 rationale: Text; burden?: { kind: string; size: string; note: Text } }[]
-    graded: { problem: ProblemId; rung: number; identify: number; ladder: number }[]
-    identify: number; ladder: number; flagship: number; raw: number
+    graded: { problem: ProblemId; picked: ClassId | null; points: number }[]   // every problem
+    classify: number; flagship: number          // the two parts of the score
   } | null
 }
 ```
+
+`PhasePoints` carries neither `provisional` nor the id of a band since this version. A
+player's client has no use for either, and the host view says once, for the whole pack, whether
+the anchors are estimates. The reveal no longer carries `raw`. The screen adds the two parts
+itself and names the sum "Board score" (section 10.4). A bot that wants the raw score adds them
+the same way.
 
 `DevelopmentView` and `MaintainingView` in outline. Steps 6 and 8 complete them.
 
@@ -1260,16 +1795,75 @@ type MaintainingView = {
 ### 8.5 Host and big screen
 
 A host socket receives `host_view` at most once a second: the session, the clock, the stage and
-its guide timer, the schedule against `run_of_show`, a row per player (name, avatar, system, connected,
-a one-line status for the phase, points, seconds since the last command), the leaderboard and
-the room statistics. A host sends `hostcmd` messages: the host commands of section 6.3, plus
-`rejoin_code`, `screen_scene`, `screen_theme`, `slide`, and `spotlight`. A host may also subscribe to one
-player's `PlayerView` to spectate.
+its guide timer, the schedule against `run_of_show`, a row per player (name, avatar, system,
+connected, a one-line status for the phase, points, seconds since the last command), the
+leaderboard and the room statistics. Since this version it also carries the following.
 
-A screen socket receives `screen_view` on every beat and stage change: the stage, the clock,
-the scene to show and its theme, the leaderboard, the counts per health system, and what the scene needs
-(the slide and its statistic, the results of a reveal, the winners, or the view of the player
-in the spotlight). It sends nothing but `hello`.
+```ts
+type HostViewAdditions = {
+  screen: { scene: SceneId                       // what the host picked, 'auto' included
+            shown: SceneId                       // what the projector shows now
+            mirror: boolean                      // the slides are on every player's screen too
+            slide: number; theme: Theme; filter: SystemId | null
+            spotlight: PlayerId | null; screens: number
+            available: { play: boolean; winners: boolean; slides: boolean } }
+  preview: ScreenView                            // exactly what the projector draws
+  deck: { count: number
+          sections: { id: string; title: Text; stage: StageId; start: number; count: number }[]
+          current: HostSlide | null; next: HostSlide | null }
+  control: { you: boolean                        // this console holds control
+             holder: Text | null                 // the name of the console that does, or nobody
+             watchers: Text[] }                  // the names of the other consoles
+  pickModes: Mode[]                              // modes in which players may pick a system
+}
+type HostSlide = { slide: SlideView; notes: Text | null; placeholder: boolean }
+type HostDeck = { slides: (HostSlide & { section: string })[] }   // GET /api/host/deck/:code
+```
+
+`screen.pinned` is not sent. A scene other than `auto` is pinned. `available` says which scenes
+the stage allows (section 6.13), and the console derives the reason from the stage. `deck.count`
+is 0 in a pack without a deck. `control` is filled per console by the server.
+
+A host sends `hostcmd` messages: the host commands of section 6.3, the commands of section
+6.13, plus `rejoin_code`, `spectate`, `take_control {passcode?}` (section 7.10) and `set_scale`
+(while paused or in the lobby, not in `event` mode). When control moves, every console of the
+session receives `control {from, to}` with the two names.
+
+**One player beside the key.** `spectate {playerId}` subscribes a console to one player, in
+control or not, and `spectate {playerId: null}` ends it. The console then receives
+`spectate {playerId, view}` at once and after every change of that player, where `view` is a
+`HostInspect`:
+
+```ts
+type HostInspect = {
+  id: string; name: Text; avatar: AvatarId; system: SystemId; connected: boolean
+  points: { planning: number | null; development: number | null; maintaining: number | null; total: number }
+  planning: {
+    status: 'playing' | 'submitted' | 'closed'
+    insights: number; investigations: number      // in hand, of how many
+    running: Text[]; done: Text[]                 // titles of investigations
+    classes: { id: ClassId; label: Text; short: Text; capacity: number }[]   // in class_order
+    problems: { id: string; title: Text
+                picked: ClassId | null            // the class held now, or as sent
+                mark: 'right' | 'near' | 'wrong' | 'unsorted'   // by the scoring rule of 6.5
+                truth: ClassId; tier: Rung | null; flagship: boolean; rationale: Text
+                points: number | null }[]         // once the phase is scored
+    classify: number | null; flagship: number | null
+  } | null                                        // null before the player has opened the phase
+}
+```
+
+It carries the key in every stage, so that a host can help a player who is stuck and can answer
+"why" from the console. It is built by the projection like every outgoing object, goes only to
+host sockets, and is never part of a `PlayerView` or a `ScreenView` (section 9). Phases 2 and
+3 add their part to it in their steps.
+
+A screen socket receives `screen_view` on every beat, on every stage change and on every change
+of the scene or the slide: the stage, the clock, the scene to show and its theme, the
+leaderboard, the counts per health system, and what the scene needs. That is the current slide
+as a `SlideView` while the scene is `slides`, the results of a reveal, the winners with `final`
+(false for the standings so far), or the view of the player in the spotlight. It never carries
+the notes of a slide. A screen socket sends nothing but `hello`.
 
 ---
 
@@ -1287,9 +1881,13 @@ in the spotlight). It sends nothing but `hello`.
    logs an error.
 4. **Separate sockets.** Host messages go only to sockets that proved the host token. Host view
    types are in their own module of `protocol`.
-5. **The answer key page** is served only by `GET /api/host/key`, only to a host who entered
-   the passcode again in the last five minutes, and never to a screen socket. The host console
-   opens it in a tab that the big screen route cannot reach.
+5. **The answer key** reaches only a signed-in host. The page is served by `GET /api/host/key`
+   against a ticket that the host token bought in the last five minutes, and the console opens
+   it in a window that the big screen route cannot reach. The key of one player's phase
+   reaches a host socket in `HostInspect` (section 8.5). Neither ever goes to a player socket
+   or a screen socket. Inside the console the key is not behind a second passcode (lab
+   director, round 11): the hosts are the facilitators, and the door that matters is the
+   sign-in of the console.
 6. **Not in the build.** The client bundle holds no pack data. The pack folder and the database
    are outside the folder that the web server serves.
 7. **Not in the repository.** Section 12.5.
@@ -1298,11 +1896,11 @@ in the spotlight). It sends nothing but `hello`.
 
 | Content | Sent |
 | --- | --- |
-| Health system `public`, the `public` of its cast, the ladder, the game title | At join |
-| Problem `public`. Investigation `public`, `method`, `character`, `bandwidth`, `seconds` | When Phase 1 opens |
+| Health system `public`, its people (the cast and the extras as one list, each with `public`, `look`, `extra` and the click lines), its banter, the ladder with the class of each rung, the game title | At join |
+| Problem `public`. Investigation `public`, `method`, `character`, `bandwidth`, `seconds`. The classes: `label`, `short`, `fits_when`, `rungs`, `capacity` | When Phase 1 opens |
 | An interview line | At its scheduled time, to that player |
 | A tile | When its investigation completes, to that player |
-| Problem `key`: `real`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
+| Problem `key`: `class`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
 | Board, choices, option `public`, visible cost, developers, `adds_developers`, `delivery_runs`, team size, component `public` | When Phase 2 opens |
 | Totals of a run: sub-scores, design score, pilot and year cost, visible and hidden parts, complexity points, developers | In the player's own run result |
 | One trace and the `public` of its case | In each run result |
@@ -1314,15 +1912,29 @@ in the spotlight). It sends nothing but `hello`.
 | Meters and history as seen | Every month and on every change |
 | True history, option `key.verdict` and `rationale`, event `key.teaches`, events never revealed | At the Phase 3 reveal |
 | Briefs, letters, dialogue, announcements | When they fire |
+| A slide of the deck: title, bullets, image, live statistic, section title | While it is the current slide and the slides are up. To the big screen always, to players only when mirrored, and to host consoles together with the next slide |
+| The notes of a slide | To host consoles only, with the slide |
 | Report card lines and source labels | At winners, the player's own |
 
 Never sent to a player or the big screen: conditions of any kind, tags, rules, advisories that
 did not fire, `extra_cost`, case weights and which set a case belongs to, the hidden and year
 cost of a single option, complexity points of a single option, monitor `upkeep`, event `drift`,
 `detect`, `onset` before the reveal, option and action `effects`, `reveals`, `arms`, `disarms`,
-`calibration`, source gists, and every `key` field not listed above.
+`calibration`, source gists, the notes of a slide, a slide that is not the current one, and
+every `key` field not listed above. A player's client receives `extra` on each person because
+the scene places extras differently. No screen shows it.
 
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
+
+The leak scan of Step 3 checks moments per session stage. A tile is sent to its own player only,
+so Step 5 added a check per player that no text of a tile reaches anyone before their
+investigation ends (an interview line only from its scheduled time), and a check that no class,
+tier, rationale, burden or graded board reaches anyone before the Phase 1 reveal.
+
+The deck adds two rules to the scan. Every title and bullet of a slide is protected text until
+that slide is shown for the first time, and from then on it may appear on any socket. The notes
+of a slide are protected for the whole session on every player and screen socket. Banter and
+click lines are sent at join, so they are not protected, and a pack keeps answers out of them.
 
 ### 9.3 Accepted limits
 
@@ -1345,8 +1957,8 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
 - **Type.** A blocky game face for headings, buttons, the countdown and scores, never below
   18 px. A rounded sans-serif for any text longer than a label (section 11.3). Body text is at
   least 16 px on a phone and 15 px on a laptop.
-- **Touch.** Every target is at least 44 px. Nothing depends on hover. Every drag has a tap
-  equivalent. `touch-action: manipulation` on controls.
+- **Touch.** Every target is at least 44 px. Nothing depends on hover, and nothing is done by
+  dragging. `touch-action: manipulation` on controls.
 - **Motion.** Short and functional. `prefers-reduced-motion` turns scene movement and
   transitions off.
 - **Contrast.** WCAG AA for text. Color is never the only signal: a health system has a color
@@ -1354,156 +1966,526 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
 - **Self-contained.** Every font, script and image comes from our server. The page makes no
   request to anyone else.
 - **Copy.** Words of the interface live in one file of the client. Content text comes from the
-  pack.
+  pack. The interface says "player" for the people in the room ("1 player", "42 players") and
+  never "practices" for them.
+- **Refusals.** No internal name reaches a screen. Section 8.2 has the sentence for each one.
+- **Sheets.** A sheet (a dialog over the page) takes the focus once, when it opens, and never
+  again while it is open. A field inside it that asks for the focus keeps it. A page that
+  redraws while the sheet is open, as the host console does with every view, must never move
+  the caret out of a field. The Escape key and a click beside the sheet close it.
 - **Wake lock.** The player view asks the browser to keep the screen on.
 
-Shared components: button, card, chip, pips, countdown, meter, tabs, sheet, toast, speech bubble,
-portrait, avatar, the four tile types, ladder legend, rung picker, leaderboard table, letter.
+- **One row of controls, one size (Pouria, round 10).** Controls that sit next to each other
+  have the same height, border and type size, on every screen of every phase. The main action
+  of a row is marked by its color and never by being taller. Three heights exist: 36 px in a
+  bar and in a dense panel, 44 px for the actions of a screen and everything a thumb presses,
+  60 px for the one large action of a page. A box that only states something (the mode, who is
+  in control, the join code) is as high as the controls beside it. A flag such as "On now" has
+  no border and no shadow, so nobody takes it for a button. Buttons in one list have one
+  width. A control that cannot act in the current state and never will, such as the stage
+  controls of an ended session, is not drawn. Every new screen is checked row by row for this
+  before it is shown.
+
+- **The actions of a dialog** are one row across the dialog: every button has the same width
+  and height, the action or the choices first and Cancel last. A dialog never puts a button on
+  a line of its own. On a screen narrower than 520 px the buttons stack, still one size.
+- **A box with an edge to drag.** The practice scene, in the lobby and above the evidence, has
+  a bottom edge that the player drags with the mouse or a finger, or moves with the arrow keys
+  when it has the focus (it is a separator with a value). The browser keeps the height. While
+  the edge moves the box only clips or leaves room, and the scene is drawn again once, where
+  the edge is let go.
+
+Shared components: button, card, chip, flag, blocks, countdown, meter, tabs, sheet, toast, speech bubble,
+portrait, avatar, the four tile types as evidence cards, the card overlay, problem card, class
+section, class control, leaderboard table, letter, slide, a box with an edge to drag.
 
 **The top bar** is on every player screen: the practice's character and name with the health
-system badge, the
-phase and its label, the countdown, the resource of the phase (bandwidth, pilot runs or the year's credits),
-the rank chip that opens the standings, a connection dot and a menu (how to play, the ladder,
-the rejoin code). The countdown turns amber and then red at the times in
-`clock.warnings_seconds_left`.
+system badge, the phase and its label, the countdown, the rank, a connection dot and the menu.
+
+- **The rank** is written out with a label, "Rank 3 of 42", and never as a bare "#3". It is
+  the player's overall rank once a phase has been scored, and the rank in the live column of
+  the phase before that. It opens the standings (section 10.7), which say which of the two it
+  is. Before the first leaderboard beat it reads "Rank –".
+- **Day or night** is one button in the top bar, beside the menu button, with a sun or a moon
+  on it: one press switches the theme. The join pages carry the same button in the corner of
+  the town strip.
+- **The menu** holds the help and the ways around: the opening letter of the phase, "Look at
+  your Phase 1 result" once that phase is scored and the stage shows something else (section
+  10.7), the rejoin code, how to play, and "Join as a new player" (section 10.7). The
+  automation ladder is not in the menu: the head of each class in "Your assessment" says what
+  fits that class (section 10.4).
+- **The resource of a phase** sits where it is spent. In Phase 1 the bandwidth is at the top of
+  the Investigations column (section 10.4) and not in the top bar. Phases 2 and 3 keep their
+  pilot runs and credits in the top bar until their sections say otherwise.
+- The countdown turns amber and then red at the times in `clock.warnings_seconds_left`.
 
 ### 10.2 Join and lobby
 
 **Join.** A picture of the town, the game title, the session label, a row of characters to pick
 from with one already picked, one field for the practice name with its length limits, and a
-Join button. When the pack has no title yet, the session label stands alone. Errors appear under the field. A link opens "Rejoin with a code". A
-closed or unknown session says so plainly.
+Join button. When the pack has no title yet, the session label stands alone. A refusal appears
+under the field as a sentence of section 8.2. A link opens "Rejoin with a code".
+
+A browser that played before starts with the name and the character of its last practice, and
+shows that game under the form as "Your last game in this browser" (section 7.7). The link of a
+game that has ended shows no form. It says "This game has ended. Nobody can join it any more."
+and leads to the next game once the host has opened one. A code the server does not know says
+"There is no game with this code on the server." in the same way.
+
+**Picking a health system.** When the session allows it (`pickSystem` of section 7.2, in a test
+or a rehearsal), the join page shows one more row under the name field: "Assign me", which is
+picked at first, and one button per health system with its mark, its name and its setting. A
+line under the row says that the choice exists only in a test or a rehearsal. In an event
+session the row is absent and nothing on the page hints at it.
 
 **Lobby.** After joining, the player sees which health system they were assigned to, with a
 short reveal, and the rejoin code of the practice in large type with the line "Keep this code.
-It brings your practice back on any device." Then: the system's name, setting and premise, the practice profile and the
-baseline numbers as a small table, the cast with portraits and roles, a three-step "how to
-play", and the reading room at rest. A line says the host will start the game. The same screen
-serves `intro`, with a note to look at the big screen.
+It brings your practice back on any device." Under the town strip, which is low here, the
+laptop layout has three columns from 1240 px.
+
+```
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ (the town strip, with the players of the room walking in)                     │
+├──────────────────┬──────────────────────────────────────┬─────────────────────┤
+│ Who you are      │ Your practice                        │ People in your      │
+│  the system, its │  (the living scene of section 10.3)  │ practice            │
+│  setting, the    │ ════════ an edge to drag ═════════   │  Click a person to  │
+│  premise         ├──────────────────────────────────────┤  meet them. …       │
+├──────────────────┤ Your health system                   │  ▣ name, role       │
+│ How to play      │  practice profile │ what you already │  ▣ name, role  …    │
+│  1 2 3           │                   │ know             │                     │
+└──────────────────┴──────────────────────────────────────┴─────────────────────┘
+```
+
+- **"Who you are"** comes first on the left: the name of the health system with its shape, its
+  setting, and the premise of the pack, which tells the player their role. Under it **"How to
+  play"** has the three phases in a line each, and that each is worth up to 1000 points.
+- **"Your practice"**, the scene, is in the middle, with the name of the health system in its
+  title bar. Its default height is about 40 percent of the window, at least 240 px and at most
+  460 px, so that the numbers under it show without a scroll at 1280 × 720. **The player sets
+  the height** by dragging the bottom edge (section 10.1), between 192 px and 80 percent of
+  the window. A lower scene keeps its size and loses wall and floor first, down to the band
+  with the table and the people (section 10.3), and only then steps down in scale. The scene
+  does not keep an aspect ratio. Because the height is in CSS pixels, a browser zoom makes the
+  scene larger and smaller with the rest of the page.
+- **"Your health system"** under the scene holds the numbers and nothing else: the practice
+  profile and the baseline as two small tables side by side.
+- **"People in your practice"** is on the right. Under its title one line invites a click:
+  "Click a person to meet them. Some of them are funnier than they look." The list shows every
+  person of the health system, the cast and the extras as one list in the order of section
+  5.5, each with the portrait, the name and the role. Nothing marks an extra, and nothing says
+  who has an interview to give. The list scrolls inside itself when it is long. A click on a
+  row makes that person in the scene turn and say a click line.
+- **The scale of the scene.** The client picks the smallest whole-number scale at which the
+  room covers the width of its column, as long as the crop stays within 10 percent of the
+  room's width. Where the crop would be larger it takes the scale below and centres the room
+  on a backdrop that continues the room: the wall color beside the wall and the floor color
+  beside the floor, under the same day or night tint as the room. No band of another color
+  ever shows beside a room, in the lobby or in the panel of section 10.4. A room keeps every
+  post at least 24 px away from its left and right edges, so the crop never hides a person.
+
+Between 1024 and 1239 px there are two columns: who you are, how to play and the people on the
+left, the scene and the numbers on the right. On a phone the parts stack in this order: who
+you are, the scene at the phone crop with its edge, the people, the numbers, how to play. The
+same screen serves `intro`. While the host mirrors the slides, which is the default in
+`intro`, the player's screen shows the current slide (section 10.9). Without the mirror the
+lobby stays, with the line "Look at the big screen. Phase 1 starts soon."
 
 ### 10.3 The reading room
 
 The reading room is a pixel-art scene of the department, drawn on one PixiJS canvas. It is
-present in every phase, gives the game its place and shows what the numbers mean.
+present in every phase, gives the game its place and shows what the numbers mean. Since this
+version the room is alive in the lobby and in play. People move, screens change, people talk,
+and a person answers a click.
 
 - **It never gates play.** Everything a player can do in the scene can also be done from the
-  panels. If WebGL is missing, a still image and ordinary HTML bubbles take its place.
+  panels. If WebGL is missing, a still image and ordinary HTML bubbles take its place, and
+  people are HTML buttons that still answer a click.
 - **The browser animates it.** The server sends no positions and no frames. The scene derives
-  what to show from the view and from moments.
-- **Scale.** The scene is drawn at 320 × 180 with 16 px tiles and shown at the largest
-  whole-number scale that fits its panel. On a phone the camera crops to the active area
-  instead of shrinking the room.
-- **Cast.** The characters of `system.public.cast` stand at fixed posts in cast order. A
-  character without a sprite of their own gets one of the generic sprites, picked by a hash of
+  what to show from the view, from moments, and from the people, banter and click lines that
+  came at join. Two players never see the same walk, and nothing depends on it.
+- **Scale.** The scene is drawn at 320 × 180 with 16 px tiles and shown at a whole-number
+  scale. The lobby and the Phase 1 panel say how the scale is picked (sections 10.2 and 10.4).
+  On a phone the camera crops to the active area instead of shrinking the room: below 640 px
+  the scale is 2 at least, and the room is cropped around the meeting table.
+- **People.** Every person of the health system is in the room. The cast stand at the `posts`
+  of the room in cast order. The extras take the posts that are left and then the reading
+  stations. Each person is drawn with their own sprite (section 11.4), so no two people of a
+  health system look alike. A person without a sprite gets a generic one, picked by a hash of
   the id.
 - **The player.** The practice's own character (`me.avatar`) stands in the room with a "You"
   tag and walks to whatever the player starts.
 - **Day and night.** The scene follows the theme (section 11.2).
+- **The room is pack art.** A pack may bring `art/room/` with `room_day.png`, `room_night.png` and
+  `scene.json` (size, posts of the cast in cast order, meeting table seats, the player's post, the
+  door, the reading stations under `ambient`, the wall board, and optionally `places`, a list
+  of points people may walk to). Without it the client draws the library of the demo pack. `build_art.py --room
+  reading` draws the radiology reading room for the private pack.
+  Where `scene.json` lists no `monitors`, the client finds the screens in the day image (small
+  rectangles of one dark or lit color). It also reads the floor from the day image, from the
+  colors under the player's post, and walks people only on floor cells, so nobody crosses a
+  desk or the meeting table. The reading room of the private pack needs no new field.
+- **Images decode on the main thread.** PixiJS decodes in a worker made from a blob URL, which the
+  content security policy blocks, so the client turns that off. If the art does not load within
+  8 seconds the still image takes over.
 
 Scene elements and what drives them:
 
 | Element | Shows | Driven by |
 | --- | --- | --- |
-| Reading stations | Radiologists at work | Ambient |
-| Cast | The people of the practice | `system.public.cast` |
+| Reading stations | People at work, with screens that change | Ambient |
+| People | The cast and the extras of the practice | The people sent at join |
 | Meeting table | Where interviews happen, with the player's character seated | Running interviews |
-| Wall board | Backlog and study mix | The practice profile at rest. The meters in Phase 3 |
-| Speech bubbles | Interview lines, dialogue | Moments |
+| Wall board | A worklist that scrolls. The meters in Phase 3 | Ambient at rest, the view in Phase 3 |
+| Speech bubbles | Interview lines, dialogue, banter, click lines | Moments, and the browser's own timers |
 | Developer desks | The team of Phase 2 | Developers needed and available |
 | Wall calendar and monitor lamps | The month and the funded monitors | Phase 3 view |
 | Alarm light | Harm that surfaced late | A `late` reveal |
 
-**An interview** plays like this. A character who has an interview to give carries a small
-marker. The player clicks the character, or starts the interview from the list. The character
-walks to the meeting table during the time before the first line. Each line appears as a bubble
-over the speaker when its moment arrives and stays for at least 2.5 seconds. Two or three
-interviews at once put two or three people at the table. When the wait
-ends, the character walks back and the tile lands on the dashboard. The same lines appear in a
-transcript strip under the scene, in the body font, for reading and for screen readers.
+**What moves by itself**
 
-A bubble holds one line of dialogue. The scene queues bubbles so that two never overlap.
+- **Walking.** A person who is not in an interview leaves their post from time to time, walks
+  to a free place (another free post, a place of `places`, the wall board or the door), stays
+  for 4 to 10 seconds and walks back. A person sets out every 15 to 45 seconds, and three
+  people at most walk at once. The walk uses the two walk frames in the direction of travel.
+  People do not walk through the meeting table, and two people do not stop on one place.
+- **The worklist** on the wall board moves up by one row every 2 to 4 seconds. A row is a
+  colored bar and a short grey bar. It holds no text and no number, so it can say nothing
+  about the content.
+- **Monitors** at the reading stations cycle through three or four frames, each at its own
+  pace. A station where somebody stands shows a brighter screen.
+- **Banter.** Every 20 to 40 seconds the scene plays one exchange of `banter`. The speakers
+  stop where they are and turn toward each other, and the lines appear one after the other,
+  each for about 3 seconds and never for less than 2.8. The exchanges come in a shuffled order
+  and none repeats until all have played. Banter never starts while an interview bubble, a
+  dialogue line or a click line is up, and a line of an interview or of dialogue that arrives
+  ends the exchange at once. Banter plays in the lobby, in `intro`, in every play stage and in
+  the reveals.
+
+**What a click does.** Every person in the scene is a button, with the name as its label.
+
+- A person who has an interview on offer, in Phase 1, opens that interview, exactly as the
+  Start button of its row does. The person carries a small "!" marker for as long as that is
+  so.
+- Any other click makes the person stop, turn to face the player, hop once and say one of
+  their `click_lines` in a bubble for about 3 seconds. The lines come in order from a random
+  start, so a second click gives another line. Then the person goes back to what they were
+  doing.
+- Extras answer a click like everyone else. The player's own character does nothing on a
+  click.
+- A click line never interrupts an interview line. It waits for the bubble to clear.
+
+**Reduced motion.** With `prefers-reduced-motion` nobody walks, the worklist and the monitors
+stand still, and people turn without the hop. Bubbles, banter and clicks still work, because
+they are text.
+
+**An interview** plays like this. The player clicks the person, or starts the interview from
+the list. The person walks to the meeting table during the time before the first line. Each
+line appears as a bubble when its moment arrives and stays for at least 2.8 seconds. Two or
+three interviews at once put two or three people at the table. When the wait ends, the person
+walks back and the card lands in the evidence. The same lines appear under the row of the
+running investigation, in the body font, for reading and for screen readers, so the talk can be
+followed with the scene collapsed.
+
+**Bubbles.** A bubble holds one line. It opens with the speaker's portrait at small size and
+their first name in bold, then the line. It is drawn over the speaker when it fits inside the
+visible part of the scene and at the top of the scene when it does not. The scene queues
+bubbles so that two never overlap, and a line of 16 words wraps to three rows at most at the
+phone crop.
 
 ### 10.4 Phase 1 screens
 
-**Laptop layout.** Three columns under the top bar.
+Phase 1 has one screen. The player investigates, reads the evidence and writes an assessment,
+and all three stay on screen together. The phase is decided by reading the insights next to
+each other, so the evidence gets the most room, and nothing on an insight is clamped.
+
+**Laptop layout.** Three columns under the top bar. Each has a title, and the three titles
+stand on one line.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ practice ◆ system │ Phase 1 · Planning │ 08:12 │ bandwidth ■■□        │ rank │
-├──────────────────────┬─────────────────────────┬───────────────────────────┤
-│ Reading room         │ Evidence                │ Report        4 of 6  Send│
-│ (scene)              │                         │ ladder summary            │
-│                      │  tile   tile            │ ┌───────────────────────┐ │
-│ transcript strip     │  tile   tile            │ │ problem card          │ │
-├──────────────────────┤  tile                   │ │ [out][1][2][3][4][5]  │ │
-│ Investigations       │                         │ └───────────────────────┘ │
-│  row  row  row  …    │                         │  … 12 cards, scrolling    │
-└──────────────────────┴─────────────────────────┴───────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ ☺ practice ◆ system      Phase 1 · Planning    08:12       Rank 3 of 42    ●    ☰        │
+├──────────────────┬──────────────────────────────────────────┬────────────────────────────┤
+│ Investigations   │ Evidence    5 of 10 insights    1 new ↓  │ Your assessment 4 of 7  Send│
+│ Bandwidth ■■□    │ ┌ Reading room │ Practice facts      ⌃ ┐ │ Find the 2 … and the 1 …   │
+│ 2 of 3 free      │ │ (the living scene, or the facts)     │ │ Unsorted · 3               │
+│ ──────────────── │ └──────────────────────────────────────┘ │  title                     │
+│ row              │ ┌───────────────┐ ┌───────────────┐      │  description               │
+│ row              │ │ opening       │ │ insight       │      │  [Not] [No AI] [One] [Ag]  │
+│ row              │ │ letter        │ │               │      │ Not a problem · 1 of 2     │
+│ row …            │ └───────────────┘ └───────────────┘      │  title  [·][·][·][·]  ↩    │
+│                  │ ┌───────────────┐ ┌───────────────┐      │ No AI · 2 of 2             │
+│                  │ │ insight       │ │ insight       │      │ One model · 1 of 2         │
+│                  │ └───────────────┘ └───────────────┘      │ Agentic · 0 of 1           │
+└──────────────────┴──────────────────────────────────────────┴────────────────────────────┘
 ```
 
-**Phone layout.** The top bar shrinks to the countdown and the bandwidth. Three tabs at the
-bottom: Room (scene, transcript, investigations), Evidence, Report. A tab shows a badge when
-something new is in it. The tablet layout puts Room on the left and Evidence and Report as two
-tabs on the right.
+- **Investigations**, on the left, 280 to 320 px. The bandwidth on top, then the list. Nothing
+  else lives in this column.
+- **Evidence**, in the centre, takes all the width that is left.
+- **Your assessment**, on the right, 320 to 360 px.
 
-**The brief.** When the phase opens, the brief of the phase appears as a card with the
-sender's portrait. The player closes it and can open it again from the menu. The clock runs
-while it is open.
+Each column scrolls by itself. The page never scrolls sideways. No column folds away on a
+laptop, and nothing on this screen is dragged.
 
-**Investigations list.** One row per investigation, in pack order.
+**The top bar** of section 10.1: the practice's character and name, the health system, "Phase
+1" with its label, the countdown, "Rank 3 of 42", the connection dot and the menu.
+
+**The opening letter.** When the phase starts, the brief of the phase pops up over the screen
+as a letter with the sender's portrait, its title and its text. It states the task, the split
+of the classes and what the bandwidth is. One button, "Start investigating", closes it. The
+clock runs while it is open, and the letter says so in a line. It pops up once for a player. A
+reload in the middle of the phase does not bring it back. The same letter stays as the first
+card of the evidence, so a player can read it again at any time.
+
+**Investigations.** The column opens with the bandwidth: the blocks, held and free, the words
+"2 of 3 free", and one line, "An investigation holds its blocks until it ends." Blocks that
+come free flash once. Under it, one row per investigation, in pack order.
 
 - A row shows the method icon, the title, the teaser, the bandwidth it holds as blocks, the
   wait in seconds with its story time, and a Start button. An interview row also shows the
-  character's portrait and name.
+  person's portrait, name and role.
 - Start is one click, because nothing is spent. A started investigation cannot be cancelled,
-  and the row says so before the first one is started.
+  and the column says so before the first one is started.
 - States: available, not enough free bandwidth (dimmed, says how many blocks it needs and when
-  the next ones come free), running (a bar with the seconds left), done (a check and a link to
-  its tile). Several rows can be running.
-- The top bar shows the bandwidth as blocks, held and free. Blocks that come free flash once.
-- After the report is sent, every row is locked.
+  the next ones come free), running (a bar with the seconds left, and for an interview the
+  lines released so far), done (a check and a link that scrolls the evidence to its card).
+  Several rows can be running.
+- After the assessment is sent, every row is locked.
 
-**Evidence.** The unlocked tiles in order of arrival, two columns on a laptop and one on a
-phone. Empty at first, with one line that says how to get the first tile.
+**Evidence.** The title line carries the count ("5 of 12 insights") and, when a card arrived
+outside the visible part, a button "1 new ↓" that scrolls to it. The notice sits on the title
+line and never over a card.
 
-| Tile | Shows |
+*The panel.* At the top of the column, as wide as the column, sits one panel with two views
+and a switch between them. It does not scroll away with the cards.
+
+- **"Reading room"** shows the living scene of section 10.3, with its people, bubbles and
+  clicks, cropped to a strip around the meeting table. Two rules keep everyone whole in it.
+  - *The strip always shows a band of at least 96 room pixels*, which holds the table, its seats
+    and the posts around it. The scale starts as in the lobby (the smallest whole-number scale
+    that covers the panel's width with a crop of 10 percent at most, else the scale below on a
+    backdrop) and steps down until the band fits the strip. The strip is 192 px high on a
+    window under 800 px high, so that a full row of cards still shows under it at 1280 x 720,
+    and 200 px on a phone. On a higher window it is 266 px at scale 2. A column wide enough for
+    scale 3 or more gets a strip of 96 px times the scale (288 px, 384 px), as long as that is
+    at most 30 percent of the window's height, and otherwise stays at 266 px with the scale
+    stepped down. These are the heights the strip takes by itself. **The player may set the
+    height** by dragging the bottom edge of the panel (section 10.1), between 192 px and 60
+    percent of the window, for the reading room and for the practice facts alike. The scene
+    then follows the rule of the lobby (section 10.2): it loses wall and floor first and steps
+    down in scale after that.
+  - *People stand and walk only where they show whole.* A post or a place of the layout counts
+    only when a person there is inside the visible rows, with 2 room pixels free over the head
+    for a marker, and on a laptop inside the visible columns too. The people take those spots
+    in the order of section 10.3. Whoever is left takes a spot moved into view, and so does the
+    player's own character. Nobody walks to a place outside the view, and the walk in from the
+    door is shown only when the door is in view. On a phone the camera crops the sides by
+    design, so there only the rows count. The same two rules hold wherever the scene is
+    cropped, the lobby included.
+- **"Practice facts"** lists every line of `practice_profile` and `baseline` with its unit, in
+  two columns, at the same height, and scrolls inside itself. Some evidence is read against one
+  of these lines, so the facts stay one click away for the whole phase.
+- **Collapse.** One control folds the panel to a bar of 34 px that keeps the switch and the
+  control. With the panel collapsed the player sees only the cards. Picking a view on the bar
+  opens the panel again on that view.
+- The panel never changes its view or its state by itself. The browser remembers both. The
+  panel starts open on "Reading room" on a laptop and collapsed on a phone.
+- The practice facts are no longer a card of the evidence.
+
+*The cards.* Under the panel, a grid of cards.
+
+- **Columns.** Two cards per row when the column is 560 px wide or more, one below that, and
+  never a third column. On a column of 560 px or more the head of the Evidence column has a
+  switch of two buttons, "One card per row" and "Two cards per row". Two is the default. The
+  browser remembers the choice. With one card per row the cards are at most 980 px wide and
+  stand in the middle, so a line stays readable. **The cards of one row have one height**, that
+  of the taller one, so the wall reads as tidy rows at every size of the screen.
+- **A card shows everything at reading size**: a colored strip with the method and the title of
+  the investigation it came from, the headline, the chart or the findings or the speech bubbles
+  or the number, then the body and the note with their bold and italic marks. Nothing is
+  clamped, cut or hidden behind a click. Body text is 14 px or more. The cards of a row start
+  at the same height and may end at different heights.
+- **Order.** The opening letter is first. The insight cards follow in order of arrival, and a
+  card never changes its place afterwards, so a player finds it again where it was. The count
+  on the title line counts insights and leaves the letter out.
+- **Arrival.** A new card appears with a short highlight and a "New" tag that goes when the
+  card has been on screen for a few seconds.
+- **Open large.** A click on a card, or Enter while it has the focus, opens it in an overlay
+  with larger type (18 px body), a larger chart and the same content. Escape, the close button
+  or a click outside closes it, and the focus returns to the card. The left and right arrow
+  keys and two buttons move to the previous and the next card without closing. On a laptop the
+  overlay covers Investigations and Evidence and leaves Your assessment free, so a player can
+  read a card large and sort at the same time. On a phone it fills the screen.
+- **Empty.** Before the first insight the column shows the letter and one line that says how
+  to get the first insight.
+
+| Tile | The card shows |
 | --- | --- |
 | `stat` | The value and unit large, the label, the comparison under it |
 | `chart` | A bar or line chart drawn as SVG, axis labels, a legend when there are two series or more, the note |
 | `quote` | The speaker's portrait, name and role, and the lines |
 | `audit` | The sample size, each finding as a labelled bar with its count, the note |
 
-Every tile also shows its headline, its body, and the method and title of the investigation it
-came from. A new tile arrives with a short highlight. Clicking a tile opens it large.
+**Your assessment.** The title line shows how many problems are sorted ("6 of 10") and the Send
+button. Under it one line states the task. It is built from the classes and their capacities. A
+class is named by the ladder rungs it covers, which are the game's own: no rungs "are not
+real", rungs up to 2 "need no AI", up to 4 "need one AI model", rung 5 "needs an agentic
+system". Two classes that would read alike fall back to their short names. In a full pack:
+"Find the 3 problems that are not real, the 3 that need no AI, the 3 that need one AI model and
+the 1 that needs an agentic system."
 
-**Report.** The column header shows the slots used, the ladder summary and the Send button.
+The rest of the column is one list with five sections. There are no drop targets, no empty
+places to fill and no dragging, on any screen size.
 
-- The ladder summary lists the five rungs with their labels and, on each, the problems placed
-  there as chips. Clicking a rung opens its `fits_when` and `example`.
-- One card per candidate problem, in pack order. A card shows the title and the description,
-  clamped to two lines until opened.
-- Each card has one control with six positions: "Leave out" and the rungs 1 to 5. Choosing a
-  rung puts the problem in the report on that rung.
-- When all slots are used, the rungs of the other cards are disabled and say that the report is
-  full.
-- Rung 5 holds `agent_rung_capacity` problems. Choosing it on another card asks to move it, and
-  the problem that held it leaves the report.
-- A card has a "Ruled out" toggle that greys it. It is a note for the player, kept in the
-  browser and never sent.
-- On a laptop the chips of the ladder summary can also be dragged between rungs.
-- Every change is saved to the server after 300 ms without typing or clicking.
-- **Send** opens a sheet that lists the report by rung, says that empty slots are allowed, and
-  asks to confirm. After sending, the column is locked and says the report was sent.
+- **Unsorted** comes first and holds every problem at the start, in pack order. Its header
+  shows how many are left ("Unsorted · 4"). A card here shows the title, the whole description
+  and the class control.
+- **The four classes** follow from the most automation to none: the reverse of `class_order`,
+  so the agentic class is at the top and the class of problems that are not real is at the
+  bottom, the way people picture a ladder (lab director, round 11). The pack keeps
+  `class_order` from none to the most, because the scoring counts steps in it. Each class keeps
+  the color of its place in `class_order`. The line that states the task, the strip of counts,
+  the class control and the columns of the reveal all use this order. Each header shows the `short` name of the class
+  and its count against its capacity, "No AI · 1 of 2", and marks a class that is full. A tap
+  on the header opens the `fits_when` of the class and the rungs of the ladder it covers. A
+  class with nothing in it shows its header and one quiet line.
+- **The class control** is on every card: one button per class in the order above, labelled with
+  the `short` name. A press moves the card into that section. The card settles at the end of
+  the section, the list keeps its place on screen, and the card is marked for a moment so the
+  eye finds it.
+- **A sorted card is compact**: the title and the class control, with the button of its class
+  marked, and a small "Back to Unsorted" control. A click on the title opens the description
+  in place and a second click closes it.
+- **Changing one's mind.** Until the assessment is sent, a sorted card goes straight to
+  another class by a press on that class, or back to Unsorted by its control. A card that
+  returns to Unsorted takes its place in pack order.
+- **A full class.** A class never holds more problems than its capacity. A press on a full
+  class asks one question, "No AI is full. Which problem goes back to Unsorted?", and lists the
+  problems of that class and Cancel. The chosen one returns to Unsorted and the pressed card
+  takes its place in the class. This holds the same way for a card that comes from Unsorted and
+  for one that comes from another class.
+- **Keys.** With a card in focus the keys 1 to 4 pick the class in the order shown (1 is the agentic class) and 0 sends
+  the card back to Unsorted. The Tab key walks the cards in the order of the list.
+- **When Unsorted is empty** its section shrinks to one line, "Everything is sorted. You can
+  still change any card until you send."
+- **Saving.** Every change is saved to the server after 300 ms without a change. A refusal puts
+  the list back to what the server holds and says why in a sentence.
+- **Send** opens a sheet that lists the assessment by class, names the problems that are still
+  unsorted and says that they will score nothing, and asks to confirm. After sending, the
+  column is locked and says that it was sent. The evidence stays readable.
 
-**End of the stage.** A full-width notice says that time is up and that the report was sent as
-it stood. Two notices warn before, at the times in `clock.warnings_seconds_left`.
+The engine rules behind this column did not change with the screen. `planning.set_report`
+still carries the whole draft, a class over its capacity is still refused, the scoring is the
+same and the parity vectors stand (section 6.5).
 
-**Reveal.** One screen, top to bottom: the letter with the sender's portrait, the score (the
-three parts, the points and the band), and the corrected report. The corrected report lists
-every candidate problem with the player's rung, the true answer, a mark (right, one rung off,
-reported but not real, real but missed) and the rationale on opening. The flagship problem is
-marked. A closing line names the problem that everyone builds for next. The same screen stays
-during the break, with a note to look at the big screen.
+**Phone layout.** Below 1024 px the three columns become three tabs at the bottom, with the
+titles "Investigations", "Evidence" and "Assessment". A tab carries a count: the investigations
+running, a badge for a new insight, and "6 of 10". The top bar shrinks to the countdown and the
+rank. Evidence is one column of full cards under the panel, which starts collapsed. The
+bandwidth stays at the top of the Investigations tab. The assessment is the same list of five
+sections with the same class control, so a phone and a laptop work the same way. The opening
+letter fills the screen until it is closed.
+
+**End of the stage.** A full-width notice says that time is up and that the assessment was
+sent as it stood. Two notices warn before, at the times in `clock.warnings_seconds_left`.
+
+**Reveal.** One screen with no part left empty. Every row is as wide as the page, so no
+column can end before its neighbor.
+
+```
+┌──────────────────────────────────────────────────────────┬───────────────────────────┐
+│ A letter for you                                         │ Your score                │
+│  ▣ sender                                                │  Sorting          500     │
+│  the always text                                         │  Agent project    300     │
+│  the line for this player                                │  Board score      800     │
+│                                                          │  Phase 1 points   742     │
+│                                                          │  Strong                   │
+├──────────────────────────────────────────────────────────┴───────────────────────────┤
+│ The corrected assessment                                                             │
+│ ┌ Real, and it takes an agentic system ────────────────────────────────────────────┐ │
+│ │ title   The agent project   your pick · points                                   │ │
+│ │ why it needs an agent                    │ what it costs (the burden, the rung)  │ │
+│ └──────────────────────────────────────────────────────────────────────────────────┘ │
+│ ┌ Not a real problem ──────┐ ┌ Real, no AI ─────────────┐ ┌ One model ─────────────┐ │
+│ │ problem  pick  pts       │ │ problem  pick  pts       │ │ …                      │ │
+│ │ problem  pick  pts       │ │ …                        │ │                        │ │
+│ └──────────────────────────┘ └──────────────────────────┘ └────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│ Next, every practice builds for: (the problem)                                       │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **The letter and the score** make the first row. The letter takes about two thirds of the
+   width, with the sender's portrait, the `always` text and the one line for this player
+   (section 6.5). The score takes the rest. The two boxes always have the same height, which
+   is the height of the taller one.
+2. **The score** shows the two parts ("Sorting" and "Agent project"), their sum as "Board
+   score", the points of the phase and the `label` of the band. When the points equal the
+   board score, the box shows the points once. When they differ, one line says that points put
+   both health systems on one scale. The words "raw" and "provisional" and the id of a band
+   never appear (section 6.8).
+3. **The corrected assessment** is the second row, across the whole page. **The agent
+   project** spans its full width. It is the flagship class with its one problem, opened. The
+   row shows the title with the tag "The agent project", the player's own pick and its points,
+   and then two blocks side by side: the rationale on the left, and on the right the burden
+   under "What it costs the practice" with the rung of the ladder.
+4. **The other three classes** sit in one row under it, in three columns of equal width and
+   equal height, each with the `label` of the class and its problems. Each problem carries a
+   mark for the player's own pick: right, one class off, wrong, or not sorted, with the class
+   the player chose and the points it earned. Opening a problem shows its rationale, its burden
+   and, for a real problem, its rung on the ladder.
+5. A closing line across the page names the problem that everyone builds for next.
+
+On a phone the parts stack in the same order: the letter, the score, the corrected assessment
+with the two blocks of the agent project one under the other, the three classes, the closing
+line.
+
+**An empty assessment.** When the player sorted nothing, one sentence at the top of the
+corrected assessment says so, "You sent an empty assessment, so no problem scored." The
+rows then carry no "not sorted" mark and no "0 points", and the letter uses its `empty` line.
+
+The same screen stays during the break. While the host mirrors the slides the player sees the
+current slide with a button "Back to my board", and the board then offers "Back to the slides"
+(section 10.9).
+
+**Notes from the first full-size pack (Step 4).** The first real Phase 1 content was written
+after the first version of this section. It asks for the following.
+
+- **Practice numbers stay in reach.** Some evidence is read against a line of the practice
+  profile or the baseline. Both are in the "Practice facts" view of the panel above the cards,
+  on a laptop and on a phone. The wall board in the scene does not replace it.
+- **Nothing a player needs is clamped.** A card always shows its whole body, its findings and
+  its note. A problem card shows its whole description on every screen size. The play time has
+  no room for a click on every card.
+- **Two inline marks.** The body and the note of a tile, a brief and a letter may carry
+  `**bold**` and `*italic*`, so that a player can skim for the number that matters. The client
+  renders these two marks and nothing else. Every other character is shown as text, and no
+  HTML is ever interpreted. A pack uses them on two to four places in a tile.
+- **Sizes to design for.** A system has 7 problem cards and 10 investigations (10 and 12 until round 10, when the phase was cut to fit ten minutes of reading). A problem has a
+  title of up to 8 words and a description of up to 35. A headline has up to 10 words and a
+  body up to 45. An `audit` tile has up to 7 findings with labels of up to 12 words and a note
+  of up to 20 words. A `chart` tile has up to 3 series and up to 8 points in a series. An
+  interview has 3 lines of up to 16 words. An investigation row has a title of up to 9 words
+  and a teaser of up to 13. The evidence must stay readable with 12 insight cards and the
+  opening letter in it. The opening letter has up to 105 words. A person has three to five
+  click lines of up to 14 words, and an exchange of banter has two or three lines of up to 16
+  words.
+- **`audit` tiles.** The bars are scaled to the largest count on the tile and never to
+  `sample_size`, because the findings of a tally can count different things. The sample size is
+  a caption. A label wraps and is never cut.
+- **`chart` tiles.** The x values are often text, such as quarters or the names of groups. A bar
+  chart with several series is drawn as grouped bars with the value on each bar. A line chart
+  starts its y axis at zero, and at the smallest card width it may show every second x label.
+  A series whose points all share one value is a yardstick, such as a target. It is drawn as
+  a dashed line without markers and keeps its name in the legend. The note sits under the
+  chart in body text.
+- **`quote` tiles.** The body is one or two sentences about the speaker and comes before the
+  lines. A bubble in the scene wraps a line of 16 words to three rows at most at the phone crop.
+  The row of the running interview always holds every line released so far.
+- **Reveal.** A rationale runs to about 120 words and a burden note to about 40. The corrected
+  assessment keeps both behind the opening of a problem, except for the agent project, which
+  is open across the full row.
 
 ### 10.5 Phase 2 screens (outline)
 
@@ -1551,52 +2533,335 @@ Step 8 completes this section when the Phase 3 content exists.
 
 ### 10.7 Standings, winners and the report card
 
-- **Standings sheet.** Opened from the rank chip. The player's rank overall, in their health
-  system and in the current phase, the top three of each column, and the ranking of the health
-  systems.
+- **Standings sheet.** Opened from the rank in the top bar. The player's rank overall, in their
+  health system and in the current phase, the top three of each column, and the ranking of the
+  health systems. It says in words which rank the top bar shows.
 - **Winners.** The player's final rank and points per phase.
-- **Report card.** The points and band per phase, the lines that apply with their source
-  labels, the closing text and the links.
+- **A scored phase, again.** Once Phase 1 is scored and the stage shows something else (any
+  stage after its break), the menu has "Look at your Phase 1 result". It opens the reveal of
+  section 10.4, with the corrected assessment and the reasons, under a strip with "Back to the
+  game". A slide that the host mirrors takes the screen back. Each later phase adds its own
+  entry in its step.
+- **Joining as a new player.** The menu ends with "Join as a new player". It asks to confirm,
+  shows the rejoin code once more, and then the browser lets go of the practice and opens the
+  join page of the same game, with an empty form. The practice stays in the game and its code
+  brings it back. The browser keeps the record of its last game (section 7.7), so nothing it
+  remembers is lost.
+- **A game that has ended** (the `closed` stage). The page is titled "This game has ended" and
+  says that nothing more can be changed. It keeps the rank and the points per phase, and a
+  button "Look at your Phase 1 result" opens the reveal of section 10.4 again, with a way back.
+  Under it one line says that a button to join appears when the host opens a new game, and
+  that button, "Join the new game" with the label of the new session, takes its place as soon
+  as there is one (section 7.7). Under that, "Leave this game and join as a new player" lets
+  go of the practice at once and leads to the game that is open now, or to the page that asks
+  for a session code when none is. The record of the ended game stays in the browser and shows
+  under the join form. When the game is gone from the server, the page shows the record the
+  browser kept instead, the same button, and a link to type another session code.
+- **A phase or the game that starts again.** A bar under the top bar says "The host started
+  Phase 1 again. Your work in this phase is cleared. Points from earlier phases are kept." or
+  "The host started the game again. Everyone is back in the lobby and all points are cleared."
+  (section 7.7).
+- **Report card.** The points and the label of the band per phase, the lines that apply with
+  their source labels, the closing text and the links.
 
 ### 10.8 Host console
 
-Opened at `/host` with the passcode. One page, laptop only.
+Opened at `/host`. Laptop only. It has a sign-in, a first page with the sessions, a page for
+one session, and a manual. Every control on it carries one line that says what it does, and
+every refusal is a sentence of section 8.2 at the control it concerns.
+
+**Sign-in.** Two fields, the passcode and "Name of this console" with the hint "Shown to other
+hosts, for example Maya's laptop". The browser remembers the name.
+
+**First page**
 
 | Area | Holds |
 | --- | --- |
-| Session bar | Label, code, mode, stage, the clock, players and connections per health system |
-| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now |
-| Schedule | The run of show against real time, and how far ahead or behind the session is |
-| Players | A table that can be filtered by health system: character, name, system, connected, status, points per phase, total, time since the last command. Per row: spectate, rename, remove, rejoin code |
-| Room | The leaderboard and, after each phase, the room statistics |
-| Big screen | The scene it shows (automatic or chosen), its theme, slide back and forward, spotlight on a player |
-| Answer key | Asks for the passcode again, then opens the answer key page |
-| Export | Results and timing as JSON or CSV |
-| Danger | Reset stage (not in `event` mode), close session. Both ask to confirm by typing the session code |
+| Content | What the server has loaded, in plain words: "Content loaded: Phase 1, two health systems", with the game title when the pack has one. When the anchors are estimates a second line says "Scores are not calibrated yet, so only test and rehearsal sessions can be opened." When the deck has placeholders a third says "The deck has 14 placeholder slides." A small detail line under them holds the fingerprint of the content |
+| New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Link name (optional)", the end of the join link, which nobody has to type (see below), with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
+| Sessions | The open sessions, each with its join code, label, mode, stage and "1 player" or "42 players", and Open. Closed sessions are hidden behind "Show closed sessions (3)" |
 
-Creating a session asks for a label and a mode, and shows which phases the pack can run and
-whether its anchors are provisional.
+- **The session code names the session in its link and is never asked of a player** (lab
+  director, round 11). Players scan the QR code or open the link, and the bare address of the
+  server leads to the newest open session. The code matters when two sessions are open at
+  once, when a player rejoins on another device, and as what an `event` session asks the host
+  to type before it resets or ends. So the projector does not show it as a code to enter, and
+  the console calls it a link name.
+- The session code is checked while the host types. A code that breaks the rule marks the field
+  and disables Create. A code in use is refused under the field.
+- A line under the mode control explains the picked mode: what it is for, whether the game
+  speed can change, and whether players may pick their health system.
+- "event" cannot be picked while scores are not calibrated. The option is shown as unavailable
+  with the reason beside it, so the host never picks a mode that the server would refuse.
+- A closed session shows its downloads and Delete. Delete asks to confirm and says that the
+  results and the logs of that session go with it. A session that cannot be resumed because the
+  content changed says so in a sentence: "This session was started on older content and cannot
+  be opened again."
+- A link opens the manual.
+
+**Session page**
+
+| Area | Holds |
+| --- | --- |
+| Session bar | Label, session code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, who is in charge by name ("You are in charge", "Maya is in charge"), and for everyone else the button "Take charge". Every box and button in it is 36 px high |
+| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now. Five buttons of one height in four equal columns, Next in the go color. An ended session shows none of them |
+| Schedule | The run of show against real time, and how far ahead or behind the session is. The stage `intro` is named "Intro slides" |
+| Players | A list that can be filtered by health system: character, name, system, connected, status, time since the last command, total, and the points per phase once two phases have opened. A click on the name opens the player beside the key (below). Per row, behind one menu button: look at this player, spotlight, rename, remove, rejoin code. The filter says "Everyone", then one chip per health system |
+| Projector | See below |
+| Room | The leaderboard and, after each phase, the room statistics |
+| Answer key | One press opens the answer key page in a window of its own. No second passcode (section 9.1). It stands above Downloads, which is the panel used least |
+| The slides, for your eyes | Every host, in charge or not, goes through the deck here without changing what the room sees (below) |
+| Downloads, Rehearsal tools, End the session | See below |
+| Manual | A link that opens the manual in a panel beside the console |
+
+**Layout.** Under the stage controls and the schedule the page has three columns, ordered by
+how often the host needs them.
+
+```
+┌──────────────────────┬───────────────────────────────────┬────────────────────┐
+│ Players              │ Projector                         │ Rehearsal tools    │
+│  ▣ name ● online   ☰ │  (the live preview, as wide as    ├────────────────────┤
+│    status · last act │   the column, up to 640 px)       │ End the session    │
+│  ▣ name ● online   ☰ │  Open the big screen              ├────────────────────┤
+├──────────────────────┤  What the projector  │  Slides    │ Downloads          │
+│ Room                 │  shows               │            ├────────────────────┤
+│  statistics, ranking │  Theme                            │ Answer key         │
+└──────────────────────┴───────────────────────────────────┴────────────────────┘
+```
+
+- **The middle column is the main area** and the widest: the projector panel, which the host
+  uses most. Its preview is as wide as the column allows, up to 640 px. Under the preview its
+  two groups stand side by side when there is room for two columns of 260 px, else one under
+  the other.
+- **The left column**, 300 px or more, holds the players and under them the room. A player is
+  one row of two lines: the character, the name, the mark of the health system and "online" or
+  "offline", then the status and the time since the last command. The total stands at the
+  right, and beside it one menu button (☰) with the actions of that player. The list scrolls
+  inside itself beyond 62 percent of the window's height.
+- **The right column**, 280 px, holds what is seldom needed, in this order: Rehearsal tools,
+  End the session, Downloads, Answer key.
+- Below 1200 px, and while the manual is open beside the console, the three columns stand one
+  under the other in the same order.
+- **An ended session** shows a bar under the session bar: "This session has ended. Players keep
+  their results on their screens. When you open a new session, they get a button to join it."
+  with a button back to all sessions. The rehearsal tools and the end button are unavailable.
+  A session that the server no longer holds sends the console back to the first page.
+
+**The projector panel** has two groups with headings, and one line under every control.
+
+*What the projector shows.* Six buttons of one width. The one in use is marked. In a wide
+column the line stands beside its button, in a narrow one under it. The scene that is on the
+projector without being picked carries the flag "On now".
+
+| Button | The line with it |
+| --- | --- |
+| Follow the game | "The normal setting. The projector changes by itself as the game moves." While a phase is played: "The normal setting. While the phase runs it rotates: room activity, the phase leaderboard, one practice at work." |
+| Lobby | "The link and the QR code, for people who walk in late." |
+| Leaderboard | "The ranking of everyone, of one health system, or of one phase by health system." Under it a list picks which: "Everyone · all phases", one entry per health system, and "Phase 1 · by health system" for each phase the pack can run |
+| Activity | "Who is doing what, line by line. Never what they learned." Available while a phase is played |
+| Slides | "The deck, at the slide you showed last." |
+| Winners | "The podium, or the standings so far before the last phase is scored." |
+
+- **A pinned view is called out.** Any button but the first pins the projector. While a view
+  is pinned, a banner in the panel says "Pinned to Lobby. The projector will not follow the
+  game." with one button, "Follow the game".
+- **An unavailable button** is shown as such and says why: "No scores yet. The leaderboard
+  opens with Phase 1.", "No phase has been scored yet.", "This content has no slides."
+- **Slides during a phase** ask first: "Phase 1 is running. The projector will leave the
+  leaderboard. Players' screens are not touched." with "Show the slides" and Cancel.
+- **Slides outside a phase** ask first: "Show the slides on every player's screen too?" with
+  "Yes, on every screen", "No, only the projector" and Cancel.
+- **A live preview.** A picture of what the projector shows now, drawn with the big screen's
+  own components from `preview`, at the width of the column up to 640 px. Under it the link to
+  the big screen, and beside the link "1 projector window open", or "No projector window is
+  open" in the warning color.
+- **The link** "Open the big screen in a new window" has the line "Opens the projector view
+  for this session. Drag it to the projector and make it full screen."
+- **The theme switch** ("Day" and "Night", the one in use marked) stands apart from both
+  groups, with the line "For a bright or a dim room."
+
+*Slides.* Back and Next as two buttons of one width with the count "Slide 2 of 6" between
+them, the title of the section, and a menu "Go to section" that jumps to the first slide of a
+section. Under the two groups, across the whole panel: the slide on the projector now and the
+next one, each drawn as the real slide at half the width of the panel (so a slide with boxes or
+pictures is recognised at a glance), a "Placeholder" flag on a slide that is one, and the notes
+of the current slide in a box that grows with its text up to 168 px and then scrolls. The notes
+appear on host consoles and nowhere else.
+
+*Slides that run ahead of the game.* A section is due from the stage before its own: the
+welcome in the lobby, a recap at the reveal of its phase. When the host in charge moves the
+shared slides into a section that is not due yet, while the room can see them (the projector
+shows the slides and a projector window is open, or players' screens follow), the console asks
+first: "These slides come later", with the name of the section, the stage of the game, and
+that the section may show answers the players have not earned yet. "Show it anyway" goes on,
+Cancel stays. Nothing is asked inside a section, on the way back, or while nobody can see the
+slides. A switch "Players' screens follow
+the slides" shows the mirror and is unavailable during a phase, with the reason. The left and
+right arrow keys move the slides while no field has the focus. The group is unavailable in a
+pack without a deck.
+
+The table says what each button does in each stage. Section 6.13 has the rule behind every
+cell.
+
+| Stage | Follow the game shows | Leaderboard | Slides | Winners |
+| --- | --- | --- | --- | --- |
+| People are joining | The lobby | Unavailable. No scores yet | Opens the deck where it stands. Asks whether players' screens follow | Unavailable. No phase scored |
+| Intro slides | The deck at the intro section, on every player's screen too | Unavailable. No scores yet | Already up. A pin keeps it up through the next stage | Unavailable. No phase scored |
+| A phase is being played | The leaderboard | The leaderboard | Asks to confirm. Shows the slides on the projector only | Phase 1: unavailable. Later: the standings so far |
+| A reveal | The results of the room | The leaderboard | Opens the deck where it stands. Asks whether players' screens follow | The standings so far |
+| A help break | The deck at the section of the break, on every player's screen too | The leaderboard | Already up | The standings so far, and the winners after the last phase |
+| Reflection | The deck at the reflection section, on every player's screen too | The leaderboard | Already up | The winners |
+| Winners | The podium | The leaderboard | Opens the deck where it stands. Asks whether players' screens follow | The podium |
+
+"Lobby" works in every stage and shows the join view. A break or a reflection without a
+section in the deck shows the leaderboard or a title card in place of the slides.
+
+**Downloads.** Three buttons with plain names and one line each.
+
+| Button | The line under it |
+| --- | --- |
+| Results table (CSV) | "One row per player with the points of each phase. Keep this after the event." |
+| Timing table (CSV) | "When each stage started and ended against the schedule, and how fast players acted." |
+| Full activity log (JSON) | "Everything players and hosts did, for replay and for finding a fault." |
+
+**Rehearsal tools.** This box is absent in an `event` session.
+
+- **Game speed**, with the line "Rehearsal only. 10× runs a ten-minute phase in one minute."
+  Four buttons, 1×, 5×, 10× and 50×, the one in use marked. The speed changes only in the lobby
+  or while the game is paused, and the box says so. A badge in the session bar shows the speed
+  whenever it is not 1×.
+- **Reset this phase** ("Reset Phase 1"). Available while a phase is on stage and in the break
+  after it. Before it asks to confirm it says exactly what is lost: "This puts all 42 players
+  back at the start of Phase 1. Their investigations, insights and assessments in this phase are
+  erased. Points of earlier phases stay."
+- **Restart the game**, with the line "Takes everyone back to the lobby with no points. The
+  players stay in the session. You are asked to confirm." Before it asks to confirm it says:
+  "This takes all 42 players back to the lobby. Every point, investigation and assessment of
+  this session is erased. The players stay, with their names, health systems and rejoin codes."
+
+**End the session** stands apart from everything else. Before it asks to confirm it says:
+"This ends the session for all 42 players. Nobody can join or play again. The players keep
+their results on their screens, and the downloads stay available."
+
+**Confirming.** Each of the three opens a sheet with the sentence above and two buttons, the
+action and Cancel. In a test or a rehearsal one click on the action confirms. In an `event`
+session the host first types the session code into a field of the sheet, and the action stays
+unavailable until the code matches. The field keeps the caret while the console redraws
+(section 10.1). The console sends the join code with the command in every mode (section 6.3).
+
+**Several hosts.** Section 7.10 has the rule. One host is in charge of what the room sees:
+the stage, the clock, the projector, the shared slides, the players' names and the end of the
+session. Every console says who that is, by name, in the session bar. A host who is not in
+charge sees those controls as unavailable, a line under the bar that says what they can still
+do, and the button "Take charge". That button opens a dialog titled "Take charge from Maya?",
+which says what changes, asks for the host passcode and has the two actions "Take charge" and
+Cancel. The host who loses control is told and is not asked. Every host, in charge or not, can
+open the answer key, look at any player beside the key, go through the deck alone, read a
+rejoin code, download the exports and read the manual. The host in charge sees the names of
+the others ("Also here: Sam").
+
+**One player beside the key.** A click on a player's name, or "Look at this player" in the
+row's menu, opens a wide sheet (`HostInspect`, section 8.5). Its head has the character, the
+name, the health system, online or offline, and the total. For Phase 1 it shows the status
+(still sorting, sent, scored), the insights in hand, what runs now, a tally ("3 right · 1 one
+class off · 1 wrong · 2 not sorted"), and every problem under its **true** class, the classes
+from the agentic one down as on the player's screen. Each problem carries the player's pick as
+a chip with a mark and its word (✓ right, ≈ one class off, ✗ wrong class, – not sorted yet),
+the points once the phase is scored, and a "Why" that opens the rationale of the key and the
+ladder rung. A legend above the problems says what the four marks mean and what each earns:
+the right class earns the full points, one class off among the real classes earns part of
+them, a wrong class earns none. Problems the
+player has not sorted are there too, so a host can say where one belongs without knowing the
+key by heart. The page follows the player live, works during the phase and in every stage
+after it, and says at the top that only hosts see it. Its actions are "Spotlight on the big
+screen", for the host in charge, and Close. Each later phase adds a tab.
+
+**The slides, for your eyes.** A panel under the projector panel, outside the controls that
+need control. "Look through the slides" opens it: Back and Next, the count, "Go to the slide
+on the projector", Close, the slide drawn as wide as the panel, and its notes. It reads
+`GET /api/host/deck/:code` and keeps its place in the browser tab. It sends no command, so the
+room sees nothing of it.
+
+**The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
+its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status
+line wraps. The actions of a row sit behind one menu button. The status is one short line, such
+as "3 insights · 1 running · 6 sorted · last act 12 s ago". The top bar of a console that is
+watching shows "Watching" where the console in control shows "You have control", and never an
+empty box.
+
+**The manual.** The console shows `docs/HOST_MANUAL.md` of this repository, which the client
+build includes as text. It opens in a panel beside the console, so the host reads and acts at
+once, and it can open in a window of its own. The client renders headings, paragraphs, lists,
+tables and bold from that file and nothing else. The manual holds no content of a pack.
 
 ### 10.9 Big screen
 
-Opened at `/screen` with a link from the host console. It follows the stage unless the host
-chooses a scene.
+Opened from the host console with "Open the big screen in a new window". The link carries the
+session in its fragment (section 7.2), so there is no address to type. The big screen follows
+the game unless the host pins a scene (section 6.13). It takes no input. No key and no click
+in its window changes anything.
 
 | Scene | Shows |
 | --- | --- |
-| Lobby | The QR code, the join link, the game title, practices appearing by health system, the count |
-| Intro | The title card |
-| Play | The countdown, the four-column leaderboard, the health system strip, and a line of room activity |
-| Reveal | The results of the phase for the room: the distribution of points and the first statistics |
-| Help slides | The slides of the break from `help-slides.yaml`, one at a time, with their live statistic |
-| Reflection | The reflection prompts |
-| Winners | The top practices overall, the top practice of each health system, the top health system |
+| Lobby | The QR code, the join link in large type, one line ("Scan the code with your phone, or type the link on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
+| Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
+| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work |
+| Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
+| Reveal | The results of the phase for the room: the points of the players who played, in steps of 100, and per health system the mean points and, after Phase 1, the share that found the flagship (`ScreenView.reveal`) |
+| Slides | The current slide of the deck |
+| Intro, Reflection | A title card with the name of the stage, when the deck has no section for it |
+| Winners | Once every phase is scored: the top players overall, the top player of each health system, the top health system. Before that: "Standings so far", the overall ranking of the scored phases as a plain table. A session that ended before the last phase is headed "This session has ended · the standings" |
 | Spotlight | One player's screen, read-only |
 
+**A slide** fills the area between the header and the street, 1920 × 820 px of the design. A
+corner holds the title of the section. **The slide number is in the header of the projector**,
+in the box that holds the count of players in every other scene ("SLIDE 7 of 19"), so that
+anyone in the room can ask about a slide by its number. The projector never shows the notes and
+never marks a placeholder. One component draws a slide everywhere (the projector, a player's
+screen, the previews of the console), always at 1920 × 820 px and scaled as one block, so a
+slide looks the same wherever it shows. A slide has one of five layouts:
+
+| Layout | Shows |
+| --- | --- |
+| `bullets` (the default) | The title, an optional subtitle, the bullets in large body type. Beside them, when the slide has one: a picture, a live number, or a live chart of bars |
+| `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the join link with its label |
+| `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
+| `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
+| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here" |
+
+**A slide uses its whole height** (lab director, round 11). Boxes grow down to the strip at
+the foot of the slide, the bullets of a plain slide stand in the middle of the area, and two
+charts stand side by side under the bullets and fill what is left. No layout leaves an empty
+band above the street.
+
+A box takes its color from the design system (`go`, `sky`, `sun`, `lav`, `rose`), named in the
+pack or taken in turn. **A box or a bar of one health system takes that system's color and
+shape** (lab director, round 11), the same ones as on the badge in the top bar, in the players
+list and on the leaderboards, and its shape stands in the tag of the box. So a player finds
+what concerns their own health system by its color on every slide. Later phases keep to this:
+whatever names a health system carries its color and shape. Every layout is built in both themes and must fit its area at the word
+limits of the pack: the walk of the deck checks that no slide runs out of it and that no text
+runs out of its box.
+
+**A slide on a player's screen.** While the host mirrors the slides (section 6.13) the
+player's screen shows the same slide in place of the game. **It is the projector's slide,
+scaled as one block in its proportions** (1920 to 820), as large as the space under the top bar
+allows and in the middle of it, the way a video sits in a window (lab director, round 11).
+Nothing in it is laid out again for the size of the screen, so every box and line is where it
+is on the projector, at any width and height of the window. A phone shows it the same way, and
+held upright it adds the line "Turn your phone sideways for a larger slide." A corner of the
+slide holds the title of the section and "Slide 5 of 19". Under the slide one line says "The
+host is presenting." It follows the host from slide to slide, and
+the player cannot move it. When the player has a board of their own behind the slide, which is
+the case in a reveal and in a break, a button "Back to my board" beside that line shows the reveal screen, and
+that screen then carries "Back to the slides". The choice lives in the browser and ends with
+the mirror. When the host leaves the slides, or a phase starts, the slide goes away by itself.
+
 **The leaderboard.** Four columns side by side, each with the top `big_screen_rows` rows: rank,
-the practice's character, practice name, health system badge, value. The live column has a "Live" tag and the label from
-`live_leaderboard.label`. A column whose phase has not opened is empty. The arrow keys of the
-big screen window move the slides as well.
+the player's character, practice name, health system badge, value. The live column has a
+"Live" tag and the label from `live_leaderboard.label`. A live column that carries `of` shows a
+value as "17 of 22". A column whose phase has not opened is empty. With the filter set, the
+board shows one health system and says which.
 
 ---
 
@@ -1613,11 +2878,18 @@ reads as part of the game and not as a dashboard.
 
 - **Sprites.** A 16 px tile grid. A character is one tile, 16 × 16. Whole-number scaling only,
   nearest neighbour, no smoothing.
-- **Characters.** Every member of the cast has a sprite with a face and stands at a post in the
-  room. Every practice has a character of its own as well (section 6.4). It stands in the room
-  and sits beside the practice name wherever that name is listed.
+- **Characters.** Every person of a health system, cast and extras alike, has a sprite of
+  their own with a face, and no two people of one health system look alike. Every practice has
+  a character of its own as well (section 6.4). It stands in the room and sits beside the
+  practice name wherever that name is listed.
+- **Portraits.** The portrait of a person is that person's sprite seen from the front, the
+  idle frame, drawn large at a whole-number scale with hard pixels (48 px in a list, 64 px on a
+  letter and on an interview card, 24 px in a bubble). The same picture is used wherever a
+  person appears: the list in the lobby, an interview row and card, a letter, a bubble. A
+  person is never shown as initials.
 - **Animation.** Idle, and a two-frame walk in four directions. A speaker is marked by the
-  bubble, not by a mouth. Ambient loops on screens and lamps.
+  bubble, not by a mouth. A person who is clicked turns to the front and hops by 2 px once.
+  Ambient loops on screens and lamps, and the worklist on the wall scrolls.
 - **Panels.** A 3 px outline in `--line`, square corners, and one hard shadow, 4 px down and
   4 px right in `--shade`, with no blur. No gradients. A panel that stands for a kind of thing
   has a colored header band: audit `--go`, data pull `--sun`, interview `--sky`, observation
@@ -1625,8 +2897,10 @@ reads as part of the game and not as a dashboard.
 - **Buttons.** The same outline and shadow. The main action of a screen is filled with `--go`
   and written in `--on`. A pressed button moves 2 px and loses its shadow.
 - **Bubbles and tags.** A speech bubble is white with a dark outline in both themes. It opens
-  with the speaker's initials in bold, then the line. Each cast member carries a small white
-  tag with their initials. The player's own character carries a tag that says "You" on `--sun`.
+  with the speaker's small portrait and first name in bold, then the line. A person carries no
+  tag at rest. The name appears as a small white tag while the pointer is over the person or
+  the person has the keyboard focus. A person with an interview on offer carries a "!" marker.
+  The player's own character carries a tag that says "You" on `--sun`.
 
 ### 11.2 Themes and color
 
@@ -1658,7 +2932,8 @@ chips and filled tracks. Light: `#d5f5ec`, `#fff0cf`, `#dbf1fa`, `#ebe9fa`, `#ff
 `#173f3c`, `#453618`, `#1c3a52`, `#30315a`, `#4a2530`.
 
 Health systems, each a color and a shape, used on badges and rows: blue circle `#4f8fe6`,
-orange square `#f08a3c`, pink triangle `#e0609e`, green diamond `#3fb58f`. The four metrics have
+orange square `#f08a3c`, pink triangle `#e0609e`, green diamond `#3fb58f`. A pack with two
+health systems uses the first two. The four metrics have
 fixed icons and always appear in the same order: validity, reliability, cost, complexity. A
 meter is filled with `--go`, with `--sun` when it needs attention and with `#e2605a` when it is
 failing.
@@ -1687,15 +2962,30 @@ change.
   the SIL Open Font License. Each third-party asset keeps its license file next to it, and
   `packages/client/ART.md` lists the source of every file.
 - The first art set is the CC0 RPG Urban Pack by Kenney for characters and street tiles, with
-  rooms drawn for this project in the same palette. A script builds the day and night scenes
-  and the character images from the tile sheet, so a change of palette is one run.
+  rooms drawn for this project in the same palette. The reading room is drawn by us as well, so the
+  LimeZu interiors were not bought (Step 3). Each character of the sheet has an idle frame and two
+  walk frames in four directions. Twelve recolored characters serve as the avatars. A script
+  builds the day and night scenes and the character images from the tile sheet, so a change of
+  palette is one run.
+- **One sprite per person, from `look`.** A sprite builder turns the words of a person's `look`
+  into a sprite strip of the same layout as the sheet (idle and two walk frames in four
+  directions). It picks a base character by `hair_style`, recolors the hair, the skin and the
+  top to the named colors, and adds the `detail` when it knows it (glasses, a hat, a badge, a
+  white coat). The builder knows a short list of color words and maps any other word to the
+  nearest one, or to a pick by a hash of the id. It runs in the browser on the base sheet that
+  ships with the client, once per person at load, so a pack brings words and no image, and the
+  people of a private pack never enter the repository. The builder then checks the people of a
+  health system against each other and against the twelve avatars, and shifts a color when two
+  would look the same.
 - Art under a license that does not allow redistribution never enters the repository. It can
   only come from the `art/` folder of a pack that lives outside the repository.
-- Art that belongs to a pack lives in the pack's `art/` folder: `art/portraits/<key>.png` for
-  character portraits (48 × 48). Everything in that folder is public by definition.
-- **Art never blocks content.** A missing portrait becomes the character's initials on a tile
-  of their health system's color. A missing sprite becomes a generic one. A missing icon
-  becomes a default.
+- Art that belongs to a pack lives in the pack's `art/` folder: the room under `art/room/`,
+  the images of slides under `art/slides/`, and optionally `art/portraits/<key>.png` (48 × 48)
+  for a drawn portrait that then replaces the front frame of the sprite. Everything in that
+  folder is public by definition.
+- **Art never blocks content.** A person without a `look` gets a generic sprite, picked by a
+  hash of the id, and the portrait is its front frame. A missing image of a slide leaves the
+  slide without one. A missing icon becomes a default. Nothing falls back to initials.
 - There is no sound.
 
 ---
@@ -1709,7 +2999,7 @@ change.
 | `npm run check` | Type check, lint, unit and integration tests on the demo pack | Mac, before every merge |
 | `npm run e2e` | Playwright on the demo pack, at laptop and phone size | Mac |
 | `npm run check:content` | The loader on `CONTENT_DIR` | Mac |
-| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR` | Mac, with the private pack |
+| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer | Mac, with the private pack |
 | `npm run test:leak` | The leak scan on `CONTENT_DIR` | Mac, with the private pack |
 | `npm run check:no-private` | Scans the repository for text of the private pack | Mac, before every merge |
 | `npm run simulate` | Headless games with scripted strategies | Mac |
@@ -1736,12 +3026,61 @@ repository. The checks run on the Mac before each merge.
   many small ones.
 - **Rules.** Each command has a test for every refusal in its table. Late joining, the offer
   race, pause and extend, tie-breaks, rounding half up, missing anchors.
+- **Sorting.** The planning vectors hold every pair of true class and picked class, the
+  flagship bonus with the flagship in and out of the flagship class, an empty board, a board
+  with problems left unsorted, a draft with two problems in the flagship class (refused), a
+  draft with one problem more than the capacity of a class (refused) and a draft with an
+  unknown class (refused). The vectors did not change with the screen of this version. `test:parity` sends random boards made by the rule of
+  section 6.5. The live value is insights plus sorted problems and never moves on a refusal.
+- **Joining.** With two health systems ten joins alternate A, B. After a removal the next join
+  goes to the smaller system. In a `test` and in a `rehearsal` session a join with `system`
+  lands there, and later joins without it restore the balance. In an `event` session a join
+  with `system` is assigned as if it carried none. An unknown system id is refused.
+- **The deck.** `slide` stops at both ends. `slide_to` reaches the first slide of every
+  section and refuses an index past the end. The position survives every change of scene, so
+  the slides come back at the slide shown last. Entering a slide stage with `auto` moves the
+  position to its section unless it is already inside, and leaves a pinned projector alone. A
+  pack without a deck refuses `slides` with `no_deck`.
+- **The mirror.** It turns on when `auto` brings the slides up in a slide stage, cannot be
+  turned on in a play stage, and ends when the scene leaves the slides and when a play stage
+  starts. A player's view carries `slide` exactly while the mirror is on, and the slide equals
+  the one on the screen view.
+- **Scenes by stage.** Every cell of the table of section 6.13: `play` and `winners` are
+  refused with `no_scores_yet` before their time, and `winners.final` turns true only when
+  every phase is scored.
+- **The letter.** A player with fewer problems sorted than `letter_empty_below` receives the
+  `empty` line, a player at the threshold receives the line of their band, and a letter without
+  an `empty` variant falls back to the band.
+- **Starting again.** `reset_stage` in a phase and at the break after it opens that phase again,
+  keeps the results of earlier phases and is refused in the lobby. `restart_game` keeps every
+  player with name, health system and removal, clears results, work and inbox, empties the lists
+  of opened and closed phases, starts the stage log again and lands in the lobby, from where the
+  game plays again. Both raise `run`, need the join code and are refused in `event` mode, and
+  `restart_game` is refused on a closed session.
+- **The visible band of the scene** (a unit test of the client). The rows a cropped view shows
+  for a scale, a height and a focus. The scale steps down until the band is 96 room pixels or
+  more, on a phone not below 2. The strip of Phase 1 has the heights of section 10.4 and never
+  passes 30 percent of a high window. A spot counts only when a person there shows whole, and a
+  spot outside the view is moved into it.
+- **The projector during play.** The screen view carries the programme only while the scene is
+  `auto` in a play stage. The activity list is newest first, names public titles only, and
+  holds no tile headline of any investigation. `screen_filter` with a phase gives one column
+  per health system, each ranked from 1. A practice card holds counts and the titles of what
+  runs. `programmeSlot` (a unit test of the client) walks the list in order and starts again.
 - **Property.** No points outside 0 to `max_points`. A meter never leaves 0 to 100.
 
 ### 12.3 Content and projection
 
 - The demo pack loads without errors or warnings.
-- A folder of broken packs, one fault each, fails with the right path in the message.
+- A folder of broken packs, one fault each, fails with the right path in the message. For the
+  classes: a problem whose class disagrees with its tier, a mix that the problems do not match,
+  a class whose capacity differs from its share of the mix, a class without a capacity, a rung
+  that no class covers, a flagship outside the flagship class. For this version: a banter line
+  whose speaker belongs to another health system, an exchange with one line, two sections of
+  the deck on one stage, a section with a stage that is not a slide stage, a section without
+  slides, a slide id used twice, a letter variant that is neither a band nor `empty`, and a
+  `letter_empty_below` above the number of problems. A person with two click lines gives a
+  warning and still loads.
 - Every projection output passes its strict schema. A snapshot test lists the field names of
   every outgoing type, so a new field shows up in review.
 - **The leak scan.** The loader can list every string of a pack that must not leave the server,
@@ -1749,6 +3088,13 @@ repository. The checks run on the Mac before each merge.
   with bots, records every byte sent to player and screen sockets and every HTTP response to
   them, and fails if a listed string of 12 characters or more appears before its moment. It
   runs on the demo pack in `check` and on the private pack in `test:leak`.
+- **Slides in the leak scan.** The bots' host walks the deck in every way the console allows:
+  with `auto`, with a pin during a phase, with the mirror on and off. The scan fails when a
+  title or a bullet of a slide reaches a player or a screen socket before that slide is shown
+  for the first time, when a slide reaches a player while the mirror is off or a phase is in
+  play, and when the notes of any slide reach a player or a screen socket at any time. The
+  banter and the click lines are not protected, and the scan still checks that they hold no
+  protected string of the pack.
 
 ### 12.4 Server
 
@@ -1763,6 +3109,33 @@ repository. The checks run on the Mac before each merge.
   refused. A join with a name that exists is refused with `name_taken` and creates nothing. A
   rejoin after a restart of the server works.
 - **Limits.** Rate limit, oversized message, wrong token, a player command on a host socket.
+- **One controller.** Two host sockets on one session. The first holds control. Every command
+  that changes the session is refused for the second with `not_in_control`, while spectate and
+  a rejoin code work. `take_control` without the passcode or with a wrong one is refused with
+  `wrong_passcode` and changes nothing. With it control moves, both consoles receive
+  `control`, and the first is refused from then on. A controller that drops and returns within 20 seconds with
+  the same console id still holds control. After 20 seconds a single connected console holds
+  it by itself. A screen socket that sends a command is closed.
+- **The key and the deck for hosts.** `POST /api/host/key-ticket` gives a host a ticket without
+  a passcode and refuses a request without the host token. The ticket opens the key page, and
+  another string does not. `GET /api/host/deck/:code` gives a host every slide with its notes
+  and refuses a player token. A console that looks at a player receives the key of that
+  player's phase before the phase is scored, the mark of a pick as it is made, and the points
+  after the phase. No message to that player carries any of it before the reveal.
+- **Sessions.** A join code of 3 characters, of 9, and one with a hyphen are refused with
+  `code_invalid`. A code in use is refused with `code_taken`. An `event` session is refused
+  with `provisional_anchors` while an anchor is an estimate. A closed session can be deleted
+  and an open one cannot.
+- **A game that starts again or ends.** `restart_game` over a host socket puts a player back in
+  the lobby with `run` one higher, no points and an empty inbox, and the rejoin code still
+  works. `reset_stage` at a break opens the phase before it again. `GET /api/open` names the
+  newest open session, with `after` only one created later, and null when there is none. An
+  ended session refuses a player command and a join. After a restart of the server a socket
+  with a token of the ended session gets the status `ended`.
+- **Error sentences.** A unit test of the client walks every name of `ErrorCode` and every
+  name an HTTP route can answer with, and fails when the copy file has no sentence for one. A
+  browser test triggers a refusal on the join page, on the new session form and on the Phase 1
+  screen, and fails when the text of the page holds a name with an underscore.
 
 ### 12.5 Keeping the private pack out of the repository
 
@@ -1777,6 +3150,92 @@ attached to a pull request.
 Playwright plays the demo pack at 1280 × 720 and 390 × 844: join, lobby, each phase as it is
 built, a refresh in the middle of a phase, a closed browser that returns with the rejoin code
 in a fresh one, the host console driving the stages, and the big screen following. It checks that nothing overflows and that every action works by tap.
+
+For the Phase 1 screen it also checks, at both sizes unless said otherwise:
+
+- The three titles, "Investigations", "Evidence" and "Your assessment", stand on one line, and
+  the bandwidth is at the top of the Investigations column (laptop). The three tabs carry their
+  counts (phone).
+- The opening letter pops up at the start of the phase, closes with its button, does not come
+  back after a reload, and is the first card of the evidence.
+- The panel shows the reading room, switches to the practice facts and back, collapses to its
+  bar and opens again, and keeps its state across a reload. It starts collapsed on a phone.
+- The assessment starts with every problem under Unsorted and the line that names the split. A
+  press on a class button moves a card into that section and the header counts it. The card
+  goes straight to another class by one press and back to Unsorted by its control. The keys 1
+  to 4 and 0 do the same (laptop). Nothing on the screen can be dragged.
+- A press on a full class asks which problem goes back to Unsorted, the chosen one returns
+  there, and the pressed card takes its place. No path leaves a class with more problems than
+  its capacity.
+- With all 12 investigations of a full-size fixture done, the evidence shows 13 cards, two per
+  row at 1280 px and one per row on a phone, no card is cut and no text on a card is smaller than
+  14 px. The switch in the head of the column shows one card per row and two again (laptop).
+- A card opens large on a click and on Enter, the arrow keys reach its neighbours, Escape
+  closes it and returns the focus, and a problem can be sorted while a card is open (laptop).
+- The notice of a new insight sits on the title line of the evidence and covers no card.
+- A refresh in the middle of sorting brings the same assessment back.
+- The reveal shows the agent project across the full row and the other three classes in one
+  row under it. Its text holds no "raw", no "provisional" and no band id. A player who sent an
+  empty assessment reads the one sentence at the top and the `empty` line of the letter.
+- In a rehearsal session the join page offers the health systems and the player lands in the
+  one picked. In an event session the row is absent.
+
+For the scene, the lobby and the people:
+
+- The lobby shows "Who you are", the practice with an edge that the arrow keys move and a
+  height the browser keeps, the numbers of the health system, and "People in your practice"
+  with its line that invites a click, every person of the health system and a portrait that is
+  a pixel character. The theme button switches the theme. No element on any player screen
+  shows initials in place of a person.
+- A click on a person shows one of that person's click lines, and a second click shows
+  another. A click on a person with an interview on offer starts the interview. An exchange of
+  banter appears within a minute at time scale 1. With reduced motion nobody moves and the
+  lines still appear.
+
+For the host console, with two host windows and one big screen window:
+
+- The first page hides closed sessions until asked, refuses a short join code under the field
+  while the host types, and does not offer "event" while scores are not calibrated.
+- Every button of the projector panel has a line under it. Pinning the lobby shows the banner,
+  and "Follow the game" removes it. The preview matches the big screen.
+- Slides: Next and Previous move the big screen, the count reads "Slide 2 of 6", leaving and
+  coming back shows the same slide, and a jump to a section lands on its first slide. Outside a
+  phase the console asks about the players' screens, and with "yes" a player's screen shows the
+  slide and follows it. During a phase the console asks to confirm and the player's screen
+  stays on the game.
+- Winners is unavailable before a phase is scored, shows "Standings so far" after Phase 1, and
+  the podium at the end.
+- The second window is a viewer, names who is in charge in its bar, cannot press Next, and
+  still goes through the deck alone with the notes. It takes charge only with the host
+  passcode: a wrong one is refused in the dialog and changes nothing. The first window then
+  shows the notice.
+- A dialog with several actions has them in one row, with one width and one height.
+- The slide on show and the next one are drawn as slides, with the notes under them. A jump
+  into a section that is not due asks first, and Cancel leaves the slide where it was.
+- A click on a player's name opens the player beside the key: every problem under its true
+  class, the pick with its mark, and the reason behind "Why".
+- The rehearsal tools are absent in an event session of the demo pack with measured anchors,
+  and the badge shows a game speed other than 1×.
+- The manual opens beside the console.
+- The console has three columns: the players, the projector, then Rehearsal tools, End the
+  session, Answer key and Downloads in that order.
+- A sheet with a field keeps the caret: a name typed letter by letter into "Rename" arrives
+  whole and the field still has the focus.
+- A game that starts again and ends: "Reset Phase 1" and "Restart the game" confirm with one
+  click in a rehearsal, with no field in the sheet. After the reset the player reads the bar,
+  gets the opening letter again and has an empty assessment. After the restart the same player
+  is in the lobby. After "End the session" the console shows its bar, the player's page says
+  "This game has ended", and once a new session exists the page offers "Join the new game" and
+  the join page has the practice's name filled in. The link of the ended game says that nobody
+  can join it and offers the new game too.
+- The menu of the player holds no automation ladder.
+
+The fixture is a neutral pack of full size (10 problems, 12 investigations, texts at their word
+limits, ten people in a health system, a deck of 20 slides) that lives with the tests, so that
+the layout is proven without the private pack. Step 5 ran its first checks on the demo pack
+(`e2e/phase1.spec.ts`) and checked the layout of the full-size private pack at 1280 × 720,
+1440 × 900 and 390 × 844 in both themes with a script kept outside the repository. The
+full-size fixture is still to be written.
 
 ### 12.7 Load and timing
 
@@ -1794,9 +3253,11 @@ in a fresh one, the host console driving the stages, and the big screen followin
 
 ### 13.1 The event server
 
-A dedicated VPS with Ubuntu 24.04. `scripts/provision.sh`, run once from the Mac over SSH, sets
-it up: Node 22, Caddy as the reverse proxy with automatic TLS, a `lab02` user, a systemd unit,
-a firewall that opens 22, 80 and 443, and automatic security updates.
+A dedicated VPS with Ubuntu 26.04 LTS. `scripts/provision.sh <domain>`, run once from the Mac over
+SSH, sets it up: Node 22 from the official binaries (checksum verified), Caddy from Ubuntu as the
+reverse proxy with automatic TLS and a redirect from `www`, a `lab02` user, a systemd unit, a
+firewall that opens 22, 80 and 443 for IPv4 and IPv6, and automatic security updates. It
+generates the host passcode into `env` on the server; the passcode is never on the Mac.
 
 ```
 /opt/lab02/
@@ -1805,7 +3266,7 @@ a firewall that opens 22, 80 and 443, and automatic security updates.
   content/                the pack, readable only by the lab02 user
   private/answer-key.html
   data/                   the database
-  env                     passcode and settings, mode 600
+  env                     passcode and settings, root, mode 600 (systemd reads it before it drops to lab02)
 ```
 
 Neither the server's address nor any secret is in the repository. `deploy.sh` reaches the server
@@ -1816,7 +3277,8 @@ through the SSH host alias `lab02-event`.
 1. Runs `npm ci`, `npm run check` and `npm run check:no-private` on the Mac. Any failure stops.
 2. Builds the server bundle and the client.
 3. Copies the build to a new release folder. With `--content <folder>` it also copies a pack
-   and, when present, the answer key page.
+   and, when present, the answer key page (`review/answer-key.html` beside the pack). `--demo`
+   copies the demo pack. `SYSTEMS` in the environment is written to the server's `env`.
 4. Switches `current`, restarts the service, and waits for `/healthz` to report the new build.
 5. Keeps the last three releases. `--rollback` switches back to the one before.
 
@@ -1869,12 +3331,41 @@ a refresh and a server restart, and the host can drive every stage with the big 
 
 **Step 5. Phase 1**
 
-The planning rules of section 6.5, the parity vectors for planning and normalization, the
-screens of section 10.4, interviews in the scene, the brief, the letter and the reveal, the
-live column, dialogue triggers for the phase, the big screen reveal.
+1. `content-schema`: the planning rules and the problem key of section 5.5 (classes, mix,
+   `class`, `choose_system_in_modes`), their loader checks, and the demo pack brought to the
+   new format.
+2. `protocol`: `PlanningContent.rules`, `PlanningView.picks` and its reveal, the class on each
+   ladder rung, `pickSystem` and `system` on the join routes, `of` on a live column.
+3. `engine`: the planning rules of section 6.5, the progress column, the pick of a health
+   system at join (section 6.4), and the parity vectors for planning and normalization, which
+   the private tool regenerates for the classification.
+4. `client`: the first Phase 1 screen, which the second round below replaced, the picker on
+   the join page, interviews in the scene,
+   the brief, the letter and the reveal, dialogue triggers for the phase, the big screen
+   reveal.
 
 Done when Phase 1 of the private pack plays from brief to reveal on a laptop and a phone, and
 the leak scan and parity pass on it.
+
+**Step 5, second round.** The lab director played the first build and asked for the changes
+that this version of the document describes. They are built in the same step, in this order.
+
+1. Errors in plain words on every screen (section 8.2), and the join code rule on the new
+   session form.
+2. The host console: the first page, the session tools, the projector panel with its stage
+   rules, and one controlling host (sections 6.13, 7.10 and 10.8).
+3. `content-schema` and the demo pack: the people fields, banter, the deck, band labels and
+   the `empty` line of the letter (section 5.5).
+4. The lobby layout, the living scene and one sprite per person (sections 10.2, 10.3 and 11).
+5. The deck on the big screen, on the host console and mirrored to the players (sections 6.13
+   and 10.9).
+6. The Phase 1 screen with its three columns, the panel, the opening letter and the assessment
+   without dragging, and the reveal layout (section 10.4).
+7. The host manual inside the console.
+
+Done when the lab director has played Phase 1 of both health systems again, driven a session
+from the host console with a second console watching, and walked the dummy deck on the
+projector.
 
 **Step 7. Phase 2**
 
@@ -1887,9 +3378,9 @@ Done when Phases 1 and 2 of the private pack play in a row on a laptop and a pho
 **Step 9. Phase 3 and the whole game**
 
 The maintaining rules of section 6.7, the parity vectors for years, the screens of section 10.6
-as completed in Step 8, the annual review, the winners screen, the report card, the help slides
-on the big screen with the room statistics, and `scripts/simulate`. The demo pack gains its
-Phase 3 and teaching files, and its anchors are measured.
+as completed in Step 8, the annual review, the winners screen, the report card, the room
+statistics on the slides that name one, and `scripts/simulate`. The demo pack gains its
+Phase 3 files and its report card, and its anchors are measured.
 
 Done when one full game of the private pack plays from join to winners.
 
@@ -1906,10 +3397,13 @@ report.
 
 | Step | Adds |
 | --- | --- |
-| 4 | Any Phase 1 screen note that the first real content calls for |
+| 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5. The review of that content also turned Phase 1 from a ladder report into a sorting board with four classes, cut the pack to two health systems and added the pick of a health system in tests and rehearsals (sections 1, 5.5, 6.4, 6.5, 6.9, 7.2, 8.3, 8.4, 9.2, 10.2, 10.4 and 12) |
+| 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12). Its next round made "Follow the game" a programme during play (the activity list, the leaderboard of one phase by health system, one practice at work), added the scene `feed` and the phase choice of `screen_filter`, set the rule that one row of controls has one size, and took the stage controls off an ended session (sections 5.1, 6.13, 10.1, 10.8, 10.9 and 12) |
 | 6 | Section 10.5 in full, and the final `DevelopmentView` |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
+| 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |
+| 15 | The remaining slides of the deck |
 
 A build session that needs to depart from this document changes the document in the same pull
 request and says why.
