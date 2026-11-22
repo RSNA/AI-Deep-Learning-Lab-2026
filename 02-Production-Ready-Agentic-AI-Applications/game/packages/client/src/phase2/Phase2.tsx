@@ -5,8 +5,8 @@
 // nothing of this phase.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasMap, DevelopmentContent, DevelopmentView, Welcome } from '@lab02/protocol'
-import { Grid, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, setPart, targetsOf, tileAt, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
+import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
 import { Portrait } from '../components/ui.tsx'
 import { gameNow, useTick } from '../lib/clock.ts'
@@ -25,7 +25,7 @@ import { useMap } from './useMap.ts'
 // ------------------------------------------------------------------------------------------
 export function vocabularyOf(c: DevelopmentContent): Vocabulary {
   return {
-    cols: c.rules.cols, rows: c.rules.rows,
+    cols: c.rules.cols, rows: c.rules.rows, columns: c.rules.columns,
     sources: c.sources.map((s) => ({ id: s.id, label: s.label, icon: s.icon, privateData: s.privateData })),
     result: { id: c.result.id, label: c.result.label },
     workers: c.workers.map((w) => ({ id: w.id, kind: w.kind, label: w.label, short: w.short, icon: w.icon, needsModel: w.needsModel, models: w.models })),
@@ -171,7 +171,9 @@ export function ResultsPanel({ dv, onLoad, onChoose, readOnly = false }: { dv: D
 
 /** The insights of the phase: the opening letter first, then a card per action that brought one. */
 export function InsightsPanel({ w, content, dv, fresh }: { w: Welcome; content: DevelopmentContent; dv: DevelopmentView; fresh: Set<string> }) {
-  const b = content.brief
+  // The letter as the player received it, with the opening that follows from their Phase 1.
+  const inbox = usePlayer((s) => s.view?.inbox.find((m) => m.id === 'development:brief'))
+  const b = content.brief ? { ...content.brief, text: inbox?.text ?? content.brief.text } : null
   const idx = b ? w.system.cast.findIndex((c) => c.id === b.from) : -1
   const from = idx >= 0 ? w.system.cast[idx] : undefined
   return (
@@ -264,10 +266,9 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   }, [dv.insights.length])
 
   const commit = (next: CanvasMap) => { if (!draft.commit(next)) say(P2.refusedMap) }
-  const nodeLabel = (id: string) => {
-    const t = tileOf(map, id)
-    return t ? content.workers.find((x) => x.id === t.kind)?.label ?? id : labelOf(content, id)
-  }
+  // Two tiles of one kind carry a number, everywhere a tile is named.
+  const names = tileNames(map, v)
+  const nodeLabel = (id: string) => names.get(id)?.label ?? labelOf(content, id)
 
   // --- the canvas
   const onCell = (col: number, row: number) => {
@@ -354,11 +355,11 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const selTile = sel?.kind === 'tile' ? tileOf(map, sel.id) : undefined
   const selLine = sel?.kind === 'line' ? map.lines.find((l) => lineKey(l) === sel.key) : undefined
   const workerLabel = (kind: string) => content.workers.find((x) => x.id === kind)?.label ?? kind
-  let hint: string = P2.hint.idle
+  let hint: React.ReactNode = <><LineLegend words={P2.legend} /> <span className="lg-tip">{P2.hint.idle}</span></>
   if (mode.kind === 'place') hint = P2.hint.place(workerLabel(mode.worker))
   else if (mode.kind === 'move') hint = P2.hint.move(nodeLabel(mode.tile))
   else if (mode.kind === 'join') hint = P2.hint.join(nodeLabel(mode.from))
-  else if (selTile) hint = dv.flags.stray.includes(selTile.id) ? `${P2.hint.tile(workerLabel(selTile.kind))} ${P2.grid.stray}` : dv.flags.privateData.includes(selTile.id) ? `${P2.hint.tile(workerLabel(selTile.kind))} ${P2.grid.privateData}` : P2.hint.tile(workerLabel(selTile.kind))
+  else if (selTile) hint = dv.flags.stray.includes(selTile.id) ? `${P2.hint.tile(nodeLabel(selTile.id))} ${P2.grid.stray}` : dv.flags.privateData.includes(selTile.id) ? `${P2.hint.tile(nodeLabel(selTile.id))} ${P2.grid.privateData}` : P2.hint.tile(nodeLabel(selTile.id))
   else if (selLine) hint = P2.hint.line(nodeLabel(selLine.from), nodeLabel(selLine.to))
   const bar = (
     <div className="mapbar">
@@ -405,12 +406,15 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   )
   const actions = (
     <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction}
-      words={{ start: P2.start, done: P2.done, cost: P2.cost, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel }} />
+      words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more }} />
   )
   const toolbox = (
-    <Toolbox phone={phone} picked={mode.kind === 'place' ? mode.worker : null} unlocked={unlocked} lockedBy={lockedBy}
+    <Toolbox phone={phone} picked={mode.kind === 'place' ? mode.worker : null} unlocked={unlocked} lockedBy={lockedBy} groups={content.rules.toolboxGroups}
       onPick={(id) => { setSel(null); setMode(id ? { kind: 'place', worker: id } : { kind: 'idle' }); if (id && phone) setTab('map') }}
-      workers={content.workers.map((x) => ({ id: x.id, label: x.label, short: x.short, description: x.description, costLine: x.costLine, icon: x.icon, kind: x.kind }))}
+      workers={content.workers.map((x) => ({
+        id: x.id, label: x.label, short: x.short, description: x.description, costLine: x.costLine, icon: x.icon, kind: x.kind,
+        task: x.task, group: x.group, extra: x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null,
+      }))}
       words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, pickHint: P2.pickHint, picked: P2.picked, kinds: P2.kinds }} />
   )
   const results = <ResultsPanel dv={dv} onLoad={(m) => { commit(m); if (phone) setTab('map') }} onChoose={choose} />
@@ -424,14 +428,17 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     const t = tileOf(map, sheet.tile)
     const w2 = t ? content.workers.find((x) => x.id === t.kind) : undefined
     if (t && w2) {
+      const name = nodeLabel(t.id)
       const close = () => setSheet(null)
       const set = (part: Part, value: string | null) => { commit(setPart(map, v, t.id, part, value)); close() }
       if (sheet.part === 'prompt') {
-        sheetEl = <PromptSheet title={P2.promptOf(w2.label)} prompts={content.prompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
+        const reads = map.lines.filter((l) => l.to === t.id && content.sources.some((x) => x.id === l.from)).map((l) => labelOf(content, l.from))
+        const from = map.lines.filter((l) => l.to === t.id && tileOf(map, l.from)).map((l) => nodeLabel(l.from))
+        sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={content.prompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
           onPick={(id) => set('prompt', id)} onClose={close}
           words={{ intro: P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction }} />
       } else if (sheet.part === 'model') {
-        sheetEl = <PartSheet title={P2.modelOf(w2.label)} onPick={(id) => set('model', id)} onClose={close}
+        sheetEl = <PartSheet title={P2.modelOf(name)} onPick={(id) => set('model', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clear }}
           choices={content.models.map((m) => ({
             id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id,
@@ -439,7 +446,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
           }))} />
       } else {
         const model = content.models.find((m) => m.id === t.model)
-        sheetEl = <PartSheet title={P2.computeOf(w2.label)} intro={P2.computeIntro(model?.label ?? null)} onPick={(id) => set('runsOn', id)} onClose={close}
+        sheetEl = <PartSheet title={P2.computeOf(name)} intro={P2.computeIntro(model?.label ?? null)} onPick={(id) => set('runsOn', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clear }}
           choices={content.compute.map((c) => ({
             id: c.id, label: c.label, detail: [c.description, c.costLine].filter(Boolean).join(' '), current: t.runsOn === c.id,

@@ -3,6 +3,10 @@ briefs:
   development:
     from: demo-priya
     title: Build the partner requests system
+    # The first paragraph follows from Phase 1: whether partner requests went to the agent column.
+    opening:
+      hit: You saw it in the spring. Partner requests take judgment at every turn, and you put them where an agent belongs.
+      missed: In the spring you filed partner requests under something simpler. Looking at them now, they take judgment at every turn.
     text: >-
       The network approved the project. Build me the system that answers **partner requests**:
       put workers on the map, give each one what it may read, and join them to the answer. Your

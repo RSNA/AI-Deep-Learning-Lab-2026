@@ -356,7 +356,14 @@ const PartPublic = S({ label: Text, short: Text, description: Text, cost_line: T
 
 export const BuildFile = W({
   problem: Id,
-  grid: S({ cols: PosInt.max(8), rows: PosInt.max(8) }),
+  // `columns` names the stage of the work each column stands for. Names only: no rule ties a
+  // worker to a column. Without it the columns keep their numbers.
+  grid: S({ cols: PosInt.max(8), rows: PosInt.max(8), columns: z.array(S({ label: Text, hint: Text })).optional() }),
+  // The kinds of effort a fact takes to get out of a source. Without the list they are the ones
+  // the sources name. Never sent to a browser.
+  efforts: z.array(W({ id: Id, key: K({}).optional() })).optional(),
+  // The headings of the toolbox, in this order. Without them the toolbox is one list.
+  toolbox_groups: z.array(S({ id: Id, label: Text })).default([]),
   budget: S({ money: NonNeg, developers: Int.min(0) }),
   validate: S({ runs: Int.min(0), seconds: PosInt }),
   pools: z.array(W({ id: Id, public: S({ label: Text }), max: NonNeg })).default([]),
@@ -381,7 +388,8 @@ export const BuildFile = W({
   workers: z.array(W({
     id: Id,
     kind: z.enum(WORKER_KINDS),
-    public: S({ label: Text, short: Text, description: Text, icon: z.string(), cost_line: Text.optional() }),
+    group: Id.optional(),
+    public: S({ label: Text, short: Text, task: Text.optional(), description: Text, icon: z.string(), cost_line: Text.optional() }),
     needs_model: z.boolean(),
     by_model: z.record(z.string(), Quality).optional(),
     quality: Quality.optional(),
@@ -408,7 +416,8 @@ export const BuildFile = W({
   })).default([]),
   prompts: z.array(W({
     id: Id,
-    public: S({ label: Text, description: Text, sample: Text }),
+    // `samples`, when present, are shown in place of `sample`, each under its label.
+    public: S({ label: Text, description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
     fetch: Num.positive().optional(),
     decide: Num.positive().optional(),
     by_worker: z.record(z.string(), S({ fetch: Num.positive().optional(), decide: Num.positive().optional() })).optional(),
@@ -497,7 +506,9 @@ const Letter = W({ from: Id, always: Text, variants: z.record(z.string(), Text) 
 export const StoryFile = W({
   briefs: W({
     planning: W({ from: Id, title: Text, text: Text }).optional(),
-    development: W({ from: Id, title: Text, text: Text }).optional(),
+    // `opening` is a first paragraph by the result of Phase 1: `hit` for a player whose board had
+    // the flagship problem in the flagship class, `missed` for one whose board had not.
+    development: W({ from: Id, title: Text, text: Text, opening: S({ hit: Text, missed: Text }).optional() }).optional(),
     maintaining: W({ from: Id, title: Text, text: Text }).optional(),
   }).optional(),
   letters: W({

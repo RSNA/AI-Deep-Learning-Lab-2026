@@ -11,6 +11,9 @@ let unit = ''
 export const setMoneyUnit = (u: string | null) => { unit = u ? ` ${u}` : '' }
 
 const moneyOf = (x: number) => money(x)
+/** What a map takes to run a month: one decimal, and a cost above zero never shows as zero. */
+export const runCost = (x: number) => (x > 0 && x < 0.05 ? '< 0.1' : x.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }))
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`)
 
 export const P2 = {
   phase: 'Phase 2',
@@ -28,7 +31,7 @@ export const P2 = {
   models: 'Models',
   computes: 'Where they run',
   kinds: { ai: 'AI', fixed: 'Fixed', person: 'Person' } as Record<string, string>,
-  pickHint: 'Click a worker, then an empty cell of the map. On a laptop you can also drag it there.',
+  pickHint: 'Click a worker, then an empty cell. Or drag it there.',
   picked: 'Now click an empty cell. Esc cancels.',
   locked: (action: string) => `Opens with: ${action}`,
   lockedNoAction: 'Not open in this phase',
@@ -44,7 +47,7 @@ export const P2 = {
   cancel: 'Cancel',
   // Hints in the bar of the map
   hint: {
-    idle: 'Click a worker in the toolbox, then a cell. Join with the round port on the right edge.',
+    idle: 'Join with the round port on the right edge.',
     place: (label: string) => `Click an empty cell for the ${label}. Esc cancels.`,
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
     join: (label: string) => `Click a lit tile or the result to join ${label}. Esc cancels.`,
@@ -61,9 +64,13 @@ export const P2 = {
   model: 'Model',
   compute: 'Runs on',
   prompt: 'Prompt',
-  modelOf: (label: string) => `Model for the ${label}`,
-  computeOf: (label: string) => `Where the ${label} runs`,
-  promptOf: (label: string) => `Prompt for the ${label}`,
+  modelOf: (label: string) => `Model for ${label}`,
+  computeOf: (label: string) => `Where ${label} runs`,
+  promptOf: (label: string) => `Prompt for ${label}`,
+  promptAbout: (name: string, reads: string[], from: string[]) =>
+    `${name} ${reads.length ? `reads ${list(reads)}` : 'reads no source yet'}${from.length ? ` and receives work from ${list(from)}` : ', and no tile hands it work'}.`,
+  personMinutes: (decide: number, check: number) => `Minutes a case: ${num(decide)} to decide alone, ${num(check)} to check work handed on, plus some for each source it reads.`,
+  legend: { read: 'From a source: may read it', handoff: 'Between tiles: hands its work on' },
   computeIntro: (model: string | null) => (model ? `Only places where ${model} can run can be chosen.` : 'Pick the model first, or pick a place now and a model that runs there.'),
   cannotCarry: 'This worker cannot carry this model',
   cannotRun: (model: string, places: string) => `${model} runs only on: ${places}`,
@@ -88,9 +95,12 @@ export const P2 = {
   // Actions
   start: 'Start',
   done: 'Done',
-  noCancel: 'An action is paid when it starts and cannot be stopped. Several can run at once while money and developers allow.',
-  cost: (money: number, devs: number, s: number, story: string | null) =>
-    [money ? (unit ? `${moneyOf(money)}${unit}` : `${moneyOf(money)} money`) : 'No money', devs ? `${devs} developer${devs === 1 ? '' : 's'}` : 'no developers', story ? `${s} s · ${story}` : `${s} s`].join(' · '),
+  noCancel: 'Paid up front, cannot be stopped.',
+  noCancelLong: 'An action is paid when it starts and cannot be stopped. Several can run at once while money and developers allow.',
+  cost: (money: number, devs: number, s: number) =>
+    [money ? (unit ? `${moneyOf(money)}${unit}` : `${moneyOf(money)} money`) : 'Free', devs ? `${devs} dev${devs === 1 ? '' : 's'}` : 'no devs', `${s} s`].join(' · '),
+  story: (s: string) => `In the story: ${s}`,
+  more: 'More',
   opens: (list: string) => `Opens: ${list}`,
   leftS: (s: number) => `${secs(s)} left`,
   holds: (n: number) => `holds ${n}`,
@@ -99,7 +109,7 @@ export const P2 = {
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Running and validating
   toRun: 'To run this map:',
-  perMonth: (x: number) => `${moneyOf(x)}${unit} a month`,
+  perMonth: (x: number) => `${runCost(x)}${unit} a month`,
   minutes: (label: string, used: number, max: number) => `${label} ${num(used)} of ${num(max)} a case`,
   complexity: (n: number) => `complexity ${n}`,
   privateWarn: 'Private data goes through a service that does not protect it.',

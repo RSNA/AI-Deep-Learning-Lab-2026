@@ -41,7 +41,7 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
       // the reveal. The texts of a case, a missed fact and a note reach a player one at a time,
       // with a validation: the leak scan checks them per player (`perPlayerTexts`).
       const b = sp.build
-      for (const list of [b.facts, b.sources, b.workers, b.models, b.compute, b.prompts, b.actions, b.cases]) {
+      for (const list of [b.facts, b.sources, b.workers, b.models, b.compute, b.prompts, b.actions, b.cases, b.efforts ?? []]) {
         for (const x of list as readonly { id: string; key?: unknown }[]) add(x.key, 'never', `${id}.build.${x.id}.key`)
       }
       const { reference, ...other } = b.key

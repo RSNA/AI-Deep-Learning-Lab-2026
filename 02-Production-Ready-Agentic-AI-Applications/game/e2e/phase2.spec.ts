@@ -165,6 +165,46 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   s.close()
 })
 
+test('stages, groups and numbered tiles: a cell under a line takes the click, the prompt chooser says what a tile reads', async ({ page }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const s = await setup(page, 'E2E canvas stages')
+  await joinPicked(page, s.code, 'Canvas Stages', /Riverbend/)
+  await toDevelopment(page, s)
+  // The letter opens with the paragraph for a board that did not put the flagship with the agents.
+  await expect(page.locator('.p2insights .letter')).toContainText('In the spring you filed partner requests under something simpler.')
+  // The columns carry the names of the stages, and a tap says the sentence of one.
+  await expect(page.locator('.p2-map .chdr.stage')).toHaveText(['Read the request', 'Find the copies', 'Weigh the options', 'Check and send'])
+  await page.getByRole('button', { name: /^Find the copies\./ }).click()
+  await expect(page.locator('.chint')).toHaveText('Which partner holds a copy and what it asks before it lends.')
+  // The toolbox under its two headings, each row with its task.
+  await expect(page.locator('.tbgroup-t')).toHaveText(['Operators', 'Tools'])
+  await expect(tool(page, 'Card reader')).toContainText('Reads the scanned card files')
+  await expect(tool(page, 'Card reader')).toBeDisabled()
+  // A legend says what the two kinds of line are.
+  await expect(page.locator('.lglegend')).toContainText('hands its work on')
+
+  await tool(page, 'Agent').click()
+  await cell(page, 2, 2).click()
+  await join(page, 'Request form', /Join to Agent/)
+  await join(page, 'Agent', /Join to Loan arranged/)
+  await expect(page.locator('.cline.handoff')).toHaveCount(1)
+  // The line to the result runs across cell (4, 2): placing there still works by clicks.
+  await tool(page, 'Rule').click()
+  await cell(page, 4, 2).click()
+  await expect(page.locator('.ctile')).toHaveCount(2)
+  // A second agent: both carry a number, on the tile and in the prompt chooser.
+  await tool(page, 'Agent').click()
+  await cell(page, 1, 4).click()
+  await expect(page.locator('.ctile .ct-name')).toHaveText(['Agent 1', 'Rule', 'Agent 2'])
+  await page.getByRole('button', { name: /^Prompt:/ }).first().click()
+  const chooser = page.getByRole('dialog')
+  await expect(chooser).toContainText('Prompt for Agent 1')
+  await expect(chooser.locator('.pc-about')).toHaveText('Agent 1 reads Request form, and no tile hands it work.')
+  await expect(chooser.locator('.pc-s')).toHaveCount(4)
+  await expect(chooser.locator('.pc-sl').first()).toHaveText('When the worker digs')
+  s.close()
+})
+
 test('the same map by drag, on a laptop, in the dark theme', async ({ page }, info) => {
   test.skip(info.project.name !== 'laptop', 'laptop only')
   const s = await setup(page, 'E2E canvas drag')

@@ -4,7 +4,7 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.2. Phase 2 is now played on a canvas (Step 7, section 16): the player
+**Status.** Version 1.3. Phase 2 is now played on a canvas (Step 7, section 16): the player
 builds a map on a grid and validates it, and the slot board of version 1.1 is gone. The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
@@ -505,7 +505,11 @@ field under `key` and every number of quality stays on the server.
 ```ts
 type Build = {
   problem: ProblemId                        // the flagship problem this map solves
-  grid: { cols: number; rows: number }      // cells between the sources and the result, at most 8 by 8
+  grid: { cols: number; rows: number       // cells between the sources and the result, at most 8 by 8
+          columns?: { label: Text; hint: Text }[] }   // one per column: the stage of the work it
+                                            // stands for, and one sentence on it. Names only
+  efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
+  toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
   validate: { runs: number; seconds: number }
   pools?: { id: PoolId; public: { label: Text }; max: number }[]   // minutes per case the people can give
@@ -517,8 +521,9 @@ type Build = {
            key?: object }[]
   sources: { id: SourceId; public: { label: Text; description: Text; icon: string }
              gives: Record<FactId, number>  // trust, 0 to 1
-             effort: string                 // how much digging a fact takes here: easy or hard, or
-                                            // another kind that every worker has numbers for
+             effort: string                 // how much digging a fact takes here: one of `efforts`,
+                                            // or without that list easy, hard or another kind
+                                            // that every worker has numbers for
              private_data: boolean          // it holds data that must be protected
              distracts?: number             // below 1, it lowers the judgment of an AI worker that reads it
              run?: number                   // money a month for every line from it
@@ -533,7 +538,9 @@ type Build = {
               key?: object }[]
   prompts?: { id: PromptId                  // three or four formats. The first is the default
               public: { label: Text; description: Text
-                        sample: Text }      // the opening of such a prompt, up to 35 words
+                        sample?: Text       // the opening of such a prompt, up to 35 words
+                        samples?: { label: Text; text: Text }[] }   // several openings, each
+                                            // under a label, shown in place of `sample`
               fetch?: number; decide?: number   // multiply the worker's fetching and judgment
               by_worker?: Record<WorkerId, { fetch?: number; decide?: number }>   // other numbers for one kind
               key?: object }[]
@@ -558,7 +565,10 @@ type Build = {
 type Part = { label: Text; short: Text; description: Text; cost_line?: Text }
 type Worker = {
   id: WorkerId; kind: 'ai' | 'fixed' | 'person'
-  public: { label: Text; short: Text; description: Text; icon: string; cost_line?: Text }
+  group?: string                            // an id of `toolbox_groups`, required when there are any
+  public: { label: Text; short: Text        // short: the name on a tile, a chip, a part box
+            task?: Text                     // a few words on the job it does, shown in the toolbox
+            description: Text; icon: string; cost_line?: Text }
   needs_model: boolean                      // only an AI worker carries a model, a place to run and a prompt
   by_model?: Record<ModelId, Quality>       // with needs_model: one entry per model it may carry
   quality?: Quality                         // without needs_model
@@ -577,15 +587,20 @@ type PackMap = { tiles: { id: string; kind: WorkerId; col: number; row: number
 The items that can be placed, chosen or unlocked (sources, workers, models, computes, prompts)
 and the result share one namespace inside a build file, because `unlocks` names any of them. The
 ids of a build file need not carry the system prefix of section 5.2: maps name them all the time.
-A pack names an icon by a free word. The client draws `form`, `catalog`, `mail`, `truck`, `chat`,
-`counter`, `agent`, `step`, `rule`, `person` and `clerk`, and gives any other word the icon of its
-kind (section 11.4).
+A pack names an icon by one of these words, which the client draws: for a source `form`,
+`catalog`, `mail`, `truck`, `chat`, `counter`, `file`, `image` (a picture or a scan), `ask` (a
+person to ask), `search` (a search across records), `guide` (a guideline) and `web`; for a worker
+`agent`, `step`, `rule`, `model`, `person`, `clerk`, `nurse` and `doctor`. Any other word gets the
+icon of the worker's kind, or of a file (section 11.4).
 
 The loader checks of a build file, beside the shape. Every id resolves: the facts a source gives
 and a case needs, the models of `by_model`, the computes of `runs_on`, the workers of
 `by_worker`, the pool of a person, the group of an action, `requires`, `unlocks` and
-`needs_actions`. An id is used once in its namespace, and `requires` forms no loop. Every worker
-has a `fetch` number, and every person `per_line` minutes, for every effort that a source names. A case needs
+`needs_actions`. An id is used once in its namespace, and `requires` forms no loop. When
+`efforts` is there, every source names one of them, and every worker has a `fetch` number, and
+every person `per_line` minutes, for each of them; without it, the same holds for every effort
+that a source names. When `toolbox_groups` is there, every worker has one of them as `group`.
+`grid.columns`, when there, has one entry per column. A prompt has `sample` or `samples`. A case needs
 no fact that no source gives. A worker with `needs_model` is of kind `ai` and has `by_model`; one
 without has `quality`. A person has a pool and minutes, and nobody else has either. An action
 unlocks something or brings an insight, and needs no more developers than the practice has. The
@@ -639,7 +654,8 @@ type GameEvent = {
 
 ```ts
 type Story = {
-  briefs?: Partial<Record<PhaseId, { from: CharacterId; title: Text; text: Text }>>
+  briefs?: Partial<Record<PhaseId, { from: CharacterId; title: Text; text: Text
+                                     opening?: { hit: Text; missed: Text } }>>   // Phase 2 only
   letters?: Partial<Record<'planning_reveal' | 'development_reveal' | 'annual_review',
             { from: CharacterId; always: Text; variants: Record<BandId, Text> }>>
   dialogue?: { id: string; speaker: CharacterId; text: Text
@@ -653,6 +669,12 @@ type Story = {
                     from: CharacterId; text: Text }[]    // no offer exists until Phase 3 names one
 }
 ```
+
+`briefs.development.opening` is a first paragraph of the Phase 2 letter that follows from Phase 1:
+`hit` for a player whose Phase 1 board had the flagship problem in the flagship class, `missed`
+for a player whose board had not, and neither for a player without a Phase 1 result. The engine
+puts it before `text` in the letter the player receives, so the pop-up and the first card of the
+insights carry it. Both are public. Each is within `text_limits.phase_brief_opening` words.
 
 `briefs.planning` is the opening letter of Phase 1. It pops up when the phase starts and stays
 as the first card of the evidence (section 10.4), so it states the task and explains the
@@ -1874,25 +1896,32 @@ type PlanningContent = {
 }
 
 type DevelopmentContent = {
-  brief: { from: CharacterId; title: Text; text: Text } | null
+  brief: { from: CharacterId; title: Text; text: Text } | null   // the letter as written; the one a
+                                                // player receives, with its opening, is in the inbox
   problem: { id: ProblemId; title: Text; description: Text }
   rules: { cols: number; rows: number; money: number; developers: number
+           columns: { label: Text; hint: Text }[] | null   // the stages of the columns, or numbers
            validations: number; validateSeconds: number; showRunning: boolean
            moneyUnit: Text | null              // money_unit, written after every sum of money
            pools: { id: PoolId; label: Text; max: number }[]
-           actionGroups: { id: string; label: Text }[] }
+           actionGroups: { id: string; label: Text }[]
+           toolboxGroups: { id: string; label: Text }[] }   // empty: the toolbox is one list
   sources: { id: SourceId; label: Text; description: Text; icon: string; privateData: boolean }[]
   result: { id: string; label: Text; description: Text }
   workers: { id: WorkerId; kind: 'ai' | 'fixed' | 'person'; label: Text; short: Text
+             task: Text | null; group: string | null
              description: Text; icon: string; costLine: Text | null; needsModel: boolean
              models: ModelId[]                  // the keys of by_model
              pool: PoolId | null
-             minutes: { decide: number; check: number; perLine: { easy: number; hard: number } } | null }[]
+             minutes: { decide: number; check: number } | null }[]   // per_line stays on the server:
+                                                // its keys, the efforts, say which source asks for what
   models: { id: ModelId; label: Text; short: Text; description: Text; costLine: Text | null
             runsOn: ComputeId[] }[]
   compute: { id: ComputeId; label: Text; short: Text; description: Text; costLine: Text | null
              protectsPrivateData: boolean }[]
-  prompts: { id: PromptId; label: Text; description: Text; sample: Text }[]   // the first is the default
+  prompts: { id: PromptId; label: Text; description: Text   // the first is the default
+             sample: Text | null                // null when the prompt has samples
+             samples: { label: Text; text: Text }[] }[]
   actions: { id: ActionId; group: string; title: Text; teaser: Text; money: number
              developers: number; seconds: number; requires: ActionId[]; unlocks: string[]
              storyTime: Text | null }[]
@@ -1900,6 +1929,7 @@ type DevelopmentContent = {
 
 /** What it takes to draw a map read-only: the projector card and the host's view of a player. */
 type CanvasLegend = { cols: number; rows: number
+                      columns: { label: Text; hint: Text }[] | null
                       sources: { id; label; icon; privateData }[]; result: { id; label }
                       workers: { id; kind; label; short; icon }[]; models: { id; label; short }[]
                       compute: { id; label; short; protectsPrivateData }[]; prompts: { id; label }[] }
@@ -2155,7 +2185,7 @@ the notes of a slide. A screen socket sends nothing but `hello`.
 | An interview line | At its scheduled time, to that player |
 | A tile | When its investigation completes, to that player |
 | Problem `key`: `class`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
-| The grid, the budget, the validations and their seconds, `show_running`, the pools with their labels and limits, the action groups. The `public` of every source, the result, every worker, model, compute and prompt (its sample included). `private_data` of a source, `needs_model`, the models of a worker (the keys of `by_model`), the pool and the minutes of a person, `runs_on` of a model, `protects_private_data` of a compute. Every action with its `public`, money, developers, seconds, `requires`, `unlocks` and `story_time` | When Phase 2 opens |
+| The grid with the names and hints of its columns, the budget, the validations and their seconds, `show_running`, the pools with their labels and limits, the action groups and the toolbox groups. The `public` of every source, the result, every worker (its task included), model, compute and prompt (its samples included). `private_data` of a source, `needs_model` and `group` of a worker, the models of a worker (the keys of `by_model`), the pool of a person and its minutes for deciding and for checking (never `per_line`, whose keys are the efforts), `runs_on` of a model, `protects_private_data` of a compute. Every action with its `public`, money, developers, seconds, `requires`, `unlocks` and `story_time` | When Phase 2 opens |
 | The draft as the player built it, what is unlocked, the money and the developers, whether the draft is ready and why not, its stray, incomplete and unprotected tiles, and what it would take to run | In the player's view, at every change |
 | The insight of an action | When that action ends, to that player |
 | The accuracy of a validation, its rank, what the map takes to run, the `public` of one missed case with the text of why, and one note | In the player's own validation result |
@@ -2780,7 +2810,7 @@ titled columns whose titles stand on one line, both themes, every row of control
 ```
 
 **Layout.** Under the top bar three columns: Actions (236 to 300 px), the map (all the width that
-is left) and the Toolbox (176 to 240 px). The three fill the height of the window, so at 1280 by
+is left) and the Toolbox (190 to 250 px). The three fill the height of the window, so at 1280 by
 720 the whole grid, the shelves and the Validate button are in view without a scroll. The last
 validation and the insights stand under them, side by side, and are reached by scrolling the
 page. The reading room is not shown in this phase.
@@ -2791,28 +2821,42 @@ flat facts with no border, so nobody takes them for buttons. On a phone they sta
 the Map and the Actions tabs.
 
 **The opening letter** pops up when the phase starts, with "Start building", and stays as the first
-card of the insights, as in Phase 1.
+card of the insights, as in Phase 1. Its first paragraph is the `opening` that follows from the
+player's Phase 1 board, when the pack has one (section 5.5).
 
 **The map column.** Its title bar holds the title, one line that says what is going on ("Click an
-empty cell for the Agent. Esc cancels.", "Line from Request form to Agent.", or a message such as
-"One line would have run backward, so it was removed."), and the controls of the moment, all 34
+empty cell for the Agent. Esc cancels.", "Line from Request form to Agent 2.", or a message such as
+"One line would have run backward, so it was removed."; when nothing is going on, a legend of the
+two kinds of line, drawn as they are on the map: "From a source: may read it" with a thin line and
+"Between tiles: hands its work on" with a heavy one), and the controls of the moment, all 34
 px high: Move, Draw a line and Remove while a tile is selected, Remove while a line is selected,
 Cancel while a mode runs, and Undo and Redo always. Under it the two shelves, then the grid, then a
 foot with what the map takes to run and the Validate button.
 
 **The grid.** Sources in the left column, stacked to fill its height whatever their number, then
 the cells, then the result, centred in the right column. A row of small headings names the
-columns. Empty cells are drawn as dashed boxes.
+columns: "Column 1" and so on, or the `label` of `grid.columns`, the stage of the work that column
+stands for, on up to two lines. A tap or a pointer on a stage name shows its `hint` under it. The
+names are only names: any worker may stand in any column. Wherever a map is drawn (the board, the
+reveal, the host's view, the projector) its columns carry the same headings. Empty cells are drawn
+as dashed boxes.
 
 - **A tile** shows its worker's short name and icon in a band of the worker's color (AI sky, fixed
-  lavender, person sun) and, for an AI worker, three small boxes: the model, where it runs and the
+  lavender, person sun). When the map holds two or more tiles of one kind, each carries a number
+  in the order they were placed ("Agent 1", "Agent 2"), kept when a tile moves, and is named so
+  everywhere: the join target ("Join to Agent 2"), the title bar, the choosers, the host's view,
+  the reveal. An AI tile has three small boxes: the model, where it runs and the
   prompt, each with its icon. A box that is missing reads "+ Model" or "+ Runs on" in the warning
   color. A prompt left empty shows the default prompt's label.
 - **A port** is a round button on the right edge of a source and a tile, in the color of that
   origin. Every line takes the color of its origin from a set of ten, sources first in pack
   order, then tiles by column and row, and is drawn as a curve with a halo of the panel color
-  under it and an arrowhead at its end. Lines that enter one tile are spread over its left edge in
-  the order of their origins' height. So six lines that cross can still be told apart.
+  under it and an arrowhead at its end. A line between two tiles or into the result, a handoff, is
+  drawn about twice as heavy as a line from a source, which only says that the worker may read
+  it. Lines that enter one tile are spread over its left edge in the order of their origins'
+  height. So six lines that cross can still be told apart.
+- **Lines and clicks.** While a worker is placed or a tile is moved, the lines let clicks through,
+  so a cell that a line crosses can still be chosen.
 - **Place**: click a worker in the toolbox, then an empty cell, which is lit with a "+" while a
   worker is picked. A drag from the toolbox to a cell does the same on a laptop. The new tile is
   selected.
@@ -2830,8 +2874,11 @@ columns. Empty cells are drawn as dashed boxes.
   free model"). The place chooser greys a locked place and one where the model cannot run ("Small
   runs only on: Public API, Private link"). A change of model clears a place that no longer fits.
   Both have Clear.
-- **The prompt chooser** shows one card per format, side by side on a laptop and stacked on a
-  phone: the label, the description and the sample in a typewriter face, with "Use this prompt",
+- **The prompt chooser** says under its title which sources this tile reads and from which tiles
+  it receives work ("Agent 2 reads Request form and Shared catalog and receives work from Agent
+  1."), so that a player who gives two agents two jobs can tell which one the prompt is for. Then
+  one card per format, side by side on a laptop and stacked on a phone: the label, the description
+  and the sample in a typewriter face, or each of the `samples` under its own small label, with "Use this prompt",
   "✓ In use" or the lock and the action that opens it. The first card says "Default". Nothing on a
   card says which format is better.
 - **Undo and Redo**, and Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y, walk at least 40 changes. The history is
@@ -2849,24 +2896,30 @@ badge says "Not connected" and the title bar says the sentence when the tile is 
 that sends private data through a place that does not protect it carries a "!" mark, and the foot
 of the map says "Private data goes through a service that does not protect it." A locked source is
 dashed, takes no line, has no port, and says which action opens it. When `showRunning` is true the
-foot says what the draft would take to run a month and the minutes a case of each pool against
-its limit, in the warning color when over.
+foot says what the draft would take to run a month, with one decimal and never "0.0" for a cost
+above zero ("< 0.1"), and the minutes a case of each pool against its limit, in the warning color
+when over.
 
 **Shelves.** Two rows above the grid, "Models" and "Where they run". A chip is flat and round with
 no border, so it does not look like a button. It shows the short name, and a lock when the item is
 locked. A click opens a card with the description, the cost line, and either "Open to use" or the
 action that opens it. The shelves only inform. Choosing happens on a tile.
 
-**The toolbox.** One row per kind of worker: the icon in the worker's color, the label, the kind
-(AI, Fixed, Person), the description and the cost line. A locked kind is dimmed with its action.
-The picked one is marked, and a line under the column's title says how placing works.
+**The toolbox.** Under the headings of `toolbox_groups`, in their order, or as one list without
+them. On a laptop a row is compact: the icon in the worker's color, the label and the kind (AI,
+Fixed, Person) on one line, and the `task` under it. The description, the cost line and, for a
+person, the minutes a case for deciding alone and for checking appear in the row when it is
+picked, and in a card beside the toolbox while the pointer rests on it. A locked kind is dimmed
+with its action. The picked one is marked, and a line under the column's title says how placing
+works. Nine kinds under two headings fit at 1280 by 720. On a phone the rows show everything.
 
-**Actions.** Grouped under the headings of `action_groups`. A row shows the title, the teaser,
-money, developers and seconds with the story time, and what it opens. A row that cannot start
-says why ("Do “Set up the free model” first.", "Needs 40 money.", "Needs 1 developer, 0 free.").
-A running action shows the seconds left, a bar, and the developers it holds. A finished action
-stays as done. Before the first action a line says that an action is paid when it starts and
-cannot be stopped.
+**Actions.** Grouped under the headings of `action_groups`. A row is compact: the title, one line
+with money, developers and seconds, and the Start button. A click on the title opens the teaser,
+the story time and what it opens (the teaser is also its tooltip). A row that cannot start says
+why ("Do “Set up the free model” first.", "Needs 40 money.", "Needs 1 developer, 0 free."). A
+running action shows the seconds left, a bar, and the developers it holds. A finished action
+stays as done. One short line at the top says that an action is paid up front and cannot be
+stopped, with the full sentence as its tooltip. About six rows are in view at 1280 by 720.
 
 **A validation.** The Validate button reads "Validate · 4 left" and, while it cannot act, is
 disabled with the first reason in words beside it ("Join a tile to the result first."). While a
@@ -2895,7 +2948,8 @@ the best map is sent when the time is up.
 row: the accuracy of the map sent and which validation it was, the points and the band label, and
 one line when the points differ from a thousand times the accuracy. Under them the player's map
 and the reference map side by side, read-only and drawn small with their parts, each with its
-accuracy, and the reference map's summary. Then every kind of case with its title and text and two
+accuracy, and the reference map's summary. On a small map a tile's name takes up to two lines
+and no icon, so a name of eleven letters fits. Then every kind of case with its title and text and two
 bars, the share the player's map solved and the share the reference map solves. A closing line
 says that the map, the money and what was unlocked go into Phase 3. On a phone the parts stack in
 the same order.
@@ -3409,8 +3463,10 @@ repository. The checks run on the Mac before each merge.
 ### 12.2 Engine
 
 - **Parity of the canvas.** `packages/engine/test/vectors/canvas.json` is written by
-  `tools/canvas_scoring.py --vectors` of the private folder on its neutral toy pack, and never
-  edited by hand. For every vector the engine returns the same answer within 1e-9: accepted or
+  `tools/canvas_scoring.py --vectors` of the private folder on its neutral toy packs, and never
+  edited by hand. The file holds a first block (`build`, `cases`) and further blocks under `more`,
+  each with its own `build` and `cases` (the second has a third kind of effort); the test runs
+  every block. For every vector the engine returns the same answer within 1e-9: accepted or
   the list of errors, ready or the list of reasons, the accuracy, the share of every case, money,
   minutes, complexity, every flag, the missed case and the note (`canvas-parity.test.ts`). The
   `design` vectors that the older tool still writes into `reference.json` belong to the slot board
@@ -3849,6 +3905,7 @@ report.
 | 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12). Its next round made "Follow the game" a programme during play (the activity list, the leaderboard of one phase by health system, one practice at work), added the scene `feed` and the phase choice of `screen_filter`, set the rule that one row of controls has one size, and took the stage controls off an ended session (sections 5.1, 6.13, 10.1, 10.8, 10.9 and 12) |
 | 6 | Phase 2 on a canvas in place of the slot board (planning session of 2026-11-22), written as a contract for Step 7 |
 | 7 | Phase 2 on a canvas, built: sections 1, 5.1, 5.4, 5.5 (`build.yaml`, the development rules, `palette.yaml` removed), 5.7, 6.6 and 6.7 (the reference map), 6.8, 6.9, 6.13, 8.2 to 8.5, 9.2, 10.1, 10.5 in full, 10.6 to 10.9, 12 and 15 |
+| 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
 | 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |

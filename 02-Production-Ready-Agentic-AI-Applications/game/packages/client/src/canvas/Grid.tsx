@@ -5,7 +5,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { CanvasLegend, CanvasMap, CanvasTile } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
-import { lineKey, type Vocabulary } from './model.ts'
+import { lineKey, tileNames, type Vocabulary } from './model.ts'
 
 /** One color per origin of lines, so that six crossing lines can be told apart. */
 export const LINE_COLORS = ['#2f7bf5', '#f0742a', '#1fa971', '#b44fd6', '#e0434f', '#0f9fb0', '#b8860b', '#5b5ff0', '#d1478f', '#5f8f1f']
@@ -70,6 +70,12 @@ export function Grid(p: GridProps) {
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
   const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
+  const [hintCol, setHintCol] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    if (hintCol === null) return
+    const id = setTimeout(() => setHintCol(null), 6000)
+    return () => clearTimeout(id)
+  }, [hintCol])
   // A press on a port starts a line, never the native drag of the tile around it.
   const onPort = useRef(false)
   const flags = p.flags ?? { stray: [], incomplete: [], privateData: [] }
@@ -125,13 +131,14 @@ export function Grid(p: GridProps) {
     const dx = Math.max(24, (x2 - x1) * 0.45)
     return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`
   }
+  const names = tileNames(map, v)
   const nameOf = (id: string): string => {
     const s = v.sources.find((x) => x.id === id)
     if (s) return s.label
     if (id === v.result.id) return v.result.label
-    const t = map.tiles.find((x) => x.id === id)
-    return t ? v.workers.find((w) => w.id === t.kind)?.label ?? id : id
+    return names.get(id)?.label ?? id
   }
+  const sourceIds = new Set(v.sources.map((x) => x.id))
 
   const joining = mode.kind === 'join'
   const placing = mode.kind === 'place' || mode.kind === 'move'
@@ -199,7 +206,8 @@ export function Grid(p: GridProps) {
     const sel = p.selection?.kind === 'tile' && p.selection.id === t.id
     const moving = mode.kind === 'move' && mode.tile === t.id
     const isAi = w?.kind === 'ai'
-    const label = w?.label ?? t.kind
+    const label = names.get(t.id)?.label ?? w?.label ?? t.kind
+    const short = names.get(t.id)?.short ?? w?.short ?? label
     const target = lit(t.id)
     return (
       <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-target={target ? t.id : undefined}
@@ -216,8 +224,8 @@ export function Grid(p: GridProps) {
         onClick={readOnly ? undefined : () => p.onNode?.(t.id)}
         onKeyDown={readOnly ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNode?.(t.id) } }}>
         <div className="ct-head">
-          <Icon name={w?.icon ?? ''} kind={w?.kind} size={compact ? 12 : 15} />
-          <span className="ct-name" title={label}>{w?.short ?? label}</span>
+          {!compact && <Icon name={w?.icon ?? ''} kind={w?.kind} size={15} />}
+          <span className="ct-name" title={label}>{short}</span>
           {warn && <Mark tone="warn" title={words.privateData}>!</Mark>}
         </div>
         {isAi && !compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
@@ -271,7 +279,19 @@ export function Grid(p: GridProps) {
     <div ref={box} className={`cgrid${compact ? ' compact' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
       style={{ '--cols': v.cols, '--rows': v.rows } as React.CSSProperties} aria-label={p.label}>
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
-      {Array.from({ length: v.cols }, (_, i) => <div key={i} className="chdr" style={{ gridColumn: i + 2 }}>{words.col(i + 1)}</div>)}
+      {Array.from({ length: v.cols }, (_, i) => {
+        // A column may carry the name of a stage of the work, with one sentence on it. Names only.
+        const c = v.columns?.[i]
+        if (!c) return <div key={i} className="chdr" style={{ gridColumn: i + 2 }}>{words.col(i + 1)}</div>
+        if (readOnly) return <div key={i} className="chdr stage" style={{ gridColumn: i + 2 }} title={c.hint}>{c.label}</div>
+        return (
+          <div key={i} className="chdr stage" style={{ gridColumn: i + 2 }}>
+            <button type="button" className="chdr-b" title={c.hint} aria-expanded={hintCol === i} aria-label={`${c.label}. ${c.hint}`}
+              onClick={() => setHintCol((x) => (x === i ? null : i))}>{c.label}</button>
+            {hintCol === i && <span className="chint" role="status">{c.hint}</span>}
+          </div>
+        )
+      })}
       <div className="chdr" style={{ gridColumn: v.cols + 2 }}>{words.result}</div>
       <div className="csources" style={{ gridColumn: 1, gridRow: `2 / span ${v.rows}` }}>
         {v.sources.map((s) => {
@@ -308,7 +328,8 @@ export function Grid(p: GridProps) {
       <svg className="clines" aria-hidden={readOnly ? true : undefined}>
         <defs>
           {LINE_COLORS.map((c, i) => (
-            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth={compact ? 4 : 5} markerHeight={compact ? 4 : 5} orient="auto">
+            // Arrowheads of one size whatever the stroke, so a heavy handoff keeps a small head.
+            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="7" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 9 : 14} markerHeight={compact ? 9 : 14} orient="auto">
               <path d="M0,0 L8,4 L0,8 z" fill={c} />
             </marker>
           ))}
@@ -324,8 +345,11 @@ export function Grid(p: GridProps) {
           const idx = LINE_COLORS.indexOf(color)
           const sel = p.selection?.kind === 'line' && p.selection.key === key
           const faded = joining && mode.from !== l.from
+          // A line between two tiles (or into the result) is a handoff, drawn heavier than a line
+          // from a source, which only says that the worker may read it.
+          const handoff = !sourceIds.has(l.from)
           return (
-            <g key={key} className={`cline${sel ? ' sel' : ''}${faded ? ' faded' : ''}`}>
+            <g key={key} className={`cline${handoff ? ' handoff' : ''}${sel ? ' sel' : ''}${faded ? ' faded' : ''}`}>
               <path d={d} className="halo" />
               <path d={d} className="ink" stroke={color} markerEnd={`url(#ca${idx}${compact ? 'c' : ''})`} />
               {!readOnly && (
@@ -341,5 +365,20 @@ export function Grid(p: GridProps) {
         )}
       </svg>
     </div>
+  )
+}
+
+/** What the two kinds of line mean, drawn as they are on the map. */
+export function LineLegend({ words }: { words: { read: string; handoff: string } }) {
+  const sample = (heavy: boolean) => (
+    <svg width="26" height="10" viewBox="0 0 26 10" aria-hidden="true" className={`lg-line${heavy ? ' heavy' : ''}`}>
+      <path d="M1,5 L21,5" /><path d="M19,1 L25,5 L19,9 z" className="lg-head" />
+    </svg>
+  )
+  return (
+    <span className="lglegend">
+      <span className="lg-i">{sample(false)}{words.read}</span>
+      <span className="lg-i">{sample(true)}{words.handoff}</span>
+    </span>
   )
 }

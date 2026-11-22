@@ -19,43 +19,52 @@ type Vector = {
   name: string; unlocked_set: string; unlocked: string[]
   map: Parameters<typeof fromPackMap>[0]; shown_cases: string[]; shown_notes: string[]; expect: Expect
 }
-const file = JSON.parse(readFileSync(new URL('./vectors/canvas.json', import.meta.url), 'utf8')) as { tolerance: number; build: CanvasTables; cases: Vector[] }
+type Block = { name: string; build: CanvasTables; cases: Vector[] }
+const file = JSON.parse(readFileSync(new URL('./vectors/canvas.json', import.meta.url), 'utf8')) as
+  { tolerance: number; build: CanvasTables; cases: Vector[]; more?: Block[] }
 const tol = file.tolerance
+// The first block is the toy pack of the file itself; `more` holds further blocks, each with its
+// own pack (the second has efforts beyond easy and hard).
+const blocks: Block[] = [{ name: 'toy', build: file.build, cases: file.cases }, ...(file.more ?? [])]
 
 const close = (a: number, b: number) => Math.abs(a - b) <= tol
 const sameNumbers = (got: Record<string, number>, want: Record<string, number>) =>
   Object.keys(got).sort().join() === Object.keys(want).sort().join() && Object.keys(want).every((k) => close(got[k]!, want[k]!))
 
 describe('parity: the canvas', () => {
-  it('has vectors of every kind', () => {
+  it('has every block, and vectors of every kind', () => {
+    expect(blocks.length).toBeGreaterThan(1)
+    const all = blocks.flatMap((b) => b.cases)
     expect(file.cases.length).toBeGreaterThan(30)
-    expect(file.cases.some((v) => !v.expect.accepted)).toBe(true)
-    expect(file.cases.some((v) => v.expect.accepted && !v.expect.ready)).toBe(true)
-    expect(file.cases.some((v) => v.expect.ready)).toBe(true)
+    expect(all.some((v) => !v.expect.accepted)).toBe(true)
+    expect(all.some((v) => v.expect.accepted && !v.expect.ready)).toBe(true)
+    for (const b of blocks) expect(b.cases.some((v) => v.expect.ready)).toBe(true)
   })
-  for (const v of file.cases) {
-    it(`${v.name} (${v.unlocked_set})`, () => {
-      const m = fromPackMap(v.map)
-      const e = v.expect
-      const errs = mapErrors(m, file.build, new Set(v.unlocked))
-      if (!e.accepted) { expect(errs).toEqual(e.errors); return }
-      expect(errs).toEqual([])
-      const reasons = readyReasons(m, file.build)
-      if (!e.ready) { expect(reasons).toEqual(e.reasons); return }
-      expect(reasons).toEqual([])
-      const r = evaluate(m, file.build, v.shown_cases, v.shown_notes)
-      expect(close(r.accuracy, e.accuracy!)).toBe(true)
-      expect(close(1000 * r.accuracy, e.raw!)).toBe(true)
-      expect(sameNumbers(r.perCase, e.per_case!)).toBe(true)
-      expect(close(r.running.money, e.run_month!)).toBe(true)
-      expect(sameNumbers(r.running.minutes, e.minutes!)).toBe(true)
-      expect(r.running.complexity).toBe(e.complexity)
-      expect({
-        private_data: r.flags.privateData, overloaded: r.flags.overloaded, distracting: r.flags.distracting,
-        prompt: r.flags.prompt, stray: r.flags.stray,
-      }).toEqual(e.flags)
-      expect(r.missed).toEqual(e.missed)
-      expect(r.note).toEqual(e.note)
-    })
-  }
+  for (const block of blocks) describe(block.name, () => {
+    for (const v of block.cases) {
+      it(`${v.name} (${v.unlocked_set})`, () => {
+        const m = fromPackMap(v.map)
+        const e = v.expect
+        const errs = mapErrors(m, block.build, new Set(v.unlocked))
+        if (!e.accepted) { expect(errs).toEqual(e.errors); return }
+        expect(errs).toEqual([])
+        const reasons = readyReasons(m, block.build)
+        if (!e.ready) { expect(reasons).toEqual(e.reasons); return }
+        expect(reasons).toEqual([])
+        const r = evaluate(m, block.build, v.shown_cases, v.shown_notes)
+        expect(close(r.accuracy, e.accuracy!)).toBe(true)
+        expect(close(1000 * r.accuracy, e.raw!)).toBe(true)
+        expect(sameNumbers(r.perCase, e.per_case!)).toBe(true)
+        expect(close(r.running.money, e.run_month!)).toBe(true)
+        expect(sameNumbers(r.running.minutes, e.minutes!)).toBe(true)
+        expect(r.running.complexity).toBe(e.complexity)
+        expect({
+          private_data: r.flags.privateData, overloaded: r.flags.overloaded, distracting: r.flags.distracting,
+          prompt: r.flags.prompt, stray: r.flags.stray,
+        }).toEqual(e.flags)
+        expect(r.missed).toEqual(e.missed)
+        expect(r.note).toEqual(e.note)
+      })
+    }
+  })
 })

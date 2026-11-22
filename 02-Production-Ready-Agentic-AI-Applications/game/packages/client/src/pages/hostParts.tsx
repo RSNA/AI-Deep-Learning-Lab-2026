@@ -11,7 +11,9 @@ import { SlideThumb } from '../components/slide.tsx'
 import { Marks } from '../lib/marks.tsx'
 import { H } from './hostCopy.ts'
 import { Grid } from '../canvas/Grid.tsx'
+import { tileNames } from '../canvas/model.ts'
 import { gridWords, reasonText } from '../phase2/Phase2.tsx'
+import { runCost } from '../phase2/copy.ts'
 
 type Mark = 'right' | 'near' | 'wrong' | 'unsorted'
 const MARK_ICON: Record<Mark, string> = { right: '✓', near: '≈', wrong: '✗', unsorted: '–' }
@@ -95,6 +97,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
   const [shown, setShown] = useState<string | null>(null)
   const none = { stray: d.key.flags.stray, incomplete: [], privateData: d.key.flags.privateData }
   const raised = Object.entries(d.key.flags).filter(([, ids]) => ids.length > 0)
+  const names = tileNames(d.map, d.legend)
   const v = d.validations.find((x) => x.id === shown)
   const minutes = d.pools.map((pl) => `${pl.label} ${d.key.running.minutes[pl.id] ?? 0} of ${pl.max}`).join(' · ')
   return (
@@ -106,7 +109,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
       </div>
       <div className="eyebrow">{H.dev.draft}</div>
       <div className="gridscroll insp-map"><Grid v={d.legend} map={d.map} flags={none} compact words={gridWords} label={H.dev.draft} /></div>
-      <div className="hint">{d.ready.ok && d.key.accuracy !== null ? H.dev.ready(d.key.accuracy) : H.dev.notReady(d.ready.reasons.map((r) => reasonText(r, d.pools)).join(' '))} {H.dev.running(d.key.running.money, minutes, d.key.running.complexity)}</div>
+      <div className="hint">{d.ready.ok && d.key.accuracy !== null ? H.dev.ready(d.key.accuracy) : H.dev.notReady(d.ready.reasons.map((r) => reasonText(r, d.pools)).join(' '))} {H.dev.running(runCost(d.key.running.money), minutes, d.key.running.complexity)}</div>
       <div className="insp-two">
         <div>
           <div className="eyebrow">{H.dev.validations}</div>
@@ -131,7 +134,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
             ))}
           </div>
           <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.flags}</div>
-          {raised.length ? <ul className="insp-flags">{raised.map(([k, ids]) => <li key={k}>{H.dev.flagName[k]}: {ids.join(', ')}</li>)}</ul> : <div className="muted">{H.dev.noFlags}</div>}
+          {raised.length ? <ul className="insp-flags">{raised.map(([k, ids]) => <li key={k}>{H.dev.flagName[k]}: {ids.map((id) => names.get(id)?.label ?? id).join(', ')}</li>)}</ul> : <div className="muted">{H.dev.noFlags}</div>}
         </div>
       </div>
       <details className="inspect-done">

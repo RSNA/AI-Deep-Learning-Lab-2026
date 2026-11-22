@@ -209,7 +209,7 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const structural = fields.filter((f) => early.some((r) => r.text.includes(f)))
       // No number of the canvas scoring and no case list reaches anyone before the Phase 2 reveal.
       const early2 = records.filter((r) => idx(r.stage) < idx('development.reveal'))
-      const fields2 = ['"weight":', '"needs":', '"difficulty":', '"gives":', '"effort":', '"distracts":', '"keep":', '"fetch":', '"catch":', '"by_model"', '"perCase"', '"solved":', '"overloaded"', '"distracting"', '"summary":', '"reference":']
+      const fields2 = ['"weight":', '"needs":', '"difficulty":', '"gives":', '"effort":', '"distracts":', '"keep":', '"fetch":', '"catch":', '"by_model"', '"perCase"', '"solved":', '"overloaded"', '"distracting"', '"summary":', '"reference":', '"perLine"', '"per_line"', '"efforts"']
       structural.push(...fields2.filter((f) => early2.some((r) => r.text.includes(f))))
       // A slide reaches a browser only while it is shown there. Notes never do (they are protected).
       const slideLeaks: string[] = []

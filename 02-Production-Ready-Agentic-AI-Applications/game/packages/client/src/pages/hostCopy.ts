@@ -147,7 +147,7 @@ export const H = {
     flags: 'What the scoring sees on the draft',
     flagName: { privateData: 'Private data unprotected', overloaded: 'A worker overloaded', distracting: 'A distracting source read', prompt: 'A prompt that only hurts', stray: 'Tiles not connected' } as Record<string, string>,
     noFlags: 'Nothing raised.',
-    running: (money: number, minutes: string, complexity: number) => `To run: ${Math.round(money * 10) / 10} a month${minutes ? ` · ${minutes}` : ''} · complexity ${complexity}`,
+    running: (money: string, minutes: string, complexity: number) => `To run: ${money} a month${minutes ? ` · ${minutes}` : ''} · complexity ${complexity}`,
     reference: (acc: number) => `The reference map · ${Math.round(100 * acc)}%`,
   },
   st: { playing: 'Still sorting', submitted: 'Assessment sent', closed: 'Scored' } as Record<'playing' | 'submitted' | 'closed', string>,

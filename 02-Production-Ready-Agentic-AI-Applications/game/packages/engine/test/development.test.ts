@@ -326,3 +326,28 @@ describe('nothing leaks, nothing is random', () => {
     expect(play(100_000)).toBe(play(333))
   })
 })
+
+describe('the opening letter of Phase 2', () => {
+  const opening = pack.systems.rb!.story!.briefs!.development!.opening!
+  const letter = (s: SessionState, id: string) => s.players[id]!.inbox.find((m) => m.id === 'development:brief')!.text
+  it('opens with `hit`, `missed` or nothing, by the Phase 1 board', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    join(s, 'p3', 'Gamma Branch', 0)
+    join(s, 'p5', 'Epsilon Branch', 0)
+    host(s, 'next', {}, 100)
+    host(s, 'next', {}, 200)
+    expect(s.players.p1!.system).toBe('rb')
+    expect(s.players.p5!.system).toBe('rb')
+    expect(run(s, { actor: 'player', playerId: 'p1', type: 'planning.set_report', payload: { picks: { 'rb-q-partner': 'agentic' } } }, 250).ok).toBe(true)
+    expect(run(s, { actor: 'player', playerId: 'p5', type: 'planning.set_report', payload: { picks: { 'rb-q-partner': 'no_ai' } } }, 250).ok).toBe(true)
+    host(s, 'end_now', {}, 300)
+    host(s, 'next', {}, 400)
+    host(s, 'next', {}, 10_000)
+    expect(letter(s, 'p1').startsWith(`${opening.hit}\n\n`)).toBe(true)
+    expect(letter(s, 'p5').startsWith(`${opening.missed}\n\n`)).toBe(true)
+    // A health system without an opening reads the letter alone.
+    expect(s.players.p3!.system).toBe('ls')
+    expect(letter(s, 'p3')).toBe(pack.systems.ls!.story!.briefs!.development!.text)
+  })
+})

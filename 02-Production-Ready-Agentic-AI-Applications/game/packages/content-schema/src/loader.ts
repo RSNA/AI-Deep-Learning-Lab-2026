@@ -321,6 +321,8 @@ function checkReferences(
       const caseIds = new Set((sp.build?.cases ?? []).map((x) => x.id))
       const actionIds = new Set((sp.build?.actions ?? []).map((x) => x.id))
       for (const [phase, b] of Object.entries((st.briefs ?? {}) as Record<string, { from: string } | undefined>)) if (b && !charOk(b.from, sid)) err(f('story'), `briefs.${phase}.from`, `unknown character "${b.from}"`)
+      const op = st.briefs?.development?.opening
+      if (op) for (const k of ['hit', 'missed'] as const) words(op[k], 'phase_brief_opening', f('story'), `briefs.development.opening.${k}`)
       st.banter?.forEach((b, i) => {
         unique(b.id, f('story'), `banter[${i}].id`)
         b.lines.forEach((l, j) => {

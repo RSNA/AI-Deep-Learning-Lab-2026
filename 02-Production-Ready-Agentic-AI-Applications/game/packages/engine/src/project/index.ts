@@ -227,7 +227,7 @@ export function mapView(m: PackCanvasMap): CanvasMap {
 /** The grid and the public names of what can stand on it, to draw a map read-only. */
 export function canvasLegend(b: BuildFile): CanvasLegend {
   return {
-    cols: b.grid.cols, rows: b.grid.rows,
+    cols: b.grid.cols, rows: b.grid.rows, columns: columnsView(b),
     sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, icon: x.public.icon, privateData: x.private_data })),
     result: { id: b.result.id, label: b.result.public.label },
     workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon })),
@@ -235,6 +235,10 @@ export function canvasLegend(b: BuildFile): CanvasLegend {
     compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, protectsPrivateData: x.protects_private_data })),
     prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label })),
   }
+}
+
+function columnsView(b: BuildFile): { label: string; hint: string }[] | null {
+  return b.grid.columns ? b.grid.columns.map((c) => ({ label: c.label, hint: c.hint })) : null
 }
 
 export function developmentContent(s: SessionState, pack: Pack, playerId: PlayerId): DevelopmentContent {
@@ -250,23 +254,31 @@ export function developmentContent(s: SessionState, pack: Pack, playerId: Player
     problem: { id: b.problem, title: problem?.public.title ?? '', description: problem?.public.description ?? '' },
     rules: {
       cols: b.grid.cols, rows: b.grid.rows, money: b.budget.money, developers: b.budget.developers,
+      columns: columnsView(b),
       validations: b.validate.runs, validateSeconds: b.validate.seconds, showRunning: rules.show_running ?? true,
       moneyUnit: rules.money_unit ?? null,
       pools: b.pools.map((x) => ({ id: x.id, label: x.public.label, max: x.max })),
       actionGroups: (rules.action_groups ?? []).map((g) => ({ id: g.id, label: g.label })),
+      toolboxGroups: b.toolbox_groups.map((g) => ({ id: g.id, label: g.label })),
     },
     sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, icon: x.public.icon, privateData: x.private_data })),
     result: { id: b.result.id, label: b.result.public.label, description: b.result.public.description },
     workers: b.workers.map((x) => ({
       id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, description: x.public.description, icon: x.public.icon,
+      task: x.public.task ?? null, group: x.group ?? null,
       costLine: x.public.cost_line ?? null, needsModel: x.needs_model,
       models: Object.keys(x.by_model ?? {}),
       pool: x.pool ?? null,
-      minutes: x.minutes ? { decide: x.minutes.decide, check: x.minutes.check, perLine: Object.fromEntries(Object.entries(x.minutes.per_line).map(([k, v]) => [k, v])) } : null,
+      // `per_line` stays here: its keys are the efforts, which say which source asks for what.
+      minutes: x.minutes ? { decide: x.minutes.decide, check: x.minutes.check } : null,
     })),
     models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, runsOn: [...x.runs_on] })),
     compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, protectsPrivateData: x.protects_private_data })),
-    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, sample: x.public.sample })),
+    prompts: b.prompts.map((x) => ({
+      id: x.id, label: x.public.label, description: x.public.description,
+      sample: x.public.samples ? null : x.public.sample ?? null,
+      samples: (x.public.samples ?? []).map((y) => ({ label: y.label, text: y.text })),
+    })),
     actions: b.actions.map((x) => ({
       id: x.id, group: x.group, title: x.public.title, teaser: x.public.teaser,
       money: x.money, developers: x.developers, seconds: x.seconds,

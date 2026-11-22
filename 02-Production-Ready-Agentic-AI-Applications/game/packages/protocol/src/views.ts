@@ -108,8 +108,13 @@ export const CanvasMap = S({ tiles: z.array(CanvasTile).max(64), lines: z.array(
 export type CanvasMap = z.infer<typeof CanvasMap>
 
 /** What it takes to draw a map read-only: the grid and the public names of everything on it. */
+/** The name of the stage a column stands for, and one sentence on it. Names only. */
+export const CanvasColumn = S({ label: Text, hint: Text })
+export type CanvasColumn = z.infer<typeof CanvasColumn>
+
 export const CanvasLegend = S({
   cols: Int, rows: Int,
+  columns: z.array(CanvasColumn).nullable(),    // one per column, or null: the columns keep their numbers
   sources: z.array(S({ id: z.string(), label: Text, icon: z.string(), privateData: z.boolean() })),
   result: S({ id: z.string(), label: Text }),
   workers: z.array(S({ id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, icon: z.string() })),
@@ -130,23 +135,30 @@ export const DevelopmentContent = S({
   problem: S({ id: z.string(), title: Text, description: Text }),
   rules: S({
     cols: Int, rows: Int, money: z.number(), developers: Int,
+    columns: z.array(CanvasColumn).nullable(),
     validations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
     moneyUnit: Text.nullable(),         // written after a sum of money, such as k$
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actionGroups: z.array(S({ id: z.string(), label: Text })),
+    toolboxGroups: z.array(S({ id: z.string(), label: Text })),   // empty: the toolbox is one list
   }),
   sources: z.array(S({ id: z.string(), label: Text, description: Text, icon: z.string(), privateData: z.boolean() })),
   result: S({ id: z.string(), label: Text, description: Text }),
   workers: z.array(S({
     id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, description: Text, icon: z.string(),
+    task: Text.nullable(),                // a few words on the job it does
+    group: z.string().nullable(),         // a toolbox group
     costLine: Text.nullable(), needsModel: z.boolean(),
     models: z.array(z.string()),          // the models this kind of worker may carry
     pool: z.string().nullable(),
-    minutes: S({ decide: z.number(), check: z.number(), perLine: z.record(z.string(), z.number()) }).nullable(),
+    // The minutes a case of deciding alone and of checking. What a line from a source adds depends
+    // on the effort of the source, which stays on the server: the view carries the totals.
+    minutes: S({ decide: z.number(), check: z.number() }).nullable(),
   })),
   models: z.array(S({ ...Part, runsOn: z.array(z.string()) })),
   compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),
-  prompts: z.array(S({ id: z.string(), label: Text, description: Text, sample: Text })),   // the first is the default
+  // The first is the default. A card shows `samples`, each under its label, or else `sample`.
+  prompts: z.array(S({ id: z.string(), label: Text, description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
   actions: z.array(S({
     id: z.string(), group: z.string(), title: Text, teaser: Text,
     money: z.number(), developers: Int, seconds: z.number(),

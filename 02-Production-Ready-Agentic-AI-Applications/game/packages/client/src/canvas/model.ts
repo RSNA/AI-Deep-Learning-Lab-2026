@@ -17,6 +17,27 @@ export const isSource = (v: CanvasLegend, id: string) => v.sources.some((s) => s
 export const tileOf = (m: CanvasMap, id: string) => m.tiles.find((t) => t.id === id)
 export const tileAt = (m: CanvasMap, col: number, row: number) => m.tiles.find((t) => t.col === col && t.row === row)
 
+/**
+ * The name of every tile: its worker's short name and label, with a number when the map holds
+ * two or more tiles of that kind ("Agent 2"). Numbers follow the order in which the tiles were
+ * placed, so a tile keeps its number when it moves.
+ */
+export function tileNames(m: CanvasMap, v: Pick<CanvasLegend, 'workers'>): Map<string, { short: string; label: string }> {
+  const order = [...m.tiles].sort((a, b) => parseInt(a.id.slice(1), 36) - parseInt(b.id.slice(1), 36) || a.id.localeCompare(b.id))
+  const count = new Map<string, number>()
+  for (const t of order) count.set(t.kind, (count.get(t.kind) ?? 0) + 1)
+  const seen = new Map<string, number>()
+  const out = new Map<string, { short: string; label: string }>()
+  for (const t of order) {
+    const w = v.workers.find((x) => x.id === t.kind)
+    const n = (seen.get(t.kind) ?? 0) + 1
+    seen.set(t.kind, n)
+    const suffix = (count.get(t.kind) ?? 0) > 1 ? ` ${n}` : ''
+    out.set(t.id, { short: `${w?.short ?? t.kind}${suffix}`, label: `${w?.label ?? t.kind}${suffix}` })
+  }
+  return out
+}
+
 /** The smallest free tile id: t1, t2, ... */
 export function newTileId(m: CanvasMap): string {
   for (let i = 1; ; i++) {

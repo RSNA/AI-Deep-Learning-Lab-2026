@@ -31,6 +31,20 @@ export function idleMs(pack: Pack): number {
   return (pack.game.clock.idle_seconds ?? 45) * 1000
 }
 
+/**
+ * The first paragraph of the Phase 2 letter: `hit` for a player whose Phase 1 board had the
+ * flagship problem in the flagship class, `missed` for one whose board had not, and none for a
+ * player without a Phase 1 result. Both are public, and Phase 1 is over when the letter comes.
+ */
+export function developmentOpening(pack: Pack, p: PlayerState): string | null {
+  const sp = pack.systems[p.system]
+  const op = sp?.story?.briefs?.development?.opening
+  const result = p.planning?.result
+  if (!sp || !op || !result) return null
+  const picked = result.graded.find((g) => g.problem === sp.system.key.flagship_problem)?.picked ?? null
+  return picked !== null && picked === pack.game.phases.planning.flagship_class ? op.hit : op.missed
+}
+
 /** A phase opens for a player: the brief goes to the inbox, and the start lines fire. */
 export function openStory(pack: Pack, p: PlayerState, phase: PhaseId, at: GameMs): EngineEvent[] {
   // A reset of the stage opens the phase again: its story starts over.
@@ -38,7 +52,10 @@ export function openStory(pack: Pack, p: PlayerState, phase: PhaseId, at: GameMs
   p.said = p.said.filter((id) => !own.has(id))
   p.inbox = p.inbox.filter((m) => !m.id.startsWith(`${phase}:`))
   const brief = pack.systems[p.system]?.story?.briefs?.[phase]
-  if (brief) p.inbox.push({ id: `${phase}:brief`, kind: 'brief', from: brief.from, title: brief.title, text: brief.text, atMs: at })
+  if (brief) {
+    const opening = phase === 'development' ? developmentOpening(pack, p) : null
+    p.inbox.push({ id: `${phase}:brief`, kind: 'brief', from: brief.from, title: brief.title, text: opening ? `${opening}\n\n${brief.text}` : brief.text, atMs: at })
+  }
   return fireDialogue(pack, p, phase, 'start', at)
 }
 
