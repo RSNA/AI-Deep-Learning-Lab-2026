@@ -34,6 +34,7 @@ function Header({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
   const phase = phaseOfStage(v.stage)
   const timed = clock?.clock.stageEndsAtMs !== null && clock !== null
   const joinShort = v.session.joinUrl.replace(/^https?:\/\//, '')
+  const slide = v.scene === 'slides' ? v.slide : null
   return (
     <div style={{ height: 132, flexShrink: 0, padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', background: 'var(--bar)', color: '#fff' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -46,9 +47,11 @@ function Header({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--bar-muted)' }}>Join at</div>
           <div className="face" style={{ fontSize: 32, lineHeight: 1 }}>{joinShort}</div>
         </div>
-        <div style={{ padding: '6px 18px', background: '#fff', color: '#1d2140', border: '4px solid #1d2140', textAlign: 'center' }}>
-          <div className="face" style={{ fontSize: 48, lineHeight: 1 }}>{v.counts.total}</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{v.counts.total === 1 ? 'player' : 'players'}</div>
+        {/* While slides are up the box holds the slide number, so that anyone can ask about "slide 7". */}
+        <div className="headbox" style={{ padding: '6px 18px', minWidth: 104, background: '#fff', color: '#1d2140', border: '4px solid #1d2140', textAlign: 'center' }}>
+          {slide && <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: 1, lineHeight: 1.1 }}>SLIDE</div>}
+          <div className="face" style={{ fontSize: slide ? 44 : 48, lineHeight: 1 }}>{slide ? slide.index + 1 : v.counts.total}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.1 }}>{slide ? `of ${slide.count}` : v.counts.total === 1 ? 'player' : 'players'}</div>
         </div>
       </div>
     </div>
@@ -376,7 +379,7 @@ function Winners({ v }: { v: ScreenView }) {
 export function Slide({ v }: { v: ScreenView }) {
   const sl = v.slide
   if (!sl) return <TitleCard v={v} text="No slide to show." />
-  return <SlideBody sl={sl} joinUrl={v.session.joinUrl} meta={<span>{sl.section} · {`${sl.index + 1} of ${sl.count}`}</span>} style={{ '--u': '1px' } as CSSProperties} />
+  return <SlideBody sl={sl} joinUrl={v.session.joinUrl} meta={<span>{sl.section}</span>} style={{ '--u': '1px' } as CSSProperties} />
 }
 
 function Spotlight({ v }: { v: ScreenView }) {

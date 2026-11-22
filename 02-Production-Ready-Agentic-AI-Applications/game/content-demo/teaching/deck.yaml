@@ -1,7 +1,8 @@
 # The demo deck: one deck for the session, in sections. A section opens at its stage when the
 # big screen follows the game. Notes reach only the host console. A slide has a layout
 # (section 5.5 of the spec): plain bullets, a title slide with the people and the join code,
-# boxes side by side, pictures side by side, or a closing slide with a QR code and references.
+# boxes side by side (a box may carry a few points under its text), pictures in rows, or a
+# closing slide with a QR code and references. A slide may show one or two room statistics.
 sections:
   - id: welcome
     title: Welcome
@@ -20,7 +21,7 @@ sections:
         layout: cards
         title: Three phases, one season each
         cards:
-          - {tag: "1", title: Planning, text: Find out what the branch needs.}
+          - {tag: "1", title: Planning, text: Find out what the branch needs., points: [Ask the staff, Count the requests]}
           - {tag: "2", title: Development, text: Build it and try it on a week of requests.}
           - {tag: "3", title: Maintaining, text: Keep it working as the seasons change.}
         bullets:
@@ -43,7 +44,7 @@ sections:
         bullets:
           - A loud complaint is one data point.
           - A tally of a month is many.
-        live_stat: sorting_by_class
+        live_stat: [sorting_by_class, flagship_by_system]
   - id: after-development
     title: After Phase 2
     stage: break.development

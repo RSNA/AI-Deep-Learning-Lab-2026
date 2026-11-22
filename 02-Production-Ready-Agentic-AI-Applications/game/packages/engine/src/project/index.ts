@@ -281,35 +281,56 @@ function planningDone(s: SessionState): PlayerState[] {
  */
 function liveStat(s: SessionState, name: string): SlideView['stat'] {
   if (name !== 'flagship_hit_rate') return null
+  const label = 'of the room found the agent project'
   const done = planningDone(s)
-  if (!done.length) return null
+  if (!done.length) return { label, value: '–' }
   const hits = done.filter((p) => (p.planning!.result!.flagship ?? 0) > 0).length
-  return { label: 'of the room found the agent project', value: `${Math.round((100 * hits) / done.length)}%` }
+  return { label, value: `${Math.round((100 * hits) / done.length)}%` }
 }
 
 const CLASS_TONES = ['lav', 'sky', 'sun', 'go'] as const
+const SYSTEM_TONES = ['sky', 'sun', 'rose', 'go'] as const
+type Chart = SlideView['charts'][number]
 
-/** Per class, in the order of the ladder from the top: the share of its problems the room placed right. */
-function liveChart(s: SessionState, pack: Pack, name: string): SlideView['chart'] {
-  if (name !== 'sorting_by_class') return null
+/**
+ * A room statistic that is a set of bars. `sorting_by_class`: per class, from the top of the
+ * ladder down, the share of its problems the room placed right. `flagship_by_system`: per
+ * health system, the share of its practices that found the agent project. Before Phase 1 is
+ * scored the bars have no value, so a host who looks through the deck sees that a chart
+ * belongs on the slide.
+ */
+function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
   const done = planningDone(s)
-  if (!done.length) return null
   const rules = pack.game.phases.planning
-  const bars = rules.class_order.map((cid, i) => {
-    const c = rules.classes.find((x) => x.id === cid)!
-    let right = 0
-    let all = 0
-    for (const p of done) {
-      const keys = pack.systems[p.system]!.problems ?? []
-      for (const g of p.planning!.result!.graded) {
-        if (keys.find((k) => k.id === g.problem)?.key.class !== cid) continue
-        all++
-        if (g.picked === cid) right++
+  if (name === 'sorting_by_class') {
+    const bars = rules.class_order.map((cid, i) => {
+      const c = rules.classes.find((x) => x.id === cid)!
+      let right = 0
+      let all = 0
+      for (const p of done) {
+        const keys = pack.systems[p.system]!.problems ?? []
+        for (const g of p.planning!.result!.graded) {
+          if (keys.find((k) => k.id === g.problem)?.key.class !== cid) continue
+          all++
+          if (g.picked === cid) right++
+        }
       }
-    }
-    return { label: c.short, value: all ? Math.round((100 * right) / all) : 0, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]! }
-  }).reverse()
-  return { title: 'Placed in the right class, by the room', bars }
+      return { label: c.short, value: all ? Math.round((100 * right) / all) : null, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]! }
+    }).reverse()
+    return { title: 'Placed in the right class, by the room', bars }
+  }
+  if (name === 'flagship_by_system') {
+    const bars = s.systems.map((id, i) => {
+      const ps = done.filter((p) => p.system === id)
+      const hits = ps.filter((p) => (p.planning!.result!.flagship ?? 0) > 0).length
+      return {
+        label: pack.systems[id]!.system.public.name, value: ps.length ? Math.round((100 * hits) / ps.length) : null,
+        note: ps.length ? `${hits} of ${ps.length}` : null, tone: SYSTEM_TONES[i % SYSTEM_TONES.length]!,
+      }
+    })
+    return { title: 'Found the agent project, by health system', bars }
+  }
+  return null
 }
 
 const SLIDE_TONES = ['sky', 'sun', 'go', 'lav', 'rose'] as const
@@ -320,6 +341,7 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
   if (!x) return null
   const sl = x.slide
   const art = packArt(pack).base
+  const stats = sl.live_stat === undefined ? [] : Array.isArray(sl.live_stat) ? sl.live_stat : [sl.live_stat]
   return {
     id: sl.id, index: x.index, count: all.length,
     section: x.section.title,
@@ -327,14 +349,14 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
     title: sl.title,
     subtitle: sl.subtitle ?? null,
     bullets: [...sl.bullets],
-    cards: (sl.cards ?? []).map((c, i) => ({ title: c.title, text: c.text ?? null, tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
+    cards: (sl.cards ?? []).map((c, i) => ({ title: c.title, text: c.text ?? null, points: [...(c.points ?? [])], tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
     people: (sl.people ?? []).map((p) => ({ name: p.name, role: p.role ?? null, photo: p.photo ? `${art}${p.photo}` : null })),
     figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
     qr: sl.qr ? { show: sl.qr.show, url: sl.qr.show === 'link' ? sl.qr.url ?? null : null, label: sl.qr.label ?? null } : null,
     references: [...(sl.references ?? [])],
     image: sl.image ? `${art}${sl.image}` : null,
-    stat: sl.live_stat ? liveStat(s, sl.live_stat) : null,
-    chart: sl.live_stat ? liveChart(s, pack, sl.live_stat) : null,
+    stat: stats.map((n) => liveStat(s, n)).find((x) => x !== null) ?? null,
+    charts: stats.map((n) => liveChart(s, pack, n)).filter((x): x is Chart => x !== null),
   }
 }
 

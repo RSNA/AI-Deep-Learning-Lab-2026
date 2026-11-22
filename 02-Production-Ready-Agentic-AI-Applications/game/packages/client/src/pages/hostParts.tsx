@@ -35,6 +35,11 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
         {p.classify !== null && p.flagship !== null && <span className="inspect-tally muted">{H.scoreLine(p.classify, p.flagship)}</span>}
       </div>
       <div className="hint">{H.runningNow(p.running)}</div>
+      <div className="inspect-legend" aria-label={H.legend}>
+        {(['right', 'near', 'wrong', 'unsorted'] as const).map((m) => (
+          <span key={m} className={`rpick mark-${m}`}><span className="rmark" aria-hidden="true">{MARK_ICON[m]}</span>{H.markLine[m]}</span>
+        ))}
+      </div>
       <div className="inspect-grid">
         {classes.map(({ c, tone }) => {
           const here = p.problems.filter((x) => x.truth === c.id)
@@ -54,7 +59,7 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
                         <span className="rmark" aria-label={H.mark[x.mark]}>{MARK_ICON[x.mark]}</span>
                         <span>{H.theirPick}</span>
                         {x.picked ? <span className={`pchip tone-${toneOf(x.picked) % 4}`}>{short(x.picked)}</span> : <span className="muted">{H.notSorted}</span>}
-                        {x.mark === 'near' && <span className="muted">· {H.mark.near.toLowerCase()}</span>}
+                        {x.picked && <span className="muted">· {H.mark[x.mark].toLowerCase()}</span>}
                       </div>
                       <button type="button" className="whybtn" aria-expanded={isOpen} onClick={() => toggle(x.id)}>{isOpen ? `${H.hideWhy} ▴` : `${H.why} ▾`}</button>
                     </div>

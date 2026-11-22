@@ -36,29 +36,35 @@ function QrBox({ sl, joinUrl }: { sl: SlideView; joinUrl: string }) {
   )
 }
 
+/** The bullets of a plain slide. Under boxes, people or pictures they stand as a strip: what to take from the slide. */
 function Bullets({ items, small = false }: { items: string[]; small?: boolean }) {
   if (!items.length) return null
-  return <ul className={`sl-bullets${small ? ' small' : ''}`}>{items.map((b, i) => <li key={i}>{b}</li>)}</ul>
+  return <ul className={small ? 'sl-take' : 'sl-bullets'}>{items.map((b, i) => <li key={i}>{b}</li>)}</ul>
+}
+
+/** A room statistic as bars. Before its phase is scored the bars are empty and one line says so. */
+function Chart({ ch }: { ch: SlideView['charts'][number] }) {
+  return (
+    <div className="sl-chart">
+      <div className="ct">{ch.title}{ch.bars.every((b) => b.value === null) && <span className="cn">Fills in when the phase is scored</span>}</div>
+      {ch.bars.map((b) => (
+        <div key={b.label} className={`sl-bar st-${b.tone}`}>
+          <span className="bl">{b.label}</span>
+          <span className="track"><i style={{ width: `${b.value === null ? 0 : Math.max(0, Math.min(100, b.value))}%` }} /></span>
+          <span className="v num">{b.value === null ? '–' : `${Math.round(b.value)}%`}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function Side({ sl }: { sl: SlideView }) {
-  if (!sl.image && !sl.stat && !sl.chart) return null
+  if (!sl.image && !sl.stat && !sl.charts.length) return null
   return (
     <div className="sl-side">
       {sl.image && <img className="sl-img" src={sl.image} alt="" />}
       {sl.stat && <div className="sl-stat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
-      {sl.chart && (
-        <div className="sl-chart">
-          <div className="ct">{sl.chart.title}</div>
-          {sl.chart.bars.map((b) => (
-            <div key={b.label} className={`sl-bar st-${b.tone}`}>
-              <span className="bl">{b.label}</span>
-              <span className="track"><i style={{ width: `${Math.max(0, Math.min(100, b.value))}%` }} /></span>
-              <span className="v num">{Math.round(b.value)}%</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {sl.charts.map((ch) => <Chart key={ch.title} ch={ch} />)}
     </div>
   )
 }
@@ -66,11 +72,16 @@ function Side({ sl }: { sl: SlideView }) {
 function Cards({ sl }: { sl: SlideView }) {
   if (!sl.cards.length) return null
   return (
-    <div className="sl-cards" style={{ '--n': sl.cards.length } as CSSProperties}>
+    <div className={`sl-cards n${sl.cards.length}`} style={{ '--n': sl.cards.length } as CSSProperties}>
       {sl.cards.map((c, i) => (
         <div key={i} className={`sl-card st-${c.tone}`}>
           <div className="sl-card-head">{c.tag && <span className="sl-tag">{c.tag}</span>}<span>{c.title}</span></div>
-          {c.text && <div className="sl-card-text">{c.text}</div>}
+          {(c.text || c.points.length > 0) && (
+            <div className="sl-card-text">
+              {c.text && <p>{c.text}</p>}
+              {c.points.length > 0 && <ul>{c.points.map((x, k) => <li key={k}>{x}</li>)}</ul>}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -119,7 +130,7 @@ export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }
   sl: SlideView; joinUrl: string; narrow?: boolean; meta?: ReactNode; children?: ReactNode; style?: CSSProperties
 }) {
   const side = <Side sl={sl} />
-  const hasSide = !!(sl.image || sl.stat || sl.chart)
+  const hasSide = !!(sl.image || sl.stat || sl.charts.length)
   let main: ReactNode
   switch (sl.layout) {
     case 'title':
@@ -175,6 +186,18 @@ export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }
       )
       break
     default:
+      // Two charts stand side by side under the bullets, each with room for its bars.
+      if (sl.charts.length > 1) {
+        main = (
+          <div className="sl-main">
+            <div className="sl-col">
+              <Bullets items={sl.bullets} />
+              <div className="sl-charts">{sl.charts.map((ch) => <Chart key={ch.title} ch={ch} />)}</div>
+            </div>
+          </div>
+        )
+        break
+      }
       main = (
         <div className={`sl-main${hasSide || sl.qr ? ' two' : ''}`}>
           <div className="sl-col">

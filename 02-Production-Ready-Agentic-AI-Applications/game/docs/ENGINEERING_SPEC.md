@@ -640,13 +640,14 @@ type Slide = { id: string; title: Text
                layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'   // 'bullets' when absent (10.9)
                subtitle?: Text
                bullets?: Text[]         // none is allowed on a slide that has other parts
-               cards?: { title: Text; text?: Text; tag?: Text; tone?: Tone }[]      // up to 4 boxes side by side
+               cards?: { title: Text; text?: Text; points?: Text[]   // up to 4 boxes side by side, each with up
+                         tag?: Text; tone?: Tone }[]                  // to 4 short points under its text
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
                figures?: { image?: string; title: Text; caption?: Text; tone?: Tone }[]   // up to 3, one row each
                qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
                references?: Text[]      // lines to read later
                image?: string           // every picture is a path under art/, ending in .png or .webp
-               live_stat?: RoomStatId   // drawn with the room's numbers (6.10)
+               live_stat?: RoomStatId | RoomStatId[]   // one room statistic, or two (6.10)
                notes?: Text             // for the host console only
                placeholder?: boolean }  // a slide whose text is still to be written
 type Tone = 'go' | 'sky' | 'sun' | 'lav' | 'rose'   // a color of the design system. Boxes take them in turn when none is named
@@ -673,7 +674,7 @@ session can still be opened with them.
 The loader checks of this round, beside the ones above. Every banter speaker exists and belongs
 to the health system of the file or to `all`. Banter ids, section ids and slide ids are unique in
 the pack. A section's `stage` is one of the five stage ids, and no two sections share one. A section
-has one slide or more. Every picture of a slide (`image`, a `photo`, the `image` of a figure) is a file under `art/`, and a `live_stat` names a statistic that exists. A slide with the layout `cards` has cards and one with `figures` has figures. A `qr` that shows `join` carries no `url`: the link is the session's. The word limits are `slide_title` (titles, also of a box), `slide_bullet` (bullets and the subtitle) and `slide_card` (the text of a box and a caption). `letter_empty_below`
+has one slide or more. Every picture of a slide (`image`, a `photo`, the `image` of a figure) is a file under `art/`, and a `live_stat` names a statistic that exists. A slide with the layout `cards` has cards and one with `figures` has figures. A `qr` that shows `join` carries no `url`: the link is the session's. The word limits are `slide_title` (titles, also of a box), `slide_bullet` (bullets, the subtitle and the points of a box) and `slide_card` (the text of a box and a caption). `letter_empty_below`
 lies between 0 and `candidates`. Word limits give warnings, like everywhere.
 
 ### 5.6 The content hash
@@ -1142,12 +1143,15 @@ and per health system: `flagship_hit_rate`, `most_reported_decoy` (the problem t
 put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
-`live_stat`. Each is a small typed object that the big screen knows how to draw. Two are drawn
-so far. `flagship_hit_rate` is one number, the share of the room that found the agent project.
-`sorting_by_class` is a set of bars, one per class from the agentic class down to the class of
-problems that are not real: the share of the problems of that class that the room put in it,
-both health systems counted together. The others show nothing. Step 11 fixes their exact
-shapes.
+`live_stat`, or two in a list. Each is a small typed object that the big screen knows how to
+draw. Three are drawn so far. `flagship_hit_rate` is one number, the share of the room that
+found the agent project. `sorting_by_class` is a set of bars, one per class from the agentic
+class down to the class of problems that are not real: the share of the problems of that
+class that the room put in it, both health systems counted together. `flagship_by_system` is
+one bar per health system: the share of its practices that found the agent project. Before
+the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
+in when the phase is scored", so a host who goes through the deck sees that a chart belongs
+on the slide. The others show nothing. Step 11 fixes their exact shapes.
 
 ### 6.11 Story hooks
 
@@ -1710,7 +1714,7 @@ type SlideView = {
   section: Text                                 // the title of its section
   layout: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'
   title: Text; subtitle: Text | null; bullets: Text[]
-  cards: { title: Text; text: Text | null; tag: Text | null; tone: Tone }[]
+  cards: { title: Text; text: Text | null; points: Text[]; tag: Text | null; tone: Tone }[]
   people: { name: Text; role: Text | null; photo: string | null }[]        // photo: a URL under the pack's art
   figures: { image: string | null; title: Text; caption: Text | null; tone: Tone }[]
   qr: { show: 'join' | 'link'; url: string | null; label: Text | null } | null
@@ -1718,9 +1722,10 @@ type SlideView = {
                                                 // 'link': its own URL, or null for a frame that waits for one
   references: Text[]
   image: string | null                          // a URL under the pack's art
-  stat: { label: Text; value: Text } | null     // a live statistic that is one number, already computed
-  chart: { title: Text                          // a live statistic that is a set of bars, in percent
-           bars: { label: Text; value: number; note: Text | null; tone: Tone }[] } | null
+  stat: { label: Text; value: Text } | null     // a live statistic that is one number, "–" until the room has it
+  charts: { title: Text                         // live statistics that are bars, in percent. A bar has
+            bars: { label: Text; value: number | null   // no value until its phase is scored
+                    note: Text | null; tone: Tone }[] }[]
 }
 
 type PlanningView = {
@@ -2757,8 +2762,11 @@ name, the health system, online or offline, and the total. For Phase 1 it shows 
 (still sorting, sent, scored), the insights in hand, what runs now, a tally ("3 right · 1 one
 class off · 1 wrong · 2 not sorted"), and every problem under its **true** class, the classes
 from the agentic one down as on the player's screen. Each problem carries the player's pick as
-a chip with a mark (right, one class off, wrong, not sorted yet), the points once the phase is
-scored, and a "Why" that opens the rationale of the key and the ladder rung. Problems the
+a chip with a mark and its word (✓ right, ≈ one class off, ✗ wrong class, – not sorted yet),
+the points once the phase is scored, and a "Why" that opens the rationale of the key and the
+ladder rung. A legend above the problems says what the four marks mean and what each earns:
+the right class earns the full points, one class off among the real classes earns part of
+them, a wrong class earns none. Problems the
 player has not sorted are there too, so a host can say where one belongs without knowing the
 key by heart. The page follows the player live, works during the phase and in every stage
 after it, and says at the top that only hosts see it. Its actions are "Spotlight on the big
@@ -2802,7 +2810,9 @@ in its window changes anything.
 | Spotlight | One player's screen, read-only |
 
 **A slide** fills the area between the header and the street, 1920 × 820 px of the design. A
-corner holds the title of the section and "2 of 6". The projector never shows the notes and
+corner holds the title of the section. **The slide number is in the header of the projector**,
+in the box that holds the count of players in every other scene ("SLIDE 7 of 19"), so that
+anyone in the room can ask about a slide by its number. The projector never shows the notes and
 never marks a placeholder. One component draws a slide everywhere (the projector, a player's
 screen, the previews of the console), and every size in it is a share of the projector's 1920
 px, so a slide keeps its proportions at any size. A slide has one of five layouts:
@@ -2811,13 +2821,19 @@ px, so a slide keeps its proportions at any size. A slide has one of five layout
 | --- | --- |
 | `bullets` (the default) | The title, an optional subtitle, the bullets in large body type. Beside them, when the slide has one: a picture, a live number, or a live chart of bars |
 | `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the join link with its label |
-| `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title) and a text. Short bullets under them. With a live number or chart beside them the boxes go one under the other |
+| `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
 | `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here" |
 
+**A slide uses its whole height** (lab director, round 11). Boxes grow down to the strip at
+the foot of the slide, the bullets of a plain slide stand in the middle of the area, and two
+charts stand side by side under the bullets and fill what is left. No layout leaves an empty
+band above the street.
+
 A box takes its color from the design system (`go`, `sky`, `sun`, `lav`, `rose`), named in the
 pack or taken in turn. Every layout is built in both themes and must fit its area at the word
-limits of the pack: the walk of the deck checks that no slide runs out of it.
+limits of the pack: the walk of the deck checks that no slide runs out of it and that no text
+runs out of its box.
 
 **A slide on a player's screen.** While the host mirrors the slides (section 6.13) the
 player's screen shows the same slide in place of the game, with the line "The host is

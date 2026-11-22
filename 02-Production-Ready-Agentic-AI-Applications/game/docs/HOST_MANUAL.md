@@ -96,8 +96,16 @@ Each row shows a player's character, practice, health system, whether they are o
 they are doing and their points. The chips above the list filter by health system.
 
 **Click a player's name to look at them beside the key.** You see how far they are, what runs
-now, and every problem under its true class, with the player's pick marked right, one class
-off, wrong or not sorted yet. **Why** opens the reason for each. The page updates as the player
+now, and every problem under its true class, with the player's pick and a mark. **Why** opens
+the reason for each.
+
+| Mark | Means |
+| --- | --- |
+| ✓ green | The right class. Full points |
+| ≈ orange | One class off among the real classes, such as "One model" where "No AI" is true. Part of the points |
+| ✗ red | A wrong class, such as a real problem under "Not a problem". No points |
+| – grey | Not sorted yet |
+ The page updates as the player
 works, and it stays available after the phase. Use it to answer a question or to give a hint.
 Only hosts see it, so keep it off the projector.
 
@@ -145,6 +153,9 @@ closing. You need no slide program.
 - **Go to section** jumps to the first slide of a section.
 - Under the controls you see **the slide on the projector now and the next slide**, drawn as
   they look, and your **notes** for the current one. Only hosts see notes.
+- While slides are up, the box at the top right of the projector shows **the slide number** in
+  place of the count of players, so that people can ask about "slide 7".
+- A slide with a chart of the room shows the chart empty until that phase has been scored.
 - A slide flagged "Placeholder" is a stand-in whose text is still to be written.
 - The deck remembers where you stopped. Following the game into a break moves it to that
   break's section.

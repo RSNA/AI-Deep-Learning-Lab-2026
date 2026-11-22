@@ -20,21 +20,34 @@
 .sl-head { display: flex; flex-direction: column; gap: calc(10 * var(--u)); padding-right: calc(300 * var(--u)); }
 .sl-title { font-family: var(--face); font-weight: 400; font-size: calc(92 * var(--u)); line-height: 1; margin: 0; }
 .sl-sub { font-size: calc(34 * var(--u)); font-weight: 700; color: var(--muted); line-height: 1.25; }
-.sl-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(56 * var(--u)); align-items: start; }
+/* A slide uses its whole height (lab director, round 11): boxes grow to fill it, a plain
+   slide stands in the middle, and nothing leaves an empty band above the street. */
+.sl-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(56 * var(--u)); align-items: stretch; }
 .sl-main.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
 .sl-main.with-qr { grid-template-columns: minmax(0, 1fr) auto; }
-.sl-col { display: flex; flex-direction: column; gap: calc(26 * var(--u)); min-width: 0; }
+.sl-col { display: flex; flex-direction: column; gap: calc(24 * var(--u)); min-width: 0; min-height: 0; }
+.sl.lay-bullets .sl-col, .sl.lay-closing .sl-col, .sl-side, .sl-qr { justify-content: center; }
+.sl.lay-bullets .sl-main { padding-bottom: calc(40 * var(--u)); }
 
 .sl-bullets {
-  margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 0.5em;
-  font-size: calc(42 * var(--u)); font-weight: 600; line-height: 1.25;
+  margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 0.6em;
+  font-size: calc(46 * var(--u)); font-weight: 600; line-height: 1.25;
 }
-.sl-bullets.small { font-size: calc(34 * var(--u)); gap: 0.35em; }
+/* What to take from a slide with boxes: a strip across its foot. */
+.sl-take {
+  margin: 0; padding: calc(14 * var(--u)) calc(24 * var(--u)); list-style: none; display: flex; flex-direction: column; gap: 0.25em; flex-shrink: 0;
+  background: var(--sun-bg); border: calc(4 * var(--u)) solid var(--line); font-size: calc(33 * var(--u)); font-weight: 800; line-height: 1.25;
+}
 
 /* Boxes side by side */
-.sl-cards { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: calc(28 * var(--u)); align-items: stretch; }
+/* The boxes of a row share the height of their heads and of their bodies: each box takes two
+   rows of the grid, the head and the body. */
+.sl-cards {
+  flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr);
+  column-gap: calc(28 * var(--u)); row-gap: 0; align-items: stretch;
+}
 .sl-card {
-  display: flex; flex-direction: column; min-width: 0; background: var(--panel);
+  display: grid; grid-row: span 2; grid-template-rows: subgrid; min-width: 0; background: var(--panel);
   border: calc(4 * var(--u)) solid var(--line); box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade);
 }
 .sl-card-head {
@@ -46,7 +59,23 @@
   flex-shrink: 0; padding: 0 calc(12 * var(--u)); background: #ffffff; color: #1d2140; border: calc(3 * var(--u)) solid #1d2140;
   font-size: calc(32 * var(--u)); line-height: 1.25; white-space: nowrap;
 }
-.sl-card-text { padding: calc(16 * var(--u)) calc(20 * var(--u)) calc(20 * var(--u)); font-size: calc(32 * var(--u)); font-weight: 600; line-height: 1.32; }
+.sl-card-text {
+  flex: 1 1 auto; display: flex; flex-direction: column; gap: calc(14 * var(--u)); padding: calc(18 * var(--u)) calc(22 * var(--u)) calc(20 * var(--u));
+  font-size: calc(33 * var(--u)); font-weight: 600; line-height: 1.32;
+}
+.sl-card-text p { margin: 0; }
+.sl-card-text ul {
+  margin: auto 0 0; padding: calc(12 * var(--u)) 0 0 1.05em; border-top: calc(3 * var(--u)) solid var(--soft);
+  display: flex; flex-direction: column; gap: 0.3em; font-size: 0.86em; font-weight: 700; color: var(--muted);
+}
+/* Four boxes are narrow: the tag stands over the title, and the type is a step smaller. */
+.sl-cards.n4 .sl-card-head { flex-direction: column; align-items: flex-start; justify-content: center; gap: calc(8 * var(--u)); font-size: calc(36 * var(--u)); padding: calc(12 * var(--u)) calc(18 * var(--u)); }
+.sl-cards.n4 .sl-tag { font-size: calc(25 * var(--u)); }
+.sl-cards.n4 .sl-card-text { font-size: calc(30 * var(--u)); padding: calc(14 * var(--u)) calc(18 * var(--u)) calc(16 * var(--u)); gap: calc(10 * var(--u)); }
+/* Fewer boxes are wider, so their type is larger. */
+.sl-cards.n3 .sl-card-text { font-size: calc(36 * var(--u)); }
+.sl-cards.n2 .sl-card-text, .sl-cards.n1 .sl-card-text { font-size: calc(40 * var(--u)); }
+.sl-cards.n2 .sl-card-head, .sl-cards.n3 .sl-card-head { font-size: calc(44 * var(--u)); }
 /* Beside a number or a chart of the room, the boxes go one under the other. */
 .sl-main.two .sl-cards { grid-template-columns: minmax(0, 1fr); }
 
@@ -108,9 +137,15 @@
 }
 .sl-stat { font-size: calc(30 * var(--u)); font-weight: 800; }
 .sl-stat .num { font-size: calc(120 * var(--u)); line-height: 1; }
-.sl-chart { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
-.sl-chart .ct { font-size: calc(26 * var(--u)); font-weight: 800; color: var(--muted); }
-.sl-bar { display: grid; grid-template-columns: calc(190 * var(--u)) minmax(0, 1fr) calc(110 * var(--u)); gap: calc(14 * var(--u)); align-items: center; font-size: calc(27 * var(--u)); font-weight: 800; }
+.sl-chart { display: flex; flex-direction: column; gap: calc(14 * var(--u)); justify-content: center; }
+.sl-chart .ct { display: flex; justify-content: space-between; align-items: baseline; gap: calc(16 * var(--u)); font-size: calc(26 * var(--u)); font-weight: 800; color: var(--muted); }
+/* Two charts side by side, under the bullets. */
+.sl-charts { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(28 * var(--u)); align-items: stretch; }
+.sl.lay-bullets .sl-col:has(> .sl-charts) { justify-content: flex-start; }
+.sl-col:has(> .sl-charts) > .sl-bullets { font-size: calc(36 * var(--u)); gap: 0.4em; }
+.sl.lay-bullets .sl-main:has(.sl-charts) { padding-bottom: 0; }
+.sl-bar { display: grid; grid-template-columns: calc(210 * var(--u)) minmax(0, 1fr) calc(110 * var(--u)); gap: calc(14 * var(--u)); align-items: center; font-size: calc(25 * var(--u)); font-weight: 800; line-height: 1.15; }
+.sl-chart .cn { font-size: calc(21 * var(--u)); font-weight: 700; white-space: nowrap; }
 .sl-bar .track { display: block; height: calc(46 * var(--u)); background: var(--inset); border: calc(3 * var(--u)) solid var(--line); }
 .sl-bar .track i { display: block; height: 100%; background: var(--tone); }
 .sl-bar .v { font-size: calc(42 * var(--u)); text-align: right; line-height: 1; }
@@ -128,12 +163,20 @@
 .sl.narrow .sl-head { padding-right: 0; }
 .sl.narrow .sl-title { font-size: clamp(30px, 9vw, 52px); }
 .sl.narrow .sl-main, .sl.narrow .sl-main.two, .sl.narrow .sl-main.with-qr { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.sl.narrow .sl-cards { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.sl.narrow .sl-cards { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 12px; }
+.sl.narrow .sl-card { display: flex; flex-direction: column; grid-row: auto; }
+.sl.narrow .sl-charts { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.sl.narrow .sl-chart .ct { flex-direction: column; gap: 2px; font-size: 14px; }
+.sl.narrow .sl-chart .cn { font-size: 12px; }
 .sl.narrow .sl-figs { gap: 12px; }
 .sl.narrow .sl-fig { grid-template-columns: minmax(0, 1fr); }
 .sl.narrow .sl-fig img, .sl.narrow .sl-fig .ph { height: auto; min-height: 64px; border-right: 0; border-bottom: 2px solid var(--line); font-size: 22px; }
 .sl.narrow .sl-bullets { font-size: clamp(17px, 4.6vw, 22px); }
-.sl.narrow .sl-bullets.small, .sl.narrow .sl-card-text { font-size: 16px; }
+.sl.narrow .sl-take, .sl.narrow .sl-card-text, .sl.narrow .sl-cards .sl-card-text { font-size: 16px; }
+.sl.narrow .sl-take { padding: 10px 12px; border-width: 2px; }
+.sl.narrow .sl-card-head, .sl.narrow .sl-cards .sl-card-head { font-size: 20px; flex-direction: row; align-items: center; }
+.sl.narrow .sl-tag, .sl.narrow .sl-cards .sl-tag { font-size: 15px; }
+.sl.narrow .sl-main { padding-bottom: 0; }
 .sl.narrow .sl-refs li, .sl.narrow .sl-fig .ft { font-size: 15px; }
 .sl.narrow .sl-fig .fc, .sl.narrow .sl-person .rl { font-size: 13px; }
 .sl.narrow .sl-person .nm { font-size: 15px; }

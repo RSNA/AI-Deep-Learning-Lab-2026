@@ -113,7 +113,7 @@ export const SlideView = S({
   title: Text,
   subtitle: Text.nullable(),
   bullets: z.array(Text),
-  cards: z.array(S({ title: Text, text: Text.nullable(), tag: Text.nullable(), tone: SlideTone })),
+  cards: z.array(S({ title: Text, text: Text.nullable(), points: z.array(Text), tag: Text.nullable(), tone: SlideTone })),
   people: z.array(S({ name: Text, role: Text.nullable(), photo: z.string().nullable() })),   // photo: URL under the pack's art
   figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), tone: SlideTone })),
   // A QR code. `join` is the join link of the session, which every client already holds.
@@ -121,9 +121,10 @@ export const SlideView = S({
   qr: S({ show: z.enum(['join', 'link']), url: z.string().nullable(), label: Text.nullable() }).nullable(),
   references: z.array(Text),
   image: z.string().nullable(),     // URL under the pack's art
-  stat: S({ label: Text, value: Text }).nullable(),
-  // A room statistic drawn as bars, each a share in percent.
-  chart: S({ title: Text, bars: z.array(S({ label: Text, value: z.number(), note: Text.nullable(), tone: SlideTone })) }).nullable(),
+  stat: S({ label: Text, value: Text }).nullable(),   // a room statistic that is one number. "–" until the room has it
+  // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
+  // behind it is scored: the frame of the chart shows before the numbers do.
+  charts: z.array(S({ title: Text, bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone })) })),
 })
 export type SlideView = z.infer<typeof SlideView>
 
