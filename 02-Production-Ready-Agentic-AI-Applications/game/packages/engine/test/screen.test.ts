@@ -158,6 +158,10 @@ describe('a slide as a browser gets it', () => {
     expect(cards.cards.map((c) => c.tag)).toEqual(['1', '2', '3'])
     expect(cards.cards.map((c) => c.points)).toEqual([['Ask the staff', 'Count the requests'], [], []])
     expect(new Set(cards.cards.map((c) => c.tone)).size).toBe(3)
+    // A box of a health system carries that system's place in the session, which is its color and shape.
+    const nets = project.slideView(s, pack, at('welcome-3'))!
+    expect(nets.cards.map((c) => c.system)).toEqual([s.systems.indexOf('rb'), s.systems.indexOf('ls')])
+    expect(cards.cards.every((c) => c.system === null)).toBe(true)
     // A plain slide of the pack has the default layout and no part it did not ask for.
     expect(project.slideView(s, pack, at('planning-1'))).toMatchObject({ layout: 'bullets', subtitle: null, qr: null, people: [], figures: [], charts: [] })
     const closing = project.slideView(s, pack, at('closing-2'))!
@@ -193,6 +197,8 @@ describe('a slide as a browser gets it', () => {
     expect(chart.bars.every((b) => b.value === 50)).toBe(true)
     // The practice that sorted everything found the big project, the other did not: one system at 100, one at 0.
     expect(bySystem.bars.map((b) => b.label)).toEqual(s.systems.map((id) => pack.systems[id]!.system.public.name))
+    expect(bySystem.bars.map((b) => b.system)).toEqual(s.systems.map((_, i) => i))
+    expect(chart.bars.every((b) => b.system === null)).toBe(true)
     expect(bySystem.bars.find((b) => b.label === pack.systems[s.players.p1!.system]!.system.public.name)).toMatchObject({ value: 100, note: '1 of 1' })
     expect(bySystem.bars.find((b) => b.label === pack.systems[s.players.p2!.system]!.system.public.name)).toMatchObject({ value: 0, note: '0 of 1' })
     expect(project.slideView(s, pack, at('planning-1'))!.stat!.value).toBe('50%')

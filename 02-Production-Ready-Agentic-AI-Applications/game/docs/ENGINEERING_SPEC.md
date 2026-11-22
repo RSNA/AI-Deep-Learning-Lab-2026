@@ -641,7 +641,9 @@ type Slide = { id: string; title: Text
                subtitle?: Text
                bullets?: Text[]         // none is allowed on a slide that has other parts
                cards?: { title: Text; text?: Text; points?: Text[]   // up to 4 boxes side by side, each with up
-                         tag?: Text; tone?: Tone }[]                  // to 4 short points under its text
+                         tag?: Text; tone?: Tone                      // to 4 short points under its text
+                         system?: SystemId }[]                        // a box of one health system: it takes that
+                                                                      // system's color and shape (10.9)
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
                figures?: { image?: string; title: Text; caption?: Text; tone?: Tone }[]   // up to 3, one row each
                qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
@@ -674,7 +676,7 @@ session can still be opened with them.
 The loader checks of this round, beside the ones above. Every banter speaker exists and belongs
 to the health system of the file or to `all`. Banter ids, section ids and slide ids are unique in
 the pack. A section's `stage` is one of the five stage ids, and no two sections share one. A section
-has one slide or more. Every picture of a slide (`image`, a `photo`, the `image` of a figure) is a file under `art/`, and a `live_stat` names a statistic that exists. A slide with the layout `cards` has cards and one with `figures` has figures. A `qr` that shows `join` carries no `url`: the link is the session's. The word limits are `slide_title` (titles, also of a box), `slide_bullet` (bullets, the subtitle and the points of a box) and `slide_card` (the text of a box and a caption). `letter_empty_below`
+has one slide or more. Every picture of a slide (`image`, a `photo`, the `image` of a figure) is a file under `art/`, and a `live_stat` names a statistic that exists. A slide with the layout `cards` has cards and one with `figures` has figures. The `system` of a box is a health system of the pack. A `qr` that shows `join` carries no `url`: the link is the session's. The word limits are `slide_title` (titles, also of a box), `slide_bullet` (bullets, the subtitle and the points of a box) and `slide_card` (the text of a box and a caption). `letter_empty_below`
 lies between 0 and `candidates`. Word limits give warnings, like everywhere.
 
 ### 5.6 The content hash
@@ -1714,7 +1716,8 @@ type SlideView = {
   section: Text                                 // the title of its section
   layout: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'
   title: Text; subtitle: Text | null; bullets: Text[]
-  cards: { title: Text; text: Text | null; points: Text[]; tag: Text | null; tone: Tone }[]
+  cards: { title: Text; text: Text | null; points: Text[]; tag: Text | null; tone: Tone
+           system: number | null }[]            // the index of a health system of the session, or null
   people: { name: Text; role: Text | null; photo: string | null }[]        // photo: a URL under the pack's art
   figures: { image: string | null; title: Text; caption: Text | null; tone: Tone }[]
   qr: { show: 'join' | 'link'; url: string | null; label: Text | null } | null
@@ -1725,7 +1728,8 @@ type SlideView = {
   stat: { label: Text; value: Text } | null     // a live statistic that is one number, "–" until the room has it
   charts: { title: Text                         // live statistics that are bars, in percent. A bar has
             bars: { label: Text; value: number | null   // no value until its phase is scored
-                    note: Text | null; tone: Tone }[] }[]
+                    note: Text | null; tone: Tone
+                    system: number | null }[] }[]       // a bar of one health system
 }
 
 type PlanningView = {
@@ -2814,8 +2818,8 @@ corner holds the title of the section. **The slide number is in the header of th
 in the box that holds the count of players in every other scene ("SLIDE 7 of 19"), so that
 anyone in the room can ask about a slide by its number. The projector never shows the notes and
 never marks a placeholder. One component draws a slide everywhere (the projector, a player's
-screen, the previews of the console), and every size in it is a share of the projector's 1920
-px, so a slide keeps its proportions at any size. A slide has one of five layouts:
+screen, the previews of the console), always at 1920 × 820 px and scaled as one block, so a
+slide looks the same wherever it shows. A slide has one of five layouts:
 
 | Layout | Shows |
 | --- | --- |
@@ -2831,18 +2835,25 @@ charts stand side by side under the bullets and fill what is left. No layout lea
 band above the street.
 
 A box takes its color from the design system (`go`, `sky`, `sun`, `lav`, `rose`), named in the
-pack or taken in turn. Every layout is built in both themes and must fit its area at the word
+pack or taken in turn. **A box or a bar of one health system takes that system's color and
+shape** (lab director, round 11), the same ones as on the badge in the top bar, in the players
+list and on the leaderboards, and its shape stands in the tag of the box. So a player finds
+what concerns their own health system by its color on every slide. Later phases keep to this:
+whatever names a health system carries its color and shape. Every layout is built in both themes and must fit its area at the word
 limits of the pack: the walk of the deck checks that no slide runs out of it and that no text
 runs out of its box.
 
 **A slide on a player's screen.** While the host mirrors the slides (section 6.13) the
-player's screen shows the same slide in place of the game, with the line "The host is
-presenting." On a laptop it is the projector's slide at the size of the page. Under 760 px the
-parts stack in one column at a fixed, readable type size, and the page scrolls. The slide fills the area under the top bar,
-like the slide on the projector: the type grows with the screen, and a laptop never shows a
-small slide box above an empty page. It follows the host from slide to slide, and
+player's screen shows the same slide in place of the game. **It is the projector's slide,
+scaled as one block in its proportions** (1920 to 820), as large as the space under the top bar
+allows and in the middle of it, the way a video sits in a window (lab director, round 11).
+Nothing in it is laid out again for the size of the screen, so every box and line is where it
+is on the projector, at any width and height of the window. A phone shows it the same way, and
+held upright it adds the line "Turn your phone sideways for a larger slide." A corner of the
+slide holds the title of the section and "Slide 5 of 19". Under the slide one line says "The
+host is presenting." It follows the host from slide to slide, and
 the player cannot move it. When the player has a board of their own behind the slide, which is
-the case in a reveal and in a break, a button "Back to my board" shows the reveal screen, and
+the case in a reveal and in a break, a button "Back to my board" beside that line shows the reveal screen, and
 that screen then carries "Back to the slides". The choice lives in the browser and ends with
 the mirror. When the host leaves the slides, or a phase starts, the slide goes away by itself.
 

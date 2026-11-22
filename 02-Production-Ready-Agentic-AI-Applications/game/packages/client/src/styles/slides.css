@@ -7,6 +7,8 @@
 .st-sun { --tone: var(--sun); --tone-bg: var(--sun-bg); }
 .st-lav { --tone: var(--lav); --tone-bg: var(--lav-bg); }
 .st-rose { --tone: var(--rose); --tone-bg: var(--rose-bg); }
+/* A box or a bar of one health system takes that system's color, as everywhere in the game. */
+.st-sys0 { --tone: var(--sys-0); } .st-sys1 { --tone: var(--sys-1); } .st-sys2 { --tone: var(--sys-2); } .st-sys3 { --tone: var(--sys-3); }
 
 .sl {
   flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column;
@@ -56,7 +58,7 @@
   font-family: var(--face); font-size: calc(40 * var(--u)); line-height: 1.05; min-height: calc(72 * var(--u));
 }
 .sl-tag {
-  flex-shrink: 0; padding: 0 calc(12 * var(--u)); background: #ffffff; color: #1d2140; border: calc(3 * var(--u)) solid #1d2140;
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: calc(8 * var(--u)); padding: 0 calc(12 * var(--u)); background: #ffffff; color: #1d2140; border: calc(3 * var(--u)) solid #1d2140;
   font-size: calc(32 * var(--u)); line-height: 1.25; white-space: nowrap;
 }
 .sl-card-text {
@@ -157,41 +159,13 @@
 .sl.lay-title .sl-main { align-items: center; }
 .sl.lay-title .sl-main > .sl-col { align-self: start; padding-top: calc(8 * var(--u)); }
 
-/* A phone: one column, a fixed readable size */
-.sl.narrow { --u: 0.5px; padding: 16px; gap: 14px; }
-.sl.narrow .sl-meta { position: static; justify-content: space-between; font-size: 13px; text-align: left; }
-.sl.narrow .sl-head { padding-right: 0; }
-.sl.narrow .sl-title { font-size: clamp(30px, 9vw, 52px); }
-.sl.narrow .sl-main, .sl.narrow .sl-main.two, .sl.narrow .sl-main.with-qr { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.sl.narrow .sl-cards { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 12px; }
-.sl.narrow .sl-card { display: flex; flex-direction: column; grid-row: auto; }
-.sl.narrow .sl-charts { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.sl.narrow .sl-chart .ct { flex-direction: column; gap: 2px; font-size: 14px; }
-.sl.narrow .sl-chart .cn { font-size: 12px; }
-.sl.narrow .sl-figs { gap: 12px; }
-.sl.narrow .sl-fig { grid-template-columns: minmax(0, 1fr); }
-.sl.narrow .sl-fig img, .sl.narrow .sl-fig .ph { height: auto; min-height: 64px; border-right: 0; border-bottom: 2px solid var(--line); font-size: 22px; }
-.sl.narrow .sl-bullets { font-size: clamp(17px, 4.6vw, 22px); }
-.sl.narrow .sl-take, .sl.narrow .sl-card-text, .sl.narrow .sl-cards .sl-card-text { font-size: 16px; }
-.sl.narrow .sl-take { padding: 10px 12px; border-width: 2px; }
-.sl.narrow .sl-card-head, .sl.narrow .sl-cards .sl-card-head { font-size: 20px; flex-direction: row; align-items: center; }
-.sl.narrow .sl-tag, .sl.narrow .sl-cards .sl-tag { font-size: 15px; }
-.sl.narrow .sl-main { padding-bottom: 0; }
-.sl.narrow .sl-refs li, .sl.narrow .sl-fig .ft { font-size: 15px; }
-.sl.narrow .sl-fig .fc, .sl.narrow .sl-person .rl { font-size: 13px; }
-.sl.narrow .sl-person .nm { font-size: 15px; }
-.sl.narrow .sl-people { gap: 14px; }
-.sl.narrow .sl-person { width: 140px; }
-.sl.narrow .sl-photo { width: 132px; }
-.sl.narrow .sl-photo { height: 132px; }
-.sl.narrow .sl-qr { width: 100%; }
-.sl.narrow .sl-qr .qr { width: 220px; height: 220px; }
-.sl.narrow .sl-bar { grid-template-columns: 96px minmax(0, 1fr) 56px; font-size: 14px; }
-.sl.narrow .sl-stat, .sl.narrow .sl-sub { font-size: 16px; }
-
-/* A slide mirrored to a player's screen fills the area under the top bar and scrolls if it must. */
-.pslide { flex: 1 1 auto; min-height: 0; display: flex; overflow-y: auto; }
-.pslide-back { align-self: flex-start; flex-shrink: 0; }
+/* A slide mirrored to a player's screen (section 10.9): the projector's slide, scaled as one
+   block to the space under the top bar, in the middle of it, like a video. Under it one line
+   and, where the player has a board behind the slide, the way back to it. */
+.pslide { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px; overflow: hidden; }
+.pslide-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; font-weight: 800; color: var(--muted); min-height: 36px; }
+.pslide-back { flex-shrink: 0; }
 
 /* A small slide on the host console */
 .sl-thumb { overflow: hidden; border: 3px solid var(--line); background: var(--bg); color: var(--ink); flex-shrink: 0; pointer-events: none; }
+.sl-thumb.plain { border: 0; }

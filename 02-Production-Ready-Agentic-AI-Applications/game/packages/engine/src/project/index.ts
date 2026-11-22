@@ -315,7 +315,7 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
           if (g.picked === cid) right++
         }
       }
-      return { label: c.short, value: all ? Math.round((100 * right) / all) : null, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]! }
+      return { label: c.short, value: all ? Math.round((100 * right) / all) : null, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]!, system: null }
     }).reverse()
     return { title: 'Placed in the right class, by the room', bars }
   }
@@ -325,7 +325,7 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
       const hits = ps.filter((p) => (p.planning!.result!.flagship ?? 0) > 0).length
       return {
         label: pack.systems[id]!.system.public.name, value: ps.length ? Math.round((100 * hits) / ps.length) : null,
-        note: ps.length ? `${hits} of ${ps.length}` : null, tone: SYSTEM_TONES[i % SYSTEM_TONES.length]!,
+        note: ps.length ? `${hits} of ${ps.length}` : null, tone: SYSTEM_TONES[i % SYSTEM_TONES.length]!, system: i,
       }
     })
     return { title: 'Found the agent project, by health system', bars }
@@ -349,7 +349,11 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
     title: sl.title,
     subtitle: sl.subtitle ?? null,
     bullets: [...sl.bullets],
-    cards: (sl.cards ?? []).map((c, i) => ({ title: c.title, text: c.text ?? null, points: [...(c.points ?? [])], tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
+    cards: (sl.cards ?? []).map((c, i) => {
+      // A box of a health system that plays in this session carries its index. One that does not play keeps its tone.
+      const at = c.system === undefined ? -1 : s.systems.indexOf(c.system)
+      return { title: c.title, text: c.text ?? null, points: [...(c.points ?? [])], tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]!, system: at >= 0 ? at : null }
+    }),
     people: (sl.people ?? []).map((p) => ({ name: p.name, role: p.role ?? null, photo: p.photo ? `${art}${p.photo}` : null })),
     figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
     qr: sl.qr ? { show: sl.qr.show, url: sl.qr.show === 'link' ? sl.qr.url ?? null : null, label: sl.qr.label ?? null } : null,

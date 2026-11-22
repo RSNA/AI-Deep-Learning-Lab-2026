@@ -96,9 +96,16 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   // Following the game, the intro opens the deck at its section, on the projector and on every player's screen.
   await expect(screen.getByText('The branch library game')).toBeVisible()
   await expect(pp.getByText('The host is presenting.')).toBeVisible()
-  // The slide fills the player's screen under the top bar (section 10.9).
-  const vh = pp.viewportSize()!.height
-  expect((await pp.locator('.pslide').boundingBox())!.height).toBeGreaterThan(vh * 0.8)
+  // The player sees the projector's slide, scaled as one block in its proportions, as large as
+  // the space under the top bar allows (section 10.9).
+  const vp = pp.viewportSize()!
+  expect((await pp.locator('.pslide').boundingBox())!.height).toBeGreaterThan(vp.height * 0.8)
+  const stage = (await pp.locator('.pslide .sl-thumb').boundingBox())!
+  expect(Math.abs(stage.width / stage.height - 1920 / 820)).toBeLessThan(0.02)
+  expect(stage.width).toBeGreaterThan(vp.width * 0.9)
+  await pp.setViewportSize({ width: 700, height: 900 })
+  await expect.poll(async () => { const b = (await pp.locator('.pslide .sl-thumb').boundingBox())!; return Math.abs(b.width / b.height - 1920 / 820) < 0.02 && b.width <= 700 }).toBe(true)
+  await pp.setViewportSize(vp)
   await next.click()
   await expect(screen.getByText('Phase 1 of 3 · Planning')).toBeVisible()
   await expect(pp.getByRole('button', { name: 'Start investigating' })).toBeVisible()

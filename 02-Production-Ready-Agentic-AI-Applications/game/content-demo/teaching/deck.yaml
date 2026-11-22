@@ -28,6 +28,14 @@ sections:
           - Each phase is worth the same number of points.
         notes: Keep this short. The game explains itself.
         placeholder: true
+      - id: welcome-3
+        layout: cards
+        title: Two library networks
+        cards:
+          - {system: rb, tag: Half of you, title: Riverbend, text: Branches along the river.}
+          - {system: ls, tag: Half of you, title: Lakeshore, text: Branches around the lake.}
+        bullets:
+          - A box of a network takes that network's color and shape.
   - id: after-planning
     title: After Phase 1
     stage: break.planning

@@ -90,6 +90,7 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a slide of boxes without boxes', 'teaching/deck.yaml', (t) => t.replace(/ {8}cards:\n( {10}- \{tag[^\n]*\n)+/, ''), /slides\[1\]\.cards/],
   ['a slide with a layout that does not exist', 'teaching/deck.yaml', (t) => t.replace('layout: title', 'layout: poster'), /slides\[0\]\.layout/],
   ['a photo that is not in the art folder', 'teaching/deck.yaml', (t) => t.replace('{name: Ada Brook, role: Moderator}', '{name: Ada Brook, role: Moderator, photo: people/ada.png}'), /people\[0\]\.photo/],
+  ['a box of a health system the pack does not have', 'teaching/deck.yaml', (t) => t.replace('{system: rb, tag: Half of you', '{system: zz, tag: Half of you'), /cards\[0\]\.system/],
   ['a join code with a link of its own', 'teaching/deck.yaml', (t) => t.replace('qr: {show: join, label: Join with your phone}', 'qr: {show: join, url: "https://example.org"}'), /qr\.url/],
   ['a banter line by someone who is not in the system', `${RB}/story.yaml`, (t) => t.replace('{speaker: demo-mara, text: Who moved', '{speaker: demo-nobody, text: Who moved'), /banter\[0\]\.lines\[0\]\.speaker/],
   ['an exchange of one line', `${RB}/story.yaml`, (t) => t.replace(/ {6}- \{speaker: demo-tom, text: It was evidence[^\n]*\n/, ''), /banter\[0\]\.lines/],

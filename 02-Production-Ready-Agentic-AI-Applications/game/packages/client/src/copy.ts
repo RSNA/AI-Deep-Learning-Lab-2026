@@ -69,6 +69,7 @@ export const COPY = {
   letterAgain: 'The opening letter',
   slideOf: (i: number, n: number) => `Slide ${i} of ${n}`,
   presenting: 'The host is presenting.',
+  turnPhone: 'Turn your phone sideways for a larger slide.',
   introWait: 'Look at the big screen. Phase 1 starts soon.',
   sayHello: 'Click to say hello',
   backToBoard: 'Back to my board',

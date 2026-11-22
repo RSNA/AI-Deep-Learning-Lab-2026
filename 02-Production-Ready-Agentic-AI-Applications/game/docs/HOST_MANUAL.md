@@ -156,12 +156,15 @@ closing. You need no slide program.
 - While slides are up, the box at the top right of the projector shows **the slide number** in
   place of the count of players, so that people can ask about "slide 7".
 - A slide with a chart of the room shows the chart empty until that phase has been scored.
+- A box in a health system's color (with its shape in the tag) is about that health system.
+  The colors are the same as on the players' badges and on the leaderboards.
 - A slide flagged "Placeholder" is a stand-in whose text is still to be written.
 - The deck remembers where you stopped. Following the game into a break moves it to that
   break's section.
 
 **Slides on the players' screens.** In a slide stage with "Follow the game", every player's
-screen shows the slide. When you press **Slides** yourself outside a phase, the console asks
+screen shows the slide, exactly as on the projector and scaled to their window. On a phone it
+is larger when the phone is held sideways. When you press **Slides** yourself outside a phase, the console asks
 whether players' screens follow. During a phase players always keep their game. The switch
 "Players' screens follow the slides" shows and changes this.
 

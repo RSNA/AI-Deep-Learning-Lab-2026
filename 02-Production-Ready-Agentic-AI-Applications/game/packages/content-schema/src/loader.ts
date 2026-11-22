@@ -375,6 +375,7 @@ function checkReferences(
         words(c.title, 'slide_title', 'teaching/deck.yaml', `${at}.cards[${k}].title`)
         if (c.text !== undefined) words(c.text, 'slide_card', 'teaching/deck.yaml', `${at}.cards[${k}].text`)
         c.points?.forEach((x, n) => words(x, 'slide_bullet', 'teaching/deck.yaml', `${at}.cards[${k}].points[${n}]`))
+        if (c.system !== undefined && !allSystems.includes(c.system)) err('teaching/deck.yaml', `${at}.cards[${k}].system`, `unknown health system "${c.system}"`)
       })
       sl.figures?.forEach((f, k) => { if (f.caption !== undefined) words(f.caption, 'slide_card', 'teaching/deck.yaml', `${at}.figures[${k}].caption`) })
     })

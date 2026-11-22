@@ -5,6 +5,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import type { SlideView } from '@lab02/protocol'
+import { SystemShape } from './ui.tsx'
 
 /** The slide area of the projector: the screen without the header and the street. */
 export const SLIDE_W = 1920
@@ -48,7 +49,7 @@ function Chart({ ch }: { ch: SlideView['charts'][number] }) {
     <div className="sl-chart">
       <div className="ct">{ch.title}{ch.bars.every((b) => b.value === null) && <span className="cn">Fills in when the phase is scored</span>}</div>
       {ch.bars.map((b) => (
-        <div key={b.label} className={`sl-bar st-${b.tone}`}>
+        <div key={b.label} className={`sl-bar st-${b.system === null ? b.tone : `sys${b.system % 4}`}`}>
           <span className="bl">{b.label}</span>
           <span className="track"><i style={{ width: `${b.value === null ? 0 : Math.max(0, Math.min(100, b.value))}%` }} /></span>
           <span className="v num">{b.value === null ? '–' : `${Math.round(b.value)}%`}</span>
@@ -74,8 +75,11 @@ function Cards({ sl }: { sl: SlideView }) {
   return (
     <div className={`sl-cards n${sl.cards.length}`} style={{ '--n': sl.cards.length } as CSSProperties}>
       {sl.cards.map((c, i) => (
-        <div key={i} className={`sl-card st-${c.tone}`}>
-          <div className="sl-card-head">{c.tag && <span className="sl-tag">{c.tag}</span>}<span>{c.title}</span></div>
+        <div key={i} className={`sl-card st-${c.system === null ? c.tone : `sys${c.system % 4}`}`}>
+          <div className="sl-card-head">
+            {(c.tag || c.system !== null) && <span className="sl-tag">{c.system !== null && <SystemShape index={c.system} size={14} />}{c.tag}</span>}
+            <span>{c.title}</span>
+          </div>
           {(c.text || c.points.length > 0) && (
             <div className="sl-card-text">
               {c.text && <p>{c.text}</p>}
@@ -126,8 +130,8 @@ function References({ sl }: { sl: SlideView }) {
  * The slide. `meta` is the line at the top right ("Welcome · 2 of 14"). `children` go under the
  * content, such as the button that takes a player back to the board.
  */
-export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }: {
-  sl: SlideView; joinUrl: string; narrow?: boolean; meta?: ReactNode; children?: ReactNode; style?: CSSProperties
+export function SlideBody({ sl, joinUrl, meta, children, style }: {
+  sl: SlideView; joinUrl: string; meta?: ReactNode; children?: ReactNode; style?: CSSProperties
 }) {
   const side = <Side sl={sl} />
   const hasSide = !!(sl.image || sl.stat || sl.charts.length)
@@ -136,7 +140,7 @@ export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }
     case 'title':
       // The welcome slide: the title, the people and a line on the left, the code beside them.
       return (
-        <div className={`sl lay-title${narrow ? ' narrow' : ''}`} style={style}>
+        <div className="sl lay-title" style={style}>
           {meta && <div className="sl-meta">{meta}</div>}
           <div className={`sl-main${sl.qr ? ' with-qr' : ''}`}>
             <div className="sl-col">
@@ -210,7 +214,7 @@ export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }
       )
   }
   return (
-    <div className={`sl lay-${sl.layout}${narrow ? ' narrow' : ''}`} style={style}>
+    <div className={`sl lay-${sl.layout}`} style={style}>
       {meta && <div className="sl-meta">{meta}</div>}
       <div className="sl-head">
         <h1 className="sl-title">{sl.title}</h1>
@@ -222,13 +226,19 @@ export function SlideBody({ sl, joinUrl, narrow = false, meta, children, style }
   )
 }
 
-/** A slide at a fixed width, scaled as one block: the previews of the host console. */
-export function SlideThumb({ sl, joinUrl, width, theme }: { sl: SlideView; joinUrl: string; width: number; theme?: 'light' | 'dark' }) {
+/**
+ * A slide at a fixed width, scaled as one block and never laid out again: the previews of the
+ * host console, and the slide on a player's screen, which is the projector's slide at the size
+ * the screen allows, like a video.
+ */
+export function SlideThumb({ sl, joinUrl, width, theme, meta, plain = false }: {
+  sl: SlideView; joinUrl: string; width: number; theme?: 'light' | 'dark'; meta?: ReactNode; plain?: boolean
+}) {
   const k = width / SLIDE_W
   return (
-    <div className={`sl-thumb${theme ? ` theme-${theme}` : ''}`} style={{ width, height: Math.round(SLIDE_H * k) }}>
+    <div className={`sl-thumb${plain ? ' plain' : ''}${theme ? ` theme-${theme}` : ''}`} style={{ width, height: Math.round(SLIDE_H * k) }}>
       <div style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${k})`, transformOrigin: 'top left', display: 'flex', '--u': '1px' } as CSSProperties}>
-        <SlideBody sl={sl} joinUrl={joinUrl} />
+        <SlideBody sl={sl} joinUrl={joinUrl} meta={meta} />
       </div>
     </div>
   )

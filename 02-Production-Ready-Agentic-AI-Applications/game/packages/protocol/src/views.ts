@@ -113,7 +113,9 @@ export const SlideView = S({
   title: Text,
   subtitle: Text.nullable(),
   bullets: z.array(Text),
-  cards: z.array(S({ title: Text, text: Text.nullable(), points: z.array(Text), tag: Text.nullable(), tone: SlideTone })),
+  // `system`: the index of a health system of the session, when the box belongs to one. It then
+  // takes that system's color and shape in place of its tone.
+  cards: z.array(S({ title: Text, text: Text.nullable(), points: z.array(Text), tag: Text.nullable(), tone: SlideTone, system: Int.nullable() })),
   people: z.array(S({ name: Text, role: Text.nullable(), photo: z.string().nullable() })),   // photo: URL under the pack's art
   figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), tone: SlideTone })),
   // A QR code. `join` is the join link of the session, which every client already holds.
@@ -124,7 +126,7 @@ export const SlideView = S({
   stat: S({ label: Text, value: Text }).nullable(),   // a room statistic that is one number. "–" until the room has it
   // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
   // behind it is scored: the frame of the chart shows before the numbers do.
-  charts: z.array(S({ title: Text, bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone })) })),
+  charts: z.array(S({ title: Text, bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone, system: Int.nullable() })) })),
 })
 export type SlideView = z.infer<typeof SlideView>
 

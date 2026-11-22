@@ -501,7 +501,8 @@ export const DeckSlide = W({
   layout: z.enum(SLIDE_LAYOUTS).optional(),
   subtitle: Text.optional(),
   /** Boxes side by side: a colored head with an optional tag, a title and a text. */
-  cards: z.array(W({ title: Text, text: Text.optional(), points: z.array(Text).max(4).optional(), tag: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(4).optional(),
+  /** `system` names a health system: the box then takes that system's color and shape, as everywhere in the game. */
+  cards: z.array(W({ title: Text, text: Text.optional(), points: z.array(Text).max(4).optional(), tag: Text.optional(), tone: z.enum(SLIDE_TONES).optional(), system: Id.optional() })).max(4).optional(),
   /** The people who give the session. `photo` is a path under art/. */
   people: z.array(W({ name: Text, role: Text.optional(), photo: z.string().optional() })).max(6).optional(),
   /** Pictures side by side, each with a title and a caption. Without an image the title stands in a box. */

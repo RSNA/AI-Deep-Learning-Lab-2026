@@ -1,6 +1,6 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { COLUMNS, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
 import { api } from '../lib/net.ts'
@@ -11,7 +11,7 @@ import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
 import { NewGame, PastGameCard } from '../components/after.tsx'
 import { Sizable, useHeight } from '../components/sizable.tsx'
-import { SLIDE_H, SLIDE_W, SlideBody } from '../components/slide.tsx'
+import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
 
@@ -456,29 +456,39 @@ function Gone({ session, go }: { session: string; go: (path: string) => void }) 
   )
 }
 
-/** The slide the host mirrors to every screen. It follows the host; at a reveal the player can step back to the board. */
+/**
+ * The slide the host mirrors to every screen: the projector's slide at the size this screen
+ * allows, in its proportions, like a video (section 10.9). It follows the host. At a reveal
+ * the player can step back to the board.
+ */
 function MirroredSlide({ w, onBack }: { w: Welcome; onBack: (() => void) | null }) {
   const sl = usePlayer((s) => s.view!.slide)!
-  // The slide fills the area under the top bar, like the slide area of the projector, and every
-  // size in it is a share of that area (section 10.9). A phone stacks the parts instead.
+  const theme = useTheme()
   const box = useRef<HTMLElement>(null)
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }))
+    const fit = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    const ro = new ResizeObserver(fit)
     ro.observe(el)
-    setSize({ w: el.clientWidth, h: el.clientHeight })
+    fit()
     return () => ro.disconnect()
   }, [])
-  const narrow = !!size && size.w < 760
-  const u = size ? Math.min(size.w / SLIDE_W, size.h / SLIDE_H) : 0.5
+  // The line under the slide takes 44 px, the padding 16.
+  const width = size ? Math.max(120, Math.floor(Math.min(size.w - 16, ((size.h - 60) * SLIDE_W) / SLIDE_H))) : 0
+  const upright = !!size && size.h > size.w && size.w < 700
   return (
-    <main ref={box} className="pslide" aria-label={COPY.presenting} style={narrow ? undefined : ({ '--u': `${u}px` } as CSSProperties)}>
-      <SlideBody sl={sl} joinUrl={w.session.joinUrl} narrow={narrow}
-        meta={<><span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span><span>{COPY.presenting}</span></>}>
-        {onBack && <button type="button" className="btn go pslide-back" onClick={onBack}>{COPY.backToBoard}</button>}
-      </SlideBody>
+    <main ref={box} className="pslide" aria-label={COPY.presenting}>
+      {width > 0 && (
+        <>
+          <SlideThumb sl={sl} joinUrl={w.session.joinUrl} width={width} theme={theme} plain meta={<span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span>} />
+          <div className="pslide-foot" style={{ width }}>
+            <span>{COPY.presenting}{upright ? ` ${COPY.turnPhone}` : ''}</span>
+            {onBack && <button type="button" className="btn go small pslide-back" onClick={onBack}>{COPY.backToBoard}</button>}
+          </div>
+        </>
+      )}
     </main>
   )
 }
