@@ -1995,9 +1995,9 @@ One React application with three entry routes: `/` and `/j/:code` and `/play` fo
   the edge moves the box only clips or leaves room, and the scene is drawn again once, where
   the edge is let go.
 
-Shared components: button, card, chip, flag, pips, countdown, meter, tabs, sheet, toast, speech bubble,
+Shared components: button, card, chip, flag, blocks, countdown, meter, tabs, sheet, toast, speech bubble,
 portrait, avatar, the four tile types as evidence cards, the card overlay, problem card, class
-section, class control, ladder legend, leaderboard table, letter, slide.
+section, class control, leaderboard table, letter, slide, a box with an edge to drag.
 
 **The top bar** is on every player screen: the practice's character and name with the health
 system badge, the phase and its label, the countdown, the rank, a connection dot and the menu.

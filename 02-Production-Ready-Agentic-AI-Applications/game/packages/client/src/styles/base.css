@@ -191,11 +191,6 @@ input.field.bad { border-color: var(--bad); }
 .dot.on { background: #42dfab; }
 .dot.off { background: #ff8a80; }
 
-/* Pips: bandwidth blocks */
-.pips { display: flex; gap: 3px; }
-.pips i { width: 12px; height: 20px; border: 2px solid currentColor; display: block; }
-.pips i.held { background: var(--sun); }
-
 /* Sheets, toasts, banners */
 .scrim { position: fixed; inset: 0; background: rgba(15, 15, 36, 0.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .sheet { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; }

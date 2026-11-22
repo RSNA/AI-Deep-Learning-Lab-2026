@@ -127,11 +127,10 @@ function References({ sl }: { sl: SlideView }) {
 }
 
 /**
- * The slide. `meta` is the line at the top right ("Welcome · 2 of 14"). `children` go under the
- * content, such as the button that takes a player back to the board.
+ * The slide. `meta` is the line at the top right, such as the title of the section.
  */
-export function SlideBody({ sl, joinUrl, meta, children, style }: {
-  sl: SlideView; joinUrl: string; meta?: ReactNode; children?: ReactNode; style?: CSSProperties
+export function SlideBody({ sl, joinUrl, meta, style }: {
+  sl: SlideView; joinUrl: string; meta?: ReactNode; style?: CSSProperties
 }) {
   const side = <Side sl={sl} />
   const hasSide = !!(sl.image || sl.stat || sl.charts.length)
@@ -153,7 +152,6 @@ export function SlideBody({ sl, joinUrl, meta, children, style }: {
             </div>
             <QrBox sl={sl} joinUrl={joinUrl} />
           </div>
-          {children}
         </div>
       )
     case 'cards':
@@ -221,7 +219,6 @@ export function SlideBody({ sl, joinUrl, meta, children, style }: {
         {sl.subtitle && <div className="sl-sub">{sl.subtitle}</div>}
       </div>
       {main}
-      {children}
     </div>
   )
 }
