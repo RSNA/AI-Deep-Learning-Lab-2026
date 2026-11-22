@@ -32,6 +32,7 @@ export const P2 = {
   picked: 'Now click an empty cell. Esc cancels.',
   locked: (action: string) => `Opens with: ${action}`,
   lockedNoAction: 'Not open in this phase',
+  lockedShort: 'Locked',
   info: (label: string) => `About ${label}`,
   open: 'Open to use',
   close: 'Close',

@@ -42,7 +42,7 @@ export function lockedByOf(c: DevelopmentContent): Record<string, string> {
   return out
 }
 
-export const gridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, model: P2.model, compute: P2.compute, prompt: P2.prompt }
+export const gridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, lockedShort: P2.lockedShort, model: P2.model, compute: P2.compute, prompt: P2.prompt }
 
 const labelOf = (c: DevelopmentContent, id: string): string =>
   c.sources.find((x) => x.id === id)?.label ?? c.workers.find((x) => x.id === id)?.label ?? c.models.find((x) => x.id === id)?.label
@@ -291,6 +291,9 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     setMode({ kind: 'idle' })
   }
   const onNode = (id: string) => {
+    // A locked source says which action opens it.
+    const src = content.sources.find((x) => x.id === id)
+    if (src) { if (!unlocked.has(id)) say(`${src.label}: ${lockedBy[id] ? P2.locked(lockedBy[id]!) : P2.lockedNoAction}`); return }
     if (mode.kind === 'join') { if (id === mode.from) setMode({ kind: 'idle' }); else join(mode.from, id); return }
     if (mode.kind !== 'idle') return
     setSel({ kind: 'tile', id })

@@ -64,8 +64,8 @@
 .chdr:first-child { text-align: left; }
 .csources { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .csource {
-  position: relative; z-index: 2; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; column-gap: 6px;
-  padding: 2px 16px 2px 6px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
+  position: relative; z-index: 2; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; column-gap: 4px;
+  padding: 2px 12px 2px 5px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
   font-size: 13px; font-weight: 800; line-height: 1.15;
 }
 .csource .cs-name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -73,7 +73,8 @@
 .csource .cs-lock { grid-column: 1 / -1; font-size: 11px; font-weight: 700; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* A locked source keeps one line for its name and one for what opens it; the whole text is its title. */
 .csource.is-locked { align-content: center; }
-.csource.is-locked .cs-name, .csource.is-locked .cs-lock { -webkit-line-clamp: 1; }
+.csource.is-locked { cursor: help; }
+.csource.is-locked .cs-lock { -webkit-line-clamp: 1; }
 .csource.from { box-shadow: 0 0 0 4px var(--sky); }
 .ccell { z-index: 0; border: 2px dashed var(--soft); min-width: 0; }
 .ccell.open { border-color: var(--go); background: var(--go-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -248,7 +249,7 @@
 .p2pmap { display: flex; flex-direction: column; min-height: 0; }
 .p2pmap .purse, .p2pcol .purse { padding: 8px 10px; background: var(--inset); border-bottom: 2px solid var(--soft); gap: 12px; }
 .p2pmap .gridscroll { flex-shrink: 0; }
-.p2pmap .cgrid { min-width: 720px; height: auto; grid-template-rows: 18px repeat(var(--rows), minmax(84px, auto)); }
+.p2pmap .cgrid { min-width: 780px; height: auto; grid-template-rows: 18px repeat(var(--rows), minmax(84px, auto)); }
 .p2pmap .mapfoot { flex-wrap: wrap; }
 .p2pmap .vwrap { width: 100%; justify-content: space-between; }
 .p2pmap .vwhy { text-align: left; max-width: none; flex: 1; }

@@ -49,7 +49,7 @@ export type GridProps = {
 export type GridWords = {
   sources: string; result: string; col: (n: number) => string
   pickModel: string; pickCompute: string; defaultPrompt: (label: string) => string
-  locked: (action: string) => string; lockedNoAction: string
+  locked: (action: string) => string; lockedNoAction: string; lockedShort: string
   stray: string; strayShort: string; privateData: string; incomplete: string
   emptyCell: (col: number, row: number) => string; placeHere: string; moveHere: string
   port: (label: string) => string; joinHere: (label: string) => string
@@ -279,12 +279,16 @@ export function Grid(p: GridProps) {
           const by = p.lockedBy?.[s.id]
           return (
             <div key={s.id} ref={setNode(s.id)} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}`}
-              title={lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}>
+              title={lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
+              role={lock && !readOnly ? 'button' : undefined} tabIndex={lock && !readOnly ? 0 : undefined}
+              aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : undefined}
+              onClick={lock && !readOnly ? () => p.onNode?.(s.id) : undefined}
+              onKeyDown={lock && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
               <Icon name={s.icon} size={compact ? 12 : 15} />
               <span className="cs-name">{s.label}</span>
               {lock && <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={11} /></Mark>}
               {!lock && port(s.id, s.label)}
-              {lock && !compact && <span className="cs-lock">{by ? words.locked(by) : words.lockedNoAction}</span>}
+              {lock && !compact && <span className="cs-lock">{words.lockedShort}</span>}
             </div>
           )
         })}
