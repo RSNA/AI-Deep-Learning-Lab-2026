@@ -52,6 +52,7 @@ By the end of this session, participants will be able to:
 
 - Faghani S, Moassefi M, Rouzrokh P, Khosravi B, Erickson BJ. Uncover This Tech Term: Agentic Artificial Intelligence in Radiology. *Korean Journal of Radiology* 2025;26(9):888-892. https://doi.org/10.3348/kjr.2025.0370
 - Khosravi B, Rouzrokh P, Akinci D'Antonoli T, et al. Agentic AI in Radiology: Evolution from Large Language Models to Future Clinical Integration. *Radiology: Artificial Intelligence* 2026;8(2):e250651. https://doi.org/10.1148/ryai.250651
+- Rouzrokh P, Rouzrokh P, Khosravi B, Faghani S, Moassefi M, Shariatnia M, Erickson BJ. Agentic AI in Radiology: A Practical Framework for Planning, Operating, and Evaluating Agentic Workflows. *RadioGraphics* (in press).
 
 ## Before the Session
 
