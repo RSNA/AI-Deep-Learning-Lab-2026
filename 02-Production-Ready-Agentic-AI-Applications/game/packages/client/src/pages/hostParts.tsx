@@ -36,7 +36,7 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
         <span className={`chip ${p.status === 'playing' ? 'sun' : 'good'}`}>{H.st[p.status]}</span>
         <span className="chip">{H.insightsOf(p.insights, p.investigations)}</span>
         <span className="inspect-tally">{H.tally(count('right'), count('near'), count('wrong'), count('unsorted'))}</span>
-        {p.classify !== null && p.flagship !== null && <span className="inspect-tally muted">{H.scoreLine(p.classify, p.flagship)}</span>}
+        {p.classify !== null && p.flagship !== null && <span className="inspect-tally muted">{H.scoreLine(p.classify, p.flagship, p.economy)}</span>}
       </div>
       <div className="hint">{H.runningNow(p.running)}</div>
       <div className="inspect-legend" aria-label={H.legend}>

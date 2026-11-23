@@ -530,6 +530,11 @@ function checkClasses(ctx: Ctx, game: GameFile) {
     if (fc.capacity !== 1) err(`${PL}.classes`, `the flagship class "${fc.id}" must have one spot`)
     if (fc.rungs.length === 0) err(`${PL}.flagship_class`, 'the flagship class cannot be the class of problems that are not real')
   }
+  // One more problem in its true class must be worth more than every investigation saved.
+  const eco = pl.scoring.economy
+  if (eco && !(eco.max < pl.scoring.classify.exact - pl.scoring.classify.adjacent)) {
+    err(`${PL}.scoring.economy.max`, `${eco.max} must stay below exact minus adjacent (${pl.scoring.classify.exact - pl.scoring.classify.adjacent}), so that investigating is never a mistake`)
+  }
 }
 
 function checkProblemClasses(ctx: Ctx, file: string, game: GameFile, sp: SystemPack) {

@@ -118,6 +118,9 @@ const PlanningRules = W({
   scoring: W({
     classify: W({ exact: Num, adjacent: Num, other: Later, max: Later }),
     flagship: W({ bonus: Num, max: Later }),
+    // Up to `max` for the investigations a player did not start, in proportion to how well the
+    // board is sorted (section 6.5). Without it the investigations do not count.
+    economy: W({ max: NonNeg, counts: Later }).optional(),
   }),
   slot_seconds: Later, teaches: Later, traps_required: Later, evidence: Later,
 })
@@ -349,7 +352,7 @@ const MapTile = S({
 export const PackMap = S({ tiles: z.array(MapTile), lines: z.array(S({ from: z.string(), to: z.string() })) })
 export type PackMap = z.infer<typeof PackMap>
 
-export const NOTE_IDS = ['private_data', 'overloaded', 'distracting', 'prompt', 'stray'] as const
+export const NOTE_IDS = ['rushed', 'private_data', 'overloaded', 'distracting', 'prompt', 'stray'] as const
 export const WORKER_KINDS = ['ai', 'fixed', 'person'] as const
 
 const PartPublic = S({ label: Text, short: Text, description: Text, cost_line: Text.optional() })
@@ -366,7 +369,10 @@ export const BuildFile = W({
   toolbox_groups: z.array(S({ id: Id, label: Text })).default([]),
   budget: S({ money: NonNeg, developers: Int.min(0) }),
   validate: S({ runs: Int.min(0), seconds: PosInt }),
-  pools: z.array(W({ id: Id, public: S({ label: Text }), max: NonNeg })).default([]),
+  // `over` says what happens when a map asks more minutes of a pool than `max`: `refuse` (the
+  // default) keeps the map from being validated, `rush` lets it through and the people of the pool
+  // get through a share of the cases (section 6.6).
+  pools: z.array(W({ id: Id, public: S({ label: Text }), max: NonNeg, over: z.enum(['refuse', 'rush']).optional() })).default([]),
   handoff: S({ keep: Unit }),
   quality_cap: Unit.optional(),
   facts: z.array(W({

@@ -84,12 +84,14 @@ type Tab = 'investigations' | 'evidence' | 'assessment'
 const TABS: Tab[] = ['assessment', 'investigations', 'evidence']
 
 /** The tour of Phase 1 and its help panel. */
-function PlanningGuide({ autoStart, onTab, onEnd }: { autoStart: boolean; onTab?: (t: Tab) => void; onEnd?: () => void }) {
+function PlanningGuide({ autoStart, economy, onTab, onEnd }: { autoStart: boolean; economy: boolean; onTab?: (t: Tab) => void; onEnd?: () => void }) {
   const key = usePlayer((s) => `tour-planning-${s.view!.me.id}-${s.view!.run}`)
+  // With an economy part in the score, the step on the investigations says so.
+  const steps = economy ? P1.tour.map((x) => (x.tab === 'investigations' ? { ...x, text: P1.tourEconomy } : x)) : P1.tour
   return (
     <>
-      <Tour phase="planning" steps={P1.tour} doneKey={key} autoStart={autoStart} onTab={onTab ? (t) => onTab(t as Tab) : undefined} onEnd={onEnd} words={COPY.tour} />
-      <HelpSheet phase="planning" title={P1.helpTitle} intro={P1.helpIntro} steps={P1.tour} tourLabel={COPY.takeTour}>
+      <Tour phase="planning" steps={steps} doneKey={key} autoStart={autoStart} onTab={onTab ? (t) => onTab(t as Tab) : undefined} onEnd={onEnd} words={COPY.tour} />
+      <HelpSheet phase="planning" title={P1.helpTitle} intro={P1.helpIntro} steps={steps} tourLabel={COPY.takeTour}>
         <div className="eyebrow">{P1.helpMethods}</div>
         <div className="help-marks">
           {(['interview', 'data_pull', 'audit', 'observation'] as const).map((m) => (
@@ -155,7 +157,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
         </nav>
         {warning && <div className="toast warnbar" role="status">{warning}</div>}
         {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
-        <PlanningGuide autoStart={!briefOpen} onTab={(t) => { setTab(t); if (t !== 'evidence') setFromProblem(null) }} onEnd={() => setTab('assessment')} />
+        <PlanningGuide autoStart={!briefOpen} economy={content.rules.economy} onTab={(t) => { setTab(t); if (t !== 'evidence') setFromProblem(null) }} onEnd={() => setTab('assessment')} />
       </div>
     )
   }
@@ -167,7 +169,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
       <Assessment board={board} content={content} />
       {warning && <div className="toast warnbar" role="status">{warning}</div>}
       {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
-      <PlanningGuide autoStart={!briefOpen} />
+      <PlanningGuide autoStart={!briefOpen} economy={content.rules.economy} />
     </div>
   )
 }

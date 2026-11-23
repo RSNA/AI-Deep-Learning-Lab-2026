@@ -2,7 +2,7 @@
 // four commands, every rule of a map and of readiness, actions on the game clock, validations,
 // submission, the end of the stage, the live column and determinism.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { fromPackMap, mapErrors, readyDetails, readyReasons, ruledLines, startUnlocked, tileMinutes, type CanvasMap } from '@lab02/content-schema'
+import { fromPackMap, mapErrors, overPools, readyDetails, readyReasons, ruledLines, rushFactors, startUnlocked, tileMinutes, type CanvasMap } from '@lab02/content-schema'
 import { advance, carriedIntoMaintaining, evaluate, project, type SessionState } from '../src/index.ts'
 import { demoPack, host, join, newSession, run, setDemoPack } from './helpers.ts'
 
@@ -429,6 +429,41 @@ describe('line rules and required workers (spec 6.6)', () => {
     expect(err(cmd(s, 'p1', 'development.set_map', { map: over }, t0 + 2))).toBe('ok')
     expect(view(s).ready.details).toEqual([{ reason: 'too_many_minutes', pool: 'librarian', used: 9, max: 4, tiles: ['t1'] }])
     expect(view(s).tileMinutes).toEqual({ t1: 9 })
+  })
+  it('a pool that rushes lets the map through, and its people get through a share of the cases', () => {
+    const LS = full.systems.ls!.build!
+    const officer = LS.workers.find((w) => w.id === 'ls-w-officer')!.minutes!
+    const max = LS.pools.find((p) => p.id === 'officer')!.max
+    const agent = T('t1', 'ls-w-agent', 2, 2, 'ls-m-small', 'ls-c-api')
+    const checked: CanvasMap = { tiles: [agent, T('t2', 'ls-w-officer', 4, 2)], lines: L(['ls-s-circ', 't1'], ['ls-s-counter', 't1'], ['t1', 't2'], ['t2', 'ls-result']) }
+    const used = officer.check + 3 * officer.per_line.easy!
+    expect(used).toBeGreaterThan(max)
+    const rushed: CanvasMap = { tiles: checked.tiles, lines: [...checked.lines, ...L(['ls-s-circ', 't2'], ['ls-s-counter', 't2'], ['ls-s-logbook', 't2'])] }
+    expect(overPools(checked, LS)).toEqual([])
+    expect(readyReasons(rushed, LS)).toEqual([])
+    expect(overPools(rushed, LS)).toEqual([{ pool: 'officer', used, max, tiles: ['t2'], rush: true }])
+    expect(rushFactors(rushed, LS)).toEqual({ officer: max / used })
+    const r = evaluate(rushed, LS)
+    expect(r.flags.rushed).toEqual(['t2'])
+    expect(r.note).toBe('rushed')
+    expect(evaluate(checked, LS).flags.rushed).toEqual([])
+    // The same map with all the minutes it asks, and the agent alone handing its draft on: the
+    // rushed officer lies between them, at the share of the cases there was time for.
+    const roomy = { ...LS, pools: LS.pools.map((p) => (p.id === 'officer' ? { ...p, max: 99 } : p)) }
+    const fullCheck = evaluate(rushed, roomy)
+    const alone = evaluate({ tiles: [agent], lines: L(['ls-s-circ', 't1'], ['ls-s-counter', 't1'], ['t1', 'ls-result']) }, LS)
+    const h = max / used
+    for (const k of LS.cases) expect(r.perCase[k.id]).toBeCloseTo(h * fullCheck.perCase[k.id]! + (1 - h) * LS.handoff.keep * alone.perCase[k.id]!, 12)
+    // The view says who rushes while the player builds, and the validation goes through.
+    const { s, t0 } = playing()
+    expect(err(cmd(s, 'p2', 'development.set_map', { map: rushed }, t0))).toBe('ok')
+    expect(view(s, 'p2').ready).toEqual({ ok: true, reasons: [], details: [] })
+    expect(view(s, 'p2').rushed).toEqual([{ pool: 'officer', used, max, tiles: ['t2'] }])
+    expect(err(cmd(s, 'p2', 'development.validate', {}, t0 + 1))).toBe('ok')
+    advance(s, demoPack(), t0 + 1 + LS.validate.seconds * 1000)
+    expect(view(s, 'p2').validations[0]!.note).toBe(LS.notes.find((n) => n.id === 'rushed')!.text)
+    // A pool without `over: rush` refuses as before, and the view has nothing to say of a rush.
+    expect(view(s).rushed).toEqual([])
   })
   it('counts the minutes of each person tile: deciding alone or checking, plus its sources', () => {
     const m = { tiles: [T('t1', 'rb-w-agent', 2, 2, 'rb-m-small', 'rb-c-api'), T('t2', 'rb-w-librarian', 3, 2), T('t3', 'rb-w-clerk', 1, 4)], lines: L(['rb-s-form', 't1'], ['t1', 't2'], ['rb-s-form', 't2'], ['rb-s-catalog', 't3']) }

@@ -4,10 +4,13 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.4. Phase 2 is now played on a canvas (Step 7, section 16): the player
+**Status.** Version 1.5. Phase 2 is now played on a canvas (Step 7, section 16): the player
 builds a map on a grid and validates it, and the slot board of version 1.1 is gone. Version 1.4
-adds what the screen says to guide the player: a tour of each phase, a help panel, the reason
-beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`. The
+added what the screen says to guide the player: a tour of each phase, a help panel, the reason
+beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`.
+Version 1.5 adds two rules of scoring: in Phase 1 the investigations a player did not start earn
+a small part of the score (`scoring.economy`), and in Phase 2 a pool of people may rush in place
+of refusing a map that asks too many minutes of it (`over: rush`). The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
@@ -356,7 +359,8 @@ type PlanningRules = {
                                                            // the `empty` line of the letter (6.11)
   live_leaderboard: { metric: 'progress'; label: Text }
   scoring: { classify: { exact: number; adjacent: number }
-             flagship: { bonus: number } }
+             flagship: { bonus: number }
+             economy?: { max: number } }                    // the part for investigations not started
 }
 type PlanningClass = {
   id: ClassId; label: Text; short: Text      // `short` is the two-word name on sections and buttons
@@ -515,7 +519,9 @@ type Build = {
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
   validate: { runs: number; seconds: number }
-  pools?: { id: PoolId; public: { label: Text }; max: number }[]   // minutes per case the people can give
+  pools?: { id: PoolId; public: { label: Text }; max: number      // minutes per case the people can give
+            over?: 'refuse' | 'rush' }[]    // a map that asks more: it cannot be validated (the
+                                            // default), or these people rush (section 6.6)
   handoff: { keep: number }                 // what survives one line between two tiles, 0 to 1
   quality_cap?: number                      // a prompt cannot lift an AI worker above this. Default 1
   facts: { id: FactId
@@ -561,7 +567,7 @@ type Build = {
            needs: FactId[]; difficulty: 'plain' | 'hard'
            decision_miss: Text              // shown when the facts arrived and the judgment failed
            key?: object }[]
-  notes?: { id: 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'; text: Text }[]   // in order of priority
+  notes?: { id: 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'; text: Text }[]   // in order of priority
   line_rules?: { from: SourceId | WorkerId    // a line the practice cannot draw (`refuse`), or
                  to: WorkerId                 // one that comes with advice. Its text reaches a
                  refuse: boolean; text: Text }[]  // player only with a matching line of theirs
@@ -769,7 +775,7 @@ is written from scratch for the purpose.
   kinds of worker (an agent, a fixed AI step, a rule, two kinds of person in two pools), 3 models,
   4 places to run (one that does not protect private data, two locked), 4 prompts (one that
   confuses, one with `by_worker`, two locked), 6 actions over the four groups (one with
-  `requires`, three with an insight), 5 cases of both difficulties, all five notes, a reference
+  `requires`, three with an insight), 5 cases of both difficulties, every note, a reference
   map, an overbuilt and an underbuilt trap, and both letters. Phase 3 is not in the pack yet.
   Short timers, so a full game takes about seven minutes at time scale 1.
 - **Coverage.** The pack uses every feature of the format that the build has reached at least
@@ -989,17 +995,27 @@ points(problem) =
   0         in every other case
 classify = sum of points over the sorted problems
 flagship = bonus if the flagship problem is in the flagship class, else 0
-raw      = classify + flagship
+economy  = round(max × (classify + flagship) ÷ (candidates × exact + bonus)
+                     × (total − started) ÷ total)       when the rules have scoring.economy, else 0
+raw      = classify + flagship + economy
 ```
 
 A real problem that is called not real, a problem that is not real and is put in a real class,
 a real problem two steps from its class, and an unsorted problem all earn 0. Nothing earns less
-than 0. The most a player can reach is `candidates × exact + bonus`, which a pack sets to 1000.
-Because every class is counted, a problem in the wrong class takes the place of another.
+than 0. The most a player can reach is `candidates × exact + bonus + max`, which a pack sets to
+1000. Because every class is counted, a problem in the wrong class takes the place of another.
+
+**Economy.** The same sorting with fewer investigations is better. `total` is
+`investigations.per_system` and `started` is the number of investigations the player started,
+done or still running when the board is scored. The part is paid in proportion to the sorting
+points, so a board that is sorted badly earns little for having looked at nothing. The loader
+refuses a pack whose `economy.max` is not below `exact − adjacent`: one more problem in its true
+class is then always worth more than every investigation saved, so investigating is never a
+mistake. Rounding is half up. Without `scoring.economy` the investigations do not count.
 
 **Random play.** The floor anchor of a system (section 6.8) is the mean raw score of random
 boards made like this: the problems are shuffled and dealt into the classes until every class
-holds its `capacity`, every arrangement with equal chance.
+holds its `capacity`, every arrangement with equal chance, and no investigation is started.
 
 **Live column.** `progress`: the number of insights unlocked plus the number of problems sorted.
 Its largest value is `investigations.per_system + candidates`, and the column carries it, so a
@@ -1008,7 +1024,8 @@ reach the top, so the column shows who is how far and never who is right. Correc
 hidden until the reveal.
 
 **Reveal.** Each player receives the truth of every problem (section 9.2), their own picks
-graded one by one, the two parts of the score, the points, the label of the band and the
+graded one by one, the parts of the score (with the number of investigations started when the
+pack has the economy part), the points, the label of the band and the
 letter. The letter holds the `always` text and one more line. That line is the variant `empty`
 when the letter has one and the player sorted fewer problems than
 `submission.letter_empty_below`, and the variant of the player's band in every other case.
@@ -1142,8 +1159,9 @@ reasons that fail, and the Validate button shows the first as a sentence.
    is null counts as the default prompt.
 4. For every entry `n` of `required` (counted from 0), a live tile is of one of its kinds
    (`required_missing:<n>`).
-5. For every pool, the minutes the map asks of it (below, every placed person counts) are at most
-   its `max` (`too_many_minutes:<pool>`).
+5. For every pool without `over: rush`, the minutes the map asks of it (below, every placed
+   person counts) are at most its `max` (`too_many_minutes:<pool>`). A pool with `over: rush`
+   never stops a validation: its people rush (below).
 
 The reasons come in this order, each once. While nothing reaches the result,
 `nothing_reaches_result` is the only one. The view carries each reason with what it names
@@ -1151,7 +1169,9 @@ The reasons come in this order, each once. While nothing reaches the result,
 entry, the pool with the minutes asked and its limit and its person tiles. A stray tile does not
 stop a validation. The view also carries the lines of the draft that a rule with `refuse: false`
 matches, with the rule's text (`lineAdvice`), and the minutes a case each person tile asks
-(`tileMinutes`, when the pack shows what a map takes to run).
+(`tileMinutes`, when the pack shows what a map takes to run), and the pools with `over: rush`
+that the draft asks too much of, each with the minutes asked, its limit and its person tiles
+(`rushed`), so that the screen can say before a validation that these people will rush.
 
 **A validation.** When it completes, the engine scores the copy of the map (below), stores the
 `Validation`, and adds its missed case and its note to `shownCases` and `shownNotes`, so the next
@@ -1200,6 +1220,19 @@ D_n(k)  = the larger of  own  and  up + (1 - up) × catch_n × own
 A tile works from the facts it can fetch and the facts handed to it. When a draft arrives from
 the left, the tile checks it, and what it catches it does again itself.
 
+*People who rush.* For a pool with `over: rush` whose minutes in this map are above its `max`,
+`hurry = max ÷ minutes`. A person tile of that pool gets through that share of the cases and does
+its whole job on them. On the other cases it adds nothing and passes on what was handed to it:
+
+```
+A_n(f)  = hurry × (the larger of direct and passed) + (1 − hurry) × passed
+D_n(k)  = hurry × (the D_n(k) above, with have taken over the unhurried facts) + (1 − hurry) × up
+```
+
+So a person who is asked to do everything alone in a quarter of the time solves a quarter of
+what they would, and two looks by the same pool are each cut short. Every placed person counts
+for the minutes, a stray one too.
+
 ```
 solved(k) = D_signer(k)
 accuracy  = the sum of k.weight × solved(k), divided by the sum of the weights
@@ -1224,7 +1257,8 @@ that receives private data has. `overloaded`: a live tile with `lines_in > load.
 `distracting`: a live tile of kind `ai` with a line from a source whose `distracts` is below 1.
 `prompt`: a live tile with a model whose prompt helps nothing and hurts something, so neither of
 its two numbers for this worker is above 1, and at least one is below 1. `stray`: a tile that is
-not live.
+not live. `rushed`: every person tile of a pool with `over: rush` that the map asks more minutes
+of than it has. Each flag has a note of the same name (`notes`).
 
 *The missed case and the note.* The loss of a case is `weight × (1 - solved)`. Cases are ranked
 by loss, highest first, pack order on a tie. The case shown is the first with a loss above 0 that
@@ -1911,6 +1945,7 @@ Fetched once per phase. All of it is public by construction.
 type PlanningContent = {
   brief: { from: CharacterId; title: Text; text: Text } | null    // the opening letter
   rules: { bandwidth: number
+           economy: boolean                     // the score has the economy part (section 6.5)
            classes: { id: ClassId; label: Text; short: Text; fitsWhen: Text
                       rungs: number[]; capacity: number }[] }   // in class_order
   problems: { id: ProblemId; title: Text; description: Text }[]
@@ -2023,14 +2058,16 @@ type PlanningView = {
     problems: { id: ProblemId; class: ClassId; tier: number | null; flagship: boolean
                 rationale: Text; burden?: { kind: string; size: string; note: Text } }[]
     graded: { problem: ProblemId; picked: ClassId | null; points: number }[]   // every problem
-    classify: number; flagship: number          // the two parts of the score
+    classify: number; flagship: number          // the parts of the score
+    economy: number                             // 0 when the pack has no economy part
+    investigations: { started: number; total: number }   // total 0 without the economy part
   } | null
 }
 ```
 
 `PhasePoints` carries neither `provisional` nor the id of a band since this version. A
 player's client has no use for either, and the host view says once, for the whole pack, whether
-the anchors are estimates. The reveal no longer carries `raw`. The screen adds the two parts
+the anchors are estimates. The reveal no longer carries `raw`. The screen adds the parts
 itself and names the sum "Board score" (section 10.4). A bot that wants the raw score adds them
 the same way.
 
@@ -2049,6 +2086,7 @@ type DevelopmentView = {
            details: ReadyDetail[] }                     // each with what it names
   lineAdvice: { from: string; to: string; text: Text }[]   // lines of the draft a rule advises on
   tileMinutes: Record<TileId, number>                   // a person tile's minutes a case, or {}
+  rushed: { pool: PoolId; used: number; max: number; tiles: TileId[] }[]   // pools that will rush
   flags: { stray: string[]; incomplete: string[]; privateData: string[] }
   running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null
   validationsLeft: number
@@ -2140,7 +2178,7 @@ type HostInspect = {
                 mark: 'right' | 'near' | 'wrong' | 'unsorted'   // by the scoring rule of 6.5
                 truth: ClassId; tier: Rung | null; flagship: boolean; rationale: Text
                 points: number | null }[]         // once the phase is scored
-    classify: number | null; flagship: number | null
+    classify: number | null; flagship: number | null; economy: number | null
   } | null                                        // null before the player has opened the phase
 }
 ```
@@ -2158,7 +2196,7 @@ Phase 2 adds its part (Step 7):
     validations: { id; atMs; accuracy; map }[]; submitId: string | null
     key: { accuracy: number | null                // of the draft, when it is ready
            cases: { id; title; weight; solved: number | null }[]   // for the draft
-           flags: { privateData; overloaded; distracting; prompt; stray }   // tile ids
+           flags: { privateData; overloaded; distracting; prompt; stray; rushed }   // tile ids
            running: { money; minutes; complexity }
            reference: { map: CanvasMap; summary: Text; accuracy: number } }
   } | null
@@ -2572,8 +2610,10 @@ reload in the middle of the phase does not bring it back. The same letter stays 
 card of the evidence, so a player can read it again at any time.
 
 **Investigations.** The column opens with the bandwidth: the blocks, held and free, the words
-"2 of 3 free", and one line, "An investigation holds its blocks until it ends." Blocks that
-come free flash once. Under it, one row per investigation, in pack order.
+"2 of 3 free", and one line, "An investigation holds its blocks until it ends." When the pack
+has the economy part of the score (section 6.5), the line goes on: "A well-sorted board that
+took fewer investigations scores a little more.", and the tour's step on the investigations says
+the same. Blocks that come free flash once. Under it, one row per investigation, in pack order.
 
 - A row shows the method icon, the title, the teaser, the bandwidth it holds as blocks, the
   wait in seconds with its story time, and a Start button. An interview row also shows the
@@ -2754,7 +2794,8 @@ column can end before its neighbor.
    width, with the sender's portrait, the `always` text and the one line for this player
    (section 6.5). The score takes the rest. The two boxes always have the same height, which
    is the height of the taller one.
-2. **The score** shows the two parts ("Sorting" and "Agent project"), their sum as "Board
+2. **The score** shows the parts ("Sorting", "Agent project" and, when the pack has the
+   economy part, "Economy" with "You ran 3 of 10 investigations."), their sum as "Board
    score", the points of the phase and the `label` of the band. When the points equal the
    board score, the box shows the points once. When they differ, one line says that points put
    both health systems on one scale. The words "raw" and "provisional" and the id of a band
@@ -2947,7 +2988,8 @@ the right ("…stand in one column", "…stands left of…"), a line that exists
 a line from a source straight to the result, a locked source or tool with the action that opens
 it (a locked tool says it in its toolbox row). While joining, every node takes the click, so a
 wrong target is answered and the player may pick another. A line that a rule of the pack refuses
-is answered by the server with the rule's words, and the map stays as it was. A second line into
+is answered by the server with the rule's words. The line is taken off the draft and everything
+else stays, also a change made in the same moment, which is then saved. A second line into
 the result still replaces the first and says so. A line that a rule advises on is drawn, its
 words stand once beside it, and a small "i" on the line says them again. No error name reaches the
 screen.
@@ -2996,10 +3038,13 @@ no tile yet, no source joined to a tile, nothing reaching the result, no source 
 live tiles, each incomplete tile with its missing part, each required worker (the pack's words),
 then the minutes ("Radiologist would need 9 minutes a case and has 3."). The first steps follow
 the draft in the browser, so before the first validation the same line guides through the
-first map; once the map is ready it says so. While a
+first map; once the map is ready it says so. When a pool that rushes is asked for too many
+minutes (`rushed` of the view), the map is ready and the line warns in the color of a fault
+("Librarian is asked for 9 minutes a case and has 4. They will rush and miss cases. You can still
+validate."), and the minutes on the tile are in that color too. While a
 validation runs, the button shows the seconds left and a bar, and the whole screen stays usable.
-When it lands, a notice at the foot of the page says "Validation done: 58%" with Show, which
-scrolls to the panel without stealing the scroll by itself. **The panel** shows the accuracy large,
+When it lands, a notice at the foot of the page (on a phone above the tab bar, never over it)
+says "Validation done: 58%" with Show, which scrolls to the panel without stealing the scroll by itself. **The panel** shows the accuracy large,
 the rank right after the validation, every validation as a small round chip (the one that would be
 sent carries ✓), the case it missed with its why, and the note when there is one. Any validation
 can be opened from its chip, loaded back onto the map with "Load this map", or chosen with "Send
@@ -4029,6 +4074,7 @@ report.
 | 7 | Phase 2 on a canvas, built: sections 1, 5.1, 5.4, 5.5 (`build.yaml`, the development rules, `palette.yaml` removed), 5.7, 6.6 and 6.7 (the reference map), 6.8, 6.9, 6.13, 8.2 to 8.5, 9.2, 10.1, 10.5 in full, 10.6 to 10.9, 12 and 15 |
 | 7, feedback after the demo | Version 1.4: `line_rules` and `required` (sections 5.5, 6.6), `line_refused` with the `data` of an answer (6.6, 8.2), `ready.details`, `lineAdvice`, `tileMinutes` and a worker's `task` in the legend (8.4); a tour of each phase and a help panel (10.1); the assessment first on a phone and an interview that keeps its words (10.4); no header over unnamed columns, fixed line anchors and wider gaps, a body on every tile, Validate that always says why, a sentence for every refusal (10.5); the host looks through the deck without showing it (10.8) |
 | 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
+| 7, the release after the demo | Version 1.5: the economy part of the Phase 1 score (`scoring.economy`, sections 5.5, 6.5, 8.3, 8.4, 10.4); a pool of people that rushes (`over: rush`, the flag and the note `rushed`, `rushed` in the view; sections 5.5, 6.6, 8.4, 10.5); a refused line leaves the rest of the draft in place (10.5); a notice stands above the tab bar of a phone (10.1) |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
 | 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |

@@ -54,6 +54,7 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
   // Every change gets a number. Only the answer to the newest change ends the wait, so a view of
   // an older draft never overwrites a newer one.
   const seq = useRef(0)
+  const pushRef = useRef<(map: CanvasMap) => void>(() => {})
   const push = useCallback((map: CanvasMap) => {
     pending.current = true
     const mine = ++seq.current
@@ -68,11 +69,24 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
           const d = r.error === 'line_refused' ? (r.data as AckData | undefined) : undefined
           if (d && refusedRef.current) refusedRef.current(d)
           else setError(`${P2.refusedMap} ${plainError(r.error)}`)
+          // A refused line is taken off the draft and the rest is kept and saved: changes made in
+          // the same moment (before the last save went out) must not be lost with it.
+          const cur = hRef.current
+          const isIt = (l: { from: string; to: string }) => !!d && l.from === d.line.from && l.to === d.line.to
+          if (d && cur.map.lines.some(isIt)) {
+            const cleaned = { tiles: cur.map.tiles, lines: cur.map.lines.filter((l) => !isIt(l)) }
+            const h2 = { ...cur, map: cleaned, past: cur.past.length && sameMap(cur.past.at(-1)!, cleaned) ? cur.past.slice(0, -1) : cur.past }
+            hRef.current = h2
+            setH(h2)
+            if (!now || !sameMap(cleaned, now)) pushRef.current(cleaned)
+            return
+          }
           if (now) setH((prev) => ({ ...prev, map: now, past: prev.past.length && sameMap(prev.past.at(-1)!, now) ? prev.past.slice(0, -1) : prev.past }))
         }
       })
     }, 200)
   }, [send])
+  pushRef.current = push
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 

@@ -121,11 +121,12 @@ function ValidateButton({ dv, guide, first, onValidate, onWhy, refused }: { dv: 
     )
   }
   const why = guide.first
-  const line = refused ?? why?.text ?? (first && guide.ready ? P2.why.ready : null)
+  const warn = !why && guide.ready ? guide.warn : null
+  const line = refused ?? why?.text ?? warn?.text ?? (first && guide.ready ? P2.why.ready : null)
   return (
     <div className="vwrap" data-tour="p2-validate">
       {line && (
-        <span key={flash} className={`vwhy${why || refused ? ' block' : ' ok'}${flash ? ' flash' : ''}`} id="p2-vwhy" role="status">
+        <span key={flash} className={`vwhy${why || refused ? ' block' : warn ? ' warn' : ' ok'}${flash ? ' flash' : ''}`} id="p2-vwhy" role="status">
           {line}{why && !refused && guide.others > 0 && <span className="vmore"> {P2.why.more(guide.others)}</span>}
         </span>
       )}

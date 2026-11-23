@@ -37,7 +37,7 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
   const marks = rv.problems.map((p) => markOf(p.id, p.class))
   const right = marks.filter((m) => m === 'right').length
   const near = marks.filter((m) => m === 'near').length
-  const board = rv.classify + rv.flagship
+  const board = rv.classify + rv.flagship + rv.economy
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const rungText = (tier: number | null) => (tier !== null ? P1.rung(tier, w.ladder.find((r) => r.rung === tier)?.label ?? '') : P1.noRung)
   const pickLine = (pid: string, mark: Mark) => {
@@ -108,6 +108,7 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
           <div className="panel-body">
             <div className="srow2"><div><div>{P1.classify}</div><div className="muted">{empty ? P1.mark.unsorted : P1.rightCount(right, near, rv.problems.length)}</div></div><span className="num">{rv.classify}</span></div>
             <div className="srow2"><div><div>{P1.flagshipPart}</div><div className="muted">{rv.flagship > 0 ? P1.found : P1.missed}</div></div><span className="num">{rv.flagship}</span></div>
+            {rv.investigations.total > 0 && <div className="srow2"><div><div>{P1.economy}</div><div className="muted">{P1.economyLine(rv.investigations.started, rv.investigations.total)}</div></div><span className="num">{rv.economy}</span></div>}
             {pts && pts.points !== board && <div className="srow2"><div>{P1.boardScore}</div><span className="num">{board}</span></div>}
             {pts && (
               <div className="bigpts">

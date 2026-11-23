@@ -19,7 +19,7 @@ type Quality = { fetch: Readonly<Record<string, number>>; decide: { plain: numbe
  */
 export type CanvasTables = {
   grid: { cols: number; rows: number }
-  pools?: readonly { id: string; max: number }[]
+  pools?: readonly { id: string; max: number; over?: 'refuse' | 'rush' }[]
   handoff?: { keep: number }
   quality_cap?: number
   facts: readonly { id: string }[]
@@ -280,13 +280,38 @@ export function readyDetails(m: CanvasMap, t: CanvasTables): ReadyDetail[] {
       out.push({ reason: 'required_missing', index, workers: [...r.workers], text: r.text })
     }
   })
+  for (const o of overPools(m, t)) if (!o.rush) out.push({ reason: 'too_many_minutes', pool: o.pool, used: o.used, max: o.max, tiles: o.tiles })
+  return out
+}
+
+/** A pool of people that a map asks more minutes of than it has, with its person tiles by cell. */
+export type OverPool = { pool: string; used: number; max: number; tiles: string[]; rush: boolean }
+
+/**
+ * The pools a map asks too much of, in the order of the pack. With `over: rush` the map can still
+ * be validated and the people of the pool rush (`rush` is true); otherwise it cannot.
+ */
+export function overPools(m: CanvasMap, t: CanvasTables): OverPool[] {
   const used = peopleMinutes(m, t)
+  const workers = new Map(t.workers.map((w) => [w.id, w]))
+  const out: OverPool[] = []
   for (const pool of t.pools ?? []) {
     if ((used[pool.id] ?? 0) > pool.max + 1e-9) {
-      const tiles = [...sh.tiles.values()].filter((x) => workers.get(x.kind)?.pool === pool.id).sort((a, b) => a.col - b.col || a.row - b.row).map((x) => x.id)
-      out.push({ reason: 'too_many_minutes', pool: pool.id, used: used[pool.id]!, max: pool.max, tiles })
+      const tiles = m.tiles.filter((x) => workers.get(x.kind)?.pool === pool.id).sort((a, b) => a.col - b.col || a.row - b.row).map((x) => x.id)
+      out.push({ pool: pool.id, used: used[pool.id]!, max: pool.max, tiles, rush: pool.over === 'rush' })
     }
   }
+  return out
+}
+
+/**
+ * For every pool with `over: rush` that the map asks more minutes of than it has: the share of
+ * the asked minutes that the pool gives, `max / used`, below 1. Its people get through that share
+ * of the cases. Other pools are not listed.
+ */
+export function rushFactors(m: CanvasMap, t: CanvasTables): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const o of overPools(m, t)) if (o.rush) out[o.pool] = o.max / o.used
   return out
 }
 

@@ -39,25 +39,31 @@ describe('parity: the four-metric score', () => {
   }
 })
 
-type PlanningReq = { report: { picks: Record<string, string> }; problems: { id: string; key: { class: string; flagship: boolean } }[]; phase_cfg: PlanningRules }
-type PlanningExp = { error?: string; classify?: number; flagship?: number; raw?: number; sorted?: number; right?: number; one_off?: number; detail?: [string, string, string, number][] }
+type PlanningReq = { report: { picks: Record<string, string>; investigations?: number }; problems: { id: string; key: { class: string; flagship: boolean } }[]; phase_cfg: PlanningRules }
+type PlanningExp = { error?: string; classify?: number; flagship?: number; economy?: number; raw?: number; sorted?: number; right?: number; one_off?: number; detail?: [string, string, string, number][] }
 
 describe('parity: planning boards', () => {
   const vs = byFn('planning')
   it('has vectors, refusals among them', () => {
     expect(vs.length).toBeGreaterThan(40)
     expect(vs.filter((v) => 'error' in v.expected).length).toBeGreaterThanOrEqual(4)
+    // Boards under rules with the economy part, some of which it pays.
+    expect(vs.filter((v) => ((v.expected as PlanningExp).economy ?? 0) > 0).length).toBeGreaterThan(10)
   })
   for (const [i, v] of vs.entries()) {
     it(`planning #${i}`, () => {
       const r = v.request as unknown as PlanningReq
       const e = v.expected as PlanningExp
-      const err = boardError(r.report.picks, r.problems, r.phase_cfg)
+      const started = r.report.investigations ?? 0
+      const total = r.phase_cfg.scoring.economy ? r.phase_cfg.investigations.per_system : 0
+      // The engine never counts more investigations than a system has; the reference refuses them.
+      const err = boardError(r.report.picks, r.problems, r.phase_cfg) ?? (r.phase_cfg.scoring.economy && (started < 0 || started > total) ? 'investigations' : null)
       if (e.error !== undefined) { expect(err).not.toBeNull(); return }
       expect(err).toBeNull()
-      const got = scoreBoard(r.report.picks, r.problems, r.phase_cfg)
+      const got = scoreBoard(r.report.picks, r.problems, r.phase_cfg, started)
       expect(got.classify).toBe(e.classify)
       expect(got.flagship).toBe(e.flagship)
+      expect(got.economy).toBe(e.economy)
       expect(got.raw).toBe(e.raw)
       expect(got.graded.map((g) => g.problem)).toEqual(r.problems.map((p) => p.id))
       expect(got.graded.filter((g) => g.picked !== null).length).toBe(e.sorted)

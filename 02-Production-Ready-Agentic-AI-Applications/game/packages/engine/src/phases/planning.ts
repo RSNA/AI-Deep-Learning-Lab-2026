@@ -3,6 +3,7 @@
 import type { Pack, PlanningRules } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
 import type { EngineEvent, FeedEntry, GameMs, PlanningResult, PlanningState, PlayerState } from '../state.ts'
+import { roundHalfUp } from '../scoring.ts'
 import { fireDialogue } from '../story.ts'
 import type { PhaseModule } from './types.ts'
 
@@ -31,8 +32,12 @@ export function markOf(picked: string | null, truth: string, rules: PlanningRule
   return real(picked) && real(truth) && Math.abs(order.indexOf(picked) - order.indexOf(truth)) === 1 ? 'near' : 'wrong'
 }
 
-/** Score one board. The caller has checked it with boardError. */
-export function scoreBoard(picks: Record<string, string>, problems: readonly ProblemKey[], rules: PlanningRules): PlanningResult {
+/**
+ * Score one board. The caller has checked it with boardError. `started` is how many
+ * investigations the player started. With `scoring.economy` in the rules, the ones that were not
+ * started pay up to its `max`, in proportion to how well the board is sorted (section 6.5).
+ */
+export function scoreBoard(picks: Record<string, string>, problems: readonly ProblemKey[], rules: PlanningRules, started = 0): PlanningResult {
   const order = rules.class_order
   const real = new Set(rules.classes.filter((c) => c.rungs.length > 0).map((c) => c.id))
   const sc = rules.scoring
@@ -50,7 +55,16 @@ export function scoreBoard(picks: Record<string, string>, problems: readonly Pro
     classify += points
     return { problem: p.id, picked, points }
   })
-  return { graded, classify, flagship, raw: classify + flagship }
+  let economy = 0
+  let total = 0
+  const eco = sc.economy
+  if (eco) {
+    total = rules.investigations.per_system
+    const used = Math.max(0, Math.min(total, started))
+    const sortMax = sc.classify.exact * problems.length + sc.flagship.bonus
+    if (sortMax > 0 && total > 0) economy = roundHalfUp((eco.max * (classify + flagship) * (total - used)) / (sortMax * total))
+  }
+  return { graded, classify, flagship, economy, investigations: { started, total }, raw: classify + flagship + economy }
 }
 
 // ------------------------------------------------------------------------------------------
@@ -98,9 +112,11 @@ export const planning: PhaseModule = {
       st.submittedAtMs = now
       p.submittedAtMs.planning = now
     }
+    // An investigation counts once it is started, so one that still runs counts too.
+    const started = st.done.length + st.running.length
     st.running = []
     const problems = pack.systems[p.system]?.problems ?? []
-    st.result = scoreBoard(st.picks, problems, pack.game.phases.planning)
+    st.result = scoreBoard(st.picks, problems, pack.game.phases.planning, started)
     return st.result.raw
   },
   liveValue(_s, _pack, p) {

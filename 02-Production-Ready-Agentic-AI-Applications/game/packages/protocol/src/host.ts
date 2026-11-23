@@ -116,7 +116,7 @@ export const HostInspect = S({
       truth: z.string(), tier: Rung.nullable(), flagship: z.boolean(), rationale: Text,
       points: z.number().nullable(),          // once the phase is scored
     })),
-    classify: z.number().nullable(), flagship: z.number().nullable(),
+    classify: z.number().nullable(), flagship: z.number().nullable(), economy: z.number().nullable(),
   }).nullable(),
   // Phase 2 (section 10.8): the draft drawn read-only, the money, the actions, every validation,
   // and beside them the key: the share solved of every case for the draft, the flags, the reference map.
@@ -133,7 +133,7 @@ export const HostInspect = S({
     key: S({
       accuracy: z.number().nullable(),        // of the draft, when it is ready
       cases: z.array(S({ id: z.string(), title: Text, weight: z.number(), solved: z.number().nullable() })),
-      flags: S({ privateData: z.array(z.string()), overloaded: z.array(z.string()), distracting: z.array(z.string()), prompt: z.array(z.string()), stray: z.array(z.string()) }),
+      flags: S({ privateData: z.array(z.string()), overloaded: z.array(z.string()), distracting: z.array(z.string()), prompt: z.array(z.string()), stray: z.array(z.string()), rushed: z.array(z.string()) }),
       running: Running,
       reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),
     }),

@@ -159,6 +159,8 @@ export const P2 = {
     noParts: (name: string) => `${name} has no model and no place to run. Choose them in its boxes.`,
     minutesOne: (name: string, used: string, max: string) => `${name} would need ${used} minutes a case and has ${max}. Take a line off, or let it check work instead.`,
     minutesPool: (label: string, used: string, max: string) => `${label}: the map asks ${used} a case and the limit is ${max}. Take a line or a person off.`,
+    rushOne: (name: string, used: string, max: string) => `${name} is asked for ${used} minutes a case and has ${max}. They will rush and miss cases. You can still validate.`,
+    rushPool: (label: string, used: string, max: string) => `${label}: the map asks ${used} a case and there are ${max}. They will rush and miss cases. You can still validate.`,
     more: (n: number) => (n === 1 ? '1 more thing after this.' : `${n} more things after this.`),
     ready: 'Ready. Press Validate to test the map against cases checked by people.',
   },

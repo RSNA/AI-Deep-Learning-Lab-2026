@@ -1,7 +1,7 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import { fromPackMap, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
+import { fromPackMap, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
 import type {
   Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
   LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ReadyDetail, Running, ScreenView, SessionInfo,
@@ -156,6 +156,7 @@ export function planningContent(s: SessionState, pack: Pack, playerId: PlayerId)
     brief: brief ? { from: brief.from, title: brief.title, text: brief.text } : null,
     rules: {
       bandwidth: rules.investigations.bandwidth,
+      economy: (rules.scoring.economy?.max ?? 0) > 0,
       classes: rules.class_order.map((id) => {
         const c = rules.classes.find((x) => x.id === id)!
         return { id: c.id, label: c.label, short: c.short, fitsWhen: c.fits_when, rungs: [...c.rungs], capacity: c.capacity }
@@ -195,6 +196,9 @@ function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView
       }),
       graded: st.result.graded.map((g) => ({ problem: g.problem, picked: g.picked, points: g.points })),
       classify: st.result.classify, flagship: st.result.flagship,
+      // A result stored before the economy part existed has neither field.
+      economy: st.result.economy ?? 0,
+      investigations: { started: st.result.investigations?.started ?? 0, total: st.result.investigations?.total ?? 0 },
     }
   }
   const picks: Record<string, string> = {}
@@ -353,6 +357,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     ready: { ok: reasons.length === 0, reasons: [...reasons], details: readyDetails(st.map, b).map(detailView) },
     lineAdvice: ruledLines(st.map, b).filter((x) => !x.rule.refuse).map((x) => ({ from: x.line.from, to: x.line.to, text: x.rule.text })),
     tileMinutes: show ? { ...tileMinutes(st.map, b) } : {},
+    rushed: overPools(st.map, b).filter((o) => o.rush).map((o) => ({ pool: o.pool, used: o.used, max: o.max, tiles: [...o.tiles] })),
     flags: { stray: run.stray, incomplete: incompleteTiles(b, st.map), privateData: run.privateData },
     running: show ? runningView(run.running) : null,
     validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),
@@ -818,6 +823,7 @@ export function hostInspect(s: SessionState, pack: Pack, playerId: PlayerId, con
       }),
       classify: st.result?.classify ?? null,
       flagship: st.result?.flagship ?? null,
+      economy: st.result ? st.result.economy ?? 0 : null,
     }
   }
   return {
@@ -858,7 +864,7 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
       accuracy: ev ? ev.accuracy : null,
       cases: b.cases.map((k) => ({ id: k.id, title: k.public.title, weight: k.weight, solved: ev ? ev.perCase[k.id] ?? 0 : null })),
       flags: {
-        privateData: run.privateData, stray: run.stray,
+        privateData: run.privateData, stray: run.stray, rushed: [...run.rushed],
         overloaded: ev ? [...ev.flags.overloaded] : [], distracting: ev ? [...ev.flags.distracting] : [], prompt: ev ? [...ev.flags.prompt] : [],
       },
       running: runningView(run.running),
