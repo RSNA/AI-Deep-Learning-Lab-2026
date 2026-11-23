@@ -4,10 +4,10 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.1. It adds the changes the lab director asked for after the first play of
-Phase 1 (section 16, row 5). The foundation and Phase 1 are specified in full. Phase 2 and Phase 3 are
-specified as far as the content format fixes them: their rules are complete, and their screens
-are outlined. Section 16 lists what later steps add.
+**Status.** Version 1.3. Phase 2 is now played on a canvas (Step 7, section 16): the player
+builds a map on a grid and validates it, and the slot board of version 1.1 is gone. The
+foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
+format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
 **This file is public and the game content is not.** The scenarios, the answer keys and the
 tuned numbers live in a private content pack that never enters this repository. Nothing here
@@ -49,14 +49,16 @@ phases. Each is played by everyone at once against a shared timer and is worth u
    real and one AI model is enough, or real and in need of an agentic system. The player is
    told how many problems each class holds, in a full pack two, two, two and one, and no
    class takes more.
-2. **Development.** The player fills a board of choices to design a solution for one problem.
-   Pilot runs score the design on four metrics (validity, reliability, cost, complexity) and
-   return one traced failure. At the end, the submitted design is tested again on a second set
-   of cases.
+2. **Development.** The player builds a map on a grid for one problem: sources of facts on the
+   left, one result on the right, and workers between them (AI workers, fixed rules, people)
+   joined by lines. Actions cost money, developers and time, and unlock more items or bring an
+   insight. A validation returns the accuracy of the map, one case it missed and sometimes a
+   note. The accuracy of the submitted map is the whole score of the phase.
 3. **Maintaining.** A simulated year runs on a shared clock. The player funds monitors, answers
    events and may change the system. The score is the health of the system over the year.
 
-State resets between phases, and only points carry over. A live leaderboard runs throughout.
+State resets between Phases 1 and 2. From Phase 2 into Phase 3 a player keeps the submitted map,
+the money left and what was unlocked. A live leaderboard runs throughout.
 After each phase the players see what the right answers were.
 
 The presenter's slides are part of the game. One deck serves the whole session. The big screen
@@ -185,14 +187,14 @@ The server reads one pack from the folder in `CONTENT_DIR`. The default is `cont
 
 ```
 game.yaml                 global rules and numbers
-palette.yaml              Phase 2 components
 monitors.yaml             Phase 3 monitors
 characters.yaml           the cast
 systems/<id>-<slug>/
   system.yaml             premise, practice profile, calibration anchors
   problems.yaml           Phase 1 candidate problems
   insights.yaml           Phase 1 investigations and tiles
-  build.yaml              Phase 2 board, cases, rules, offers
+  build.yaml              the canvas of Phases 2 and 3: grid, sources, workers, models, places
+                          to run, prompts, actions, cases, notes, the reference map
   maintain.yaml           Phase 3 start meters, actions, events
   story.yaml              briefs, letters, dialogue, announcements
 teaching/
@@ -240,8 +242,8 @@ both. Validation has three layers.
    result: inside `public`, options, costs, effects, conditions and events, an unknown field is
    an error. Elsewhere an unknown field gives a warning with its path, and the server starts.
 2. **References.** Every id that a file mentions exists: characters, problems, monitors, events,
-   offers, components, choices and options inside conditions, source ids.
-3. **Counts from `game.yaml`.** The number of problems, investigations and offers match what
+   source ids, and every item, fact, pool, action and case of a build file (section 5.5).
+3. **Counts from `game.yaml`.** The number of problems and investigations match what
    `game.yaml` states. The class of every problem exists, agrees with `real` and `tier`, and
    the number of problems in each class equals `class_mix` (section 5.5). Every investigation uses a bandwidth level that exists, with the seconds
    of that level, and one that its method allows. The work of all investigations of a system
@@ -254,8 +256,17 @@ enforces the design rules: how hard the puzzle is, how the evidence fits togethe
 numbers balance. The public loader does not know those rules.
 
 A setting that has one implemented value is validated to hold that value. For example
-`join.assignment` must be `balanced`, and `phases.planning.live_leaderboard.metric` must be
-`progress`. A pack cannot ask for behavior that does not exist.
+`join.assignment` must be `balanced`, `phases.planning.live_leaderboard.metric` must be
+`progress`, and once `phases.development.board` is `canvas`, the submission rules and the live
+column of Phase 2 must hold their one value each. A pack cannot ask for behavior that does not
+exist.
+
+**A pack on its way to the canvas.** A `game.yaml` that still carries the fields of the slot board
+of version 1.1 (`pilot`, `offers`, `slots`, the four sub-scores) loads, with a warning for each,
+so Phase 1 plays while the content catches up. Phase 2 can open only when
+`phases.development.board` is `canvas` and every health system has a `build.yaml`. A build file
+that exists while the board is not `canvas` gives a warning and is still checked, and the lines
+of dialogue of Phase 2 are checked only once a build file exists.
 
 `npm run check:content` loads the pack in `CONTENT_DIR` and prints every error and warning.
 
@@ -289,7 +300,7 @@ type Game = {
   run_of_show: { start: number; end: number; segment: Segment; driver: string }[]   // minutes
   story_time?: {                         // display strings only, see below
     planning?: { span: Text; investigation_stands_for?: Record<number, Text> }   // by bandwidth level
-    development?: { span: Text; pilot_run_stands_for?: Text }
+    development?: { span: Text }                   // an action carries its own story time
     maintaining?: { span: Text; tick_stands_for?: Text }
   }
   ladder: { rung: 1|2|3|4|5; id: string; label: Text; fits_when: Text; example: Text }[]
@@ -353,11 +364,15 @@ type PlanningClass = {
 }
 type DevelopmentRules = {
   label: Text; play_seconds: number; reveal_seconds: number
-  pilot: { runs: number; seconds: number; concurrent: 1 }
-  offers: { per_system: number; announce_at_seconds: number[]; claim_window_seconds: number
-            claim_fraction: number }
-  live_leaderboard: { label: Text }
-  scoring: { pilot_weight: number; heldout_weight: number }
+  board: 'canvas'                                          // required once a build.yaml exists
+  action_groups: { id: string; label: Text }[]             // learn, build, buy, negotiate
+  show_running?: boolean                                   // show what the draft would take to run. Default true
+  money_unit?: Text                                        // written after a sum of money, such as "k$"
+  submission?: { default: 'best_validation'                // by accuracy, the earliest wins a tie
+                 player_may_choose: 'any_own_validation'
+                 none_at_the_end: 'validate_the_draft_if_ready' }
+  live_leaderboard: { metric?: 'best_validation_accuracy'; label: Text }
+  scoring?: unknown; carries_over?: unknown                // read by the private checker only
 }
 type MaintainingRules = {
   label: Text; reveal_seconds: number
@@ -378,26 +393,9 @@ capacity is one.
 A band of `score_bands` may carry a `label`, such as "Strong". It is the only name of a band
 that a player ever reads. The `id` is for letters, the report card and the code.
 
-`story_time` says what the play time stands for in the story, for example that a pilot run
-stands for a two-week pilot. The client shows these strings next to the waits. They never affect
+`story_time` says what the play time stands for in the story, for example that an investigation
+of bandwidth 2 stands for a week. The client shows these strings next to the waits. They never affect
 a score.
-
-**`palette.yaml`**
-
-```ts
-type Palette = { components: Component[] }
-type Component = {
-  id: string                      // also the option id when the component sits in a slot
-  public: { label: Text; short: Text; description: Text; icon: string }
-  tags?: string[]
-  cost?: { visible?: number; hidden?: number; year?: number }
-  developers?: number; complexity?: number; delivery_runs?: number
-  key?: object
-}
-```
-
-The id `empty` is reserved for a slot with nothing in it, and `n/a` for a choice that does not
-apply.
 
 **`monitors.yaml`**
 
@@ -501,64 +499,118 @@ Only an interview fixes its tile type (`quote`). Every other method may give any
 `audit` tile also serves as the tally of an observation, and its findings may then count
 different things, each with its own denominator in the label.
 
-**`build.yaml`**
+**`build.yaml`** is the canvas of Phases 2 and 3, one per health system (section 6.6). Every
+field under `key` and every number of quality stays on the server.
 
 ```ts
 type Build = {
-  problem: ProblemId
-  board: { nodes: { id: string; label: Text; kind: 'system' | 'person' }[]
-           flow: string[]                  // node ids and slot ids, in order
-           links?: [string, string][] }    // extra arrows
-  budget: { cost: { par: number; ceiling: number }; complexity: { par: number; ceiling: number } }
-  team: { developers: number }
-  choices: Choice[]
-  rules?: { id: string; when: Condition
-            effects: { cost?: number; cost_year?: number; complexity?: number; developers?: number }
-            key?: object }[]
-  advisories?: { when: Condition; trace: Text; priority: number; source?: SourceIds }[]
-  cases: Case[]
-  offers?: Offer[]
-  key: { reference: { design: Design; rationale: Record<ChoiceId, Text>; public_summary: Text }
-         traps?: { id: string; kind: 'overbuilt' | 'underbuilt' | 'shortcut'; design: Design }[] }
+  problem: ProblemId                        // the flagship problem this map solves
+  grid: { cols: number; rows: number       // cells between the sources and the result, at most 8 by 8
+          columns?: { label: Text; hint: Text }[] }   // one per column: the stage of the work it
+                                            // stands for, and one sentence on it. Names only
+  efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
+  toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
+  budget: { money: number; developers: number }
+  validate: { runs: number; seconds: number }
+  pools?: { id: PoolId; public: { label: Text }; max: number }[]   // minutes per case the people can give
+  handoff: { keep: number }                 // what survives one line between two tiles, 0 to 1
+  quality_cap?: number                      // a prompt cannot lift an AI worker above this. Default 1
+  facts: { id: FactId
+           miss: { missing: Text            // shown with a missed case: nothing on the map reaches it
+                   weak: Text }             // the map reaches it and loses it too often
+           key?: object }[]
+  sources: { id: SourceId; public: { label: Text; description: Text; icon: string }
+             gives: Record<FactId, number>  // trust, 0 to 1
+             effort: string                 // how much digging a fact takes here: one of `efforts`,
+                                            // or without that list easy, hard or another kind
+                                            // that every worker has numbers for
+             private_data: boolean          // it holds data that must be protected
+             distracts?: number             // below 1, it lowers the judgment of an AI worker that reads it
+             run?: number                   // money a month for every line from it
+             key?: object }[]
+  result: { id: string; public: { label: Text; description: Text } }
+  workers: Worker[]
+  models?: { id: ModelId; public: Part; run?: number             // money a month per call unit
+             runs_on: ComputeId[]; key?: object }[]
+  compute?: { id: ComputeId; public: Part; protects_private_data: boolean
+              price_factor?: number         // multiplies the price of every model that runs here
+              run_fixed?: number            // money a month while any tile runs here
+              key?: object }[]
+  prompts?: { id: PromptId                  // three or four formats. The first is the default
+              public: { label: Text; description: Text
+                        sample?: Text       // the opening of such a prompt, up to 35 words
+                        samples?: { label: Text; text: Text }[] }   // several openings, each
+                                            // under a label, shown in place of `sample`
+              fetch?: number; decide?: number   // multiply the worker's fetching and judgment
+              by_worker?: Record<WorkerId, { fetch?: number; decide?: number }>   // other numbers for one kind
+              key?: object }[]
+  actions?: { id: ActionId; group: string   // an id of phases.development.action_groups
+              public: { title: Text; teaser: Text }
+              money: number                 // paid when it starts
+              developers: number            // held while it runs. May be 0
+              seconds: number
+              requires?: ActionId[]         // actions that must be done first
+              unlocks?: ItemId[]            // an item that no action unlocks is open from the start
+              insight?: Tile | null         // a tile in the format of insights.yaml
+              story_time?: Text; key?: object }[]
+  cases: { id: CaseId; weight: number
+           public: { title: Text; text: Text }   // shown when the case is missed, and at the reveal
+           needs: FactId[]; difficulty: 'plain' | 'hard'
+           decision_miss: Text              // shown when the facts arrived and the judgment failed
+           key?: object }[]
+  notes?: { id: 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'; text: Text }[]   // in order of priority
+  key: { reference: { map: PackMap; needs_actions: ActionId[]; public_summary: Text; rationale?: Text }
+         traps?: { id: string; kind: 'overbuilt' | 'underbuilt' | 'shortcut'; map: PackMap }[] }
 }
-type Choice =
-  | { id: ChoiceId; kind: 'slot'; public: { label: Text; prompt?: Text }
-      options: SlotOption[] }
-  | { id: ChoiceId; kind: 'link' | 'tool' | 'agent_setting' | 'setting' | 'resource'
-      public: { label: Text; description?: Text }
-      applies_when?: Condition; default: OptionId
-      options: ListOption[] }
-type OptionCosts = {
-  cost?: { visible?: number; hidden?: number; year?: number }
-  developers?: number; complexity?: number; delivery_runs?: number
-  tags?: string[]; requires_offer?: OfferId | null
+type Part = { label: Text; short: Text; description: Text; cost_line?: Text }
+type Worker = {
+  id: WorkerId; kind: 'ai' | 'fixed' | 'person'
+  group?: string                            // an id of `toolbox_groups`, required when there are any
+  public: { label: Text; short: Text        // short: the name on a tile, a chip, a part box
+            task?: Text                     // a few words on the job it does, shown in the toolbox
+            description: Text; icon: string; cost_line?: Text }
+  needs_model: boolean                      // only an AI worker carries a model, a place to run and a prompt
+  by_model?: Record<ModelId, Quality>       // with needs_model: one entry per model it may carry
+  quality?: Quality                         // without needs_model
+  load?: { free: number; factor: number }   // lines in beyond `free` each multiply the judgment by `factor`
+  calls?: number                            // model calls per case, multiplies the price of the model. Default 1
+  run?: number; complexity?: number
+  pool?: PoolId                             // required for a person
+  minutes?: { decide: number; check: number; per_line: Record<Effort, number> }   // required for a person
 }
-type SlotOption = OptionCosts & { component: ComponentId; public_note?: Text }
-     // a missing cost, developers, complexity or delivery_runs falls back to the palette
-type ListOption = OptionCosts & { id: OptionId; public: { label: Text; description?: Text }
-                                  adds_developers?: number }
-type Case = {
-  id: CaseId; set: 'pilot' | 'heldout'; dimension: 'validity' | 'reliability'; weight?: number
-  public: { title: Text; text: Text }
-  fails_when?: { when: Condition; trace: Text; priority: number; source?: SourceIds }[]
-  extra_cost?: { when: Condition; cost: number; note?: Text }[]
-  key?: object
-}
-type Offer = {
-  id: OfferId; index: number            // which announcement time of game.yaml it uses, from 1
-  public: { title: Text; text: Text; trade_off: Text }
-  pilot_runs: number                    // change to the claimer's pilot budget
-  key?: { verdict?: 'take' | 'leave' | 'depends'; rationale?: Text }
-}
-type Design = Record<ChoiceId, OptionId>
-
-type Condition = {                      // every key present must hold
-  choice?: ChoiceId; is?: OptionId[]; is_not?: OptionId[]; has_tag?: string
-  count_tag?: string; kind?: Choice['kind']; min?: number; max?: number
-  has_offer?: OfferId
-  all?: Condition[]; any?: Condition[]; not?: Condition
-}
+type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: number }; catch?: number }
+type PackMap = { tiles: { id: string; kind: WorkerId; col: number; row: number
+                          model?: ModelId | null; runs_on?: ComputeId | null; prompt?: PromptId | null }[]
+                 lines: { from: string; to: string }[] }
 ```
+
+The items that can be placed, chosen or unlocked (sources, workers, models, computes, prompts)
+and the result share one namespace inside a build file, because `unlocks` names any of them. The
+ids of a build file need not carry the system prefix of section 5.2: maps name them all the time.
+A pack names an icon by one of these words, which the client draws: for a source `form`,
+`catalog`, `mail`, `truck`, `chat`, `counter`, `file`, `image` (a picture or a scan), `ask` (a
+person to ask), `search` (a search across records), `guide` (a guideline) and `web`; for a worker
+`agent`, `step`, `rule`, `model`, `person`, `clerk`, `nurse` and `doctor`. Any other word gets the
+icon of the worker's kind, or of a file (section 11.4).
+
+The loader checks of a build file, beside the shape. Every id resolves: the facts a source gives
+and a case needs, the models of `by_model`, the computes of `runs_on`, the workers of
+`by_worker`, the pool of a person, the group of an action, `requires`, `unlocks` and
+`needs_actions`. An id is used once in its namespace, and `requires` forms no loop. When
+`efforts` is there, every source names one of them, and every worker has a `fetch` number, and
+every person `per_line` minutes, for each of them; without it, the same holds for every effort
+that a source names. When `toolbox_groups` is there, every worker has one of them as `group`.
+`grid.columns`, when there, has one entry per column. A prompt has `sample` or `samples`. A case needs
+no fact that no source gives. A worker with `needs_model` is of kind `ai` and has `by_model`; one
+without has `quality`. A person has a pool and minutes, and nobody else has either. An action
+unlocks something or brings an insight, and needs no more developers than the practice has. The
+reference map is accepted and ready (section 6.6) once its `needs_actions`, and the actions they
+require, are done, and those actions cost no more than `budget.money`. A trap map that is not
+accepted, a missing note, and a number of prompts other than three or four are warnings.
+
+The map rules that `set_map` applies live in `packages/content-schema/src/canvas.ts`, so the
+loader can check the reference map with them. The scoring is `evaluate` in
+`packages/engine/src/canvas.ts`.
 
 **`maintain.yaml`**
 
@@ -602,18 +654,27 @@ type GameEvent = {
 
 ```ts
 type Story = {
-  briefs?: Partial<Record<PhaseId, { from: CharacterId; title: Text; text: Text }>>
+  briefs?: Partial<Record<PhaseId, { from: CharacterId; title: Text; text: Text
+                                     opening?: { hit: Text; missed: Text } }>>   // Phase 2 only
   letters?: Partial<Record<'planning_reveal' | 'development_reveal' | 'annual_review',
             { from: CharacterId; always: Text; variants: Record<BandId, Text> }>>
   dialogue?: { id: string; speaker: CharacterId; text: Text
                trigger: { phase: PhaseId; on: string } }[]
      // on: start | idle | insight:<id> | run_result | trace:<case id> | event:<id> | month:<n> | reveal
+     // insight:<id> names an investigation in Phase 1 and an action in Phase 2. run_result fires
+     // when a validation lands, trace:<case id> when that case is shown as missed
   banter?: { id: string
              lines: { speaker: CharacterId; text: Text }[] }[]   // two or three lines an exchange
   announcements?: { id: string; phase: PhaseId; offer?: OfferId; at_seconds?: number | null
-                    from: CharacterId; text: Text }[]
+                    from: CharacterId; text: Text }[]    // no offer exists until Phase 3 names one
 }
 ```
+
+`briefs.development.opening` is a first paragraph of the Phase 2 letter that follows from Phase 1:
+`hit` for a player whose Phase 1 board had the flagship problem in the flagship class, `missed`
+for a player whose board had not, and neither for a player without a Phase 1 result. The engine
+puts it before `text` in the letter the player receives, so the pop-up and the first card of the
+insights carry it. Both are public. Each is within `text_limits.phase_brief_opening` words.
 
 `briefs.planning` is the opening letter of Phase 1. It pops up when the phase starts and stays
 as the first card of the evidence (section 10.4), so it states the task and explains the
@@ -693,25 +754,36 @@ is written from scratch for the purpose.
 
 - **Setting.** Two public library networks. The player is the digital services director of one
   branch. No medical wording anywhere.
-- **Size.** Two health systems. Per system: 6 candidate problems, 5 investigations, a board of
-  8 to 10 choices, 4 pilot and 4 held-out cases, 1 offer, 4 events and 3 actions. Shared: 5
-  components, 3 monitors, 4 characters. Short timers, so a full game takes about six minutes at
-  time scale 1.
-- **Coverage.** The pack uses every feature of the format at least once: all four investigation
-  methods and all four tile types, an interview, every kind of choice, `applies_when`, an
-  option that needs an offer, a rule with a developers effect, an option with `delivery_runs`,
-  a design that the team cannot build, a year amount that differs from the pilot amount, an
-  advisory, a case with `extra_cost`, a loud event and a silent one, an event that another
-  option arms, `grants_monitor`, a one-time check, a change action with a month window, every
-  dialogue trigger, letters with all bands and the `empty` line, band labels, banter, click
-  lines and a `look` on every person, one extra in each system, a deck with a section for every
-  slide stage, a slide with a live statistic, a slide with notes, a placeholder slide, and a
-  report card.
+- **Size.** Two health systems. Per system: 6 candidate problems, 5 investigations, and a canvas
+  of 4 by 5 cells with 5 sources (one locked, one that distracts, some without private data), 5
+  kinds of worker (an agent, a fixed AI step, a rule, two kinds of person in two pools), 3 models,
+  4 places to run (one that does not protect private data, two locked), 4 prompts (one that
+  confuses, one with `by_worker`, two locked), 6 actions over the four groups (one with
+  `requires`, three with an insight), 5 cases of both difficulties, all five notes, a reference
+  map, an overbuilt and an underbuilt trap, and both letters. Phase 3 is not in the pack yet.
+  Short timers, so a full game takes about seven minutes at time scale 1.
+- **Coverage.** The pack uses every feature of the format that the build has reached at least
+  once: all four investigation methods and all four tile types, an interview; in Phase 2 every
+  kind of worker, a locked source, a distracting source, sources with and without private data,
+  a model that runs only on GPUs, a place to run that does not protect private data, a prompt
+  that confuses, one with `by_worker`, locked prompts, an action in every group, one with
+  `requires`, actions with a stat, an audit and a quote as their insight, cases of both
+  difficulties, every note, both traps; every dialogue trigger of Phases 1 and 2, letters with
+  all bands and the `empty` line, band labels, banter, click lines and a `look` on every person,
+  one extra in each system, a deck with a section for every slide stage, a slide with a live
+  statistic, a slide with notes and a placeholder slide. Phase 3 and the report card come with
+  Step 9.
 - **Phase 1 rules.** Its `game.yaml` has the four classes, a `class_mix` that adds up to its 6
   problems and uses every class (2, 2, 1 and 1), a `capacity` on every class that equals its
   share, and `test` and `rehearsal` in `join.choose_system_in_modes`.
 - **Calibration.** Its anchors are estimates marked provisional until `scripts/simulate`
   exists in Step 9. From then on they are measured.
+- **Phase 2.** Written from scratch in the library setting: Riverbend builds the system that
+  answers requests for books held by partner libraries, Lakeshore the one that writes the monthly
+  grant report. The provider is an invented company, Acorn, with a large and a small model,
+  beside a free model, Pine. The reference map of each system is one large agent with the goal
+  prompt on the four good sources, checked by a person, at 96 percent. Random ready maps with the
+  starting items average 11 percent.
 - **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, the deck,
   the banter, the click lines and the extras in Step 5, Phase 2 in Step 7, Phase 3 and the
   report card in Step 9.
@@ -933,92 +1005,239 @@ when the letter has one and the player sorted fewer problems than
 
 ### 6.6 Phase 2: Development
 
-Everyone designs for the flagship problem of their health system (`build.problem`).
+Everyone builds for the flagship problem of their health system (`build.problem`). The player
+builds a map on a grid: the sources stand on the left, the result on the right, and the player
+places workers on the cells between them and joins everything with lines. Actions cost money,
+developers and time, and return an insight, unlock items, or both. A validation returns the
+accuracy of the map. The accuracy of the submitted map is the whole score of the phase. Money,
+running cost, people's minutes and complexity are counted and shown, and Phase 3 scores them.
+Phase 2 has no announcements and no offers.
 
-**A design** maps each choice id to an option id. Resolving a design:
+What the phase teaches a player who has never written code: an agent is for the work whose path
+cannot be fixed, a fixed step or a rule does the rest, every line is a permission, a worker with
+too much on it gets worse, every handoff loses a little, a person who checks is worth more than a
+person who does everything, a strong model belongs where the judgment is, and a prompt helps when
+it is precise and hurts when it is long.
 
-1. Slots first. A slot holds a component its options allow, or `empty`.
-2. Then every other choice in file order. When its `applies_when` is false the choice holds
-   `n/a`, costs nothing and matches no `is` list. Otherwise it holds the chosen option, or its
-   `default`.
-3. An option with `requires_offer` can be chosen only by a practice that claimed that offer.
+**Words**
 
-Each resolved option has tags, three money amounts (`visible`, `hidden`, `year`), developers,
-complexity points and delivery runs.
-
-**Conditions**
-
-| Form | True when |
+| Word | Means |
 | --- | --- |
-| `{choice: C, is: [...]}` | The option at C is in the list |
-| `{choice: C, is_not: [...]}` | The option at C is not in the list |
-| `{choice: C, has_tag: T}` | The option at C carries tag T |
-| `{count_tag: T, min, max, kind?}` | The number of choices whose option carries T is in range. `kind` counts one kind of choice only |
-| `{has_offer: O}` | The practice claimed offer O |
-| `{all: [...]}`, `{any: [...]}`, `{not: {...}}` | As named |
+| Grid | `cols` columns by `rows` rows of cells between the sources and the result. Columns count from 1 |
+| Source | A fixed tile on the left, in column 0. A place where facts are |
+| Result | The one fixed tile on the right, in column `cols + 1` |
+| Worker | A kind of tile the player places: an AI worker (`ai`), a fixed rule (`fixed`) or a person (`person`) |
+| Tile | One placed worker, with a cell and, for an AI worker, a model, a place to run and a prompt |
+| Line | From a source to a tile ("may read this"), from a tile to a tile further right ("hands its work on"), or from a tile to the result ("signs the result") |
+| Signer | The tile whose line enters the result |
+| Live tile | A tile from which the result can be reached. Other tiles are strays |
+| Fact | Something a case needs, given by one or more sources. Never shown as such |
+| Case | A kind of work item of the validation set, with a weight, the facts it needs and a difficulty |
+| Item | Anything that can be locked: a source, a worker kind, a model, a compute, a prompt |
+| Action | Something the practice does once, for money, developers and time |
 
-**Developers.** Needed is the sum over chosen options and matching rules. Available is
-`team.developers` plus the `adds_developers` of chosen options. A design that needs more than
-is available is **not buildable**. It cannot be run, and if it is what gets submitted it scores 0.
-The board shows both numbers as the player builds.
+A map, as the engine and the protocol hold it:
 
-**Scoring a design on a case set** (`pilot` or `heldout`)
+```ts
+type CanvasMap = { tiles: Tile[]; lines: { from: string; to: string }[] }
+type Tile = { id: string                     // made by the client, ^t[0-9a-z]{1,8}$
+              kind: WorkerId; col: number; row: number
+              model: ModelId | null; runsOn: ComputeId | null; prompt: PromptId | null }
+```
 
-1. *Validity* is 100 × the weight of the validity cases that pass ÷ the weight of all validity
-   cases in the set. A case passes when none of its `fails_when` entries matches.
-   *Reliability* is the same over the reliability cases.
-2. *Pilot cost* is the visible and hidden money of every option, plus the `cost` of every
-   matching rule, plus the mean over the cases of the set of their matching `extra_cost`.
-   *Year cost* adds the `year` amount of every option and the `cost_year` of every matching
-   rule. The pilot set is priced on the pilot cost and the held-out set on the year cost.
-3. *Complexity* is the points of every option plus the `complexity` of every matching rule.
-4. The cost score is 100 at or below `budget.cost.par`, 0 at or above the ceiling, and linear in
-   between. The complexity score works the same way.
-5. The design score is the four-metric score of section 6.8.
-6. A design that is not buildable scores 0 on everything.
+**State of a player**
 
-**Pilot runs**
+```ts
+type DevelopmentState = {
+  money: number                                              // starts at budget.money
+  actionsDone: { id: ActionId; atMs: GameMs }[]
+  actionsRunning: { id: ActionId; startedAtMs: GameMs; completesAtMs: GameMs }[]
+  map: CanvasMap                                             // the draft
+  validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs; map: CanvasMap } | null
+  validations: Validation[]
+  shownCases: CaseId[]; shownNotes: NoteId[]
+  chosen: string | null                                      // a validation id, or the default
+  result: { validation: string | null; accuracy: number; raw: number
+            perCase: Record<CaseId, number>; map: CanvasMap | null } | null   // set when the stage ends
+}
+type Validation = {
+  id: string; atMs: GameMs; map: CanvasMap
+  accuracy: number                              // 0 to 1
+  missed: { case: CaseId; reason: 'missing' | 'weak' | 'decision'; fact: FactId | null } | null
+  note: NoteId | null
+  running: { money: number; minutes: Record<PoolId, number>; complexity: number }
+  rank: number | null; of: number               // the rank in the live column right after it
+}
+```
+
+The unlocked items are computed: every item that no action unlocks, plus the `unlocks` of every
+action that is done. Free developers are `budget.developers` minus the developers of the running
+actions. Validation ids are `v1`, `v2` and so on.
+
+**Commands**
 
 | Command | Accepted when | Effect |
 | --- | --- | --- |
-| `development.set_design {design}` | Stage is `development.play` | Replaces the draft. The view returns the resolved design, which choices apply, the money on the cards, the developers, and what the next run would use up |
-| `development.run {}` | No run in progress. The draft is buildable. Enough runs are left | Uses up runs and starts a run of `pilot.seconds` on a copy of the draft |
-| `development.choose_run {runId or null}` | The run is the player's own and finished | Marks the design to submit. `null` returns to the default |
-| `development.claim_offer {offerId}` | The offer is open for this health system and places are left | The player gets the offer |
+| `development.set_map {map}` | Stage is `development.play`. The map passes every rule below | Replaces the draft |
+| `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled |
+| `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft |
+| `development.choose {id or null}` | Stage is `development.play`. The validation is the player's own and finished | Marks the map to submit. `null` returns to the default |
 
-- A run uses up 1 run, plus the `delivery_runs` of every chosen option that this practice has
-  not run before. After that the option is delivered.
-- A finished run stores the design and its result: the four sub-scores, the design score, the
-  pilot cost and the year cost with the visible and hidden parts, the complexity points, the
-  developers, and one trace.
-- **The trace.** Take the first matching `fails_when` entry of every failed pilot case and every
-  matching advisory. Sort by priority, highest first. Show the first whose text this player has
-  not been shown. When all were shown, show the highest. When nothing matches, the client shows
-  a fixed line that says no failure was traced. The trace comes with the `public` of its case.
-- **Submission.** The submitted design is the finished run with the highest design score, the
-  earliest on a tie, unless the player chose another. A player with no finished run when the
-  stage ends has the draft run and submitted as it stands.
+Refusals: `wrong_stage`, `invalid_map`, `unknown_action`, `action_taken`, `requires_action`,
+`not_enough_money`, `developers_busy`, `validation_running`, `no_validations_left`, `not_ready`,
+`unknown_validation`. Each has one plain sentence in the client (section 8.2). The client does not
+offer a command that would be refused and says why beside the control.
 
-**Offers.** Each offer is announced to its health system at its time from
-`offers.announce_at_seconds`, counted from the start of the stage. It stays open for
-`claim_window_seconds`. The places are `ceil(claim_fraction × active players of that system)`,
-at least 1, counted at the announcement. Claims are served in the order the server receives
-them. A claim adds `pilot_runs` to the player's budget and sets a flag that conditions and
-options can test.
+**When an action ends** its developers are free, its items are unlocked and its insight joins the
+player's view, with the moment `insight` and the dialogue trigger `insight:<action id>`. Any
+number of actions may run at once while money and developers allow. The draft can be changed
+while an action or a validation runs.
 
-**Scoring.** `raw = 10 × (pilot_weight × pilot score + heldout_weight × held-out score)`, both of
-the submitted design.
+**When the stage ends** a running action ends at once with its full effect, because it was paid
+for. A running validation ends at once with its result. A player with no validation whose draft is
+ready has the draft validated. The submitted validation is then the chosen one, or the one with
+the highest accuracy, the earliest on a tie. A player with none has raw 0 and no map, and the
+letter of the reveal takes its `empty` line.
 
-**Live column.** The best pilot design score so far.
+**What `set_map` refuses.** A map is refused as a whole, with `invalid_map`, when any of these
+holds. `mapErrors` names each case.
 
-**Reveal.** Each player receives the held-out sub-scores of the submitted design, the two
-highest-priority held-out traces, the points and the letter, and then the reference design with
-its summary (section 9.2).
+1. A tile id is malformed or used twice. A tile's kind is not a worker, or is locked.
+2. A tile is off the grid, or two tiles share a cell.
+3. A tile of a worker without `needs_model` carries a model, a compute or a prompt.
+4. A model, a compute or a prompt of a tile does not exist or is locked, or the worker has no
+   numbers for that model (`by_model`). Each may be null.
+5. A tile has a model and a compute, and the model cannot run there (`runs_on`).
+6. A line is listed twice, or one of its ends does not exist. A line starts at a source or a tile
+   and ends at a tile or the result.
+7. A line starts at a locked source.
+8. A line runs from a source straight to the result.
+9. A line between two tiles does not go to a higher column.
+10. More than one line enters the result. More than 80 lines in all.
+
+Lines never form a loop, because every line between tiles goes right.
+
+**Ready to validate.** An accepted map is ready when all of this holds. The view carries the
+reasons that fail, and the Validate button shows the first as a sentence.
+
+1. A line enters the result (`nothing_reaches_result`).
+2. At least one live tile has a line from a source (`no_source_connected`).
+3. Every live tile that needs a model has a model and a compute (`tile_incomplete`). A prompt that
+   is null counts as the default prompt.
+4. For every pool, the minutes the map asks of it (below, every placed person counts) are at most
+   its `max` (`too_many_minutes:<pool>`).
+
+A stray tile does not stop a validation.
+
+**A validation.** When it completes, the engine scores the copy of the map (below), stores the
+`Validation`, and adds its missed case and its note to `shownCases` and `shownNotes`, so the next
+validation shows another when there is one. It fires the moment `validated`, the dialogue trigger
+`run_result`, and `trace:<case id>` for the missed case.
+
+**Scoring a map.** One pure function, `evaluate(map, tables)`, in `packages/engine/src/canvas.ts`,
+where `tables` is everything of `build.yaml` that this section reads. Phase 3 will call it every
+month with tables that its events have changed. Everything is an expected value. Nothing is
+random, so one map always gets one score. The executable reference is the private scorer of the
+canvas, and the parity vectors hold the engine to it (section 12.2).
+
+*Quality of a tile.* For a live tile `n` with worker `w`:
+
+- A worker without `needs_model` has the numbers of `w.quality`.
+- A worker with `needs_model` has the numbers of `w.by_model[model]`, with `fetch` multiplied by
+  the prompt's `fetch` and `decide` by the prompt's `decide`, each then held at `quality_cap`.
+  `catch` is not changed by the prompt. When the prompt has an entry for this kind of worker under
+  `by_worker`, the numbers of that entry are used in place of the prompt's own. A tile whose
+  prompt is null carries the first prompt of the pack.
+- `lines_in(n)` counts every line that enters `n`, from sources and from tiles.
+- `mult(n)` starts at 1. When `w.load` exists and `lines_in > load.free`, it is multiplied by
+  `load.factor` once for every line beyond `free`. For a worker of kind `ai`, it is also
+  multiplied by the `distracts` of every source with a line into `n`.
+- `fetch_n(effort) = fetch[effort]`. Load and distraction never touch a fetch.
+- `decide_n(difficulty) = decide[difficulty] × mult(n)` and `catch_n = catch × mult(n)`.
+
+*Facts, drafts and accuracy.* Live tiles are visited in order of column, then row. `keep` is
+`handoff.keep`. For every fact `f`:
+
+```
+direct  = the largest fetch_n(s.effort) × s.gives[f] over the sources s with a line into n that give f
+passed  = the largest A_u(f) × keep over the tiles u with a line into n
+A_n(f)  = the larger of direct and passed, or 0 when there is neither
+```
+
+For every case `k`:
+
+```
+have    = the product of A_n(f) over the facts that k needs
+own     = have × decide_n(k.difficulty)
+up      = the largest D_u(k) × keep over the tiles u with a line into n, or 0
+D_n(k)  = the larger of  own  and  up + (1 - up) × catch_n × own
+```
+
+A tile works from the facts it can fetch and the facts handed to it. When a draft arrives from
+the left, the tile checks it, and what it catches it does again itself.
+
+```
+solved(k) = D_signer(k)
+accuracy  = the sum of k.weight × solved(k), divided by the sum of the weights
+raw       = 1000 × accuracy
+```
+
+*What the map takes to run*, counted over every placed tile and every line, live or stray:
+
+- **Money a month** = for every tile `w.run`, plus for a tile with a model and a compute
+  `w.calls × model.run × compute.price_factor`, plus `source.run` for every line from a source,
+  plus `compute.run_fixed` once for every compute that at least one tile uses.
+- **Minutes per case, by pool** = for every person tile, `minutes.check` when a tile has a line
+  into it and `minutes.decide` when none has, plus `minutes.per_line[source.effort]` for every
+  line from a source into it.
+- **Complexity** = the `complexity` of every tile, plus 1 for every line, plus 1 more for every
+  line between two tiles, plus the number of different models in use minus 1, plus the number
+  of different computes in use minus 1 (neither below 0).
+
+*Flags.* `private_data`: a tile whose compute has `protects_private_data: false` and that receives
+private data, which it does when a source with `private_data: true` has a line into it, or a tile
+that receives private data has. `overloaded`: a live tile with `lines_in > load.free`.
+`distracting`: a live tile of kind `ai` with a line from a source whose `distracts` is below 1.
+`prompt`: a live tile with a model whose prompt helps nothing and hurts something, so neither of
+its two numbers for this worker is above 1, and at least one is below 1. `stray`: a tile that is
+not live.
+
+*The missed case and the note.* The loss of a case is `weight × (1 - solved)`. Cases are ranked
+by loss, highest first, pack order on a tie. The case shown is the first with a loss above 0 that
+is not in `shownCases`, or the first of the ranking when all were shown. When no case has a loss,
+nothing is shown. Its reason is read at the signer: when a needed fact has `A = 0`, the reason is
+`missing` with the first such fact in the order of `needs`. Otherwise let `low` be the smallest
+`A` among the needed facts (the first on a tie) and `dec = solved ÷ have`. When `low ≤ dec` the
+reason is `weak` with that fact, otherwise `decision`. The player reads the `public` of the case
+and `facts[f].miss.missing`, `facts[f].miss.weak` or the case's `decision_miss`. The note is the
+first entry of `notes` whose flag is raised and that is not in `shownNotes`, or the first raised
+one when all were shown, or none.
+
+**A map that sends patron data through an open service** can be validated. It carries a warning
+on the map and in the result, and Phase 3 brings the audit.
+
+**Live column.** The best accuracy among the player's validations, as a percent. A tie goes to the
+player who reached it first. **Tie-break of the phase column**: points, then fewer validations,
+then the earlier submission (the time of the submitted validation).
+
+**Reveal.** Each player receives the accuracy of the submitted map, the share solved of every case
+with its `public`, beside the share the reference map solves, the points, the band label and the
+letter, and the reference map with its `public_summary` and its accuracy.
+
+**What goes into Phase 3.** The submitted map, the money left, the actions done, and `shownCases`
+and `shownNotes` (`carriedIntoMaintaining` of the engine). Phase 3 is written and built in later
+steps. The canvas, the shelves, the toolbox and the action list of the client take their content
+and their state as inputs and do not know which phase shows them, so Phase 3 can use them again.
+At the start of Phase 3 a player may take the reference map of the health system in place of
+their own.
 
 ### 6.7 Phase 3: Maintaining
 
-Every player runs the same system, the reference design of their health system. The four
-meters start at `maintain.start`. Each player's year is separate state on a shared clock.
+Every player runs the map they submitted in Phase 2, or, if they choose so at the start, the
+reference map of their health system (section 6.6). The canvas and its scoring are designed again
+in Step 8: until then the rules below are those of version 1.1, and the engine of Phase 3 is a
+stub that opens and closes. The four meters start at `maintain.start`. Each player's year is
+separate state on a shared clock.
 
 **Setup.** For `setup_seconds` the player may fund any monitors the credit pool affords.
 
@@ -1077,7 +1296,7 @@ the letter.
 
 ### 6.8 Scores, points and bands
 
-**The four-metric score** serves a design in Phase 2 and a month in Phase 3. `V`, `R`, `C` and
+**The four-metric score** serves a month in Phase 3 (until version 1.2 also a design in Phase 2). `V`, `R`, `C` and
 `X` are the validity, reliability, cost and complexity scores, and `w` the weights from
 `game.yaml`.
 
@@ -1116,7 +1335,7 @@ ranking.
 | Column | While its phase is in play | After its phase closed |
 | --- | --- | --- |
 | Phase 1 | Progress: insights unlocked plus problems sorted | Phase points |
-| Phase 2 | Best pilot design score | Phase points |
+| Phase 2 | Best validation accuracy, as a percent | Phase points |
 | Phase 3 | Points from the seen meters so far | Phase points |
 | Overall | Sum of the closed phases | Sum of the closed phases |
 
@@ -1130,8 +1349,8 @@ ranking.
   acted in that phase. A player acted when the engine accepted one command or more from them.
 - Final rankings follow `leaderboards.tie_breaks`. A live column breaks ties by who reached the
   value first. The keys are `total_points`, `points`, `planning_points`, `development_points`,
-  `maintaining_points`, `earlier_join`, `earlier_submit`, `fewer_pilot_runs`,
-  `higher_final_month_health` and `fewer_credits_spent`. The last one ties everyone in Phase 1,
+  `maintaining_points`, `earlier_join`, `earlier_submit`, `fewer_validations` (Phase 2, with
+  `fewer_pilot_runs` as its old name), `higher_final_month_health` and `fewer_credits_spent`. The last one ties everyone in Phase 1,
   which spends no credits. Join order breaks any tie that remains.
 - A player's view carries their own rank overall, in their system and in the current phase,
   and the top three. The big screen carries the top `big_screen_rows` of each column.
@@ -1239,6 +1458,12 @@ deciding, so nothing on it may help a neighbour.
   sorted, sent or not. It never carries a class, a pick or an insight.
 - Each phase module supplies both through `feed` and `card` (section 6.4), read from the state
   it already keeps. Nothing new is stored, so a restored session shows the same list.
+- **Phase 2.** A line of the activity list names an action that started or finished, or says that
+  a practice validated a map, never its accuracy. The counts beside it are practices at work,
+  actions done and practices that validated a map. A practice card shows the practice's draft
+  map, drawn with the public names of its health system (`ScreenView.legends`), what runs now, the
+  best accuracy so far, the validations used and the actions done. The room sees one map at a
+  time, which is part of a room game.
 - The server marks the screen for a new view whenever a player's state changes in a play stage,
   and sends at most one view a second.
 
@@ -1579,7 +1804,7 @@ Server to client:
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
 | `standing` | On each leaderboard beat | The player's ranks and the top three per column |
-| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `offer`, `tile`, `run_result`, `event`, `month`, `letter`. The engine announces a moment by reference and the projection builds it |
+| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `tile`, `insight` (an action of Phase 2 ended with one), `validated` (a validation has its result), `letter`, and in Step 9 `event` and `month`. The engine announces a moment by reference and the projection builds it |
 | `reload` | The client's build is not the server's | none. The client reloads the page |
 | `superseded` | The token connected elsewhere | none |
 
@@ -1604,21 +1829,25 @@ so most of these sentences are rarely seen.
 | `rate_limited` | Section 7.8 | "That was too fast. Wait a moment and try again." |
 | `wrong_stage` | A command outside its stage | "That is not possible at this point of the game." |
 | `already_submitted` | A change after sending | "You have already sent this. It can no longer be changed." |
-| `busy` | A second pilot run while one runs | "A run is still going. Wait for its result." |
 | `unknown_id` | An id that the pack does not hold | "The game does not know that item. Reload the page." |
 | `already_done` | An investigation started twice | "You have already done this investigation." |
 | `no_bandwidth` | Section 6.5 | "Not enough free bandwidth. Wait for an investigation to finish." |
 | `not_enough_credits` | Section 6.7 | "You do not have enough credits for that." |
 | `invalid_report` | Section 6.5 | "That class is full. Move one of its problems out first." |
-| `invalid_design` | Section 6.6 | "That choice does not fit the rest of your design." |
-| `not_buildable` | Section 6.6 | "Your team cannot build this design. It needs more developers than you have." |
-| `no_runs_left` | Section 6.6 | "You have no pilot runs left." |
-| `offer_closed` | Section 6.6 | "That offer has closed." |
-| `offer_full` | Section 6.6 | "That offer was claimed by enough practices and is gone." |
 | `not_available` | Something the mode, the stage or the pack does not allow | "That is not available right now." The host console replaces it with the reason of section 6.13 or 10.8 |
 | `window_closed` | An answer after its deadline | "The time to answer that has passed." |
 | `action_used` | Section 6.7 | "You have already used that action." |
 | `removed` | A player the host removed | "The host removed this practice from the game." |
+| `invalid_map` | Section 6.6 | "That change breaks a rule of the map, so it was not saved." |
+| `unknown_action` | Section 6.6 | "The game does not know that action. Reload the page." |
+| `action_taken` | Section 6.6 | "That action is already done or under way." |
+| `requires_action` | Section 6.6 | "Another action has to be done first." |
+| `not_enough_money` | Section 6.6 | "There is not enough money left for that." |
+| `developers_busy` | Section 6.6 | "Not enough developers are free. Wait for an action to finish." |
+| `validation_running` | Section 6.6 | "A validation is still running. Wait for its result." |
+| `no_validations_left` | Section 6.6 | "You have no validations left." |
+| `not_ready` | Section 6.6 | "The map is not ready to validate yet." |
+| `unknown_validation` | Section 6.6 | "The game does not know that validation. Reload the page." |
 | `name_taken` | Section 6.4 | "A practice with that name is already in the game. If it is yours, rejoin with your code. If not, pick another name." |
 | `name_invalid` | Section 6.4 | "A practice name needs 3 to 24 characters and no rude words." The two numbers come from `join.practice_name` |
 | `join_closed` | Section 6.4 | "This game no longer takes new players." |
@@ -1643,7 +1872,7 @@ so most of these sentences are rarely seen.
 | `no_answer_key` | The answer key | "This server has no answer key file." |
 | `internal` | A fault of the server | "Something went wrong on the server. Try again, and tell the host if it happens twice." |
 
-The first nineteen names, the six of joining and the six of the host console
+The first thirteen names, the ten of Phase 2, the six of joining and the six of the host console
 (`not_in_control`, `no_scores_yet`, `no_deck`, `not_during_play`, `confirm_mismatch`,
 `pause_first`) are the `ErrorCode` of the protocol. The rest come from HTTP routes.
 `code_invalid` is new in this version. Until now a join code that broke the rule came back as
@@ -1667,16 +1896,43 @@ type PlanningContent = {
 }
 
 type DevelopmentContent = {
-  brief: ...; problem: { id: ProblemId; title: Text; description: Text }
-  rules: { pilotRuns: number; pilotSeconds: number }
-  board: { nodes: {...}[]; flow: string[]; links: [string, string][] }
-  team: { developers: number }
-  components: { id: ComponentId; label: Text; short: Text; description: Text; icon: string }[]
-  choices: { id: ChoiceId; kind: ChoiceKind; label: Text; prompt?: Text; description?: Text
-             default?: OptionId
-             options: { id: OptionId; label: Text; note?: Text; money: number      // visible cost
-                        developers: number; addsDevelopers: number; deliveryRuns: number }[] }[]
-}       // options that need an offer are left out. They arrive with the offer
+  brief: { from: CharacterId; title: Text; text: Text } | null   // the letter as written; the one a
+                                                // player receives, with its opening, is in the inbox
+  problem: { id: ProblemId; title: Text; description: Text }
+  rules: { cols: number; rows: number; money: number; developers: number
+           columns: { label: Text; hint: Text }[] | null   // the stages of the columns, or numbers
+           validations: number; validateSeconds: number; showRunning: boolean
+           moneyUnit: Text | null              // money_unit, written after every sum of money
+           pools: { id: PoolId; label: Text; max: number }[]
+           actionGroups: { id: string; label: Text }[]
+           toolboxGroups: { id: string; label: Text }[] }   // empty: the toolbox is one list
+  sources: { id: SourceId; label: Text; description: Text; icon: string; privateData: boolean }[]
+  result: { id: string; label: Text; description: Text }
+  workers: { id: WorkerId; kind: 'ai' | 'fixed' | 'person'; label: Text; short: Text
+             task: Text | null; group: string | null
+             description: Text; icon: string; costLine: Text | null; needsModel: boolean
+             models: ModelId[]                  // the keys of by_model
+             pool: PoolId | null
+             minutes: { decide: number; check: number } | null }[]   // per_line stays on the server:
+                                                // its keys, the efforts, say which source asks for what
+  models: { id: ModelId; label: Text; short: Text; description: Text; costLine: Text | null
+            runsOn: ComputeId[] }[]
+  compute: { id: ComputeId; label: Text; short: Text; description: Text; costLine: Text | null
+             protectsPrivateData: boolean }[]
+  prompts: { id: PromptId; label: Text; description: Text   // the first is the default
+             sample: Text | null                // null when the prompt has samples
+             samples: { label: Text; text: Text }[] }[]
+  actions: { id: ActionId; group: string; title: Text; teaser: Text; money: number
+             developers: number; seconds: number; requires: ActionId[]; unlocks: string[]
+             storyTime: Text | null }[]
+}
+
+/** What it takes to draw a map read-only: the projector card and the host's view of a player. */
+type CanvasLegend = { cols: number; rows: number
+                      columns: { label: Text; hint: Text }[] | null
+                      sources: { id; label; icon; privateData }[]; result: { id; label }
+                      workers: { id; kind; label; short; icon }[]; models: { id; label; short }[]
+                      compute: { id; label; short; protectsPrivateData }[]; prompts: { id; label }[] }
 
 type MaintainingContent = {
   brief: ...
@@ -1686,7 +1942,7 @@ type MaintainingContent = {
               localNote?: Text }[]
   actions: { id: ActionId; kind: 'look' | 'change'; label: Text; text: Text; credits: number
              once: boolean; months?: { from?: number; to?: number } }[]
-  reference: { design: Design; summary: Text }       // the system everyone now runs
+  reference: { map: CanvasMap; summary: Text }       // the reference map a player may take (Step 8)
 }
 ```
 
@@ -1754,29 +2010,38 @@ the anchors are estimates. The reveal no longer carries `raw`. The screen adds t
 itself and names the sum "Board score" (section 10.4). A bot that wants the raw score adds them
 the same way.
 
-`DevelopmentView` and `MaintainingView` in outline. Steps 6 and 8 complete them.
+`DevelopmentView` is complete since Step 7. `MaintainingView` is an outline that Step 8 completes.
 
 ```ts
 type DevelopmentView = {
-  design: Design                                // resolved, with 'empty' and 'n/a'
-  applies: Record<ChoiceId, boolean>
-  totals: { money: number; developersNeeded: number; developersAvailable: number
-            buildable: boolean; nextRunUses: number }
-  runsLeft: number
-  running: { runId: string; startedAtMs: GameMs; completesAtMs: GameMs } | null
-  runs: { id: string; atMs: GameMs; design: Design; used: number
-          validity: number; reliability: number; cost: number; complexity: number; score: number
-          costPilot: number; costYear: number; costVisible: number; costHidden: number
-          complexityPoints: number
-          trace: { text: Text; case: { title: Text; text: Text } | null } | null }[]
-  submitRunId: string | null                    // what would be submitted now
-  offers: { id: OfferId; title: Text; text: Text; tradeOff: Text; pilotRuns: number
-            closesAtMs: GameMs; state: 'open' | 'claimed' | 'full' | 'closed'
-            unlocks: { choice: ChoiceId; option: {...} }[] }[]
-  reveal: { heldout: {...}; traces: {...}[]; raw: number
-            reference: { design: Design; rationale: Record<ChoiceId, Text>; summary: Text } } | null
+  money: number
+  developers: { total: number; free: number }
+  unlocked: string[]
+  actionsDone: { id: ActionId; atMs: GameMs }[]
+  actionsRunning: { id: ActionId; startedAtMs: GameMs; completesAtMs: GameMs }[]
+  insights: { action: ActionId; tile: Tile }[]          // Tile as in Phase 1
+  map: CanvasMap                                        // the draft
+  ready: { ok: boolean; reasons: string[] }             // the reason ids of section 6.6
+  flags: { stray: string[]; incomplete: string[]; privateData: string[] }
+  running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null
+  validationsLeft: number
+  validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs } | null
+  validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
+                 rank: number | null; of: number        // the rank in the live column right after it
+                 missed: { title: Text; text: Text; why: Text } | null
+                 note: Text | null
+                 running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null }[]
+  submitId: string | null                               // what would be submitted now, or was
+  reveal: { accuracy: number; raw: number
+            cases: { title: Text; text: Text; solved: number; reference: number }[]
+            reference: { map: CanvasMap; summary: Text; accuracy: number } } | null
 }
+```
 
+`running` is null when `show_running` is false. `flags.incomplete` lists the tiles that need a
+model and lack a model or a compute. A validation's `running` is null in the same case.
+
+```ts
 type MaintainingView = {
   part: 'setup' | 'year' | 'closed'
   month: number; monthEndsAtMs: GameMs | null
@@ -1853,10 +2118,29 @@ type HostInspect = {
 }
 ```
 
+Phase 2 adds its part (Step 7):
+
+```ts
+  development: {
+    status: 'playing' | 'closed'
+    money: number; developers: { total: number; free: number }
+    legend: CanvasLegend                          // to draw the maps
+    actions: { id; title; group; state: 'open' | 'running' | 'done' }[]
+    map: CanvasMap                                // the draft now
+    ready: { ok: boolean; reasons: string[] }
+    validations: { id; atMs; accuracy; map }[]; submitId: string | null
+    key: { accuracy: number | null                // of the draft, when it is ready
+           cases: { id; title; weight; solved: number | null }[]   // for the draft
+           flags: { privateData; overloaded; distracting; prompt; stray }   // tile ids
+           running: { money; minutes; complexity }
+           reference: { map: CanvasMap; summary: Text; accuracy: number } }
+  } | null
+```
+
 It carries the key in every stage, so that a host can help a player who is stuck and can answer
 "why" from the console. It is built by the projection like every outgoing object, goes only to
-host sockets, and is never part of a `PlayerView` or a `ScreenView` (section 9). Phases 2 and
-3 add their part to it in their steps.
+host sockets, and is never part of a `PlayerView` or a `ScreenView` (section 9). Phase 3 adds
+its part in its step.
 
 A screen socket receives `screen_view` on every beat, on every stage change and on every change
 of the scene or the slide: the stage, the clock, the scene to show and its theme, the
@@ -1901,12 +2185,11 @@ the notes of a slide. A screen socket sends nothing but `hello`.
 | An interview line | At its scheduled time, to that player |
 | A tile | When its investigation completes, to that player |
 | Problem `key`: `class`, `tier`, `flagship`, `rationale`, `burden` | At the Phase 1 reveal |
-| Board, choices, option `public`, visible cost, developers, `adds_developers`, `delivery_runs`, team size, component `public` | When Phase 2 opens |
-| Totals of a run: sub-scores, design score, pilot and year cost, visible and hidden parts, complexity points, developers | In the player's own run result |
-| One trace and the `public` of its case | In each run result |
-| Offer `public`, `pilot_runs`, and the options it unlocks | At its announcement, to that health system |
-| Held-out sub-scores and two traces | At the Phase 2 reveal |
-| `key.reference`: `design`, `rationale`, `public_summary` | At the Phase 2 reveal |
+| The grid with the names and hints of its columns, the budget, the validations and their seconds, `show_running`, the pools with their labels and limits, the action groups and the toolbox groups. The `public` of every source, the result, every worker (its task included), model, compute and prompt (its samples included). `private_data` of a source, `needs_model` and `group` of a worker, the models of a worker (the keys of `by_model`), the pool of a person and its minutes for deciding and for checking (never `per_line`, whose keys are the efforts), `runs_on` of a model, `protects_private_data` of a compute. Every action with its `public`, money, developers, seconds, `requires`, `unlocks` and `story_time` | When Phase 2 opens |
+| The draft as the player built it, what is unlocked, the money and the developers, whether the draft is ready and why not, its stray, incomplete and unprotected tiles, and what it would take to run | In the player's view, at every change |
+| The insight of an action | When that action ends, to that player |
+| The accuracy of a validation, its rank, what the map takes to run, the `public` of one missed case with the text of why, and one note | In the player's own validation result |
+| Every case with its `public` and the share solved by the submitted map and by the reference map, the reference map with its accuracy and `public_summary` | At the Phase 2 reveal |
 | `maintain.start`. Monitor `public` and `credits`. Action `public`, `credits`, `once`, `months` | When Phase 3 opens |
 | Event `public.early` or `public.late`, option `public` of the available options | When the event is revealed to that player |
 | Meters and history as seen | Every month and on every change |
@@ -1916,15 +2199,26 @@ the notes of a slide. A screen socket sends nothing but `hello`.
 | The notes of a slide | To host consoles only, with the slide |
 | Report card lines and source labels | At winners, the player's own |
 
-Never sent to a player or the big screen: conditions of any kind, tags, rules, advisories that
-did not fire, `extra_cost`, case weights and which set a case belongs to, the hidden and year
-cost of a single option, complexity points of a single option, monitor `upkeep`, event `drift`,
+Never sent to a player or the big screen before the Phase 2 reveal: the facts, what a source
+gives, its effort, its trust and its `distracts`, every number of quality, load, calls and price,
+the numbers of a prompt, `handoff.keep`, the cases with their weights, needs and difficulty, the
+share solved of a case, the flags `overloaded`, `distracting` and `prompt`, the reference map,
+the traps and every `key`. A case reaches a player one at a time, as the missed case of their own
+validation. Never sent at all: monitor `upkeep`, event `drift`,
 `detect`, `onset` before the reveal, option and action `effects`, `reveals`, `arms`, `disarms`,
 `calibration`, source gists, the notes of a slide, a slide that is not the current one, and
 every `key` field not listed above. A player's client receives `extra` on each person because
 the scene places extras differently. No screen shows it.
 
 Tags decide which choices apply, so the server computes that and sends the answer in `applies`.
+
+The leak scan knows the canvas (Step 7). The bots play Phase 2: they start actions, build a map
+and validate. A case, what a missed fact or a decision says, a note and the insight of an action
+may reach a player only after their own validation or action brought it, and the title and text
+of every case from the reveal on. No field of the scoring (`weight`, `needs`, `difficulty`,
+`gives`, `effort`, `distracts`, `keep`, `fetch`, `catch`, `by_model`, `perCase`, `solved`,
+`overloaded`, `distracting`, `summary`, `reference`) reaches a player or the big screen before the
+Phase 2 reveal. The ids of the canvas are public: every map names them.
 
 The leak scan of Step 3 checks moments per session stage. A tile is sent to its own player only,
 so Step 5 added a check per player that no text of a tile reaches anyone before their
@@ -2010,13 +2304,15 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
   on it: one press switches the theme. The join pages carry the same button in the corner of
   the town strip.
 - **The menu** holds the help and the ways around: the opening letter of the phase, "Look at
-  your Phase 1 result" once that phase is scored and the stage shows something else (section
-  10.7), the rejoin code, how to play, and "Join as a new player" (section 10.7). The
+  your Phase 1 result" and "Look at your Phase 2 result" once that phase is scored and the stage
+  shows something else (section 10.7), the rejoin code, how to play, and "Join as a new player" (section 10.7). The
   automation ladder is not in the menu: the head of each class in "Your assessment" says what
   fits that class (section 10.4).
 - **The resource of a phase** sits where it is spent. In Phase 1 the bandwidth is at the top of
-  the Investigations column (section 10.4) and not in the top bar. Phases 2 and 3 keep their
-  pilot runs and credits in the top bar until their sections say otherwise.
+  the Investigations column (section 10.4) and not in the top bar. Phase 2 keeps its money, its
+  developers and its validations in the top bar on a laptop and at the top of the Map and
+  Actions tabs on a phone (section 10.5). Phase 3 keeps its credits in the top bar until its
+  section says otherwise.
 - The countdown turns amber and then red at the times in `clock.warnings_seconds_left`.
 
 ### 10.2 Join and lobby
@@ -2487,36 +2783,184 @@ after the first version of this section. It asks for the following.
   assessment keeps both behind the opening of a problem, except for the agent project, which
   is open across the full row.
 
-### 10.5 Phase 2 screens (outline)
+### 10.5 Phase 2 screens
 
-- **The dev board.** The nodes and slots of `board.flow` from left to right on a laptop and top
-  to bottom on a phone, with the extra arrows of `board.links`. A link choice sits on the arrow
-  between its two steps. Tool and setting choices sit under the slot they belong to and appear
-  only when `applies` says so. Resource choices have their own strip.
-- **Choosing.** Clicking a slot opens its options as cards. A card shows the label, the short
-  text, money, developers and, when it has any, the delivery runs. Other choices open a list of
-  their options with the same two prices.
-- **The counters.** Money on the board, developers needed against developers available, runs
-  left, and what the next run will use. When the design is not buildable the Run button is
-  disabled and says why.
-- **A run.** The button starts a run. The scene shows the pilot while it runs, and the board
-  stays open, so the player keeps changing the draft for the next run. The result
-  panel shows the four sub-scores as meters, the design score, the pilot bill and the projected
-  year bill with their visible and hidden parts, the complexity points, and the trace with its
-  case.
-- **Run history.** Every run with its score. A run can be loaded back onto the board or chosen
-  for submission. The one that would be submitted is marked.
-- **Offers.** An announcement with a countdown and a Claim button. It then shows claimed, full
-  or closed.
-- **Reveal.** The letter, the pilot score against the held-out score, the two traces, the
-  points, and the reference design next to the player's.
+Phase 2 has one screen for play and one for the reveal. The Phase 1 shell stays: the top bar,
+titled columns whose titles stand on one line, both themes, every row of controls of one height.
 
-Step 6 completes this section when the board content exists.
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ ☺ practice ◆ system  Phase 2  08:12 │ MONEY 85  DEVELOPERS ■■□ 1 of 3 free  VALIDATIONS 4 left │
+├───────────────┬──────────────────────────────────────────────────────┬───────────────────┤
+│ Actions   1/6 │ Your map  (what is going on)   [Move][Line][Remove][Undo][Redo] │ Toolbox │
+│ Learn         │ MODELS          (Large) (Small) (Pine 🔒)             │ Click a worker…   │
+│  row  [Start] │ WHERE THEY RUN  (Public API) (Private link 🔒) …      │ [▣ Agent      AI] │
+│  row  ▬▬ 12 s │ SOURCES   COLUMN 1  COLUMN 2  COLUMN 3  COLUMN 4  RESULT │ [→ AI step    AI] │
+│ Build         │ [form]●──▶[Agent   ]●─────────▶[Librarian]●──▶[Loan]  │ [≡ Rule    FIXED] │
+│  row  ✓ Done  │ [catalog]● [Small   ]                                │ [▲ Librarian PERS]│
+│ Buy           │ [mailbox🔒][Public API]                              │ [▲ Clerk   PERS]  │
+│  row  –       │ [courier]● [One line]                                │                   │
+│ Negotiate     │ To run this map: 10 a month · Librarian 2 of 4 …  [Validate · 4 left] │     │
+├───────────────┴──────────────────────────────────────────────────────┴───────────────────┤
+│ LAST VALIDATION  58% Accuracy · Rank 14 of 38 · Earlier (41%) (52%) (58% ✓)               │
+│ One case it missed: <title>. <text> <why>     Note: <note>     [Load this map] [Send this map] │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│ INSIGHTS   [letter] [card] [card]                                                        │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Layout.** Under the top bar three columns: Actions (236 to 300 px), the map (all the width that
+is left) and the Toolbox (200 to 260 px). The three fill the height of the window, so at 1280 by
+720 the whole grid, the shelves and the Validate button are in view without a scroll. The last
+validation and the insights stand under them, side by side, and are reached by scrolling the
+page. The reading room is not shown in this phase.
+
+**The top bar** of section 10.1 shows "Phase 2", the countdown, and beside it what the phase
+spends: the money, the developers as blocks with "1 of 3 free", and the validations left. These are
+flat facts with no border, so nobody takes them for buttons. On a phone they stand at the top of
+the Map and the Actions tabs.
+
+**The opening letter** pops up when the phase starts, with "Start building", and stays as the first
+card of the insights, as in Phase 1. Its first paragraph is the `opening` that follows from the
+player's Phase 1 board, when the pack has one (section 5.5).
+
+**The map column.** Its title bar holds the title, one line that says what is going on ("Click an
+empty cell for the Agent. Esc cancels.", "Line from Request form to Agent 2.", or a message such as
+"One line would have run backward, so it was removed."; when nothing is going on, a legend of the
+two kinds of line, drawn as they are on the map: "From a source: may read it" with a thin line and
+"Between tiles: hands its work on" with a heavy one), and the controls of the moment, all 34
+px high: Move, Draw a line and Remove while a tile is selected, Remove while a line is selected,
+Cancel while a mode runs, and Undo and Redo always. Under it the two shelves, then the grid, then a
+foot with what the map takes to run and the Validate button.
+
+**The grid.** Sources in the left column, stacked to fill its height whatever their number, then
+the cells, then the result, centred in the right column. A row of small headings names the
+columns: "Column 1" and so on, or the `label` of `grid.columns`, the stage of the work that column
+stands for, on up to two lines. A tap or a pointer on a stage name shows its `hint` under it. The
+names are only names: any worker may stand in any column. Wherever a map is drawn (the board, the
+reveal, the host's view, the projector) its columns carry the same headings. Empty cells are drawn
+as dashed boxes.
+
+- **A tile** shows its worker's short name and icon in a band of the worker's color (AI sky, fixed
+  lavender, person sun). When the map holds two or more tiles of one kind, each carries a number
+  in the order they were placed ("Agent 1", "Agent 2"), kept when a tile moves, and is named so
+  everywhere: the join target ("Join to Agent 2"), the title bar, the choosers, the host's view,
+  the reveal. An AI tile has three small boxes: the model, where it runs and the
+  prompt, each with its icon. A box that is missing reads "+ Model" or "+ Runs on" in the warning
+  color. A prompt left empty shows the default prompt's label.
+- **A port** is a round button on the right edge of a source and a tile, in the color of that
+  origin. Every line takes the color of its origin from a set of ten, sources first in pack
+  order, then tiles by column and row, and is drawn as a curve with a halo of the panel color
+  under it and an arrowhead at its end. A line between two tiles or into the result, a handoff, is
+  drawn about twice as heavy as a line from a source, which only says that the worker may read
+  it. Lines that enter one tile are spread over its left edge in the order of their origins'
+  height. So six lines that cross can still be told apart.
+- **Lines and clicks.** While a worker is placed or a tile is moved, the lines let clicks through,
+  so a cell that a line crosses can still be chosen.
+- **Place**: click a worker in the toolbox, then an empty cell, which is lit with a "+" while a
+  worker is picked. A drag from the toolbox to a cell does the same on a laptop. The new tile is
+  selected.
+- **Move**: Move in the title bar, then a cell. A drag of a tile to an empty cell does the same. A
+  line that would run backward after a move is removed, and the title bar says so.
+- **Join**: click a port, then a lit tile or the lit result. Only the tiles further right that the
+  origin does not reach yet, and the result for a tile, are lit, and every other line fades. A
+  drag from a port draws the line under the pointer and joins where it is let go. A second line
+  into the result replaces the first, and the title bar says so. Clicking the port again or
+  pressing Escape cancels.
+- **Remove**: select a tile or a line (a line has a wide invisible edge to click), then Remove or
+  the Delete key. A removed tile takes its lines with it.
+- **Parts**: a click on a part box opens its chooser. The model chooser lists every model. One the
+  worker cannot carry and one that is locked are greyed with the reason ("Opens with: Set up the
+  free model"). The place chooser greys a locked place and one where the model cannot run ("Small
+  runs only on: Public API, Private link"). A change of model clears a place that no longer fits.
+  Both have Clear.
+- **The prompt chooser** says under its title which sources this tile reads and from which tiles
+  it receives work ("Agent 2 reads Request form and Shared catalog and receives work from Agent
+  1."), so that a player who gives two agents two jobs can tell which one the prompt is for. Then
+  one card per format, side by side on a laptop and stacked on a phone: the label, the description
+  and the sample in a typewriter face, or each of the `samples` under its own small label, with "Use this prompt",
+  "✓ In use" or the lock and the action that opens it. The first card says "Default". Nothing on a
+  card says which format is better.
+- **Undo and Redo**, and Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y, walk at least 40 changes. The history is
+  kept in the browser per player and per run. A step to a map that holds an item the practice can
+  no longer use is skipped.
+- **Saving.** The browser keeps the draft and sends `set_map` 200 ms after the last change, never a
+  map it knows to be invalid. Only the answer to the newest change ends the wait, so an answer to
+  an older one never overwrites a newer draft. A refusal puts the map back to the server's draft
+  and says so in the title bar. Whenever nothing waits, the server's draft wins, after a reload,
+  a reconnect or a refusal.
+
+**What the canvas tells the player while they build.** A stray tile is dashed and dimmed and says
+"Not connected to the result. It does nothing." (on an AI tile, where the parts leave no room, a
+badge says "Not connected" and the title bar says the sentence when the tile is selected). A tile
+that sends private data through a place that does not protect it carries a "!" mark, and the foot
+of the map says "Private data goes through a service that does not protect it." A locked source is
+dashed, takes no line, has no port, and says which action opens it. When `showRunning` is true the
+foot says what the draft would take to run a month, with one decimal and never "0.0" for a cost
+above zero ("< 0.1"), and the minutes a case of each pool against its limit, in the warning color
+when over.
+
+**Shelves.** Two rows above the grid, "Models" and "Where they run". A chip is flat and round with
+no border, so it does not look like a button. It shows the short name, and a lock when the item is
+locked. A click opens a card with the description, the cost line, and either "Open to use" or the
+action that opens it. The shelves only inform. Choosing happens on a tile.
+
+**The toolbox.** Under the headings of `toolbox_groups`, in their order, or as one list without
+them. On a laptop a row is compact: the icon in the worker's color, the label and the kind (AI,
+Fixed, Person) on one line, and the `task` under it. The description, the cost line and, for a
+person, the minutes a case for deciding alone and for checking appear in the row when it is
+picked, and in a card beside the toolbox while the pointer rests on it. A locked kind is dimmed
+with its action on one line (the whole sentence in the card). A locked row is not a disabled
+button, so pointing at it still shows its card. The picked one is marked. On a laptop the map's
+title bar says how placing works ("Pick a worker in the toolbox, then a cell."); on a phone a line
+under the toolbox says it. Nine kinds under two headings fit at 1280 by 720. On a phone the rows
+show everything.
+
+**Actions.** Grouped under the headings of `action_groups`. A row is compact: the title, one line
+with money, developers and seconds, and the Start button. A click on the title opens the teaser,
+the story time and what it opens (the teaser is also its tooltip). A row that cannot start says
+why ("Do “Set up the free model” first.", "Needs 40 money.", "Needs 1 developer, 0 free."). A
+running action shows the seconds left, a bar, and the developers it holds. A finished action
+stays as done. One short line at the top says that an action is paid up front and cannot be
+stopped, with the full sentence as its tooltip. About six rows are in view at 1280 by 720.
+
+**A validation.** The Validate button reads "Validate · 4 left" and, while it cannot act, is
+disabled with the first reason in words beside it ("Join a tile to the result first."). While a
+validation runs, the button shows the seconds left and a bar, and the whole screen stays usable.
+When it lands, a notice at the foot of the page says "Validation done: 58%" with Show, which
+scrolls to the panel without stealing the scroll by itself. **The panel** shows the accuracy large,
+the rank right after the validation, every validation as a small round chip (the one that would be
+sent carries ✓), the case it missed with its why, and the note when there is one. Any validation
+can be opened from its chip, loaded back onto the map with "Load this map", or chosen with "Send
+this map". The chosen one says "This map will be sent", and "Send the best one again" returns to
+the default. A line says that the best map is sent unless the player picks another.
+
+**Insights.** The opening letter, then a card per action that brought one, with a head in the
+color of its group and the tile drawn as in Phase 1. A new card is highlighted, and a notice says
+"New insight: <title>" with Show.
+
+**Phone.** Below 1024 px the screen is four tabs at the bottom: Map, Actions, Toolbox, Results.
+The Map tab holds the money strip, the title bar's line and controls, the shelves, the grid at a
+fixed shape that scrolls sideways inside itself, and the foot. Picking a worker in the Toolbox tab
+returns to the Map tab in place mode. Nothing needs a drag. The page never scrolls sideways.
+
+**End of the stage.** Two notices warn at the times of `clock.warnings_seconds_left`, and say that
+the best map is sent when the time is up.
+
+**The reveal.** A notice that time is up and which map was sent. The letter and the score in one
+row: the accuracy of the map sent and which validation it was, the points and the band label, and
+one line when the points differ from a thousand times the accuracy. Under them the player's map
+and the reference map side by side, read-only and drawn small with their parts, each with its
+accuracy, and the reference map's summary. On a small map a tile's name takes up to two lines
+and no icon, so a name of eleven letters fits. Then every kind of case with its title and text and two
+bars, the share the player's map solved and the share the reference map solves. A closing line
+says that the map, the money and what was unlocked go into Phase 3. On a phone the parts stack in
+the same order.
 
 ### 10.6 Phase 3 screens (outline)
 
-- **Setup.** The reference design as a reminder, the monitors as cards with their credits, the
-  credit pool and a countdown.
+- **Setup.** The player's own map from Phase 2, with the choice to take the reference map in its
+  place, the monitors as cards with their credits, the credit pool and a countdown.
 - **The year.** The four meters with their numbers, the month on a twelve-step track, the
   credit pool, the funded monitors, and the two shelves of actions (look and change). One
   action a month, and the shelves say when it is used. Months are short, and every month
@@ -2540,8 +2984,9 @@ Step 8 completes this section when the Phase 3 content exists.
 - **A scored phase, again.** Once Phase 1 is scored and the stage shows something else (any
   stage after its break), the menu has "Look at your Phase 1 result". It opens the reveal of
   section 10.4, with the corrected assessment and the reasons, under a strip with "Back to the
-  game". A slide that the host mirrors takes the screen back. Each later phase adds its own
-  entry in its step.
+  game". A slide that the host mirrors takes the screen back. Once Phase 2 is scored, "Look at
+  your Phase 2 result" opens its reveal of section 10.5 in the same way, and the page of an ended
+  game offers both. Phase 3 adds its own entry in its step.
 - **Joining as a new player.** The menu ends with "Join as a new player". It asks to confirm,
   shows the rejoin code once more, and then the browser lets go of the practice and opens the
   join page of the same game, with an empty form. The practice stays in the game and its code
@@ -2774,7 +3219,17 @@ them, a wrong class earns none. Problems the
 player has not sorted are there too, so a host can say where one belongs without knowing the
 key by heart. The page follows the player live, works during the phase and in every stage
 after it, and says at the top that only hosts see it. Its actions are "Spotlight on the big
-screen", for the host in charge, and Close. Each later phase adds a tab.
+screen", for the host in charge, and Close. Each later phase adds a tab, which opens first once
+that phase has begun.
+
+**The Phase 2 tab** shows the status, the money and the free developers, the player's draft map
+drawn read-only and small, whether it is ready (and the accuracy it would score now, from the
+key) or why not, and what it would take to run. Beside it, every validation as a chip that opens
+its map, and every action with its state. On the other side the key: the share of every case the
+draft solves, with its weight, and the flags the scoring raises on the draft (private data
+unprotected, a worker overloaded, a distracting source read, a prompt that only hurts, tiles not
+connected), each with its tiles. Under them, folded, the reference map with its accuracy and its
+summary.
 
 **The slides, for your eyes.** A panel under the projector panel, outside the controls that
 need control. "Look through the slides" opens it: Back and Next, the count, "Go to the slide
@@ -2805,7 +3260,7 @@ in its window changes anything.
 | --- | --- |
 | Lobby | The QR code, the join link in large type, one line ("Scan the code with your phone, or type the link on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
 | Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
-| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work |
+| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work. In Phase 2 the practice at work is shown as its map, large, beside its name, what runs and its counts |
 | Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
 | Reveal | The results of the phase for the room: the points of the players who played, in steps of 100, and per health system the mean points and, after Phase 1, the share that found the flagship (`ScreenView.reveal`) |
 | Slides | The current slide of the deck |
@@ -2999,7 +3454,7 @@ change.
 | `npm run check` | Type check, lint, unit and integration tests on the demo pack | Mac, before every merge |
 | `npm run e2e` | Playwright on the demo pack, at laptop and phone size | Mac |
 | `npm run check:content` | The loader on `CONTENT_DIR` | Mac |
-| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer | Mac, with the private pack |
+| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer, and with `CANVAS_SCORER` set to the canvas scorer also 300 random ready maps per health system | Mac, with the private pack |
 | `npm run test:leak` | The leak scan on `CONTENT_DIR` | Mac, with the private pack |
 | `npm run check:no-private` | Scans the repository for text of the private pack | Mac, before every merge |
 | `npm run simulate` | Headless games with scripted strategies | Mac |
@@ -3010,6 +3465,21 @@ repository. The checks run on the Mac before each merge.
 
 ### 12.2 Engine
 
+- **Parity of the canvas.** `packages/engine/test/vectors/canvas.json` is written by
+  `tools/canvas_scoring.py --vectors` of the private folder on its neutral toy packs, and never
+  edited by hand. The file holds a first block (`build`, `cases`) and further blocks under `more`,
+  each with its own `build` and `cases` (the second has a third kind of effort); the test runs
+  every block. For every vector the engine returns the same answer within 1e-9: accepted or
+  the list of errors, ready or the list of reasons, the accuracy, the share of every case, money,
+  minutes, complexity, every flag, the missed case and the note (`canvas-parity.test.ts`). The
+  `design` vectors that the older tool still writes into `reference.json` belong to the slot board
+  and are not read.
+- **Phase 2 rules** (`development.test.ts`). A test for every refusal of the four commands and
+  every rule of `set_map` and of readiness. Actions: money and developers held and freed,
+  `requires`, unlocking, the insight, the end of the stage with an action and a validation
+  running. Submission: the default with its tie, the chosen one, none. The empty letter, the
+  reveal with the reference map, what goes into Phase 3, the live column and the rank, a view
+  that holds no number of the scoring, determinism and path independence.
 - **Parity with the reference scorer.** `packages/engine/test/vectors/reference.json` holds
   requests and expected results that the reference scorer computed on a neutral toy pack. It is
   generated by the private tool and committed. The engine must reproduce every vector: the same
@@ -3024,8 +3494,7 @@ repository. The checks run on the Mac before each merge.
   own tests.
 - **Path independence.** For random states and command lists, one `advance` to the end equals
   many small ones.
-- **Rules.** Each command has a test for every refusal in its table. Late joining, the offer
-  race, pause and extend, tie-breaks, rounding half up, missing anchors.
+- **Rules.** Each command has a test for every refusal in its table. Late joining, pause and extend, tie-breaks, rounding half up, missing anchors.
 - **Sorting.** The planning vectors hold every pair of true class and picked class, the
   flagship bonus with the flagship in and out of the flagship class, an empty board, a board
   with problems left unsorted, a draft with two problems in the flagship class (refused), a
@@ -3080,7 +3549,12 @@ repository. The checks run on the Mac before each merge.
   the deck on one stage, a section with a stage that is not a slide stage, a section without
   slides, a slide id used twice, a letter variant that is neither a band nor `empty`, and a
   `letter_empty_below` above the number of problems. A person with two click lines gives a
-  warning and still loads.
+  warning and still loads. For the canvas: an unlock of an item that does not exist, a model on a
+  compute that does not exist, numbers for a model that does not exist, a case that needs a fact
+  no source gives, a person without a pool and one without minutes, an action that does nothing,
+  an action in a group that does not exist, two items with one id, a reference map that is
+  refused, one that is not ready, and reference actions the budget cannot pay. A pack without a
+  build file plays Phase 1, and one whose `game.yaml` is not on the canvas waits for it.
 - Every projection output passes its strict schema. A snapshot test lists the field names of
   every outgoing type, so a new field shows up in review.
 - **The leak scan.** The loader can list every string of a pack that must not leave the server,
@@ -3179,6 +3653,25 @@ For the Phase 1 screen it also checks, at both sizes unless said otherwise:
   empty assessment reads the one sentence at the top and the `empty` line of the letter.
 - In a rehearsal session the join page offers the health systems and the player lands in the
   one picked. In an event session the row is absent.
+
+For the Phase 2 screen (`e2e/phase2.spec.ts`):
+
+- At 1280 by 720 the three titles "Actions", "Your map" and "Toolbox" stand on one line, and the
+  whole grid and the Validate button are in view. The page never scrolls sideways.
+- A map built by clicks only: a worker placed by two clicks, its model and place picked in their
+  choosers (a place the model cannot reach and a locked one are greyed), lines drawn port to tile
+  and tile to result. A locked source has no port. The warning mark and its sentence. The prompt
+  chooser with four cards, a sample on each and two locked. A validation while the map stays
+  usable, its accuracy, its missed case and "This map will be sent".
+- Undo, Redo and the Delete key. An action that unlocks an item (the lock leaves the shelf) and
+  one that lands an insight card. An earlier map loaded back. A refresh keeps the draft. No error
+  name on the page.
+- The same map by drag in the dark theme: from the toolbox to a cell, a tile to another cell, a
+  port to a tile and a tile to the result.
+- The reveal: both maps, every case, the points, and no "raw" or "provisional".
+- On a phone: four tabs, a worker placed by taps from the Toolbox tab, lines drawn by taps, the
+  grid scrolling inside itself, and the host's view of the player with the draft, the key and the
+  reference map.
 
 For the scene, the lobby and the people:
 
@@ -3367,11 +3860,25 @@ Done when the lab director has played Phase 1 of both health systems again, driv
 from the host console with a second console watching, and walked the dummy deck on the
 projector.
 
-**Step 7. Phase 2**
+**Step 7. Phase 2 on a canvas**
 
-The development rules of section 6.6, the parity vectors for designs, the screens of section
-10.5 as completed in Step 6, offers, the held-out reveal and the reference design. The demo
-pack gains its Phase 2 files.
+The slot board of version 1.1 was replaced before it was built (planning session of Step 6). In
+this order:
+
+1. This document: sections 6.6 and 10.5 in full, `build.yaml` in 5.5, the content and the view in
+   8.3 and 8.4, the commands and their sentences in 8.2, what reaches a browser in 9.2, the demo
+   pack in 5.7, the tests in 12.
+2. `content-schema`: `build.yaml`, the map rules (`canvas.ts`) and the build checks, the
+   development rules of `game.yaml`, and a pack that is still on the slot board loading for Phase 1.
+3. `engine`: `evaluate` in `canvas.ts` held to the parity vectors, then `phases/development.ts`
+   with actions on the game clock, validations, submission, the live column, the reveal and what
+   goes into Phase 3.
+4. `protocol` and the projection: the content, the view, the commands, the moments, the host's
+   view of a player and the projector card, with the leak scan extended to the canvas.
+5. `client`: the canvas, the shelves, the toolbox, the action list and the choosers as parts that
+   do not know their phase, then the Phase 2 screen, its phone tabs and its reveal, the host's
+   tab and the projector card.
+6. The demo pack: Phase 2 for both library networks.
 
 Done when Phases 1 and 2 of the private pack play in a row on a laptop and a phone.
 
@@ -3399,7 +3906,9 @@ report.
 | --- | --- |
 | 4 | Any Phase 1 screen note that the first real content calls for. Added at the end of section 10.4 and under `insights.yaml` in section 5.5. The review of that content also turned Phase 1 from a ladder report into a sorting board with four classes, cut the pack to two health systems and added the pick of a health system in tests and rehearsals (sections 1, 5.5, 6.4, 6.5, 6.9, 7.2, 8.3, 8.4, 9.2, 10.2, 10.4 and 12) |
 | 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12). Its next round made "Follow the game" a programme during play (the activity list, the leaderboard of one phase by health system, one practice at work), added the scene `feed` and the phase choice of `screen_filter`, set the rule that one row of controls has one size, and took the stage controls off an ended session (sections 5.1, 6.13, 10.1, 10.8, 10.9 and 12) |
-| 6 | Section 10.5 in full, and the final `DevelopmentView` |
+| 6 | Phase 2 on a canvas in place of the slot board (planning session of 2026-11-22), written as a contract for Step 7 |
+| 7 | Phase 2 on a canvas, built: sections 1, 5.1, 5.4, 5.5 (`build.yaml`, the development rules, `palette.yaml` removed), 5.7, 6.6 and 6.7 (the reference map), 6.8, 6.9, 6.13, 8.2 to 8.5, 9.2, 10.1, 10.5 in full, 10.6 to 10.9, 12 and 15 |
+| 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
 | 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |

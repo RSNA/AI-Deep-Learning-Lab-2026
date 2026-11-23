@@ -35,7 +35,6 @@ const W = <T extends Shape>(shape: T) =>
 // ------------------------------------------------------------------------------------------
 export const Text = z.string()
 const Id = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, 'ids are lowercase letters, digits, hyphens and underscores')
-const OptId = z.union([Id, z.literal('n/a')])
 const Num = z.number().finite()
 const Int = z.number().int()
 // A rule of the pack that the loader does not read yet: the rulebook of Phases 2 and 3, and
@@ -67,7 +66,7 @@ export const SEGMENTS = [
 /** Tie-break keys the engine implements (section 6.9). */
 export const TIE_KEYS = [
   'total_points', 'planning_points', 'development_points', 'maintaining_points', 'points',
-  'earlier_join', 'earlier_submit', 'fewer_pilot_runs', 'higher_final_month_health',
+  'earlier_join', 'earlier_submit', 'fewer_validations', 'fewer_pilot_runs', 'higher_final_month_health',
   'fewer_credits_spent',
 ] as const
 const TieKey = z.enum(TIE_KEYS)
@@ -124,19 +123,27 @@ const PlanningRules = W({
 })
 export type PlanningRules = z.infer<typeof PlanningRules>
 
+// Phase 2 on a canvas (spec, section 5.5). The fields of the slot board of the first version
+// (pilot, offers, the four sub-scores) are gone: a pack that still holds them loads, and each
+// gives a warning, so that Phase 1 plays while the content catches up.
+export const ACTION_GROUPS = ['learn', 'build', 'buy', 'negotiate'] as const
 const DevelopmentRules = W({
   label: Text, play_seconds: PosInt, reveal_seconds: NonNeg,
-  pilot: W({ runs: Int.min(0), seconds: PosInt, concurrent: z.literal(1), board_stays_usable_while_running: Later, returns: Later }),
-  offers: W({
-    per_system: Int.min(0), announce_at_seconds: z.array(NonNeg),
-    claim_window_seconds: PosInt, claim_fraction: Num.min(0).max(1), order: Later,
-  }),
-  live_leaderboard: W({ label: Text, metric: Later }),
-  scoring: W({ pilot_weight: Num, heldout_weight: Num, design_score: Later, sub_scores: Later, raw: Later }),
-  slot_seconds: Later, teaches: Later, slots: Later, choice_kinds: Later, decisions: Later,
-  resource_choices: Later, card_shows: Later, team: Later, delivery: Later, cost_horizon: Later,
-  cases: Later, traps_required: Later, submission: Later,
+  board: z.literal('canvas').optional(),          // required once a health system has a build.yaml
+  action_groups: z.array(W({ id: Id, label: Text })).min(1).optional(),
+  show_running: z.boolean().optional(),           // show what the map would take to run. Never scored here
+  money_unit: Text.optional(),                    // what one unit of money is, written after a sum, such as k$
+  // Each of these has one implemented value, which the loader asks for once `board` is canvas.
+  submission: W({
+    default: z.string().optional(),               // best_validation
+    player_may_choose: z.string().optional(),     // any_own_validation
+    none_at_the_end: z.string().optional(),       // validate_the_draft_if_ready
+  }).optional(),
+  live_leaderboard: W({ label: Text, metric: z.string().optional() }),   // best_validation_accuracy
+  scoring: Later, carries_over: Later,
+  slot_seconds: Later, teaches: Later,
 })
+export type DevelopmentRules = z.infer<typeof DevelopmentRules>
 
 const MaintainingRules = W({
   label: Text, reveal_seconds: NonNeg,
@@ -225,22 +232,8 @@ export const GameFile = W({
 export type GameFile = z.infer<typeof GameFile>
 
 // ------------------------------------------------------------------------------------------
-// palette.yaml, monitors.yaml, characters.yaml
+// monitors.yaml, characters.yaml
 // ------------------------------------------------------------------------------------------
-const Money = S({ visible: Num.optional(), hidden: Num.optional(), year: Num.optional() })
-
-export const PaletteFile = W({
-  components: z.array(W({
-    id: Id,
-    public: S({ label: Text, short: Text, description: Text, icon: z.string() }),
-    tags: z.array(z.string()).optional(),
-    cost: Money.optional(),
-    developers: NonNeg.optional(), complexity: NonNeg.optional(), delivery_runs: Int.min(0).optional(),
-    key: K({}).optional(),
-  })),
-})
-export type PaletteFile = z.infer<typeof PaletteFile>
-
 export const MonitorsFile = W({
   monitors: z.array(W({
     id: Id,
@@ -330,85 +323,137 @@ export const InsightsFile = z.array(W({
 export type InsightsFile = z.infer<typeof InsightsFile>
 
 // ------------------------------------------------------------------------------------------
-// build.yaml
+// build.yaml: the canvas of Phases 2 and 3 (spec, section 5.5). Only the fields that the
+// engine reads are typed. Everything under `key` is read loosely, and every number of quality
+// stays on the server.
 // ------------------------------------------------------------------------------------------
-export type Condition = {
-  choice?: string; is?: string[]; is_not?: string[]; has_tag?: string
-  count_tag?: string; kind?: ChoiceKind; min?: number; max?: number
-  has_offer?: string
-  all?: Condition[]; any?: Condition[]; not?: Condition
-}
-const CHOICE_KINDS = ['slot', 'link', 'tool', 'agent_setting', 'setting', 'resource'] as const
-export type ChoiceKind = (typeof CHOICE_KINDS)[number]
-export const Condition: z.ZodType<Condition> = z.lazy(() => S({
-  choice: Id.optional(), is: z.array(OptId).optional(), is_not: z.array(OptId).optional(),
-  has_tag: z.string().optional(),
-  count_tag: z.string().optional(), kind: z.enum(CHOICE_KINDS).optional(),
-  min: Num.optional(), max: Num.optional(),
-  has_offer: Id.optional(),
-  all: z.array(Condition).optional(), any: z.array(Condition).optional(), not: Condition.optional(),
-}))
-
-const OptionCostFields = {
-  cost: Money.optional(),
-  developers: NonNeg.optional(), complexity: NonNeg.optional(), delivery_runs: Int.min(0).optional(),
-  tags: z.array(z.string()).optional(), requires_offer: Id.nullable().optional(),
-}
-const SlotOption = S({ ...OptionCostFields, component: Id, public_note: Text.optional() })
-const ListOption = S({
-  ...OptionCostFields, id: Id,
-  public: S({ label: Text, description: Text.optional() }),
-  adds_developers: NonNeg.optional(),
+const Unit = Num.min(0).max(1)
+// How much digging a fact takes at a source: easy and hard in the contract. A pack may name more
+// kinds, as the reference scorer allows, as long as every worker has numbers for each.
+const Effort = Id
+export type Effort = z.infer<typeof Effort>
+const Difficulty = z.enum(['plain', 'hard'])
+export type Difficulty = z.infer<typeof Difficulty>
+const Quality = S({
+  fetch: z.record(Id, Unit),
+  decide: S({ plain: Unit, hard: Unit }),
+  catch: Unit.optional(),
 })
-const listChoice = <T extends 'link' | 'tool' | 'agent_setting' | 'setting' | 'resource'>(kind: T) =>
-  W({
-    id: Id, kind: z.literal(kind),
-    public: S({ label: Text, description: Text.optional() }),
-    applies_when: Condition.optional(),
-    default: Id,
-    options: z.array(ListOption).min(1),
-  })
-const Choice = z.discriminatedUnion('kind', [
-  W({ id: Id, kind: z.literal('slot'), public: S({ label: Text, prompt: Text.optional() }), options: z.array(SlotOption).min(1) }),
-  listChoice('link'), listChoice('tool'), listChoice('agent_setting'), listChoice('setting'), listChoice('resource'),
-])
-export type Choice = z.infer<typeof Choice>
-const Trace = S({ when: Condition, trace: Text, priority: Num, source: SourceIds.optional() })
-const Design = z.record(z.string(), OptId)
+export type Quality = z.infer<typeof Quality>
+
+/** A tile of a map in a pack file. The engine works with `runsOn`, the file with `runs_on`. */
+const MapTile = S({
+  id: z.string(), kind: Id, col: Int, row: Int,
+  model: Id.nullable().optional(), runs_on: Id.nullable().optional(), prompt: Id.nullable().optional(),
+})
+export const PackMap = S({ tiles: z.array(MapTile), lines: z.array(S({ from: z.string(), to: z.string() })) })
+export type PackMap = z.infer<typeof PackMap>
+
+export const NOTE_IDS = ['private_data', 'overloaded', 'distracting', 'prompt', 'stray'] as const
+export const WORKER_KINDS = ['ai', 'fixed', 'person'] as const
+
+const PartPublic = S({ label: Text, short: Text, description: Text, cost_line: Text.optional() })
 
 export const BuildFile = W({
   problem: Id,
-  board: W({
-    nodes: z.array(W({ id: Id, label: Text, kind: z.enum(['system', 'person']) })),
-    flow: z.array(Id),
-    links: z.array(z.tuple([Id, Id])).optional(),
-  }),
-  budget: W({ cost: W({ par: Num, ceiling: Num }), complexity: W({ par: Num, ceiling: Num }) }),
-  team: W({ developers: NonNeg }),
-  choices: z.array(Choice).min(1),
-  rules: z.array(W({
-    id: Id, when: Condition,
-    effects: S({ cost: Num.optional(), cost_year: Num.optional(), complexity: Num.optional(), developers: Num.optional() }),
+  // `columns` names the stage of the work each column stands for. Names only: no rule ties a
+  // worker to a column. Without it the columns keep their numbers.
+  grid: S({ cols: PosInt.max(8), rows: PosInt.max(8), columns: z.array(S({ label: Text, hint: Text })).optional() }),
+  // The kinds of effort a fact takes to get out of a source. Without the list they are the ones
+  // the sources name. Never sent to a browser.
+  efforts: z.array(W({ id: Id, key: K({}).optional() })).optional(),
+  // The headings of the toolbox, in this order. Without them the toolbox is one list.
+  toolbox_groups: z.array(S({ id: Id, label: Text })).default([]),
+  budget: S({ money: NonNeg, developers: Int.min(0) }),
+  validate: S({ runs: Int.min(0), seconds: PosInt }),
+  pools: z.array(W({ id: Id, public: S({ label: Text }), max: NonNeg })).default([]),
+  handoff: S({ keep: Unit }),
+  quality_cap: Unit.optional(),
+  facts: z.array(W({
+    id: Id,
+    miss: S({ missing: Text, weak: Text }),
     key: K({}).optional(),
-  })).optional(),
-  advisories: z.array(Trace).optional(),
+  })).min(1),
+  sources: z.array(W({
+    id: Id,
+    public: S({ label: Text, description: Text, icon: z.string() }),
+    gives: z.record(z.string(), Unit),
+    effort: Effort,
+    private_data: z.boolean(),
+    distracts: Unit.optional(),
+    run: NonNeg.optional(),
+    key: K({}).optional(),
+  })).min(1),
+  result: W({ id: Id, public: S({ label: Text, description: Text }) }),
+  workers: z.array(W({
+    id: Id,
+    kind: z.enum(WORKER_KINDS),
+    group: Id.optional(),
+    public: S({ label: Text, short: Text, task: Text.optional(), description: Text, icon: z.string(), cost_line: Text.optional() }),
+    needs_model: z.boolean(),
+    by_model: z.record(z.string(), Quality).optional(),
+    quality: Quality.optional(),
+    load: S({ free: Int.min(0), factor: Unit }).optional(),
+    calls: NonNeg.optional(),
+    run: NonNeg.optional(),
+    complexity: NonNeg.optional(),
+    pool: Id.optional(),
+    minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
+    key: K({}).optional(),
+  })).min(1),
+  models: z.array(W({
+    id: Id, public: PartPublic,
+    run: NonNeg.optional(),
+    runs_on: z.array(Id).min(1),
+    key: K({}).optional(),
+  })).default([]),
+  compute: z.array(W({
+    id: Id, public: PartPublic,
+    protects_private_data: z.boolean(),
+    price_factor: NonNeg.optional(),
+    run_fixed: NonNeg.optional(),
+    key: K({}).optional(),
+  })).default([]),
+  prompts: z.array(W({
+    id: Id,
+    // `samples`, when present, are shown in place of `sample`, each under its label.
+    public: S({ label: Text, description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
+    fetch: Num.positive().optional(),
+    decide: Num.positive().optional(),
+    by_worker: z.record(z.string(), S({ fetch: Num.positive().optional(), decide: Num.positive().optional() })).optional(),
+    key: K({}).optional(),
+  })).default([]),
+  actions: z.array(W({
+    id: Id,
+    group: Id,
+    public: S({ title: Text, teaser: Text }),
+    money: NonNeg,
+    developers: Int.min(0),
+    seconds: PosInt,
+    requires: z.array(Id).default([]),
+    unlocks: z.array(Id).default([]),
+    insight: Tile.nullable().optional(),
+    story_time: Text.optional(),
+    key: K({}).optional(),
+  })).default([]),
   cases: z.array(W({
-    id: Id, set: z.enum(['pilot', 'heldout']), dimension: z.enum(['validity', 'reliability']),
-    weight: Num.positive().optional(),
+    id: Id,
+    weight: Num.positive(),
     public: S({ title: Text, text: Text }),
-    fails_when: z.array(Trace).optional(),
-    extra_cost: z.array(S({ when: Condition, cost: Num, note: Text.optional() })).optional(),
+    needs: z.array(Id).min(1),
+    difficulty: Difficulty,
+    decision_miss: Text,
     key: K({}).optional(),
-  })),
-  offers: z.array(W({
-    id: Id, index: PosInt,
-    public: S({ title: Text, text: Text, trade_off: Text }),
-    pilot_runs: Int,
-    key: K({ verdict: z.enum(['take', 'leave', 'depends']).optional(), rationale: Text.optional() }).optional(),
-  })).optional(),
+  })).min(1),
+  notes: z.array(S({ id: z.enum(NOTE_IDS), text: Text })).default([]),
   key: K({
-    reference: K({ design: Design, rationale: z.record(z.string(), Text), public_summary: Text }),
-    traps: z.array(K({ id: Id, kind: z.enum(['overbuilt', 'underbuilt', 'shortcut']), design: Design })).optional(),
+    reference: K({
+      map: PackMap,
+      needs_actions: z.array(Id).default([]),
+      public_summary: Text,
+      rationale: Text.optional(),
+    }),
+    traps: z.array(K({ id: Id, kind: z.enum(['overbuilt', 'underbuilt', 'shortcut']), map: PackMap })).optional(),
   }),
 })
 export type BuildFile = z.infer<typeof BuildFile>
@@ -461,7 +506,9 @@ const Letter = W({ from: Id, always: Text, variants: z.record(z.string(), Text) 
 export const StoryFile = W({
   briefs: W({
     planning: W({ from: Id, title: Text, text: Text }).optional(),
-    development: W({ from: Id, title: Text, text: Text }).optional(),
+    // `opening` is a first paragraph by the result of Phase 1: `hit` for a player whose board had
+    // the flagship problem in the flagship class, `missed` for one whose board had not.
+    development: W({ from: Id, title: Text, text: Text, opening: S({ hit: Text, missed: Text }).optional() }).optional(),
     maintaining: W({ from: Id, title: Text, text: Text }).optional(),
   }).optional(),
   letters: W({

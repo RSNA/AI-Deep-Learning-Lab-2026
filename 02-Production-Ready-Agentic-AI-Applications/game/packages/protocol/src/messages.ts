@@ -1,7 +1,7 @@
 // Wire messages of the player and screen sockets (engineering spec, section 8.2).
 import { z } from 'zod'
 import { ErrorCode, PhaseId } from './ids.ts'
-import { Board, Clock, LadderRung, PackArt, PlayerView, ScreenView, SessionInfo, Standing, SystemPublic, Text } from './views.ts'
+import { Board, CanvasMap, Clock, LadderRung, PackArt, PlayerView, ScreenView, SessionInfo, Standing, SystemPublic, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 
@@ -12,6 +12,10 @@ export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('planning.investigate'), payload: S({ id: z.string().max(80) }) }),
   S({ type: z.literal('planning.set_report'), payload: S({ picks: z.record(z.string().max(80), z.string().max(40)) }) }),
   S({ type: z.literal('planning.submit'), payload: S({}) }),
+  S({ type: z.literal('development.set_map'), payload: S({ map: CanvasMap }) }),
+  S({ type: z.literal('development.act'), payload: S({ id: z.string().max(80) }) }),
+  S({ type: z.literal('development.validate'), payload: S({}) }),
+  S({ type: z.literal('development.choose'), payload: S({ id: z.string().max(16).nullable() }) }),
 ])
 export type PlayerCommand = z.infer<typeof PlayerCommand>
 export type PlayerCommandType = PlayerCommand['type']
@@ -79,6 +83,8 @@ export const ErrorMsg = S({ t: z.literal('error'), error: ErrorCode, message: Te
 export const Moment = z.discriminatedUnion('kind', [
   S({ kind: z.literal('interview_line'), investigation: z.string(), speaker: z.string(), index: z.number().int(), text: Text }),
   S({ kind: z.literal('tile'), investigation: z.string() }),
+  S({ kind: z.literal('insight'), action: z.string() }),       // Phase 2: an action ended and brought an insight
+  S({ kind: z.literal('validated'), id: z.string() }),         // Phase 2: a validation has its result
   S({ kind: z.literal('dialogue'), id: z.string(), speaker: z.string(), text: Text }),
   S({ kind: z.literal('announcement'), from: z.string(), text: Text }),
   S({ kind: z.literal('letter'), phase: PhaseId }),

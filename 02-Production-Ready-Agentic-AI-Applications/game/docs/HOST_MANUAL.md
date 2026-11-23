@@ -105,9 +105,27 @@ the reason for each.
 | ≈ orange | One class off among the real classes, such as "One model" where "No AI" is true. Part of the points |
 | ✗ red | A wrong class, such as a real problem under "Not a problem". No points |
 | – grey | Not sorted yet |
- The page updates as the player
-works, and it stays available after the phase. Use it to answer a question or to give a hint.
-Only hosts see it, so keep it off the projector.
+
+
+**In Phase 2 the page opens on its Phase 2 tab.** You see the player's draft map as it is now,
+whether it is ready to validate (and the accuracy it would get, from the key) or what stops it,
+their money, free developers, actions and validations. Click a validation to see the map it
+scored. Beside it is what only the key knows: the share of each kind of case the draft solves,
+and what the scoring notices on the draft:
+
+| Note | Means |
+| --- | --- |
+| Private data unprotected | A tile sends private data through a service that does not protect it |
+| A worker overloaded | A worker has more lines coming in than it can keep track of |
+| A distracting source read | An AI worker reads a source that sounds sure and is often wrong |
+| A prompt that only hurts | A prompt that makes its worker worse |
+| Tiles not connected | Tiles that do not reach the result, so they do nothing |
+
+The reference map, with its accuracy and summary, is folded at the bottom. The Phase 1 tab is
+still there.
+
+The page updates as the player works, and it stays available after the phase. Use it to answer a
+question or to give a hint. Only hosts see it, so keep it off the projector.
 
 The button with three lines (☰) on a row has the other actions.
 
@@ -134,7 +152,9 @@ The preview at the top of the panel is what the room sees now.
 
 With **Follow the game** the room sees the lobby, then the opening slides, then during a phase
 a loop (the activity of the room, the phase leaderboard, one practice at work), then the
-results of the room, then the recap slides of the break.
+results of the room, then the recap slides of the break. In Phase 2 the practice at work is shown
+with its map, and the activity names the actions practices start and finish and who validated a
+map, never an accuracy.
 
 **Every other button pins the projector.** A pinned projector does not follow the game. The
 console shows a banner, "Pinned to Lobby", with a **Follow the game** button. Check for that
@@ -214,7 +234,11 @@ The downloads stay available on the first page until you delete the session.
 - **Lost their screen:** the join link brings them back in the same browser. On another device
   they press "Rejoin with a code".
 - **Their rejoin code and the opening letter:** in the menu (☰).
-- **Their results of a finished phase:** in the menu, "Look at your Phase 1 result".
+- **Their results of a finished phase:** in the menu, "Look at your Phase 1 result" and, once
+  Phase 2 is scored, "Look at your Phase 2 result".
+- **In Phase 2:** undo and redo in the bar of the map (Ctrl+Z on a laptop), any earlier
+  validation loaded back onto the map, and the map they want sent chosen from the validations.
+  Without a choice, the map with the best accuracy is sent.
 - **Start over as a new player:** in the menu, "Join as a new player".
 - **The practice room too tall or too low:** they drag its bottom edge.
 

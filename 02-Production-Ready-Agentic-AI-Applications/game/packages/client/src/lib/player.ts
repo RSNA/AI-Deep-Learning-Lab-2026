@@ -71,12 +71,16 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
     const conn = connect(token)
     // The content of a phase is fetched once the phase has opened, also after the game has
     // ended, so that a player can look at a result again.
+    const asked = new Set<string>()
     const fetchContent = (view: PlayerView) => {
-      const phase = 'planning'
-      if (view.planning === null || get().content[phase]) return
-      void api.content(token, phase).then((r) => {
-        if (r.ok) set((s) => ({ content: { ...s.content, [phase]: r.data } }))
-      })
+      for (const phase of ['planning', 'development'] as const) {
+        if (view[phase] === null || get().content[phase] || asked.has(`${phase}:${view.run}`)) continue
+        asked.add(`${phase}:${view.run}`)
+        void api.content(token, phase).then((r) => {
+          if (r.ok) set((s) => ({ content: { ...s.content, [phase]: r.data } }))
+          else asked.delete(`${phase}:${view.run}`)
+        })
+      }
     }
     conn.onStatus((status) => set({ status }))
     conn.on('welcome', (m) => {

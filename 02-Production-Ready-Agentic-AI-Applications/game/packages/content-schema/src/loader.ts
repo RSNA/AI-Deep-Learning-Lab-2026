@@ -6,9 +6,10 @@ import { parse as parseYaml } from 'yaml'
 import type { z } from 'zod'
 import {
   BuildFile, CharactersFile, DeckFile, GameFile, InsightsFile, MaintainFile, MonitorsFile,
-  PaletteFile, PHASES, ProblemsFile, ReportCardFile, StoryFile, SystemFile, setCollectWarnings,
-  type Condition, type PhaseId,
+  PHASES, ProblemsFile, ReportCardFile, StoryFile, SystemFile, setCollectWarnings,
+  type PhaseId,
 } from './schema.ts'
+import { checkBuild } from './build-check.ts'
 
 export type Issue = { file: string; path: string; message: string }
 
@@ -27,7 +28,6 @@ export type Pack = {
   readonly dir: string
   readonly hash: string
   readonly game: GameFile
-  readonly palette: PaletteFile | null
   readonly monitors: MonitorsFile | null
   readonly characters: CharactersFile
   /** Health systems in play, in the order of `game.health_systems`. */
@@ -145,7 +145,6 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 
   const game = validate(ctx, 'game.yaml', GameFile, readYaml(ctx, 'game.yaml', true))
   const characters = validate(ctx, 'characters.yaml', CharactersFile, readYaml(ctx, 'characters.yaml', true))
-  const palette = validate(ctx, 'palette.yaml', PaletteFile, readYaml(ctx, 'palette.yaml', false))
   const monitors = validate(ctx, 'monitors.yaml', MonitorsFile, readYaml(ctx, 'monitors.yaml', false))
   const deck = validate(ctx, 'teaching/deck.yaml', DeckFile, readYaml(ctx, 'teaching/deck.yaml', false))
   const reportCard = validate(ctx, 'teaching/report-card.yaml', ReportCardFile, readYaml(ctx, 'teaching/report-card.yaml', false))
@@ -192,7 +191,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   }
 
   if (ctx.errors.length === 0 && characters) {
-    checkReferences(ctx, game, characters, palette, monitors, systems, systemIds, deck, reportCard, listFiles(join(dir, 'art')))
+    checkReferences(ctx, game, characters, monitors, systems, systemIds, deck, reportCard, listFiles(join(dir, 'art')))
     checkCounts(ctx, game, systems)
   }
   if (ctx.errors.length > 0 || !characters) return { ok: false, errors: ctx.errors, warnings: ctx.warnings }
@@ -200,7 +199,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   const all = (f: (s: SystemPack) => unknown) => systemIds.every((id) => systems[id] && f(systems[id]))
   const phasesAvailable: Record<PhaseId, boolean> = {
     planning: all((s) => s.problems && s.insights),
-    development: !!palette && all((s) => s.build),
+    development: game.phases.development.board === 'canvas' && all((s) => s.build),
     maintaining: !!monitors && all((s) => s.maintain),
   }
   const provisional = systemIds.some((id) =>
@@ -210,7 +209,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
     }))
 
   const pack: Pack = {
-    dir, hash: contentHash(ctx.raw), game, palette, monitors, characters,
+    dir, hash: contentHash(ctx.raw), game, monitors, characters,
     systemIds, systems, deck, reportCard, phasesAvailable,
     artFiles: listFiles(join(dir, 'art')), provisional,
   }
@@ -224,7 +223,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 const DECK_STAGES = ['intro', 'break.planning', 'break.development', 'break.maintaining', 'reflection'] as const
 
 function checkReferences(
-  ctx: Ctx, game: GameFile, characters: CharactersFile, palette: PaletteFile | null,
+  ctx: Ctx, game: GameFile, characters: CharactersFile,
   monitors: MonitorsFile | null, systems: Record<string, SystemPack>, systemIds: string[],
   deck: DeckFile | null, reportCard: ReportCardFile | null, artFiles: string[],
 ) {
@@ -259,11 +258,6 @@ function checkReferences(
   })
   const charOk = (id: string, sys: string) => charIds.has(id) && (charIds.get(id) === 'all' || charIds.get(id) === sys)
 
-  const componentIds = new Set((palette?.components ?? []).map((c) => c.id))
-  palette?.components.forEach((c, i) => {
-    unique(c.id, 'palette.yaml', `components[${i}].id`)
-    if (c.id === 'empty' || c.id === 'n/a') err('palette.yaml', `components[${i}].id`, `"${c.id}" is reserved`)
-  })
   const monitorIds = new Set((monitors?.monitors ?? []).map((m) => m.id))
   monitors?.monitors.forEach((m, i) => unique(m.id, 'monitors.yaml', `monitors[${i}].id`))
 
@@ -311,15 +305,24 @@ function checkReferences(
         if (inv.tile.type === 'quote' && !charOk(inv.tile.data.speaker, sid)) err(f('insights'), `[${i}].tile.data.speaker`, `unknown character "${inv.tile.data.speaker}"`)
       })
     }
-    if (sp.build) checkBuild(ctx, f('build'), sp.build, componentIds, problemIds, prefixed)
+    if (sp.build) {
+      // While game.yaml still describes the board of the first version, Phase 2 cannot open,
+      // and Phase 1 still plays.
+      if (game.phases.development.board !== 'canvas') warn('game.yaml', 'phases.development.board', `${f('build')} exists, and Phase 2 opens only when this is "canvas"`)
+      const groups = (game.phases.development.action_groups ?? []).map((g) => g.id)
+      checkBuild(sp.build, { problemIds, groups, insightTileOk: (speaker) => charOk(speaker, sid) },
+        (path, message) => err(f('build'), path, message), (path, message) => warn(f('build'), path, message))
+    }
     if (sp.maintain) checkMaintain(ctx, f('maintain'), sp.maintain, monitorIds, prefixed)
     if (sp.story) {
       const st = sp.story
       const insightIds = new Set((sp.insights ?? []).map((x) => x.id))
       const eventIds = new Set((sp.maintain?.events ?? []).map((x) => x.id))
       const caseIds = new Set((sp.build?.cases ?? []).map((x) => x.id))
-      const offerIds = new Set((sp.build?.offers ?? []).map((x) => x.id))
+      const actionIds = new Set((sp.build?.actions ?? []).map((x) => x.id))
       for (const [phase, b] of Object.entries((st.briefs ?? {}) as Record<string, { from: string } | undefined>)) if (b && !charOk(b.from, sid)) err(f('story'), `briefs.${phase}.from`, `unknown character "${b.from}"`)
+      const op = st.briefs?.development?.opening
+      if (op) for (const k of ['hit', 'missed'] as const) words(op[k], 'phase_brief_opening', f('story'), `briefs.development.opening.${k}`)
       st.banter?.forEach((b, i) => {
         unique(b.id, f('story'), `banter[${i}].id`)
         b.lines.forEach((l, j) => {
@@ -336,14 +339,18 @@ function checkReferences(
         prefixed(d.id, f('story'), `dialogue[${i}].id`)
         if (!charOk(d.speaker, sid)) err(f('story'), `dialogue[${i}].speaker`, `unknown character "${d.speaker}"`)
         const [on, ref] = d.trigger.on.split(':') as [string, string | undefined]
-        if (on === 'insight' && !insightIds.has(ref!)) err(f('story'), `dialogue[${i}].trigger.on`, `unknown investigation "${ref}"`)
+        // In Phase 1 an insight comes from an investigation, in Phase 2 from an action.
+        const fromAction = d.trigger.phase === 'development'
+        // Lines of Phase 2 wait for its build file: until it exists the phase cannot open.
+        if (fromAction && !sp.build) return
+        if (on === 'insight' && !(fromAction ? actionIds : insightIds).has(ref!)) err(f('story'), `dialogue[${i}].trigger.on`, `unknown ${fromAction ? 'action' : 'investigation'} "${ref}"`)
         if (on === 'event' && !eventIds.has(ref!)) err(f('story'), `dialogue[${i}].trigger.on`, `unknown event "${ref}"`)
         if (on === 'trace' && !caseIds.has(ref!)) err(f('story'), `dialogue[${i}].trigger.on`, `unknown case "${ref}"`)
       })
       st.announcements?.forEach((a, i) => {
         prefixed(a.id, f('story'), `announcements[${i}].id`)
         if (!charOk(a.from, sid)) err(f('story'), `announcements[${i}].from`, `unknown character "${a.from}"`)
-        if (a.offer && !offerIds.has(a.offer)) err(f('story'), `announcements[${i}].offer`, `unknown offer "${a.offer}"`)
+        if (a.offer) err(f('story'), `announcements[${i}].offer`, `unknown offer "${a.offer}": Phase 2 has no offers`)
       })
     }
   }
@@ -399,67 +406,6 @@ function checkReferences(
   }
 }
 
-function checkBuild(
-  ctx: Ctx, file: string, b: BuildFile, componentIds: Set<string>, problemIds: Set<string>,
-  prefixed: (id: string, file: string, path: string) => void,
-) {
-  const err = (path: string, message: string) => ctx.errors.push({ file, path, message })
-  if (!problemIds.has(b.problem)) err('problem', `unknown problem "${b.problem}"`)
-  const choices = new Map<string, Set<string>>()
-  const offerIds = new Set((b.offers ?? []).map((o) => o.id))
-  b.choices.forEach((c, i) => {
-    if (choices.has(c.id)) err(`choices[${i}].id`, `choice "${c.id}" is listed twice`)
-    if (c.kind === 'slot') {
-      const opts = new Set<string>(['empty'])
-      c.options.forEach((o, j) => {
-        if (o.component !== 'empty' && !componentIds.has(o.component)) err(`choices[${i}].options[${j}].component`, `unknown component "${o.component}"`)
-        if (o.requires_offer && !offerIds.has(o.requires_offer)) err(`choices[${i}].options[${j}].requires_offer`, `unknown offer "${o.requires_offer}"`)
-        opts.add(o.component)
-      })
-      choices.set(c.id, opts)
-    } else {
-      const opts = new Set(c.options.map((o) => o.id))
-      if (!opts.has(c.default)) err(`choices[${i}].default`, `"${c.default}" is not one of the options`)
-      c.options.forEach((o, j) => { if (o.requires_offer && !offerIds.has(o.requires_offer)) err(`choices[${i}].options[${j}].requires_offer`, `unknown offer "${o.requires_offer}"`) })
-      choices.set(c.id, opts)
-    }
-  })
-  const nodeIds = new Set(b.board.nodes.map((n) => n.id))
-  b.board.flow.forEach((id, i) => { if (!nodeIds.has(id) && !choices.has(id)) err(`board.flow[${i}]`, `unknown node or slot "${id}"`) })
-  b.board.links?.forEach(([a, z], i) => {
-    for (const id of [a, z]) if (!nodeIds.has(id) && !choices.has(id)) err(`board.links[${i}]`, `unknown node or slot "${id}"`)
-  })
-  const cond = (c: Condition, path: string) => {
-    if (c.choice !== undefined) {
-      const opts = choices.get(c.choice)
-      if (!opts) err(path, `unknown choice "${c.choice}"`)
-      else for (const o of [...(c.is ?? []), ...(c.is_not ?? [])]) if (o !== 'n/a' && !opts.has(o)) err(path, `choice "${c.choice}" has no option "${o}"`)
-    }
-    if (c.has_offer !== undefined && !offerIds.has(c.has_offer)) err(path, `unknown offer "${c.has_offer}"`)
-    c.all?.forEach((x, i) => cond(x, `${path}.all[${i}]`))
-    c.any?.forEach((x, i) => cond(x, `${path}.any[${i}]`))
-    if (c.not) cond(c.not, `${path}.not`)
-  }
-  b.choices.forEach((c, i) => { if (c.kind !== 'slot' && c.applies_when) cond(c.applies_when, `choices[${i}].applies_when`) })
-  b.rules?.forEach((r, i) => { prefixed(r.id, file, `rules[${i}].id`); cond(r.when, `rules[${i}].when`) })
-  b.advisories?.forEach((a, i) => cond(a.when, `advisories[${i}].when`))
-  b.cases.forEach((c, i) => {
-    prefixed(c.id, file, `cases[${i}].id`)
-    c.fails_when?.forEach((f, j) => cond(f.when, `cases[${i}].fails_when[${j}].when`))
-    c.extra_cost?.forEach((e, j) => cond(e.when, `cases[${i}].extra_cost[${j}].when`))
-  })
-  b.offers?.forEach((o, i) => prefixed(o.id, file, `offers[${i}].id`))
-  const design = (d: Record<string, string>, path: string) => {
-    for (const [ch, opt] of Object.entries(d)) {
-      const opts = choices.get(ch)
-      if (!opts) err(path, `unknown choice "${ch}"`)
-      else if (opt !== 'n/a' && !opts.has(opt)) err(path, `choice "${ch}" has no option "${opt}"`)
-    }
-  }
-  design(b.key.reference.design, 'key.reference.design')
-  b.key.traps?.forEach((t, i) => design(t.design, `key.traps[${i}].design`))
-}
-
 function checkMaintain(
   ctx: Ctx, file: string, m: MaintainFile, monitorIds: Set<string>,
   prefixed: (id: string, file: string, path: string) => void,
@@ -511,7 +457,17 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
   const until = game.join.late_join.open_until
   if (until.month !== undefined && until.phase !== 'maintaining') err('game.yaml', 'join.late_join.open_until.month', 'a month applies only to maintaining')
   const dev = game.phases.development
-  if (dev.offers.per_system > dev.offers.announce_at_seconds.length) err('game.yaml', 'phases.development.offers', 'more offers than announcement times')
+  if (dev.board === 'canvas') {
+    // A setting with one implemented value is validated to hold it (section 5.4).
+    const one = (path: string, value: string | undefined, want: string) => { if (value !== undefined && value !== want) err('game.yaml', `phases.development.${path}`, `must be "${want}"`) }
+    one('submission.default', dev.submission?.default, 'best_validation')
+    one('submission.player_may_choose', dev.submission?.player_may_choose, 'any_own_validation')
+    one('submission.none_at_the_end', dev.submission?.none_at_the_end, 'validate_the_draft_if_ready')
+    one('live_leaderboard.metric', dev.live_leaderboard.metric, 'best_validation_accuracy')
+    if (!dev.action_groups?.length) err('game.yaml', 'phases.development.action_groups', 'the canvas needs its groups of actions')
+  }
+  const groups = dev.action_groups ?? []
+  groups.forEach((g, i) => { if (groups.findIndex((x) => x.id === g.id) !== i) err('game.yaml', `phases.development.action_groups[${i}].id`, `group "${g.id}" is listed twice`) })
 
   for (const sp of Object.values(systems)) {
     const f = (name: string) => `${sp.folder}/${name}.yaml`
@@ -528,11 +484,6 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
         work += x.bandwidth * x.seconds
       })
       if (work < inv.total_work.min || work > inv.total_work.max) err(f('insights'), '', `total work ${work} lies outside ${inv.total_work.min} to ${inv.total_work.max}`)
-    }
-    if (sp.build) {
-      const n = sp.build.offers?.length ?? 0
-      if (n !== dev.offers.per_system) err(f('build'), 'offers', `holds ${n} offers, game.yaml asks for ${dev.offers.per_system}`)
-      sp.build.offers?.forEach((o, i) => { if (o.index > dev.offers.announce_at_seconds.length) err(f('build'), `offers[${i}].index`, `no announcement time ${o.index}`) })
     }
   }
 }

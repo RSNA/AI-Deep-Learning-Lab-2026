@@ -35,10 +35,12 @@ export const AvatarId = z.enum(AVATARS)
 export type AvatarId = z.infer<typeof AvatarId>
 
 export const ERROR_CODES = [
-  'bad_message', 'rate_limited', 'wrong_stage', 'already_submitted', 'busy', 'unknown_id',
-  'already_done', 'no_bandwidth', 'not_enough_credits', 'invalid_report', 'invalid_design',
-  'not_buildable', 'no_runs_left', 'offer_closed', 'offer_full', 'not_available', 'window_closed',
+  'bad_message', 'rate_limited', 'wrong_stage', 'already_submitted', 'unknown_id',
+  'already_done', 'no_bandwidth', 'not_enough_credits', 'invalid_report', 'not_available', 'window_closed',
   'action_used', 'removed',
+  // Phase 2 (section 6.6)
+  'invalid_map', 'unknown_action', 'action_taken', 'requires_action', 'not_enough_money', 'developers_busy',
+  'validation_running', 'no_validations_left', 'not_ready', 'unknown_validation',
   // Host and join
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
   // Host console

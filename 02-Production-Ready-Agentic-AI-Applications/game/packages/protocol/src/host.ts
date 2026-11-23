@@ -2,7 +2,7 @@
 // receive these.
 import { z } from 'zod'
 import { AvatarId, ErrorCode, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
-import { Board, Clock, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
+import { Board, CanvasLegend, CanvasMap, Clock, Running, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Int = z.number().int()
@@ -117,6 +117,26 @@ export const HostInspect = S({
       points: z.number().nullable(),          // once the phase is scored
     })),
     classify: z.number().nullable(), flagship: z.number().nullable(),
+  }).nullable(),
+  // Phase 2 (section 10.8): the draft drawn read-only, the money, the actions, every validation,
+  // and beside them the key: the share solved of every case for the draft, the flags, the reference map.
+  development: S({
+    status: z.enum(['playing', 'closed']),
+    money: z.number(), developers: S({ total: Int, free: Int }),
+    legend: CanvasLegend,
+    pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
+    actions: z.array(S({ id: z.string(), title: Text, group: z.string(), state: z.enum(['open', 'running', 'done']) })),
+    map: CanvasMap,
+    ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),
+    validations: z.array(S({ id: z.string(), atMs: z.number(), accuracy: z.number(), map: CanvasMap })),
+    submitId: z.string().nullable(),
+    key: S({
+      accuracy: z.number().nullable(),        // of the draft, when it is ready
+      cases: z.array(S({ id: z.string(), title: Text, weight: z.number(), solved: z.number().nullable() })),
+      flags: S({ privateData: z.array(z.string()), overloaded: z.array(z.string()), distracting: z.array(z.string()), prompt: z.array(z.string()), stray: z.array(z.string()) }),
+      running: Running,
+      reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),
+    }),
   }).nullable(),
 })
 export type HostInspect = z.infer<typeof HostInspect>

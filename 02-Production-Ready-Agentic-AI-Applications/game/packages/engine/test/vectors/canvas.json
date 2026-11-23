@@ -1,0 +1,8357 @@
+{
+ "about": "Parity vectors for the canvas scoring. Neutral toy pack, no game content.",
+ "build": {
+  "actions": [
+   {
+    "developers": 2,
+    "id": "a-link",
+    "money": 15,
+    "seconds": 25,
+    "unlocks": [
+     "s-depot"
+    ]
+   },
+   {
+    "developers": 0,
+    "id": "a-deal",
+    "money": 25,
+    "seconds": 40,
+    "unlocks": [
+     "c-private"
+    ]
+   },
+   {
+    "developers": 1,
+    "id": "a-download",
+    "money": 0,
+    "seconds": 15,
+    "unlocks": [
+     "m-open"
+    ]
+   },
+   {
+    "developers": 1,
+    "id": "a-rent",
+    "money": 5,
+    "seconds": 15,
+    "unlocks": [
+     "c-rented"
+    ]
+   },
+   {
+    "developers": 1,
+    "id": "a-buy",
+    "money": 40,
+    "seconds": 60,
+    "unlocks": [
+     "c-owned"
+    ]
+   },
+   {
+    "developers": 0,
+    "id": "a-workshop",
+    "money": 10,
+    "seconds": 20,
+    "unlocks": [
+     "p-worked",
+     "p-steps"
+    ]
+   }
+  ],
+  "budget": {
+   "developers": 3,
+   "money": 100
+  },
+  "cases": [
+   {
+    "difficulty": "plain",
+    "id": "k1",
+    "needs": [
+     "fa",
+     "fd"
+    ],
+    "weight": 9
+   },
+   {
+    "difficulty": "plain",
+    "id": "k2",
+    "needs": [
+     "fa",
+     "fb",
+     "fd"
+    ],
+    "weight": 8
+   },
+   {
+    "difficulty": "plain",
+    "id": "k3",
+    "needs": [
+     "fa",
+     "fb",
+     "fc",
+     "fd"
+    ],
+    "weight": 12
+   },
+   {
+    "difficulty": "hard",
+    "id": "k4",
+    "needs": [
+     "fa",
+     "fb",
+     "fd"
+    ],
+    "weight": 6
+   },
+   {
+    "difficulty": "hard",
+    "id": "k5",
+    "needs": [
+     "fa",
+     "fb",
+     "fc",
+     "fd"
+    ],
+    "weight": 5
+   }
+  ],
+  "compute": [
+   {
+    "id": "c-open-api",
+    "price_factor": 1.0,
+    "protects_private_data": false,
+    "run_fixed": 0
+   },
+   {
+    "id": "c-private",
+    "price_factor": 1.3,
+    "protects_private_data": true,
+    "run_fixed": 2
+   },
+   {
+    "id": "c-rented",
+    "price_factor": 1.0,
+    "protects_private_data": true,
+    "run_fixed": 12
+   },
+   {
+    "id": "c-owned",
+    "price_factor": 0.2,
+    "protects_private_data": true,
+    "run_fixed": 1
+   }
+  ],
+  "facts": [
+   {
+    "id": "fa"
+   },
+   {
+    "id": "fb"
+   },
+   {
+    "id": "fc"
+   },
+   {
+    "id": "fd"
+   }
+  ],
+  "grid": {
+   "cols": 4,
+   "rows": 5
+  },
+  "handoff": {
+   "keep": 0.96
+  },
+  "models": [
+   {
+    "id": "m-large",
+    "run": 4,
+    "runs_on": [
+     "c-open-api",
+     "c-private"
+    ]
+   },
+   {
+    "id": "m-small",
+    "run": 1,
+    "runs_on": [
+     "c-open-api",
+     "c-private"
+    ]
+   },
+   {
+    "id": "m-open",
+    "run": 0.5,
+    "runs_on": [
+     "c-rented",
+     "c-owned"
+    ]
+   }
+  ],
+  "notes": [
+   {
+    "id": "private_data"
+   },
+   {
+    "id": "overloaded"
+   },
+   {
+    "id": "distracting"
+   },
+   {
+    "id": "prompt"
+   },
+   {
+    "id": "stray"
+   }
+  ],
+  "pools": [
+   {
+    "id": "expert",
+    "max": 4
+   },
+   {
+    "id": "staff",
+    "max": 12
+   }
+  ],
+  "problem": "toy-problem",
+  "prompts": [
+   {
+    "decide": 1.0,
+    "fetch": 1.0,
+    "id": "p-basic"
+   },
+   {
+    "decide": 1.1,
+    "fetch": 1.05,
+    "id": "p-worked"
+   },
+   {
+    "decide": 0.9,
+    "fetch": 0.97,
+    "id": "p-long"
+   },
+   {
+    "by_worker": {
+     "step": {
+      "decide": 1.12,
+      "fetch": 1.0
+     }
+    },
+    "decide": 0.95,
+    "fetch": 1.08,
+    "id": "p-steps"
+   }
+  ],
+  "quality_cap": 0.99,
+  "result": {
+   "id": "result"
+  },
+  "sources": [
+   {
+    "effort": "easy",
+    "gives": {
+     "fa": 1.0
+    },
+    "id": "s-form",
+    "private_data": true,
+    "run": 0
+   },
+   {
+    "effort": "easy",
+    "gives": {
+     "fb": 1.0
+    },
+    "id": "s-shelf",
+    "private_data": true,
+    "run": 1
+   },
+   {
+    "effort": "hard",
+    "gives": {
+     "fb": 1.0,
+     "fc": 1.0
+    },
+    "id": "s-depot",
+    "private_data": true,
+    "run": 2
+   },
+   {
+    "effort": "easy",
+    "gives": {
+     "fd": 1.0
+    },
+    "id": "s-book",
+    "private_data": false,
+    "run": 0
+   },
+   {
+    "distracts": 0.9,
+    "effort": "easy",
+    "gives": {
+     "fd": 0.7
+    },
+    "id": "s-rumor",
+    "private_data": false,
+    "run": 0
+   }
+  ],
+  "validate": {
+   "runs": 6,
+   "seconds": 12
+  },
+  "workers": [
+   {
+    "by_model": {
+     "m-large": {
+      "catch": 0.4,
+      "decide": {
+       "hard": 0.85,
+       "plain": 0.95
+      },
+      "fetch": {
+       "easy": 0.98,
+       "hard": 0.85
+      }
+     },
+     "m-open": {
+      "catch": 0.2,
+      "decide": {
+       "hard": 0.5,
+       "plain": 0.83
+      },
+      "fetch": {
+       "easy": 0.94,
+       "hard": 0.68
+      }
+     },
+     "m-small": {
+      "catch": 0.2,
+      "decide": {
+       "hard": 0.55,
+       "plain": 0.85
+      },
+      "fetch": {
+       "easy": 0.95,
+       "hard": 0.7
+      }
+     }
+    },
+    "calls": 4,
+    "complexity": 3,
+    "id": "agent",
+    "kind": "ai",
+    "load": {
+     "factor": 0.92,
+     "free": 4
+    },
+    "needs_model": true
+   },
+   {
+    "by_model": {
+     "m-large": {
+      "catch": 0.3,
+      "decide": {
+       "hard": 0.7,
+       "plain": 0.92
+      },
+      "fetch": {
+       "easy": 0.97,
+       "hard": 0.0
+      }
+     },
+     "m-open": {
+      "catch": 0.15,
+      "decide": {
+       "hard": 0.42,
+       "plain": 0.8
+      },
+      "fetch": {
+       "easy": 0.92,
+       "hard": 0.0
+      }
+     },
+     "m-small": {
+      "catch": 0.15,
+      "decide": {
+       "hard": 0.45,
+       "plain": 0.82
+      },
+      "fetch": {
+       "easy": 0.93,
+       "hard": 0.0
+      }
+     }
+    },
+    "calls": 1,
+    "complexity": 1,
+    "id": "step",
+    "kind": "ai",
+    "load": {
+     "factor": 0.9,
+     "free": 2
+    },
+    "needs_model": true
+   },
+   {
+    "complexity": 1,
+    "id": "rule",
+    "kind": "fixed",
+    "needs_model": false,
+    "quality": {
+     "catch": 0.0,
+     "decide": {
+      "hard": 0.0,
+      "plain": 1.0
+     },
+     "fetch": {
+      "easy": 1.0,
+      "hard": 0.0
+     }
+    }
+   },
+   {
+    "complexity": 1,
+    "id": "expert",
+    "kind": "person",
+    "minutes": {
+     "check": 2,
+     "decide": 6,
+     "per_line": {
+      "easy": 1,
+      "hard": 5
+     }
+    },
+    "needs_model": false,
+    "pool": "expert",
+    "quality": {
+     "catch": 0.85,
+     "decide": {
+      "hard": 0.95,
+      "plain": 0.98
+     },
+     "fetch": {
+      "easy": 1.0,
+      "hard": 0.95
+     }
+    }
+   },
+   {
+    "complexity": 1,
+    "id": "clerk",
+    "kind": "person",
+    "minutes": {
+     "check": 2,
+     "decide": 4,
+     "per_line": {
+      "easy": 1,
+      "hard": 6
+     }
+    },
+    "needs_model": false,
+    "pool": "staff",
+    "quality": {
+     "catch": 0.3,
+     "decide": {
+      "hard": 0.2,
+      "plain": 0.6
+     },
+     "fetch": {
+      "easy": 1.0,
+      "hard": 0.9
+     }
+    }
+   }
+  ]
+ },
+ "cases": [
+  {
+   "expect": {
+    "accepted": true,
+    "ready": false,
+    "reasons": [
+     "nothing_reaches_result"
+    ]
+   },
+   "map": {
+    "lines": [],
+    "tiles": []
+   },
+   "name": "empty",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "ready": false,
+    "reasons": [
+     "nothing_reaches_result"
+    ]
+   },
+   "map": {
+    "lines": [],
+    "tiles": []
+   },
+   "name": "empty",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.225,
+    "complexity": 4,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 1.0,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 225.0,
+    "ready": true,
+    "run_month": 0.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "rule_alone",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.225,
+    "complexity": 4,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 1.0,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 225.0,
+    "ready": true,
+    "run_month": 0.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "rule_alone",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.3890903124999999,
+    "complexity": 7,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1"
+     ],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "missing"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.767125,
+     "k2": 0.7287687499999999,
+     "k3": 0.0,
+     "k4": 0.47155624999999995,
+     "k5": 0.0
+    },
+    "raw": 389.0903124999999,
+    "ready": true,
+    "run_month": 5.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "one_small_agent",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.3890903124999999,
+    "complexity": 7,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1"
+     ],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "missing"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.767125,
+     "k2": 0.7287687499999999,
+     "k3": 0.0,
+     "k4": 0.47155624999999995,
+     "k5": 0.0
+    },
+    "raw": 389.0903124999999,
+    "ready": true,
+    "run_month": 5.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "one_small_agent",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.8171191244999999,
+    "complexity": 8,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.9123799999999999,
+     "k2": 0.8941323999999998,
+     "k3": 0.76001254,
+     "k4": 0.8000131999999999,
+     "k5": 0.6800112199999999
+    },
+    "raw": 817.1191244999999,
+    "ready": true,
+    "run_month": 25.8
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "one_large_agent_all",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "one_large_agent_all",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.676574635086,
+    "complexity": 9,
+    "flags": {
+     "distracting": [
+      "t1"
+     ],
+     "overloaded": [
+      "t1"
+     ],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": null,
+     "reason": "decision"
+    },
+    "note": "overloaded",
+    "per_case": {
+     "k1": 0.7554506400000001,
+     "k2": 0.7403416272,
+     "k3": 0.6292903831200001,
+     "k4": 0.6624109296,
+     "k5": 0.56304929016
+    },
+    "raw": 676.5746350860001,
+    "ready": true,
+    "run_month": 25.8
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "s-rumor",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "one_large_agent_overloaded",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "s-rumor",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "one_large_agent_overloaded",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.789538864663073,
+    "complexity": 11,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {
+     "expert": 2.0
+    },
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.91904563571712,
+     "k2": 0.8894211522765126,
+     "k3": 0.7064015169393898,
+     "k4": 0.787935098636636,
+     "k5": 0.5980691703528495
+    },
+    "raw": 789.538864663073,
+    "ready": true,
+    "run_month": 10.2
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 4,
+      "id": "t2",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "agent_then_expert",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 4,
+      "id": "t2",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "agent_then_expert",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.8665515223857169,
+    "complexity": 23,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {
+     "expert": 2.0
+    },
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.969639106437783,
+     "k2": 0.9464390462693472,
+     "k3": 0.7604722723646989,
+     "k4": 0.926195886978417,
+     "k5": 0.7361907954173911
+    },
+    "raw": 866.5515223857169,
+    "ready": true,
+    "run_month": 27.6
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t2"
+     },
+     {
+      "from": "s-book",
+      "to": "t3"
+     },
+     {
+      "from": "t1",
+      "to": "t3"
+     },
+     {
+      "from": "t2",
+      "to": "t3"
+     },
+     {
+      "from": "t3",
+      "to": "t4"
+     },
+     {
+      "from": "t4",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-worked",
+      "row": 1,
+      "runs_on": "c-owned"
+     },
+     {
+      "col": 1,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-worked",
+      "row": 3,
+      "runs_on": "c-owned"
+     },
+     {
+      "col": 3,
+      "id": "t3",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 4,
+      "id": "t4",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "diggers_lead_expert",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "bad_model",
+     "bad_prompt",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t2"
+     },
+     {
+      "from": "s-book",
+      "to": "t3"
+     },
+     {
+      "from": "t1",
+      "to": "t3"
+     },
+     {
+      "from": "t2",
+      "to": "t3"
+     },
+     {
+      "from": "t3",
+      "to": "t4"
+     },
+     {
+      "from": "t4",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-worked",
+      "row": 1,
+      "runs_on": "c-owned"
+     },
+     {
+      "col": 1,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-worked",
+      "row": 3,
+      "runs_on": "c-owned"
+     },
+     {
+      "col": 3,
+      "id": "t3",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 4,
+      "id": "t4",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "diggers_lead_expert",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "ready": false,
+    "reasons": [
+     "too_many_minutes:expert"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "expert_everywhere",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "expert",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "expert_everywhere",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.48131782151425206,
+    "complexity": 23,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1",
+      "t2",
+      "t3",
+      "t4"
+     ],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.6787031039999998,
+     "k2": 0.5942181416140797,
+     "k3": 0.3993145911646615,
+     "k4": 0.38449409163263987,
+     "k5": 0.25838002957713396
+    },
+    "raw": 481.31782151425205,
+    "ready": true,
+    "run_month": 19.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t2"
+     },
+     {
+      "from": "s-depot",
+      "to": "t3"
+     },
+     {
+      "from": "s-book",
+      "to": "t4"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "t3"
+     },
+     {
+      "from": "t3",
+      "to": "t4"
+     },
+     {
+      "from": "t4",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 3,
+      "id": "t3",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 4,
+      "id": "t4",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "long_chain",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t2"
+     },
+     {
+      "from": "s-depot",
+      "to": "t3"
+     },
+     {
+      "from": "s-book",
+      "to": "t4"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "t3"
+     },
+     {
+      "from": "t3",
+      "to": "t4"
+     },
+     {
+      "from": "t4",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 3,
+      "id": "t3",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 4,
+      "id": "t4",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 1,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "long_chain",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.1947663,
+    "complexity": 4,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.865628,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 194.7663,
+    "ready": true,
+    "run_month": 7.2
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "step",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "step_pipeline",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "step",
+      "model": "m-large",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "step_pipeline",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.172603125,
+    "complexity": 7,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1"
+     ],
+     "prompt": [],
+     "stray": [
+      "t2"
+     ]
+    },
+    "minutes": {
+     "staff": 4.0
+    },
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.767125,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 172.603125,
+    "ready": true,
+    "run_month": 4.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "clerk",
+      "model": null,
+      "prompt": null,
+      "row": 4,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "with_stray",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.172603125,
+    "complexity": 7,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1"
+     ],
+     "prompt": [],
+     "stray": [
+      "t2"
+     ]
+    },
+    "minutes": {
+     "staff": 4.0
+    },
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.767125,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 172.603125,
+    "ready": true,
+    "run_month": 4.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "clerk",
+      "model": null,
+      "prompt": null,
+      "row": 4,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "with_stray",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.6686883140834675,
+    "complexity": 8,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [
+      "t1"
+     ],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": "prompt",
+    "per_case": {
+     "k1": 0.7726125078,
+     "k2": 0.73444544991468,
+     "k3": 0.6055502734546537,
+     "k4": 0.65713540255524,
+     "k5": 0.5418081394067954
+    },
+    "raw": 668.6883140834675,
+    "ready": true,
+    "run_month": 25.8
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-long",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "large_agent_long_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-long",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "large_agent_long_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.9049332917728125,
+    "complexity": 8,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.9702989999999999,
+     "k2": 0.96059601,
+     "k3": 0.8573319389249999,
+     "k4": 0.907229565,
+     "k5": 0.8097023867625001
+    },
+    "raw": 904.9332917728125,
+    "ready": true,
+    "run_month": 25.8
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "large_agent_worked_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "bad_prompt",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "large_agent_worked_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.7806596927174368,
+    "complexity": 14,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.9314870399999999,
+     "k2": 0.8852852828159999,
+     "k3": 0.6425046468565401,
+     "k4": 0.836102767104,
+     "k5": 0.606809944253399
+    },
+    "raw": 780.6596927174369,
+    "ready": true,
+    "run_month": 31.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "digger_steps_lead_worked",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "bad_prompt",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "digger_steps_lead_worked",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.6953046151827915,
+    "complexity": 14,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fc",
+     "reason": "weak"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.84915864,
+     "k2": 0.8070403714559998,
+     "k3": 0.5694476860993535,
+     "k4": 0.7220887534079999,
+     "k5": 0.5095058244046847
+    },
+    "raw": 695.3046151827915,
+    "ready": true,
+    "run_month": 31.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "digger_worked_lead_steps",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "bad_prompt",
+     "source_locked"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-depot",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-worked",
+      "row": 2,
+      "runs_on": "c-private"
+     },
+     {
+      "col": 3,
+      "id": "t2",
+      "kind": "agent",
+      "model": "m-large",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "digger_worked_lead_steps",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.209585475,
+    "complexity": 4,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k3",
+     "fact": "fb",
+     "reason": "missing"
+    },
+    "note": null,
+    "per_case": {
+     "k1": 0.931491,
+     "k2": 0.0,
+     "k3": 0.0,
+     "k4": 0.0,
+     "k5": 0.0
+    },
+    "raw": 209.585475,
+    "ready": true,
+    "run_month": 7.2
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "step",
+      "model": "m-large",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "step_with_steps_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_compute",
+     "bad_prompt"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "step",
+      "model": "m-large",
+      "prompt": "p-steps",
+      "row": 2,
+      "runs_on": "c-private"
+     }
+    ]
+   },
+   "name": "step_with_steps_prompt",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "ready": false,
+    "reasons": [
+     "tile_incomplete"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "not_ready_no_model",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "ready": false,
+    "reasons": [
+     "tile_incomplete"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": null,
+      "prompt": null,
+      "row": 2,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "not_ready_no_model",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "line_backward"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 3,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "bad_backward",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "line_backward"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "t1",
+      "to": "t2"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 3,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "bad_backward",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "model_cannot_run_there"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "bad_combo",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "bad_model",
+     "model_cannot_run_there"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-open",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "bad_combo",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "result_takes_one_line"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-form",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "bad_two_into_result",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  },
+  {
+   "expect": {
+    "accepted": false,
+    "errors": [
+     "result_takes_one_line"
+    ]
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-form",
+      "to": "t2"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     },
+     {
+      "from": "t2",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 1,
+      "id": "t1",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     },
+     {
+      "col": 2,
+      "id": "t2",
+      "kind": "rule",
+      "model": null,
+      "prompt": null,
+      "row": 1,
+      "runs_on": null
+     }
+    ]
+   },
+   "name": "bad_two_into_result",
+   "shown_cases": [],
+   "shown_notes": [],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "rule",
+    "s-book",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "start"
+  },
+  {
+   "expect": {
+    "accepted": true,
+    "accuracy": 0.3890903124999999,
+    "complexity": 7,
+    "flags": {
+     "distracting": [],
+     "overloaded": [],
+     "private_data": [
+      "t1"
+     ],
+     "prompt": [],
+     "stray": []
+    },
+    "minutes": {},
+    "missed": {
+     "case": "k5",
+     "fact": "fc",
+     "reason": "missing"
+    },
+    "note": "private_data",
+    "per_case": {
+     "k1": 0.767125,
+     "k2": 0.7287687499999999,
+     "k3": 0.0,
+     "k4": 0.47155624999999995,
+     "k5": 0.0
+    },
+    "raw": 389.0903124999999,
+    "ready": true,
+    "run_month": 5.0
+   },
+   "map": {
+    "lines": [
+     {
+      "from": "s-form",
+      "to": "t1"
+     },
+     {
+      "from": "s-shelf",
+      "to": "t1"
+     },
+     {
+      "from": "s-book",
+      "to": "t1"
+     },
+     {
+      "from": "t1",
+      "to": "result"
+     }
+    ],
+    "tiles": [
+     {
+      "col": 2,
+      "id": "t1",
+      "kind": "agent",
+      "model": "m-small",
+      "prompt": "p-basic",
+      "row": 2,
+      "runs_on": "c-open-api"
+     }
+    ]
+   },
+   "name": "one_small_agent_second_look",
+   "shown_cases": [
+    "k3"
+   ],
+   "shown_notes": [
+    "private_data"
+   ],
+   "unlocked": [
+    "agent",
+    "c-open-api",
+    "c-owned",
+    "c-private",
+    "c-rented",
+    "clerk",
+    "expert",
+    "m-large",
+    "m-open",
+    "m-small",
+    "p-basic",
+    "p-long",
+    "p-steps",
+    "p-worked",
+    "rule",
+    "s-book",
+    "s-depot",
+    "s-form",
+    "s-rumor",
+    "s-shelf",
+    "step"
+   ],
+   "unlocked_set": "all"
+  }
+ ],
+ "more": [
+  {
+   "about": "The toy pack with a third kind of effort, `image`.",
+   "build": {
+    "actions": [
+     {
+      "developers": 2,
+      "id": "a-link",
+      "money": 15,
+      "seconds": 25,
+      "unlocks": [
+       "s-depot"
+      ]
+     },
+     {
+      "developers": 0,
+      "id": "a-deal",
+      "money": 25,
+      "seconds": 40,
+      "unlocks": [
+       "c-private"
+      ]
+     },
+     {
+      "developers": 1,
+      "id": "a-download",
+      "money": 0,
+      "seconds": 15,
+      "unlocks": [
+       "m-open"
+      ]
+     },
+     {
+      "developers": 1,
+      "id": "a-rent",
+      "money": 5,
+      "seconds": 15,
+      "unlocks": [
+       "c-rented"
+      ]
+     },
+     {
+      "developers": 1,
+      "id": "a-buy",
+      "money": 40,
+      "seconds": 60,
+      "unlocks": [
+       "c-owned"
+      ]
+     },
+     {
+      "developers": 0,
+      "id": "a-workshop",
+      "money": 10,
+      "seconds": 20,
+      "unlocks": [
+       "p-worked",
+       "p-steps"
+      ]
+     },
+     {
+      "developers": 0,
+      "id": "a-reader",
+      "money": 10,
+      "seconds": 15,
+      "unlocks": [
+       "reader"
+      ]
+     }
+    ],
+    "budget": {
+     "developers": 3,
+     "money": 100
+    },
+    "cases": [
+     {
+      "difficulty": "plain",
+      "id": "k1",
+      "needs": [
+       "fa",
+       "fd"
+      ],
+      "weight": 9
+     },
+     {
+      "difficulty": "plain",
+      "id": "k2",
+      "needs": [
+       "fa",
+       "fb",
+       "fd"
+      ],
+      "weight": 8
+     },
+     {
+      "difficulty": "plain",
+      "id": "k3",
+      "needs": [
+       "fa",
+       "fb",
+       "fc",
+       "fd"
+      ],
+      "weight": 12
+     },
+     {
+      "difficulty": "hard",
+      "id": "k4",
+      "needs": [
+       "fa",
+       "fb",
+       "fd"
+      ],
+      "weight": 6
+     },
+     {
+      "difficulty": "hard",
+      "id": "k5",
+      "needs": [
+       "fa",
+       "fb",
+       "fc",
+       "fd"
+      ],
+      "weight": 5
+     },
+     {
+      "difficulty": "plain",
+      "id": "k6",
+      "needs": [
+       "fa",
+       "fe",
+       "fd"
+      ],
+      "weight": 10
+     }
+    ],
+    "compute": [
+     {
+      "id": "c-open-api",
+      "price_factor": 1.0,
+      "protects_private_data": false,
+      "run_fixed": 0
+     },
+     {
+      "id": "c-private",
+      "price_factor": 1.3,
+      "protects_private_data": true,
+      "run_fixed": 2
+     },
+     {
+      "id": "c-rented",
+      "price_factor": 1.0,
+      "protects_private_data": true,
+      "run_fixed": 12
+     },
+     {
+      "id": "c-owned",
+      "price_factor": 0.2,
+      "protects_private_data": true,
+      "run_fixed": 1
+     }
+    ],
+    "efforts": [
+     {
+      "id": "easy"
+     },
+     {
+      "id": "hard"
+     },
+     {
+      "id": "image"
+     }
+    ],
+    "facts": [
+     {
+      "id": "fa"
+     },
+     {
+      "id": "fb"
+     },
+     {
+      "id": "fc"
+     },
+     {
+      "id": "fd"
+     },
+     {
+      "id": "fe"
+     }
+    ],
+    "grid": {
+     "cols": 4,
+     "rows": 5
+    },
+    "handoff": {
+     "keep": 0.96
+    },
+    "models": [
+     {
+      "id": "m-large",
+      "run": 4,
+      "runs_on": [
+       "c-open-api",
+       "c-private"
+      ]
+     },
+     {
+      "id": "m-small",
+      "run": 1,
+      "runs_on": [
+       "c-open-api",
+       "c-private"
+      ]
+     },
+     {
+      "id": "m-open",
+      "run": 0.5,
+      "runs_on": [
+       "c-rented",
+       "c-owned"
+      ]
+     }
+    ],
+    "notes": [
+     {
+      "id": "private_data"
+     },
+     {
+      "id": "overloaded"
+     },
+     {
+      "id": "distracting"
+     },
+     {
+      "id": "prompt"
+     },
+     {
+      "id": "stray"
+     }
+    ],
+    "pools": [
+     {
+      "id": "expert",
+      "max": 4
+     },
+     {
+      "id": "staff",
+      "max": 12
+     }
+    ],
+    "problem": "toy-problem",
+    "prompts": [
+     {
+      "decide": 1.0,
+      "fetch": 1.0,
+      "id": "p-basic"
+     },
+     {
+      "decide": 1.1,
+      "fetch": 1.05,
+      "id": "p-worked"
+     },
+     {
+      "decide": 0.9,
+      "fetch": 0.97,
+      "id": "p-long"
+     },
+     {
+      "by_worker": {
+       "step": {
+        "decide": 1.12,
+        "fetch": 1.0
+       }
+      },
+      "decide": 0.95,
+      "fetch": 1.08,
+      "id": "p-steps"
+     }
+    ],
+    "quality_cap": 0.99,
+    "result": {
+     "id": "result"
+    },
+    "sources": [
+     {
+      "effort": "easy",
+      "gives": {
+       "fa": 1.0
+      },
+      "id": "s-form",
+      "private_data": true,
+      "run": 0
+     },
+     {
+      "effort": "easy",
+      "gives": {
+       "fb": 1.0
+      },
+      "id": "s-shelf",
+      "private_data": true,
+      "run": 1
+     },
+     {
+      "effort": "hard",
+      "gives": {
+       "fb": 1.0,
+       "fc": 1.0
+      },
+      "id": "s-depot",
+      "private_data": true,
+      "run": 2
+     },
+     {
+      "effort": "easy",
+      "gives": {
+       "fd": 1.0
+      },
+      "id": "s-book",
+      "private_data": false,
+      "run": 0
+     },
+     {
+      "distracts": 0.9,
+      "effort": "easy",
+      "gives": {
+       "fd": 0.7
+      },
+      "id": "s-rumor",
+      "private_data": false,
+      "run": 0
+     },
+     {
+      "effort": "image",
+      "gives": {
+       "fe": 1.0
+      },
+      "id": "s-photo",
+      "private_data": true,
+      "run": 0
+     }
+    ],
+    "validate": {
+     "runs": 6,
+     "seconds": 12
+    },
+    "workers": [
+     {
+      "by_model": {
+       "m-large": {
+        "catch": 0.4,
+        "decide": {
+         "hard": 0.85,
+         "plain": 0.95
+        },
+        "fetch": {
+         "easy": 0.98,
+         "hard": 0.85,
+         "image": 0.35
+        }
+       },
+       "m-open": {
+        "catch": 0.2,
+        "decide": {
+         "hard": 0.5,
+         "plain": 0.83
+        },
+        "fetch": {
+         "easy": 0.94,
+         "hard": 0.68,
+         "image": 0.3
+        }
+       },
+       "m-small": {
+        "catch": 0.2,
+        "decide": {
+         "hard": 0.55,
+         "plain": 0.85
+        },
+        "fetch": {
+         "easy": 0.95,
+         "hard": 0.7,
+         "image": 0.3
+        }
+       }
+      },
+      "calls": 4,
+      "complexity": 3,
+      "id": "agent",
+      "kind": "ai",
+      "load": {
+       "factor": 0.92,
+       "free": 4
+      },
+      "needs_model": true
+     },
+     {
+      "by_model": {
+       "m-large": {
+        "catch": 0.3,
+        "decide": {
+         "hard": 0.7,
+         "plain": 0.92
+        },
+        "fetch": {
+         "easy": 0.97,
+         "hard": 0.0,
+         "image": 0.3
+        }
+       },
+       "m-open": {
+        "catch": 0.15,
+        "decide": {
+         "hard": 0.42,
+         "plain": 0.8
+        },
+        "fetch": {
+         "easy": 0.92,
+         "hard": 0.0,
+         "image": 0.25
+        }
+       },
+       "m-small": {
+        "catch": 0.15,
+        "decide": {
+         "hard": 0.45,
+         "plain": 0.82
+        },
+        "fetch": {
+         "easy": 0.93,
+         "hard": 0.0,
+         "image": 0.25
+        }
+       }
+      },
+      "calls": 1,
+      "complexity": 1,
+      "id": "step",
+      "kind": "ai",
+      "load": {
+       "factor": 0.9,
+       "free": 2
+      },
+      "needs_model": true
+     },
+     {
+      "complexity": 1,
+      "id": "rule",
+      "kind": "fixed",
+      "needs_model": false,
+      "quality": {
+       "catch": 0.0,
+       "decide": {
+        "hard": 0.0,
+        "plain": 1.0
+       },
+       "fetch": {
+        "easy": 1.0,
+        "hard": 0.0,
+        "image": 0.0
+       }
+      }
+     },
+     {
+      "complexity": 1,
+      "id": "expert",
+      "kind": "person",
+      "minutes": {
+       "check": 2,
+       "decide": 6,
+       "per_line": {
+        "easy": 1,
+        "hard": 5,
+        "image": 3
+       }
+      },
+      "needs_model": false,
+      "pool": "expert",
+      "quality": {
+       "catch": 0.85,
+       "decide": {
+        "hard": 0.95,
+        "plain": 0.98
+       },
+       "fetch": {
+        "easy": 1.0,
+        "hard": 0.95,
+        "image": 0.98
+       }
+      }
+     },
+     {
+      "complexity": 1,
+      "id": "clerk",
+      "kind": "person",
+      "minutes": {
+       "check": 2,
+       "decide": 4,
+       "per_line": {
+        "easy": 1,
+        "hard": 6,
+        "image": 3
+       }
+      },
+      "needs_model": false,
+      "pool": "staff",
+      "quality": {
+       "catch": 0.3,
+       "decide": {
+        "hard": 0.2,
+        "plain": 0.6
+       },
+       "fetch": {
+        "easy": 1.0,
+        "hard": 0.9,
+        "image": 0.0
+       }
+      }
+     },
+     {
+      "complexity": 2,
+      "id": "reader",
+      "kind": "fixed",
+      "needs_model": false,
+      "quality": {
+       "catch": 0.0,
+       "decide": {
+        "hard": 0.0,
+        "plain": 0.0
+       },
+       "fetch": {
+        "easy": 0.0,
+        "hard": 0.0,
+        "image": 0.96
+       }
+      },
+      "run": 0.5
+     }
+    ]
+   },
+   "cases": [
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "nothing_reaches_result"
+      ]
+     },
+     "map": {
+      "lines": [],
+      "tiles": []
+     },
+     "name": "empty",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "nothing_reaches_result"
+      ]
+     },
+     "map": {
+      "lines": [],
+      "tiles": []
+     },
+     "name": "empty",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.18,
+      "complexity": 4,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 1.0,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 180.0,
+      "ready": true,
+      "run_month": 0.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "rule_alone",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.18,
+      "complexity": 4,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 1.0,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 180.0,
+      "ready": true,
+      "run_month": 0.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "rule_alone",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.31127225,
+      "complexity": 7,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [
+        "t1"
+       ],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fc",
+       "reason": "missing"
+      },
+      "note": "private_data",
+      "per_case": {
+       "k1": 0.767125,
+       "k2": 0.7287687499999999,
+       "k3": 0.0,
+       "k4": 0.47155624999999995,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 311.27225,
+      "ready": true,
+      "run_month": 5.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "one_small_agent",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.31127225,
+      "complexity": 7,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [
+        "t1"
+       ],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fc",
+       "reason": "missing"
+      },
+      "note": "private_data",
+      "per_case": {
+       "k1": 0.767125,
+       "k2": 0.7287687499999999,
+       "k3": 0.0,
+       "k4": 0.47155624999999995,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 311.27225,
+      "ready": true,
+      "run_month": 5.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "one_small_agent",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.6536952996,
+      "complexity": 8,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.9123799999999999,
+       "k2": 0.8941323999999998,
+       "k3": 0.76001254,
+       "k4": 0.8000131999999999,
+       "k5": 0.6800112199999999,
+       "k6": 0.0
+      },
+      "raw": 653.6952996,
+      "ready": true,
+      "run_month": 25.8
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "one_large_agent_all",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "one_large_agent_all",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.5412597080688001,
+      "complexity": 9,
+      "flags": {
+       "distracting": [
+        "t1"
+       ],
+       "overloaded": [
+        "t1"
+       ],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": "overloaded",
+      "per_case": {
+       "k1": 0.7554506400000001,
+       "k2": 0.7403416272,
+       "k3": 0.6292903831200001,
+       "k4": 0.6624109296,
+       "k5": 0.56304929016,
+       "k6": 0.0
+      },
+      "raw": 541.2597080688001,
+      "ready": true,
+      "run_month": 25.8
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "s-rumor",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "one_large_agent_overloaded",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "s-rumor",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "one_large_agent_overloaded",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.6316310917304584,
+      "complexity": 11,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {
+       "expert": 2.0
+      },
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.91904563571712,
+       "k2": 0.8894211522765126,
+       "k3": 0.7064015169393898,
+       "k4": 0.787935098636636,
+       "k5": 0.5980691703528495,
+       "k6": 0.0
+      },
+      "raw": 631.6310917304584,
+      "ready": true,
+      "run_month": 10.2
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t2",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "agent_then_expert",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t2",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "agent_then_expert",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.6932412179085735,
+      "complexity": 23,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {
+       "expert": 2.0
+      },
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.969639106437783,
+       "k2": 0.9464390462693472,
+       "k3": 0.7604722723646989,
+       "k4": 0.926195886978417,
+       "k5": 0.7361907954173911,
+       "k6": 0.0
+      },
+      "raw": 693.2412179085735,
+      "ready": true,
+      "run_month": 27.6
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t2"
+       },
+       {
+        "from": "s-book",
+        "to": "t3"
+       },
+       {
+        "from": "t1",
+        "to": "t3"
+       },
+       {
+        "from": "t2",
+        "to": "t3"
+       },
+       {
+        "from": "t3",
+        "to": "t4"
+       },
+       {
+        "from": "t4",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-worked",
+        "row": 1,
+        "runs_on": "c-owned"
+       },
+       {
+        "col": 1,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-worked",
+        "row": 3,
+        "runs_on": "c-owned"
+       },
+       {
+        "col": 3,
+        "id": "t3",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t4",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "diggers_lead_expert",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_model",
+       "bad_prompt",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t2"
+       },
+       {
+        "from": "s-book",
+        "to": "t3"
+       },
+       {
+        "from": "t1",
+        "to": "t3"
+       },
+       {
+        "from": "t2",
+        "to": "t3"
+       },
+       {
+        "from": "t3",
+        "to": "t4"
+       },
+       {
+        "from": "t4",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-worked",
+        "row": 1,
+        "runs_on": "c-owned"
+       },
+       {
+        "col": 1,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-worked",
+        "row": 3,
+        "runs_on": "c-owned"
+       },
+       {
+        "col": 3,
+        "id": "t3",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t4",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "diggers_lead_expert",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "too_many_minutes:expert"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "expert_everywhere",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "expert_everywhere",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.38505425721140163,
+      "complexity": 23,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [
+        "t1",
+        "t2",
+        "t3",
+        "t4"
+       ],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": "private_data",
+      "per_case": {
+       "k1": 0.6787031039999998,
+       "k2": 0.5942181416140797,
+       "k3": 0.3993145911646615,
+       "k4": 0.38449409163263987,
+       "k5": 0.25838002957713396,
+       "k6": 0.0
+      },
+      "raw": 385.05425721140165,
+      "ready": true,
+      "run_month": 19.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t2"
+       },
+       {
+        "from": "s-depot",
+        "to": "t3"
+       },
+       {
+        "from": "s-book",
+        "to": "t4"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "t3"
+       },
+       {
+        "from": "t3",
+        "to": "t4"
+       },
+       {
+        "from": "t4",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 3,
+        "id": "t3",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 4,
+        "id": "t4",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "long_chain",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t2"
+       },
+       {
+        "from": "s-depot",
+        "to": "t3"
+       },
+       {
+        "from": "s-book",
+        "to": "t4"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "t3"
+       },
+       {
+        "from": "t3",
+        "to": "t4"
+       },
+       {
+        "from": "t4",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 3,
+        "id": "t3",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 4,
+        "id": "t4",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 1,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "long_chain",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.15581303999999999,
+      "complexity": 4,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.865628,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 155.81303999999997,
+      "ready": true,
+      "run_month": 7.2
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "step",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "step_pipeline",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "step",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "step_pipeline",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.1380825,
+      "complexity": 7,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [
+        "t1"
+       ],
+       "prompt": [],
+       "stray": [
+        "t2"
+       ]
+      },
+      "minutes": {
+       "staff": 4.0
+      },
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": "private_data",
+      "per_case": {
+       "k1": 0.767125,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 138.0825,
+      "ready": true,
+      "run_month": 4.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "clerk",
+        "model": null,
+        "prompt": null,
+        "row": 4,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "with_stray",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.1380825,
+      "complexity": 7,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [
+        "t1"
+       ],
+       "prompt": [],
+       "stray": [
+        "t2"
+       ]
+      },
+      "minutes": {
+       "staff": 4.0
+      },
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": "private_data",
+      "per_case": {
+       "k1": 0.767125,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 138.0825,
+      "ready": true,
+      "run_month": 4.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "clerk",
+        "model": null,
+        "prompt": null,
+        "row": 4,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "with_stray",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.534950651266774,
+      "complexity": 8,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [
+        "t1"
+       ],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": "prompt",
+      "per_case": {
+       "k1": 0.7726125078,
+       "k2": 0.73444544991468,
+       "k3": 0.6055502734546537,
+       "k4": 0.65713540255524,
+       "k5": 0.5418081394067954,
+       "k6": 0.0
+      },
+      "raw": 534.950651266774,
+      "ready": true,
+      "run_month": 25.8
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-long",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "large_agent_long_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-long",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "large_agent_long_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.7239466334182499,
+      "complexity": 8,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.9702989999999999,
+       "k2": 0.96059601,
+       "k3": 0.8573319389249999,
+       "k4": 0.907229565,
+       "k5": 0.8097023867625001,
+       "k6": 0.0
+      },
+      "raw": 723.9466334182499,
+      "ready": true,
+      "run_month": 25.8
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "large_agent_worked_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_prompt",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "large_agent_worked_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.6245277541739495,
+      "complexity": 14,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.9314870399999999,
+       "k2": 0.8852852828159999,
+       "k3": 0.6425046468565401,
+       "k4": 0.836102767104,
+       "k5": 0.606809944253399,
+       "k6": 0.0
+      },
+      "raw": 624.5277541739495,
+      "ready": true,
+      "run_month": 31.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "digger_steps_lead_worked",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_prompt",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "digger_steps_lead_worked",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.5562436921462333,
+      "complexity": 14,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k6",
+       "fact": "fe",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.84915864,
+       "k2": 0.8070403714559998,
+       "k3": 0.5694476860993535,
+       "k4": 0.7220887534079999,
+       "k5": 0.5095058244046847,
+       "k6": 0.0
+      },
+      "raw": 556.2436921462332,
+      "ready": true,
+      "run_month": 31.0
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "digger_worked_lead_steps",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_prompt",
+       "source_locked"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-shelf",
+        "to": "t1"
+       },
+       {
+        "from": "s-depot",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-worked",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 3,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "digger_worked_lead_steps",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.16766838,
+      "complexity": 4,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.931491,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 167.66838,
+      "ready": true,
+      "run_month": 7.2
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "step",
+        "model": "m-large",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "step_with_steps_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_prompt"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "step",
+        "model": "m-large",
+        "prompt": "p-steps",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "step_with_steps_prompt",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "tile_incomplete"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "not_ready_no_model",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "tile_incomplete"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "not_ready_no_model",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "line_backward"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 3,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "bad_backward",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "line_backward"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 3,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "bad_backward",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "model_cannot_run_there"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "bad_combo",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_model",
+       "model_cannot_run_there"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-open",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-open-api"
+       }
+      ]
+     },
+     "name": "bad_combo",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "result_takes_one_line"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "bad_two_into_result",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "result_takes_one_line"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "rule",
+        "model": null,
+        "prompt": null,
+        "row": 1,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "bad_two_into_result",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.22809499999999996,
+      "complexity": 7,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.9123799999999999,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.3193329999999999
+      },
+      "raw": 228.09499999999997,
+      "ready": true,
+      "run_month": 22.8
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "agent_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "agent_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.3323982816,
+      "complexity": 11,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fb",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.9123799999999999,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.840849408
+      },
+      "raw": 332.3982816,
+      "ready": true,
+      "run_month": 23.3
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t2"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "tool_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_kind"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t2"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "tool_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.0,
+      "complexity": 10,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fa",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.0,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 0.0,
+      "ready": true,
+      "run_month": 23.3
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "tool_on_the_wrong_source",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute",
+       "bad_kind"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 1,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       },
+       {
+        "col": 2,
+        "id": "t2",
+        "kind": "agent",
+        "model": "m-large",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       }
+      ]
+     },
+     "name": "tool_on_the_wrong_source",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "ready": false,
+      "reasons": [
+       "too_many_minutes:expert"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "s-photo",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t2",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "expert_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_compute"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "s-book",
+        "to": "t1"
+       },
+       {
+        "from": "s-photo",
+        "to": "t2"
+       },
+       {
+        "from": "t1",
+        "to": "t2"
+       },
+       {
+        "from": "t2",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "agent",
+        "model": "m-small",
+        "prompt": "p-basic",
+        "row": 2,
+        "runs_on": "c-private"
+       },
+       {
+        "col": 4,
+        "id": "t2",
+        "kind": "expert",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "expert_reads_pictures",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    },
+    {
+     "expect": {
+      "accepted": true,
+      "accuracy": 0.0,
+      "complexity": 5,
+      "flags": {
+       "distracting": [],
+       "overloaded": [],
+       "private_data": [],
+       "prompt": [],
+       "stray": []
+      },
+      "minutes": {},
+      "missed": {
+       "case": "k3",
+       "fact": "fa",
+       "reason": "missing"
+      },
+      "note": null,
+      "per_case": {
+       "k1": 0.0,
+       "k2": 0.0,
+       "k3": 0.0,
+       "k4": 0.0,
+       "k5": 0.0,
+       "k6": 0.0
+      },
+      "raw": 0.0,
+      "ready": true,
+      "run_month": 0.5
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "tool_signs",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "c-owned",
+      "c-private",
+      "c-rented",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-open",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "p-steps",
+      "p-worked",
+      "reader",
+      "rule",
+      "s-book",
+      "s-depot",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "all"
+    },
+    {
+     "expect": {
+      "accepted": false,
+      "errors": [
+       "bad_kind"
+      ]
+     },
+     "map": {
+      "lines": [
+       {
+        "from": "s-photo",
+        "to": "t1"
+       },
+       {
+        "from": "s-form",
+        "to": "t1"
+       },
+       {
+        "from": "t1",
+        "to": "result"
+       }
+      ],
+      "tiles": [
+       {
+        "col": 2,
+        "id": "t1",
+        "kind": "reader",
+        "model": null,
+        "prompt": null,
+        "row": 2,
+        "runs_on": null
+       }
+      ]
+     },
+     "name": "tool_signs",
+     "shown_cases": [],
+     "shown_notes": [],
+     "unlocked": [
+      "agent",
+      "c-open-api",
+      "clerk",
+      "expert",
+      "m-large",
+      "m-small",
+      "p-basic",
+      "p-long",
+      "rule",
+      "s-book",
+      "s-form",
+      "s-photo",
+      "s-rumor",
+      "s-shelf",
+      "step"
+     ],
+     "unlocked_set": "start"
+    }
+   ],
+   "name": "efforts"
+  }
+ ],
+ "tolerance": 1e-09
+}

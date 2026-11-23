@@ -70,7 +70,9 @@ describe('parity: planning boards', () => {
   }
 })
 
+// Phase 2 is held to its own vectors in canvas-parity.test.ts. The `design` vectors that
+// tools/lab_scoring.py still writes into reference.json belong to the slot board of the first
+// version and are not read.
 describe('parity: phase rules', () => {
-  it.todo('design vectors (Step 7)')
   it.todo('maintain vectors (Step 9)')
 })
