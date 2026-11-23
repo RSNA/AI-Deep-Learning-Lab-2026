@@ -41,6 +41,7 @@ By the end of this session, participants will be able to:
 | Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/07-Fine-Tuning-Vision-Language-Models/Lab07_Fine_Tune_a_VLM.ipynb) |
 | Dataset (FracAtlas, 512 px, with report text) | [magnooj/fracatlas-vlm-512](https://huggingface.co/datasets/magnooj/fracatlas-vlm-512) |
 | Fine-tuned LoRA adapter and precomputed results | [magnooj/qwen3-vl-2b-fracatlas-lora](https://huggingface.co/magnooj/qwen3-vl-2b-fracatlas-lora) |
+| Slides for the talks (open in a browser after downloading the folder; arrow keys move, **N** shows speaker notes, Print saves a PDF) | [`Lab07_Slides.html`](./Lab07_Slides.html) |
 | Training and evaluation scripts | [`training/`](./training) |
 | Diagrams used in the notebook | [`figures/`](./figures) |
 
@@ -50,6 +51,7 @@ In the notebook we teach [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen
 
 | Part | Topic |
 | --- | --- |
+| Before the code | A clinical view: when to fine-tune, how data and labels decide the result, how to judge a model |
 | 1–2 | What a vision-language model is; full fine-tuning, LoRA and prompt tuning |
 | 3–4 | Inside the model; the data, its splits and hidden duplicates |
 | 5–6 | The untrained model; fine-tune your own adapter |
