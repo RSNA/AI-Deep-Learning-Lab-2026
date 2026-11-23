@@ -3,7 +3,7 @@
 // money, developers and time, and validates the map. The accuracy of the submitted map is the
 // whole score of the phase. The scoring itself is `evaluate` in ../canvas.ts.
 import {
-  mapErrors, readyReasons, startUnlocked, type BuildFile, type CanvasMap, type Pack,
+  mapErrors, readyReasons, ruledLines, startUnlocked, type BuildFile, type CanvasMap, type Pack,
 } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
 import { evaluate } from '../canvas.ts'
@@ -199,7 +199,14 @@ export const development: PhaseModule = {
       const st = p.development
       if (!st) return fail('wrong_stage')
       const map = copyMap((payload as { map: CanvasMap }).map)
-      if (mapErrors(map, buildOf(pack, p), unlockedOf(pack, p)).length) return fail('invalid_map')
+      const b = buildOf(pack, p)
+      const errs = mapErrors(map, b, unlockedOf(pack, p))
+      if (errs.length) {
+        // A line that a rule of the pack refuses is named, with the rule's words (spec 6.6).
+        const refused = errs.length === 1 && errs[0] === 'line_refused' ? ruledLines(map, b).find((x) => x.rule.refuse) : undefined
+        if (refused) return { ok: false as const, error: 'line_refused' as const, data: { line: refused.line, text: refused.rule.text } }
+        return fail('invalid_map')
+      }
       st.map = map
       return ok(p)
     },

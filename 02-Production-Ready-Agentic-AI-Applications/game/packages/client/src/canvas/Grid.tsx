@@ -43,6 +43,16 @@ export type GridProps = {
   onDropKind?: (kind: string, col: number, row: number) => void
   onDropTile?: (id: string, col: number, row: number) => void
   onDragLine?: (from: string, to: string) => void
+  /** What a tile without boxes of parts shows in their place: a person's minutes, a tool's task. */
+  bodies?: Record<string, { text: string; over?: boolean }>
+  /** The tiles (or the result, or the sources) and the box of a tile that the next thing to do is about. */
+  guide?: { nodes: string[]; part?: Part | null } | null
+  /** A sentence at the place of an action: a refusal, or advice on a line. `at` is a node id or `line:<key>`. */
+  note?: { at: string; text: string; tone: 'refuse' | 'advice' } | null
+  onNoteClose?: () => void
+  /** Lines that come with advice, by line key. A mark on the line says it again. */
+  advice?: ReadonlySet<string>
+  onAdvice?: (key: string) => void
   words: GridWords
 }
 
@@ -55,6 +65,7 @@ export type GridWords = {
   port: (label: string) => string; joinHere: (label: string) => string
   line: (from: string, to: string) => string
   model: string; compute: string; prompt: string
+  advice: string; close: string
 }
 
 type Box = { x: number; y: number; w: number; h: number }
@@ -71,6 +82,10 @@ export function Grid(p: GridProps) {
   const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const [hintCol, setHintCol] = useState<number | null>(null)
+  // A sentence at the place of an action is brought into view, also where the grid scrolls sideways.
+  const noteEl = useRef<HTMLDivElement>(null)
+  const noteKey = p.note ? `${p.note.at}|${p.note.text}` : ''
+  useLayoutEffect(() => { if (noteKey) noteEl.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [noteKey])
   useLayoutEffect(() => {
     if (hintCol === null) return
     const id = setTimeout(() => setHintCol(null), 6000)
@@ -117,19 +132,48 @@ export function Grid(p: GridProps) {
   const colorOf = (id: string) => LINE_COLORS[Math.max(0, origins.indexOf(id)) % LINE_COLORS.length]!
   const used = new Set(map.lines.map((l) => l.from))
 
-  // Where a line enters its target: spread over the left edge, in the order of their origins' height.
+  // Fixed anchors: a line leaves the right edge of its origin and enters the left edge of its
+  // target. The lines into one node are spread over its edge in the order of where they come
+  // from, and the lines out of one node in the order of where they go, so that they do not cross
+  // on the way in or out.
+  const mid = (id: string) => { const b = boxes[id]; return b ? b.y + b.h / 2 : 0 }
+  const spread = (b: Box, i: number, n: number, band: number) => n <= 1 ? b.y + b.h / 2 : b.y + b.h * (0.5 - band / 2) + (i * b.h * band) / (n - 1)
   const entries = new Map<string, number>()
+  const exits = new Map<string, number>()
   const byTarget = new Map<string, typeof map.lines>()
-  for (const l of map.lines) byTarget.set(l.to, [...(byTarget.get(l.to) ?? []), l])
+  const byOrigin = new Map<string, typeof map.lines>()
+  for (const l of map.lines) {
+    byTarget.set(l.to, [...(byTarget.get(l.to) ?? []), l])
+    byOrigin.set(l.from, [...(byOrigin.get(l.from) ?? []), l])
+  }
   for (const [to, ls] of byTarget) {
     const t = boxes[to]
     if (!t) continue
-    const sorted = [...ls].sort((a, b) => (boxes[a.from]?.y ?? 0) - (boxes[b.from]?.y ?? 0))
-    sorted.forEach((l, i) => entries.set(lineKey(l), t.y + ((i + 1) * t.h) / (sorted.length + 1)))
+    const sorted = [...ls].sort((a, b) => mid(a.from) - mid(b.from) || (boxes[a.from]?.x ?? 0) - (boxes[b.from]?.x ?? 0))
+    sorted.forEach((l, i) => entries.set(lineKey(l), spread(t, i, sorted.length, Math.min(0.7, 0.18 * (sorted.length - 1)))))
   }
+  for (const [from, ls] of byOrigin) {
+    const a = boxes[from]
+    if (!a) continue
+    const into = (l: (typeof map.lines)[number]) => entries.get(lineKey(l)) ?? mid(l.to)
+    const sorted = [...ls].sort((x, y) => into(x) - into(y) || (boxes[x.to]?.x ?? 0) - (boxes[y.to]?.x ?? 0))
+    sorted.forEach((l, i) => exits.set(lineKey(l), spread(a, i, sorted.length, Math.min(0.5, 0.14 * (sorted.length - 1)))))
+  }
+  const ctrl = (x1: number, x2: number) => Math.max(14, (x2 - x1) * 0.5)
   const path = (x1: number, y1: number, x2: number, y2: number) => {
-    const dx = Math.max(24, (x2 - x1) * 0.45)
+    const dx = ctrl(x1, x2)
     return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`
+  }
+  /** The middle of a line, where its mark of advice stands. */
+  const middle = (x1: number, y1: number, x2: number, y2: number) => {
+    const dx = ctrl(x1, x2)
+    return { x: (x1 + 3 * (x1 + dx) + 3 * (x2 - dx) + x2) / 8, y: (y1 + 3 * y1 + 3 * y2 + y2) / 8 }
+  }
+  const ends = (l: { from: string; to: string }) => {
+    const a = boxes[l.from], b = boxes[l.to]
+    if (!a || !b) return null
+    const key = lineKey(l)
+    return { x1: a.x + a.w, y1: exits.get(key) ?? a.y + a.h / 2, x2: b.x - 1, y2: entries.get(key) ?? b.y + b.h / 2 }
   }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
@@ -166,9 +210,10 @@ export function Grid(p: GridProps) {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       if (moved) {
-        const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-target]')
-        const to = el?.dataset.target
-        if (to) p.onDragLine?.(from, to)
+        // A drop on a node that cannot take the line goes to the phase too, which says why.
+        const at = document.elementFromPoint(ev.clientX, ev.clientY)
+        const to = at?.closest<HTMLElement>('[data-target]')?.dataset.target ?? at?.closest<HTMLElement>('[data-node]')?.dataset.node
+        if (to && to !== from) p.onDragLine?.(from, to)
         setDrag(null)
         setOver(null)
       }
@@ -209,9 +254,11 @@ export function Grid(p: GridProps) {
     const label = names.get(t.id)?.label ?? w?.label ?? t.kind
     const short = names.get(t.id)?.short ?? w?.short ?? label
     const target = lit(t.id)
+    const guided = !!p.guide?.nodes.includes(t.id)
+    const body = p.bodies?.[t.id] ?? (w?.task ? { text: w.task } : null)
     return (
-      <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-target={target ? t.id : undefined}
-        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}`}
+      <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-node={t.id} data-target={target ? t.id : undefined}
+        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
         style={{ gridColumn: t.col + 1, gridRow: t.row + 1 }}
         role={readOnly ? undefined : 'button'} tabIndex={readOnly ? undefined : 0}
         aria-label={`${label}${stray ? `. ${words.stray}` : ''}${warn ? `. ${words.privateData}` : ''}${target ? `. ${words.joinHere(label)}` : ''}`}
@@ -230,15 +277,17 @@ export function Grid(p: GridProps) {
         </div>
         {isAi && !compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)
+          const g = guided && p.guide?.part === part ? ' guided' : ''
           return readOnly
-            ? <div key={part} className={`ct-part${pl.missing ? ' missing' : ''}`} title={pl.title}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></div>
-            : <button key={part} type="button" className={`ct-part${pl.missing ? ' missing' : ''}`} title={pl.title} aria-label={pl.title}
+            ? <div key={part} className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={pl.title}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></div>
+            : <button key={part} type="button" className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={pl.title} aria-label={pl.title}
                 onClick={(e) => { e.stopPropagation(); if (mode.kind === 'idle') p.onPart?.(t.id, part); else p.onNode?.(t.id) }}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></button>
         })}
         {isAi && compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)
           return <div key={part} className={`ct-mini${pl.missing ? ' missing' : ''}`} title={pl.title}>{pl.missing ? '–' : pl.text}</div>
         })}
+        {!isAi && (!stray || compact) && body && <div className={`ct-body${body.over ? ' over' : ''}`} title={body.text}>{body.text}</div>}
         {!isAi && !compact && stray && <div className="ct-note">{words.stray}</div>}
         {isAi && stray && !compact && <div className="ct-badge">{words.strayShort}</div>}
         {port(t.id, label)}
@@ -281,8 +330,9 @@ export function Grid(p: GridProps) {
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
       {Array.from({ length: v.cols }, (_, i) => {
         // A column may carry the name of a stage of the work, with one sentence on it. Names only.
+        // Without names nothing stands above a column: any worker may stand in any cell.
         const c = v.columns?.[i]
-        if (!c) return <div key={i} className="chdr" style={{ gridColumn: i + 2 }}>{words.col(i + 1)}</div>
+        if (!c) return <div key={i} className="chdr" style={{ gridColumn: i + 2 }} aria-hidden="true" />
         if (readOnly) return <div key={i} className="chdr stage" style={{ gridColumn: i + 2 }} title={c.hint}>{c.label}</div>
         return (
           <div key={i} className="chdr stage" style={{ gridColumn: i + 2 }}>
@@ -293,17 +343,17 @@ export function Grid(p: GridProps) {
         )
       })}
       <div className="chdr" style={{ gridColumn: v.cols + 2 }}>{words.result}</div>
-      <div className="csources" style={{ gridColumn: 1, gridRow: `2 / span ${v.rows}` }}>
+      <div className="csources" data-tour={readOnly ? undefined : 'p2-sources'} style={{ gridColumn: 1, gridRow: `2 / span ${v.rows}` }}>
         {v.sources.map((s) => {
           const lock = locked(s.id)
           const by = p.lockedBy?.[s.id]
           return (
-            <div key={s.id} ref={setNode(s.id)} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}`}
+            <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
               title={lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
-              role={lock && !readOnly ? 'button' : undefined} tabIndex={lock && !readOnly ? 0 : undefined}
+              role={(lock || joining) && !readOnly ? 'button' : undefined} tabIndex={(lock || joining) && !readOnly ? 0 : undefined}
               aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : undefined}
-              onClick={lock && !readOnly ? () => p.onNode?.(s.id) : undefined}
-              onKeyDown={lock && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
+              onClick={(lock || joining) && !readOnly ? () => p.onNode?.(s.id) : undefined}
+              onKeyDown={(lock || joining) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
               <Icon name={s.icon} size={compact ? 12 : 15} />
               <span className="cs-name">{s.label}</span>
               {lock && <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={11} /></Mark>}
@@ -316,11 +366,11 @@ export function Grid(p: GridProps) {
       {cells}
       {map.tiles.map(tileEl)}
       <div className="cresult-col" style={{ gridColumn: v.cols + 2, gridRow: `2 / span ${v.rows}` }}>
-        <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${over === res.id ? ' over' : ''}`} data-target={resLit ? res.id : undefined}
-          role={resLit && !readOnly ? 'button' : undefined} tabIndex={resLit && !readOnly ? 0 : undefined}
+        <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${over === res.id ? ' over' : ''}${p.guide?.nodes.includes(res.id) ? ' guided' : ''}`} data-target={resLit ? res.id : undefined} data-node={res.id}
+          role={joining && !readOnly ? 'button' : undefined} tabIndex={joining && !readOnly ? 0 : undefined}
           aria-label={resLit ? words.joinHere(res.label) : res.label}
-          onClick={resLit && !readOnly ? () => p.onNode?.(res.id) : undefined}
-          onKeyDown={resLit && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
+          onClick={joining && !readOnly ? () => p.onNode?.(res.id) : undefined}
+          onKeyDown={joining && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
           <Icon name="result" size={compact ? 14 : 18} />
           <span className="cr-name">{res.label}</span>
         </div>
@@ -329,17 +379,16 @@ export function Grid(p: GridProps) {
         <defs>
           {LINE_COLORS.map((c, i) => (
             // Arrowheads of one size whatever the stroke, so a heavy handoff keeps a small head.
-            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="7" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 9 : 14} markerHeight={compact ? 9 : 14} orient="auto">
+            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="7.5" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 8 : 12} markerHeight={compact ? 8 : 12} orient="auto">
               <path d="M0,0 L8,4 L0,8 z" fill={c} />
             </marker>
           ))}
         </defs>
         {map.lines.map((l) => {
-          const a = boxes[l.from], b = boxes[l.to]
-          if (!a || !b) return null
+          const e = ends(l)
+          if (!e) return null
           const key = lineKey(l)
-          const x1 = a.x + a.w, y1 = a.y + a.h / 2
-          const x2 = b.x, y2 = entries.get(key) ?? b.y + b.h / 2
+          const { x1, y1, x2, y2 } = e
           const d = path(x1, y1, x2, y2)
           const color = colorOf(l.from)
           const idx = LINE_COLORS.indexOf(color)
@@ -360,10 +409,52 @@ export function Grid(p: GridProps) {
             </g>
           )
         })}
+        {map.lines.map((l) => {
+          const key = lineKey(l)
+          const e = p.advice?.has(key) ? ends(l) : null
+          if (!e) return null
+          const m = middle(e.x1, e.y1, e.x2, e.y2)
+          return (
+            <g key={`adv-${key}`} className="cadvice" transform={`translate(${m.x},${m.y})`}>
+              <circle r={compact ? 6 : 9} />
+              <text y={compact ? 3.5 : 4.5} textAnchor="middle">i</text>
+              {!readOnly && <circle r={compact ? 9 : 14} className="cadvice-hit" role="button" tabIndex={0} aria-label={`${words.advice}: ${words.line(nameOf(l.from), nameOf(l.to))}`}
+                onClick={(ev) => { ev.stopPropagation(); p.onAdvice?.(key) }} onKeyDown={(ev) => { if (ev.key === 'Enter') p.onAdvice?.(key) }} />}
+            </g>
+          )
+        })}
         {drag && boxes[drag.from] && (
           <path className="cline-drag" d={path(boxes[drag.from]!.x + boxes[drag.from]!.w, boxes[drag.from]!.y + boxes[drag.from]!.h / 2, drag.x, drag.y)} stroke={colorOf(drag.from)} />
         )}
       </svg>
+      {p.note && (() => {
+        // The sentence stands under the place of the action, or over it near the foot of the grid.
+        const n = p.note
+        const anchor = (): { ax: number; ay: number; ah: number } | null => {
+          if (n.at.startsWith('line:')) {
+            const l = map.lines.find((x) => lineKey(x) === n.at.slice(5))
+            const e = l ? ends(l) : null
+            if (!e) return null
+            const m = middle(e.x1, e.y1, e.x2, e.y2)
+            return { ax: m.x, ay: m.y - 10, ah: 20 }
+          }
+          const b = boxes[n.at]
+          return b ? { ax: b.x + b.w / 2, ay: b.y, ah: b.h } : null
+        }
+        const an = anchor()
+        if (!an) return null
+        const { ax, ay, ah } = an
+        const gw = box.current?.offsetWidth ?? 600, gh = box.current?.offsetHeight ?? 400
+        const bw = Math.min(compact ? 200 : 260, gw - 8)
+        const left = Math.max(4, Math.min(ax - bw / 2, gw - bw - 4))
+        const below = ay + ah + 96 < gh || ay < gh / 2
+        return (
+          <div ref={noteEl} className={`cnote ${n.tone}${below ? ' below' : ' above'}`} role="status" style={{ left, width: bw, ...(below ? { top: ay + ah + 8 } : { bottom: gh - ay + 8 }) }}>
+            <span>{n.text}</span>
+            {p.onNoteClose && <button type="button" className="cnote-x" aria-label={words.close} onClick={(ev) => { ev.stopPropagation(); p.onNoteClose?.() }}>✕</button>}
+          </div>
+        )
+      })()}
     </div>
   )
 }

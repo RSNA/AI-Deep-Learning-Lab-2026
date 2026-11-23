@@ -168,11 +168,12 @@ projector only.
 All slides are in one deck with a section for the opening, one for each break and one for the
 closing. You need no slide program.
 
-- **Back** and **Next** move one slide. So do the left and right arrow keys while you are not
-  typing.
-- **Go to section** jumps to the first slide of a section.
-- Under the controls you see **the slide on the projector now and the next slide**, drawn as
-  they look, and your **notes** for the current one. Only hosts see notes.
+The panel has two parts. **Slides on the projector** changes what the room sees. **Look through
+the deck** is for your eyes only.
+
+- **Back** and **Next** under "Slides on the projector" move the shown slide one step. So do the
+  left and right arrow keys while you are not typing.
+- **Go to section** jumps the shown slide to the first slide of a section.
 - While slides are up, the box at the top right of the projector shows **the slide number** in
   place of the count of players, so that people can ask about "slide 7".
 - A slide with a chart of the room shows the chart empty until that phase has been scored.
@@ -192,8 +193,23 @@ whether players' screens follow. During a phase players always keep their game. 
 the console asks first: "These slides come later". The recap of a phase shows its answers, so
 only confirm when you mean it.
 
-**The slides, for your eyes.** The panel under the projector lets any host go through the whole
-deck with the notes. The room sees nothing of it. Use it to prepare, or to check a slide while
+**Look through the deck.** Under the projector controls you see one slide large, with your
+**notes** under it. Only hosts see notes. While you present it is the slide the room sees, and it
+moves with Back and Next. To look ahead without showing anything:
+
+- **Look back** and **Look ahead** move only your view. So does **Shift** with the arrow keys.
+  The count then reads "Looking at 7 · Shown 4", and a yellow line says "The room still sees
+  slide 4."
+- **Look at a section**, or a press on a slide in the strip at the bottom, takes your view
+  anywhere in the deck. The slide the room sees carries the tag "Shown" in the strip.
+- **Show this slide** puts the slide you are looking at on the projector (and on players'
+  screens when they follow). A slide of a later part asks first, as above.
+- **Back to the shown slide** brings your view back without changing anything for the room.
+- While you look elsewhere, Back and Next still move the shown slide, and your view stays
+  where it is. When the shown slide reaches your view, the two move together again.
+
+Every host can look through the deck, in charge or not. A host who is not in charge cannot show
+a slide, and for them the arrow keys only look. Use it to prepare, or to check a slide while
 someone else presents.
 
 ## 8. Answer key
@@ -230,12 +246,21 @@ The downloads stay available on the first page until you delete the session.
 
 ## 11. What players can do on their own
 
+- **Find their way:** a short tour starts by itself when a phase opens, after its letter. It
+  lights one part of the screen at a time, and the clock keeps running. "Take the tour" and
+  "Help" in the menu (☰) bring it back at any time of the phase. You do not need to do anything
+  for it, and your console shows nothing of it.
+- **Know why something does not work:** a grey Validate says beside it what to do next, and a
+  line or a tile that cannot be placed says why where they clicked. If a player says "the
+  button does nothing", point them to the sentence beside it.
 - **Day or night:** the sun or moon button in their top bar.
 - **Lost their screen:** the join link brings them back in the same browser. On another device
   they press "Rejoin with a code".
 - **Their rejoin code and the opening letter:** in the menu (☰).
 - **Their results of a finished phase:** in the menu, "Look at your Phase 1 result" and, once
   Phase 2 is scored, "Look at your Phase 2 result".
+- **In Phase 1, on a phone:** the assessment is the first tab. An interview that ends keeps its
+  words on screen until they tap "Read it again" or "Keep going".
 - **In Phase 2:** undo and redo in the bar of the map (Ctrl+Z on a laptop), any earlier
   validation loaded back onto the map, and the map they want sent chosen from the validations.
   Without a choice, the map with the best accuracy is sent.

@@ -26,6 +26,7 @@ const SOCKET: Record<ErrorCode, string> = {
   validation_running: 'A validation is still running. Wait for its result.',
   no_validations_left: 'You have no validations left.',
   not_ready: 'The map is not ready to validate yet.',
+  line_refused: 'That line cannot be drawn on this map.',
   unknown_validation: 'The game does not know that validation. Reload the page.',
   name_taken: 'A practice with that name is already in the game. If it is yours, rejoin with your code. If not, pick another name.',
   name_invalid: 'A practice name needs 3 to 24 characters and no rude words.',

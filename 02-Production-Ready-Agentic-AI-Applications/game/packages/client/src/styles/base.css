@@ -342,20 +342,40 @@ input.field.bad { border-color: var(--bad); }
 .slidecount { font-size: 22px; min-width: 120px; text-align: center; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; min-height: 36px; cursor: pointer; }
 .check input { width: 20px; height: 20px; }
-/* The slide on show and the next one: two real, small slides side by side (section 10.8). */
-.slidepair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.minislide { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.minislide .eyebrow { display: flex; align-items: center; min-height: 18px; }
-.minislide .endofdeck { display: flex; align-items: center; justify-content: center; border: 3px dashed var(--soft); font-weight: 800; font-size: 13px; }
+/* The parts of the projector panel that need control: the same column and gaps as the panel. */
+/* The parts of the panel that need control, in the panel's column, with its gaps. */
+.pset { display: flow-root; }
+.pset > * + * { margin-top: 14px; }
+/* The look through the deck (section 10.8): the slide looked at as wide as the panel, its notes,
+   and every slide of the deck as a small button, the shown one tagged. */
+.looknav, .lookacts { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.lookacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.looknav .btn, .lookacts .btn { width: 100%; padding: 0 6px; }
+.looknav .slidecount { min-width: 0; font-size: 19px; white-space: nowrap; }
+.lookstate { color: var(--ink); font-weight: 800; padding: 6px 10px; background: var(--sun-bg); border: 2px solid var(--line); }
+.lookhead { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; min-height: 20px; }
+.lookhead .flag:first-of-type { margin-left: auto; }
+.lookhead .sectitle:empty + .flag { margin-left: 0; }
+.flag.look { background: var(--sun-bg); color: var(--ink); }
+.lookbox { display: flex; justify-content: center; min-width: 0; }
+.lookempty { display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 12px; border: 3px dashed var(--soft); font-weight: 800; font-size: 13px; }
+.deckstrip { position: relative; display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px; }
+.stripsec { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.stripsec-title { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 0; min-width: 100%; }
+.stripsec-row { display: flex; gap: 6px; }
+.stripbtn { display: flex; flex-direction: column; gap: 3px; padding: 3px; background: none; border: 3px solid transparent; cursor: pointer; color: var(--ink); font-family: var(--text); }
+.stripbtn:hover { background: var(--inset); }
+.stripbtn.at { border-color: var(--sky); background: var(--sky-bg); }
+.stripbtn:focus-visible { outline: 3px solid var(--sky); outline-offset: 1px; }
+.stripnum { display: flex; align-items: center; min-height: 18px; font-size: 13px; font-weight: 800; }
+.stripnum .flag { margin-left: 6px; }
 /* The notes of a slide: as long as they need to be, up to a height, then they scroll. */
 .notes { display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; padding: 8px 10px; background: var(--lav-bg); border: 2px solid var(--line); max-height: 168px; overflow-y: auto; }
 .notes b { font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
-.owndeck-box { display: flex; justify-content: center; min-width: 0; }
 /* Previous, the count, Next: one row, the two buttons of one width. */
 .slidenav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
 .slidenav .btn { width: 100%; padding: 0 6px; }
 .slidenav .slidecount { min-width: 0; font-size: 19px; white-space: nowrap; }
-.owndeck-nav .slidecount { min-width: 110px; }
 .flag.warn { background: var(--sun-bg); color: var(--ink); }
 @media (max-width: 1200px) { .console-grid { grid-template-columns: minmax(0, 1fr); } .newsess { grid-template-columns: 1fr 1fr; } }
 
@@ -381,14 +401,12 @@ input.field.bad { border-color: var(--bad); }
   background: var(--go-bg); color: var(--good); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
 }
 .flag::before { content: ''; width: 7px; height: 7px; background: currentColor; }
-.scenes { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
-.scene { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 12px; align-items: start; }
-/* In a narrow column the line goes under its button, and every button is as wide as the column. */
-@container (max-width: 400px) {
-  .scene { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .scenetext { min-height: 0; }
-}
-.scene > .btn { width: 100%; }
+.scenes { display: flex; flex-direction: column; gap: 10px; }
+/* In a narrow column the line goes under its button, and every button is as wide as the column.
+   A wrapping row does it: a container query here lost its buttons inside the console's fieldset. */
+.scene { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: flex-start; }
+.scene > .btn { flex: 1 1 136px; min-width: 0; }
+.scene > .scenetext { flex: 999 1 240px; min-width: 0; }
 .scenetext { display: flex; flex-direction: column; gap: 6px; min-height: 36px; justify-content: center; min-width: 0; }
 .scenetext select { width: 100%; }
 .sessbar .chip.good { background: var(--go); color: var(--on); border-color: #1d2140; }
@@ -482,3 +500,25 @@ input.field.bad { border-color: var(--bad); }
 /* What the four marks of a pick mean, once, above the problems. */
 .inspect-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 6px 10px; background: var(--inset); border: 2px solid var(--soft); }
 .inspect-legend .rpick { font-size: 12.5px; font-weight: 700; }
+
+/* The tour of a phase (section 10.1): the screen dims, one area is lit, a card stands beside it. */
+.tour { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; pointer-events: auto; background: transparent; }
+.tour-light {
+  position: fixed; pointer-events: none; border: 3px solid var(--sun);
+  box-shadow: 0 0 0 200vmax rgba(15, 15, 36, 0.58), 0 0 0 6px rgba(255, 185, 60, 0.35);
+  transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease;
+}
+.tour-card { position: fixed; pointer-events: auto; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 5px 5px 0 var(--shade); }
+.tour-card h3 { margin: 0; font-family: var(--face); font-weight: 400; font-size: 24px; line-height: 1.05; }
+.tour-card p { margin: 0; font-size: 15.5px; line-height: 1.4; }
+.tour-card .tour-clock { font-size: 14px; color: var(--muted); font-weight: 700; }
+.tour-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tour-btns { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+.tour-btns .btn { min-width: 72px; }
+.tour-btns .tour-end { margin-left: auto; }
+.help-intro { margin: 0; }
+.help-list { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.4; }
+.help-marks { display: flex; flex-direction: column; gap: 8px; }
+.help-marks .hm { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; line-height: 1.35; }
+.help-marks .hm > :first-child { justify-self: center; }

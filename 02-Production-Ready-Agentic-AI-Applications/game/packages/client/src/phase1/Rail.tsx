@@ -82,6 +82,24 @@ export function InvestigationList({ content, pv, onShowCard }: { content: Planni
   const nextFreeIn = pv.running.length ? Math.min(...pv.running.map((r) => (r.completesAtMs - now) / 1000)) : 0
   const anyStarted = pv.running.length > 0 || pv.tiles.length > 0
   const cast = welcome.system.cast
+  // An interview that ends keeps its lines on screen until the player acts (section 10.4): read
+  // the insight again among the evidence, or keep going.
+  const linesSeen = useRef(new Map<string, string[]>())
+  const wasRunning = useRef(new Set(pv.running.map((r) => r.id)))
+  const [kept, setKept] = useState<{ id: string; lines: string[] }[]>([])
+  for (const r of pv.running) {
+    const ls = r.lines.length ? r.lines : said.filter((b) => b.inv === r.id).map((b) => b.text)
+    if (ls.length) linesSeen.current.set(r.id, ls)
+  }
+  const runKey = pv.running.map((r) => r.id).join(',')
+  useEffect(() => {
+    const now = new Set(pv.running.map((r) => r.id))
+    const ended = [...wasRunning.current].filter((id) => !now.has(id) && done.has(id) && linesSeen.current.get(id)?.length)
+    if (ended.length) setKept((k) => [...k.filter((x) => !ended.includes(x.id)), ...ended.map((id) => ({ id, lines: linesSeen.current.get(id)! }))])
+    wasRunning.current = now
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runKey, pv.tiles.length])
+  const letGo = (id: string) => setKept((k) => k.filter((x) => x.id !== id))
   return (
     <div className="ilist">
       {!anyStarted && playing && <div className="inv-note">{P1.noCancel}</div>}
@@ -131,6 +149,16 @@ export function InvestigationList({ content, pv, onShowCard }: { content: Planni
                 {lines.map((l, i) => <div key={i} className="iline">{l}</div>)}
               </div>
             )}
+            {state === 'done' && kept.some((k) => k.id === inv.id) && (
+              <div className="ilines ended" role="status">
+                {kept.find((k) => k.id === inv.id)!.lines.map((l, i) => <div key={i} className="iline">{l}</div>)}
+                <div className="iend">{P1.interviewEnded(c?.name ?? inv.title)}</div>
+                <div className="iend-btns">
+                  <button type="button" className="btn small" onClick={() => { letGo(inv.id); onShowCard(inv.id) }}>{P1.readAgain}</button>
+                  <button type="button" className="btn small go" onClick={() => letGo(inv.id)}>{P1.keepGoing}</button>
+                </div>
+              </div>
+            )}
             {refused?.id === inv.id && <div className="err irefused" role="alert">{refused.text}</div>}
           </div>
         )
@@ -143,7 +171,7 @@ export function InvestigationList({ content, pv, onShowCard }: { content: Planni
 export function Investigations({ content, pv, onShowCard, phone = false }: { content: PlanningContent; pv: PlanningView; onShowCard: (inv: string) => void; phone?: boolean }) {
   const done = pv.tiles.length
   return (
-    <section className={`colbox inv${phone ? ' phone' : ''}`} aria-label={P1.investigations}>
+    <section className={`colbox inv${phone ? ' phone' : ''}`} aria-label={P1.investigations} data-tour="p1-inv">
       {!phone && (
         <div className="colhead sky">
           <h2>{P1.investigations}</h2>

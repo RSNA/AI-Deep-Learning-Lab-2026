@@ -10,6 +10,7 @@ import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
 import { NewGame, PastGameCard } from '../components/after.tsx'
+import { useTour } from '../components/Tour.tsx'
 import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
 import { TownStrip } from './Join.tsx'
@@ -99,11 +100,17 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onLeave: () => void }) {
+function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave, onTour, onHelp }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onLeave: () => void; onTour: (() => void) | null; onHelp: (() => void) | null }) {
   const view = usePlayer((s) => s.view)!
   const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
+      {(onTour || onHelp) && (
+        <div className="menulist">
+          {onTour && <button type="button" className="btn small text" onClick={onTour}><span>{COPY.takeTour}</span><span className="muted">{COPY.takeTourLine}</span></button>}
+          {onHelp && <button type="button" className="btn small text" onClick={onHelp}><span>{COPY.help}</span><span className="muted">{COPY.helpLine}</span></button>}
+        </div>
+      )}
       {(brief || onResult || onResult2) && (
         <div className="menulist">
           {brief && <button type="button" className="btn small text" onClick={onBrief}><span>{COPY.letterAgain}</span><span className="muted">{brief.title}</span></button>}
@@ -594,6 +601,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const onResult2 = ['development.play', 'development.reveal', 'break.development', 'closed'].includes(view.stage)
   const canLook2 = !!view.development?.reveal && !onResult2
   const looking = ((look === 'planning' && canLook) || (look === 'development' && canLook2)) && !view.slide
+  // The tour and the help panel of the phase in play (section 10.1), at any time of the phase.
+  const inPlay: PhaseId | null = looking || view.slide ? null : view.stage === 'planning.play' ? 'planning' : view.stage === 'development.play' ? 'development' : null
   return (
     <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
@@ -624,7 +633,9 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       )}
       {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook('planning') } : null}
         onResult2={canLook2 ? () => { setMenu(false); setLook('development') } : null}
-        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else setLeaving(true) }} />}
+        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else setLeaving(true) }}
+        onTour={inPlay ? () => { setMenu(false); useTour.getState().start(inPlay) } : null}
+        onHelp={inPlay ? () => { setMenu(false); useTour.getState().showHelp(inPlay) } : null} />}
       {brief && (() => {
         const last = [...view.inbox].reverse().find((m) => m.kind === 'brief')
         const phase = last?.id.split(':')[0] ?? 'planning'

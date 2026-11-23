@@ -3,12 +3,15 @@
 // Then the reveal.
 import { useEffect, useRef, useState } from 'react'
 import type { PlanningContent, Welcome } from '@lab02/protocol'
+import { HelpSheet, Tour } from '../components/Tour.tsx'
 import { Portrait, Sheet } from '../components/ui.tsx'
+import { COPY } from '../copy.ts'
 import { secondsLeft, useTick } from '../lib/clock.ts'
 import { Paragraphs } from '../lib/marks.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import { P1 } from './copy.ts'
+import { METHOD_CLASS } from './Cards.tsx'
 import { Investigations } from './Rail.tsx'
 import { Reveal } from './Reveal.tsx'
 import { Assessment } from './Sorting.tsx'
@@ -77,6 +80,26 @@ export function useWarnings(say: (s: number) => string = P1.warn): string | null
 }
 
 type Tab = 'investigations' | 'evidence' | 'assessment'
+/** On a phone the assessment comes first: it is what the phase asks for (section 10.4). */
+const TABS: Tab[] = ['assessment', 'investigations', 'evidence']
+
+/** The tour of Phase 1 and its help panel. */
+function PlanningGuide({ autoStart, onTab, onEnd }: { autoStart: boolean; onTab?: (t: Tab) => void; onEnd?: () => void }) {
+  const key = usePlayer((s) => `tour-planning-${s.view!.me.id}-${s.view!.run}`)
+  return (
+    <>
+      <Tour phase="planning" steps={P1.tour} doneKey={key} autoStart={autoStart} onTab={onTab ? (t) => onTab(t as Tab) : undefined} onEnd={onEnd} words={COPY.tour} />
+      <HelpSheet phase="planning" title={P1.helpTitle} intro={P1.helpIntro} steps={P1.tour} tourLabel={COPY.takeTour}>
+        <div className="eyebrow">{P1.helpMethods}</div>
+        <div className="help-marks">
+          {(['interview', 'data_pull', 'audit', 'observation'] as const).map((m) => (
+            <div key={m} className="hm"><span className={`mth ${METHOD_CLASS[m]}`} aria-hidden="true">{P1.methodLetter[m]}</span><span>{P1.method[m]}</span></div>
+          ))}
+        </div>
+      </HelpSheet>
+    </>
+  )
+}
 
 function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) {
   const pv = usePlayer((s) => s.view!.planning!)
@@ -86,7 +109,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
   const phone = useNarrow()
   const warning = useWarnings()
   const [focusCard, setFocusCard] = useState<{ key: string; n: number } | null>(null)
-  const [tab, setTab] = useState<Tab>('investigations')
+  const [tab, setTab] = useState<Tab>('assessment')
   const [fromProblem, setFromProblem] = useState<string | null>(null)
   const [sortFocus, setSortFocus] = useState<string | null>(null)
   const [briefOpen, setBriefOpen] = useState(() => !store.flag(briefFlag))
@@ -121,7 +144,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
           {tab === 'assessment' && <Assessment board={board} content={content} focus={sortFocus} phone onEvidence={(pid) => { setFromProblem(pid); setTab('evidence'); setEvidenceBadge(0) }} />}
         </div>
         <nav className="ptabs" aria-label={P1.phase}>
-          {(['investigations', 'evidence', 'assessment'] as const).map((t) => (
+          {TABS.map((t) => (
             <button key={t} type="button" className={tab === t ? 'on' : ''} aria-pressed={tab === t}
               onClick={() => { setTab(t); if (t === 'evidence') setEvidenceBadge(0); if (t !== 'evidence') setFromProblem(null) }}>
               <span className="tl">{P1.tab[t]}</span>
@@ -132,6 +155,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
         </nav>
         {warning && <div className="toast warnbar" role="status">{warning}</div>}
         {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
+        <PlanningGuide autoStart={!briefOpen} onTab={(t) => { setTab(t); if (t !== 'evidence') setFromProblem(null) }} onEnd={() => setTab('assessment')} />
       </div>
     )
   }
@@ -143,6 +167,7 @@ function PlanningPlay({ w, content }: { w: Welcome; content: PlanningContent }) 
       <Assessment board={board} content={content} />
       {warning && <div className="toast warnbar" role="status">{warning}</div>}
       {briefOpen && <BriefSheet w={w} onClose={closeBrief} />}
+      <PlanningGuide autoStart={!briefOpen} />
     </div>
   )
 }

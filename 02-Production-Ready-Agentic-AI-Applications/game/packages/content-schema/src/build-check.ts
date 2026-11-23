@@ -85,6 +85,17 @@ export function checkBuild(
   b.prompts.forEach((p, i) => {
     for (const w of Object.keys(p.by_worker ?? {})) if (!workerIds.has(w)) err(`prompts[${i}].by_worker.${w}`, `unknown worker "${w}"`)
   })
+  // Line rules: from a source or a kind of worker, to a kind of worker. Required kinds exist.
+  const sourceIds = new Set(b.sources.map((x) => x.id))
+  b.line_rules.forEach((r, i) => {
+    if (!sourceIds.has(r.from) && !workerIds.has(r.from)) err(`line_rules[${i}].from`, `"${r.from}" is neither a source nor a kind of worker`)
+    if (!workerIds.has(r.to)) err(`line_rules[${i}].to`, `"${r.to}" is not a kind of worker`)
+    const twin = b.line_rules.findIndex((x) => x.from === r.from && x.to === r.to)
+    if (twin < i) warn(`line_rules[${i}]`, `the same line as line_rules[${twin}], which counts first`)
+  })
+  b.required.forEach((r, i) => r.workers.forEach((w, j) => {
+    if (!workerIds.has(w)) err(`required[${i}].workers[${j}]`, `"${w}" is not a kind of worker`)
+  }))
   if (b.workers.some((w) => w.needs_model) && (b.prompts.length < 1)) err('prompts', 'a pack with AI workers needs at least one prompt')
   if (b.prompts.length && (b.prompts.length < 3 || b.prompts.length > 4)) warn('prompts', `${b.prompts.length} prompts: a pack offers three or four`)
 

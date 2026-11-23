@@ -1,9 +1,9 @@
 // Parts of the host console that every host may use, in charge or not (engineering spec,
 // section 10.8): one player beside the key, and a look through the deck that the room does not
-// see.
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+// see until the host in charge shows a slide.
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SystemRef } from '@lab02/protocol'
-import type { HostDeck, HostInspect } from '@lab02/protocol/host'
+import type { HostDeck, HostInspect, HostView } from '@lab02/protocol/host'
 import { PHASE_NUMBER } from '../copy.ts'
 import { hostFetch } from '../lib/net.ts'
 import { Avatar, SystemShape } from '../components/ui.tsx'
@@ -176,56 +176,127 @@ export function Inspector({ view, systems }: { view: HostInspect; systems: Syste
   )
 }
 
+type DeckView = HostView['deck']
+type Group = { id: string; title: string; items: { i: number; slide: HostDeck['slides'][number] }[] }
+
 /**
- * A host's own look through the deck. Nothing here reaches the room: it reads the deck over HTTP
- * and keeps its place in this browser tab only.
+ * Every slide of the deck as a small button, by section. The shown slide carries a tag, the slide
+ * looked at a frame. Drawn again only when the deck, the two cursors or the theme change.
  */
-export function OwnDeck({ token, code, joinUrl, shown, stage }: { token: string; code: string; joinUrl: string; shown: number; stage: string }) {
-  const [open, setOpen] = useState(false)
-  const [deck, setDeck] = useState<HostDeck | null>(null)
-  const [at, setAt] = useState(shown)
+const DeckStrip = memo(function DeckStrip({ groups, at, shown, pick, joinUrl, theme }: {
+  groups: Group[]; at: number; shown: number; pick: (i: number) => void; joinUrl: string; theme: 'light' | 'dark'
+}) {
   const box = useRef<HTMLDivElement>(null)
-  const [w, setW] = useState(360)
+  // The slide looked at stays in view: the strip scrolls sideways, never the page.
+  useEffect(() => {
+    const c = box.current
+    const el = c?.querySelector<HTMLElement>('.stripbtn.at')
+    if (!c || !el) return
+    const l = el.offsetLeft
+    if (l < c.scrollLeft) c.scrollLeft = Math.max(0, l - 8)
+    else if (l + el.offsetWidth > c.scrollLeft + c.clientWidth) c.scrollLeft = l + el.offsetWidth - c.clientWidth + 8
+  }, [at, groups])
+  return (
+    <div ref={box} className="deckstrip">
+      {groups.map((g) => (
+        <div key={g.id} className="stripsec">
+          <div className="stripsec-title" title={g.title}>{g.title}</div>
+          <div className="stripsec-row">
+            {g.items.map(({ i, slide }) => (
+              <button key={i} type="button" className={`stripbtn${i === at ? ' at' : ''}${i === shown ? ' shown' : ''}`}
+                aria-label={H.stripLabel(i + 1, i === shown)} aria-current={i === at ? 'true' : undefined} onClick={() => pick(i)}>
+                <SlideThumb sl={slide.slide} joinUrl={joinUrl} width={112} theme={theme} />
+                <span className="stripnum"><span className="num">{i + 1}</span>{i === shown && <span className="flag">{H.shownTag}</span>}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+})
+
+/**
+ * The host's look through the deck, beside the shown slide (section 10.8). The look moves a cursor
+ * of this browser tab only and reads the deck over HTTP, so nothing reaches the room until the
+ * host in charge presses "Show this slide", which goes through the same command as Next. A cursor
+ * on the shown slide follows it; one elsewhere stays where it is.
+ */
+export function SlideLook({ token, code, joinUrl, deck, shown, at, lookTo, show, canAct, stage, theme, onSlides, refusal }: {
+  token: string; code: string; joinUrl: string; deck: DeckView; shown: number; at: number
+  lookTo: (i: number) => void; show: () => void; canAct: boolean; stage: string; theme: 'light' | 'dark'; onSlides: boolean; refusal?: string
+}) {
+  const [all, setAll] = useState<HostDeck | null>(null)
+  const [failed, setFailed] = useState(false)
   const load = useCallback(async () => {
     const r = await hostFetch<HostDeck>(token, `/api/host/deck/${code}`)
-    if (r.ok) setDeck(r.data)
+    if (r.ok) { setAll(r.data); setFailed(false) } else setFailed(true)
   }, [token, code])
-  // The deck is read when the panel opens and again when the stage changes, because a slide may
-  // show a number of the room that only exists after a phase.
-  useEffect(() => { if (open) void load() }, [open, load, stage])
+  // The deck is read again when the stage changes, because a slide may show a number of the room
+  // that only exists after a phase.
+  useEffect(() => { void load() }, [load, stage, deck.count])
+  const box = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(480)
   useLayoutEffect(() => {
     const el = box.current
-    if (!el || !open) return
-    const fit = () => setW(Math.max(220, Math.min(720, el.clientWidth)))
+    if (!el) return
+    const fit = () => setW(Math.max(220, Math.min(640, el.clientWidth)))
     const ro = new ResizeObserver(fit)
     ro.observe(el)
     fit()
     return () => ro.disconnect()
-  }, [open])
-  const n = deck?.slides.length ?? 0
-  const cur = deck?.slides[Math.max(0, Math.min(n - 1, at))]
+  }, [])
+  const pickRef = useRef(lookTo)
+  pickRef.current = lookTo
+  const pick = useCallback((i: number) => pickRef.current(i), [])
+  const sectionsKey = deck.sections.map((x) => `${x.id}:${x.start}:${x.count}:${x.title}`).join('|')
+  const groups = useMemo<Group[]>(() => {
+    if (!all) return []
+    return deck.sections.map((x) => ({
+      id: x.id, title: x.title,
+      items: all.slides.slice(x.start, x.start + x.count).map((slide, k) => ({ i: x.start + k, slide })),
+    }))
+    // The sections are read through their key, so a new view of the same deck draws nothing again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all, sectionsKey])
+  const n = deck.count
+  const here = at === shown
+  // The shown slide comes live with the view; any other from the deck read over HTTP.
+  const cur = here ? deck.current : all?.slides[at] ?? null
+  const section = deck.sections.find((x) => at >= x.start && at < x.start + x.count)
+  const line = !canAct ? H.lookNotInCharge : here ? H.lookHere : onSlides ? H.lookAway(shown + 1) : H.lookNotOnSlides(shown + 1)
   return (
-    <section className="panel owndeck">
-      <div className="panel-head lav">{H.ownDeck}</div>
-      <div className="panel-body">
-        <div className="hint">{H.ownDeckLine}</div>
-        {!open && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => { setAt(shown); setOpen(true) }}>{H.ownDeckOpen}</button>}
-        {open && (
-          <>
-            <div className="ctl-row owndeck-nav">
-              <button type="button" className="btn small" onClick={() => setAt(Math.max(0, at - 1))} disabled={at <= 0}>{H.prev}</button>
-              <span className="num slidecount">{H.slideOf(Math.min(n, at + 1), n)}</span>
-              <button type="button" className="btn small" onClick={() => setAt(Math.min(n - 1, at + 1))} disabled={at >= n - 1}>{H.next}</button>
-              <button type="button" className="btn small text" onClick={() => setAt(shown)} disabled={at === shown}>{H.ownDeckToShown}</button>
-              <button type="button" className="btn small text" onClick={() => setOpen(false)}>{H.ownDeckClose}</button>
-            </div>
-            <div ref={box} className="owndeck-box">
-              {cur ? <SlideThumb sl={cur.slide} joinUrl={joinUrl} width={w} /> : <div className="muted">{H.loading}</div>}
-            </div>
-            {cur && <div className="notes"><b>{H.notes}</b><span>{cur.notes ?? H.noNotes}</span></div>}
-          </>
-        )}
+    <div className="group looker">
+      <div className="eyebrow">{H.look}</div>
+      <div className="hint">{H.lookLine} {H.lookKeys(canAct)}</div>
+      <div className="looknav">
+        <button type="button" className="btn small" onClick={() => lookTo(at - 1)} disabled={at <= 0}>{H.lookBack}</button>
+        <span className="num slidecount" role="status">{H.lookOf(at + 1, n, shown + 1)}</span>
+        <button type="button" className="btn small" onClick={() => lookTo(at + 1)} disabled={at >= n - 1}>{H.lookAhead}</button>
       </div>
-    </section>
+      <div className="lookacts">
+        <button type="button" className="btn small text go" onClick={show} disabled={!canAct || here}>{H.lookShow}</button>
+        <button type="button" className="btn small text" onClick={() => lookTo(shown)} disabled={here}>{H.lookToShown}</button>
+      </div>
+      <div className={`hint${here ? '' : ' lookstate'}`} role="status">{line}</div>
+      {refusal && <div className="err refusal" role="alert">{refusal}</div>}
+      <div className="lookhead">
+        <span className="sectitle">{section?.title}</span>
+        {here ? <span className="flag">{H.shownNow}</span> : <span className="flag look">{H.onlyYou}</span>}
+        {cur?.placeholder && <span className="flag warn">{H.placeholder}</span>}
+      </div>
+      <div ref={box} className="lookbox">
+        {cur ? <SlideThumb sl={cur.slide} joinUrl={joinUrl} width={w} theme={theme} />
+          : <div className="muted lookempty" style={{ width: w, height: Math.round(w * 820 / 1920) }}>{failed ? H.lookNoDeck : H.loading}</div>}
+      </div>
+      {failed && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => void load()}>{H.lookRetry}</button>}
+      <div className="notes"><b>{H.notes}</b><span>{cur ? cur.notes ?? H.noNotes : H.loading}</span></div>
+      <label className="lbl" htmlFor="look-section">{H.lookSection}</label>
+      <select id="look-section" className="field slim" value={section?.id ?? ''}
+        onChange={(e) => { const sec = deck.sections.find((x) => x.id === e.target.value); if (sec) lookTo(sec.start) }}>
+        {deck.sections.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+      </select>
+      {groups.length > 0 && <DeckStrip groups={groups} at={at} shown={shown} pick={pick} joinUrl={joinUrl} theme={theme} />}
+    </div>
   )
 }

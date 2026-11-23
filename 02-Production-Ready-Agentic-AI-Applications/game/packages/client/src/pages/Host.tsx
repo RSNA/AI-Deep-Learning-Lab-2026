@@ -10,8 +10,7 @@ import { connect, hostFetch } from '../lib/net.ts'
 import { consoleId, store } from '../lib/storage.ts'
 import type { ClockRef } from '../lib/clock.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
-import { SlideThumb } from '../components/slide.tsx'
-import { Inspector, OwnDeck } from './hostParts.tsx'
+import { Inspector, SlideLook } from './hostParts.tsx'
 import { SystemsStrip } from './Play.tsx'
 import { ScreenStage } from './Screen.tsx'
 import { ManualBody } from './Manual.tsx'
@@ -340,7 +339,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
   // later section may show answers (section 10.8). Nobody is asked while no one can see the slides.
   const sectionAt = (i: number) => deck.sections.find((x) => i >= x.start && i < x.start + x.count)
   const roomSees = sc.shown === 'slides' && (sc.screens > 0 || sc.mirror)
-  const slideTo = (index: number) => {
+  const slideTo = (index: number, at = 'slides') => {
     const to = Math.max(0, Math.min(deck.count - 1, index))
     if (to === sc.slide) return
     const from = sectionAt(sc.slide)
@@ -348,47 +347,53 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     // A section is due from the stage before its own: the welcome in the lobby, a recap at the reveal.
     const later = !!target && STAGES.indexOf(target.stage) > STAGES.indexOf(hv.stage) + 1
     if (roomSees && target && later && target.id !== from?.id) {
-      ask({ title: H.aheadTitle, text: H.ahead(target.title, STAGE_TITLE[hv.stage]), options: [{ label: H.aheadGo, tone: 'danger', run: () => void cmd('slide_to', { index: to }, 'slides') }] })
+      ask({ title: H.aheadTitle, text: H.ahead(target.title, STAGE_TITLE[hv.stage]), options: [{ label: H.aheadGo, tone: 'danger', run: () => void cmd('slide_to', { index: to }, at) }] })
       return
     }
-    void cmd('slide_to', { index: to }, 'slides')
+    void cmd('slide_to', { index: to }, at)
   }
+  // The look through the deck: a cursor of this tab only (section 10.8). Null means it follows the
+  // shown slide. Once the shown slide reaches it, it follows again.
+  const [look, setLook] = useState<number | null>(null)
+  const at = look === null ? sc.slide : Math.max(0, Math.min(deck.count - 1, look))
+  const lookTo = (i: number) => { const to = Math.max(0, Math.min(deck.count - 1, i)); setLook(to === sc.slide ? null : to) }
+  useEffect(() => { setLook((l) => (l === sc.slide ? null : l)) }, [sc.slide])
   const slideRef = useRef(slideTo)
   slideRef.current = slideTo
+  const lookRef = useRef(lookTo)
+  lookRef.current = lookTo
+  const atRef = useRef(at)
+  atRef.current = at
   const pinned = sc.scene !== 'auto'
   const pinnedLabel = scenes.find((x) => x.id === sc.scene)?.label ?? H.spotlightScene
-  const cur = deck.current
   const section = deck.sections.find((s) => sc.slide >= s.start && sc.slide < s.start + s.count)
   const mirrorOff = playing ? H.mirrorOffPlay : sc.shown !== 'slides' ? H.mirrorOffHidden : null
   // The preview is as wide as the panel allows, up to 640 px, and keeps the projector's 16 to 9.
   const box = useRef<HTMLDivElement>(null)
   const [pw, setPw] = useState(344)
-  // The slide shown now and the next one, side by side, each as wide as half of their row.
-  const pair = useRef<HTMLDivElement>(null)
-  const [tw, setTw] = useState(200)
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const fit = () => {
-      setPw(Math.max(240, Math.min(640, el.clientWidth - 6)))
-      const row = pair.current
-      if (row) setTw(Math.max(140, Math.floor((row.clientWidth - 10) / 2) - 6))
-    }
+    const fit = () => setPw(Math.max(240, Math.min(640, el.clientWidth - 6)))
     const ro = new ResizeObserver(fit)
     ro.observe(el)
-    if (pair.current) ro.observe(pair.current)
     fit()
     return () => ro.disconnect()
-  }, [deck.count])
+  }, [])
 
-  // The left and right arrow keys move the slides while no field has the focus.
+  // The left and right arrow keys, while no field has the focus: for the host in charge they move
+  // the shown slide, with Shift only the look. For any other host they move the look.
   useEffect(() => {
-    if (!canAct || deck.count === 0) return
+    if (deck.count === 0) return
     const on = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
       const t = e.target as HTMLElement | null
       if (t && (t.closest('input, select, textarea, [contenteditable]') || t.closest('[role="dialog"]'))) return
-      if (e.key === 'ArrowRight') { e.preventDefault(); slideRef.current(sc.slide + 1) }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); slideRef.current(sc.slide - 1) }
+      const step = e.key === 'ArrowRight' ? 1 : -1
+      e.preventDefault()
+      if (canAct && !e.shiftKey) slideRef.current(sc.slide + step)
+      else lookRef.current(atRef.current + step)
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
@@ -398,6 +403,9 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     <section className="panel">
       <div className="panel-head lav">{H.bigScreen}</div>
       <div className="panel-body bigscreen">
+        {/* What needs control sits in two fieldsets. The look through the deck between them works
+            for every host (section 10.8). */}
+        <fieldset disabled={!canAct} className="ctlset pset">
         <div ref={box} className="previewbox">
           <div className="preview" aria-label={H.previewLabel} style={{ width: pw + 6, height: Math.round(pw * 9 / 16) + 6 }}>
             <ScreenStage v={hv.preview} clock={clock} scale={pw / 1920} themed />
@@ -463,7 +471,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
                 <button className="btn small" onClick={() => slideTo(sc.slide + 1)} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
               </div>
               {section && <div className="sectitle">{section.title}</div>}
-              <div className="hint">{H.keysLine}</div>
+              {canAct && <div className="hint">{H.keysLine}</div>}
               <label className="lbl" htmlFor="jump">{H.jump}</label>
               <select id="jump" className="field slim" value={section?.id ?? ''}
                 onChange={(e) => { const sec = deck.sections.find((s) => s.id === e.target.value); if (sec) slideTo(sec.start) }}>
@@ -481,21 +489,14 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
           <Refusal text={refusals.slides} />
         </div>
         </div>
+        </fieldset>
 
         {deck.count > 0 && (
-          <div className="group">
-            <div className="slidepair" ref={pair}>
-              {[{ l: H.current, s: cur }, { l: H.upNext, s: deck.next }].map(({ l, s }) => (
-                <div key={l} className="minislide">
-                  <div className="eyebrow">{l}{s?.placeholder && <span className="flag warn">{H.placeholder}</span>}</div>
-                  {s ? <SlideThumb sl={s.slide} joinUrl={hv.session.joinUrl} width={tw} theme={sc.theme} /> : <div className="muted endofdeck" style={{ width: tw, height: Math.round(tw * 820 / 1920) }}>{H.endOfDeck}</div>}
-                </div>
-              ))}
-            </div>
-            <div className="notes"><b>{H.notes}</b><span>{cur?.notes ?? H.noNotes}</span></div>
-          </div>
+          <SlideLook token={token} code={code} joinUrl={hv.session.joinUrl} deck={deck} shown={sc.slide} at={at} lookTo={lookTo}
+            show={() => slideTo(at, 'look')} canAct={canAct} stage={hv.stage} theme={sc.theme} onSlides={sc.shown === 'slides'} refusal={refusals.look} />
         )}
 
+        <fieldset disabled={!canAct} className="ctlset pset">
         <div className="group apart">
           <div className="eyebrow">{H.projectorTheme}</div>
           <div className="seg" role="group" aria-label={H.projectorTheme}>
@@ -505,6 +506,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
           <div className="hint">{H.themeLine}</div>
           <Refusal text={refusals.theme} />
         </div>
+        </fieldset>
       </div>
     </section>
   )
@@ -772,10 +774,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
             </div>
 
             <div className="ccol">
-              <fieldset disabled={!ctl.you} className="ctlset">
-                <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
-              </fieldset>
-              {hv.deck.count > 0 && <OwnDeck token={token} code={code} joinUrl={hv.session.joinUrl} shown={hv.screen.slide} stage={hv.stage} />}
+              <Projector hv={hv} clock={clock} cmd={cmd} refusals={ref.map} ask={setAskSheet} token={token} code={code} canAct={ctl.you} />
             </div>
 
             <div className="ccol">

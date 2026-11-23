@@ -3,7 +3,7 @@
 // invalid. Whenever nothing local waits to be saved, the server's draft wins: after a reload, a
 // reconnect or a refusal.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CanvasMap } from '@lab02/protocol'
+import type { AckData, CanvasMap } from '@lab02/protocol'
 import { mapProblem, sameMap, type Vocabulary } from '../canvas/model.ts'
 import { plainError } from '../lib/errors.ts'
 import { usePlayer } from '../lib/player.ts'
@@ -21,7 +21,8 @@ function save(key: string, h: History): void {
 
 export type MapDraft = ReturnType<typeof useMap>
 
-export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boolean) {
+/** `onRefused` hears of a line that a rule of the pack refuses, with its words; the map goes back as it was. */
+export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boolean, onRefused?: (d: AckData) => void) {
   const view = usePlayer((s) => s.view)!
   const send = usePlayer((s) => s.send)
   const server = view.development!.map
@@ -35,6 +36,8 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unlockedRef = useRef(unlocked)
   unlockedRef.current = unlocked
+  const refusedRef = useRef(onRefused)
+  refusedRef.current = onRefused
   const hRef = useRef(h)
   hRef.current = h
 
@@ -61,8 +64,11 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
         pending.current = false
         const now = usePlayer.getState().view?.development?.map
         if (!r.ok) {
-          setError(`${P2.refusedMap} ${plainError(r.error)}`)
-          if (now) setH((prev) => ({ ...prev, map: now }))
+          // A line that a rule refuses is said at its place, not in the bar.
+          const d = r.error === 'line_refused' ? (r.data as AckData | undefined) : undefined
+          if (d && refusedRef.current) refusedRef.current(d)
+          else setError(`${P2.refusedMap} ${plainError(r.error)}`)
+          if (now) setH((prev) => ({ ...prev, map: now, past: prev.past.length && sameMap(prev.past.at(-1)!, now) ? prev.past.slice(0, -1) : prev.past }))
         }
       })
     }, 200)

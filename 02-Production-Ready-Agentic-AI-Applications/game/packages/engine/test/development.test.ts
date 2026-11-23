@@ -1,13 +1,19 @@
 // Phase 2 as the engine runs it (engineering spec, sections 6.6 and 12.2): every refusal of the
 // four commands, every rule of a map and of readiness, actions on the game clock, validations,
 // submission, the end of the stage, the live column and determinism.
-import { describe, expect, it } from 'vitest'
-import { fromPackMap, mapErrors, readyReasons, startUnlocked, type CanvasMap } from '@lab02/content-schema'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { fromPackMap, mapErrors, readyDetails, readyReasons, ruledLines, startUnlocked, tileMinutes, type CanvasMap } from '@lab02/content-schema'
 import { advance, carriedIntoMaintaining, evaluate, project, type SessionState } from '../src/index.ts'
-import { demoPack, host, join, newSession, run } from './helpers.ts'
+import { demoPack, host, join, newSession, run, setDemoPack } from './helpers.ts'
 
-const pack = demoPack()
+// The rules of the engine hold for a build file without `line_rules` and `required`, as they did
+// before those fields existed. The block at the end runs on the demo pack as it is and tests them.
+const full = demoPack()
+const pack = structuredClone(full)
+for (const id of pack.systemIds) { const b = pack.systems[id]!.build; if (b) { b.line_rules = []; b.required = [] } }
+setDemoPack(pack)
 const B = pack.systems.rb!.build!
+const F = full.systems.rb!.build!
 const err = (r: { ok: boolean; error?: string }) => (r.ok ? 'ok' : r.error)
 
 function cmd(s: SessionState, id: string, type: string, payload: unknown, now: number) {
@@ -40,7 +46,7 @@ const SMALL: CanvasMap = {
 }
 const REF = fromPackMap(B.key.reference.map)
 
-const view = (s: SessionState, id = 'p1') => project.playerView(s, pack, id, 'CODE').development!
+const view = (s: SessionState, id = 'p1') => project.playerView(s, demoPack(), id, 'CODE').development!
 const action = (id: string) => B.actions.find((a) => a.id === id)!
 
 describe('a map: what set_map refuses', () => {
@@ -349,5 +355,86 @@ describe('the opening letter of Phase 2', () => {
     // A health system without an opening reads the letter alone.
     expect(s.players.p3!.system).toBe('ls')
     expect(letter(s, 'p3')).toBe(pack.systems.ls!.story!.briefs!.development!.text)
+  })
+})
+
+describe('line rules and required workers (spec 6.6)', () => {
+  beforeAll(() => { setDemoPack(full) })
+  afterAll(() => { setDemoPack(pack) })
+  const open = new Set([...startUnlocked(F), 'rb-s-cards', 'rb-w-reader'])
+  const cards = { tiles: [T('t1', 'rb-w-agent', 2, 2, 'rb-m-small', 'rb-c-api'), T('t2', 'rb-w-reader', 1, 3)], lines: L(['rb-s-cards', 't1']) }
+
+  it('the demo pack has one rule that refuses, one that advises, and one required worker', () => {
+    expect(F.line_rules.filter((r) => r.refuse)).toHaveLength(1)
+    expect(F.line_rules.filter((r) => !r.refuse)).toHaveLength(1)
+    expect(F.required).toHaveLength(1)
+  })
+  it('refuses a line that a rule refuses, from a source or from a kind of worker, and nothing else', () => {
+    expect(mapErrors(cards, F, open)).toEqual(['line_refused'])
+    // The same source into the card reader, and the reader into the agent, are fine.
+    expect(mapErrors({ tiles: cards.tiles, lines: L(['rb-s-cards', 't2'], ['t2', 't1']) }, F, open)).toEqual([])
+    // A rule with a kind of worker as its origin matches a line from a tile of that kind.
+    const kinds = { ...F, line_rules: [{ from: 'rb-w-reader', to: 'rb-w-agent', refuse: true, text: 'No.' }] }
+    expect(mapErrors({ tiles: cards.tiles, lines: L(['t2', 't1']) }, kinds, open)).toEqual(['line_refused'])
+    // A line into the result matches no rule, and the first rule that matches counts.
+    expect(ruledLines({ tiles: cards.tiles, lines: L(['t1', 'rb-result']) }, F)).toEqual([])
+  })
+  it('set_map answers line_refused with the line and the words of the rule, and keeps the draft', () => {
+    const { s, t0 } = playing()
+    s.players.p1!.development!.actionsDone.push({ id: 'rb-a-cards', atMs: t0 })
+    const r = cmd(s, 'p1', 'development.set_map', { map: cards }, t0)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.error).toBe('line_refused')
+    expect(r.data).toEqual({ line: { from: 'rb-s-cards', to: 't1' }, text: F.line_rules[0]!.text })
+    expect(view(s).map.tiles).toEqual([])
+    // A map with a refused line and another error is only invalid.
+    const two = { tiles: cards.tiles, lines: [...cards.lines, { from: 'rb-s-form', to: 'rb-result' }] }
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: two }, t0))).toBe('invalid_map')
+  })
+  it('a line that a rule advises on stands, and the view carries the words with the line', () => {
+    const { s, t0 } = playing()
+    const m = { tiles: [T('t1', 'rb-w-agent', 2, 2, 'rb-m-small', 'rb-c-api')], lines: L(['rb-s-forum', 't1'], ['rb-s-form', 't1']) }
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: m }, t0))).toBe('ok')
+    expect(view(s).lineAdvice).toEqual([{ from: 'rb-s-forum', to: 't1', text: F.line_rules[1]!.text }])
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0 + 1))).toBe('ok')
+    expect(view(s).lineAdvice).toEqual([])
+  })
+  it('a map is ready only with a required worker on a path to the result', () => {
+    expect(readyReasons(SMALL, F)).toEqual(['required_missing:0'])
+    expect(readyDetails(SMALL, F)).toEqual([{ reason: 'required_missing', index: 0, workers: ['rb-w-librarian'], text: F.required[0]!.text }])
+    // A librarian who stands aside does not count.
+    // (Every placed person counts for the minutes, so this one alone asks too many.)
+    const aside = { tiles: [...SMALL.tiles, T('t2', 'rb-w-librarian', 3, 4)], lines: SMALL.lines }
+    expect(readyReasons(aside, F)).toEqual(['required_missing:0', 'too_many_minutes:librarian'])
+    const signed = { tiles: [...SMALL.tiles.map((t) => ({ ...t })), T('t2', 'rb-w-librarian', 3, 2)], lines: L(['rb-s-form', 't1'], ['rb-s-catalog', 't1'], ['t1', 't2'], ['t2', 'rb-result']) }
+    expect(readyReasons(signed, F)).toEqual([])
+    // Nothing that reaches the result: that is the only reason.
+    expect(readyReasons({ tiles: [], lines: [] }, F)).toEqual(['nothing_reaches_result'])
+    // The order: no source, the tiles that lack parts, the required worker, the minutes.
+    const lots = { tiles: [T('t1', 'rb-w-agent', 1, 1), T('t2', 'rb-w-step', 2, 1, 'rb-m-small'), T('t3', 'rb-w-clerk', 3, 1)], lines: L(['t1', 't2'], ['t2', 't3'], ['t3', 'rb-result']) }
+    expect(readyReasons(lots, F)).toEqual(['no_source_connected', 'tile_incomplete', 'required_missing:0'])
+    expect(readyDetails(lots, F).slice(0, 3)).toEqual([
+      { reason: 'no_source_connected' },
+      { reason: 'tile_incomplete', tile: 't1', missing: ['model', 'runsOn'] },
+      { reason: 'tile_incomplete', tile: 't2', missing: ['runsOn'] },
+    ])
+  })
+  it('the view says what each reason names, and validate is refused until the worker is there', () => {
+    const { s, t0 } = playing()
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0))).toBe('ok')
+    expect(view(s).ready).toEqual({ ok: false, reasons: ['required_missing:0'], details: [{ reason: 'required_missing', workers: ['rb-w-librarian'], text: F.required[0]!.text }] })
+    expect(err(cmd(s, 'p1', 'development.validate', {}, t0 + 1))).toBe('not_ready')
+    const over = { tiles: [T('t1', 'rb-w-librarian', 2, 2)], lines: L(['rb-s-form', 't1'], ['rb-s-catalog', 't1'], ['rb-s-courier', 't1'], ['t1', 'rb-result']) }
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: over }, t0 + 2))).toBe('ok')
+    expect(view(s).ready.details).toEqual([{ reason: 'too_many_minutes', pool: 'librarian', used: 9, max: 4, tiles: ['t1'] }])
+    expect(view(s).tileMinutes).toEqual({ t1: 9 })
+  })
+  it('counts the minutes of each person tile: deciding alone or checking, plus its sources', () => {
+    const m = { tiles: [T('t1', 'rb-w-agent', 2, 2, 'rb-m-small', 'rb-c-api'), T('t2', 'rb-w-librarian', 3, 2), T('t3', 'rb-w-clerk', 1, 4)], lines: L(['rb-s-form', 't1'], ['t1', 't2'], ['rb-s-form', 't2'], ['rb-s-catalog', 't3']) }
+    const per = tileMinutes(m, F)
+    const lib = F.workers.find((w) => w.id === 'rb-w-librarian')!.minutes!
+    const clerk = F.workers.find((w) => w.id === 'rb-w-clerk')!.minutes!
+    expect(per).toEqual({ t2: lib.check + lib.per_line.easy!, t3: clerk.decide + clerk.per_line.easy! })
   })
 })

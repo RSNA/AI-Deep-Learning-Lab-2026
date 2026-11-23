@@ -170,7 +170,12 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         for (const b of bots) {
           for (const phase of ['planning', 'development', 'maintaining']) {
             const res = await fetch(`${srv.url}/api/content/${phase}`, { headers: { authorization: `Bearer ${b.token}` } })
-            records.push({ stage: room.state.stage, text: await res.text(), slide: visible(true) })
+            const text = await res.text()
+            records.push({ stage: room.state.stage, text, slide: visible(true) })
+            // The words of a line rule or a required worker are never in the static content.
+            for (const x of perPlayerTexts(loaded.pack, room.state.players[b.playerId]!.system).rules) {
+              if (text.includes(JSON.stringify(x).slice(1, -1))) devLeaks.push(`the words of a rule are in the static content of ${phase}: ${x.slice(0, 24)}`)
+            }
           }
         }
         const sess = await fetch(`${srv.url}/api/session/${code}`)

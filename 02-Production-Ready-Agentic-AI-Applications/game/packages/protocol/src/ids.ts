@@ -40,7 +40,7 @@ export const ERROR_CODES = [
   'action_used', 'removed',
   // Phase 2 (section 6.6)
   'invalid_map', 'unknown_action', 'action_taken', 'requires_action', 'not_enough_money', 'developers_busy',
-  'validation_running', 'no_validations_left', 'not_ready', 'unknown_validation',
+  'validation_running', 'no_validations_left', 'not_ready', 'unknown_validation', 'line_refused',
   // Host and join
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
   // Host console

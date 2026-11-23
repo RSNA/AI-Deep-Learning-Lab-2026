@@ -1,10 +1,10 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import { fromPackMap, readyReasons, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
+import { fromPackMap, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
 import type {
   Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
-  LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, Running, ScreenView, SessionInfo,
+  LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ReadyDetail, Running, ScreenView, SessionInfo,
   SlideView, Standing, StageId, SystemPublic, SystemRef, Tile,
 } from '@lab02/protocol'
 import type { HostDeck, HostInspect, HostPlayerRow, HostView } from '@lab02/protocol/host'
@@ -230,7 +230,7 @@ export function canvasLegend(b: BuildFile): CanvasLegend {
     cols: b.grid.cols, rows: b.grid.rows, columns: columnsView(b),
     sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, icon: x.public.icon, privateData: x.private_data })),
     result: { id: b.result.id, label: b.result.public.label },
-    workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon })),
+    workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon, task: x.public.task ?? null })),
     models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short })),
     compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, protectsPrivateData: x.protects_private_data })),
     prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label })),
@@ -303,6 +303,16 @@ function missedView(b: BuildFile, m: { case: string; reason: 'missing' | 'weak' 
   return { title: k.public.title, text: k.public.text, why: why ?? k.decision_miss }
 }
 
+/** A reason the draft cannot be validated, field by field (the index of a required entry stays here). */
+function detailView(d: ReturnType<typeof readyDetails>[number]): ReadyDetail {
+  switch (d.reason) {
+    case 'tile_incomplete': return { reason: d.reason, tile: d.tile, missing: [...d.missing] }
+    case 'required_missing': return { reason: d.reason, workers: [...d.workers], text: d.text }
+    case 'too_many_minutes': return { reason: d.reason, pool: d.pool, used: d.used, max: d.max, tiles: [...d.tiles] }
+    default: return { reason: d.reason }
+  }
+}
+
 /** The tiles that need a model and lack a model or a place to run. */
 function incompleteTiles(b: BuildFile, m: PackCanvasMap): string[] {
   return m.tiles.filter((t) => b.workers.find((w) => w.id === t.kind)?.needs_model && (t.model === null || t.runsOn === null)).map((t) => t.id)
@@ -340,7 +350,9 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
     insights,
     map: mapView(st.map),
-    ready: { ok: reasons.length === 0, reasons: [...reasons] },
+    ready: { ok: reasons.length === 0, reasons: [...reasons], details: readyDetails(st.map, b).map(detailView) },
+    lineAdvice: ruledLines(st.map, b).filter((x) => !x.rule.refuse).map((x) => ({ from: x.line.from, to: x.line.to, text: x.rule.text })),
+    tileMinutes: show ? { ...tileMinutes(st.map, b) } : {},
     flags: { stray: run.stray, incomplete: incompleteTiles(b, st.map), privateData: run.privateData },
     running: show ? runningView(run.running) : null,
     validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),

@@ -69,7 +69,10 @@ export const ScreenWelcome = S({
 })
 export type ScreenWelcome = z.infer<typeof ScreenWelcome>
 
-export const Ack = S({ t: z.literal('ack'), cid: Cid, ok: z.boolean(), error: ErrorCode.optional() })
+/** What a refusal names, when it names something: a line of the map that a rule of the pack refuses, and why. */
+export const AckData = S({ line: S({ from: z.string(), to: z.string() }), text: Text })
+export type AckData = z.infer<typeof AckData>
+export const Ack = S({ t: z.literal('ack'), cid: Cid, ok: z.boolean(), error: ErrorCode.optional(), data: AckData.optional() })
 export type Ack = z.infer<typeof Ack>
 
 export const ViewMsg = S({ t: z.literal('view'), view: PlayerView })

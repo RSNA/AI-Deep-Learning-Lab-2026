@@ -529,7 +529,7 @@ export class Room {
 
   playerCommand(sock: Sock, cid: string, type: string, payload: unknown): void {
     const id = sock.playerId!
-    const ack = (r: AckRecord) => this.sendPlayerMsg(sock, { t: 'ack', cid, ok: r.ok, ...(r.error ? { error: r.error } : {}) })
+    const ack = (r: AckRecord) => this.sendPlayerMsg(sock, { t: 'ack', cid, ok: r.ok, ...(r.error ? { error: r.error } : {}), ...(r.data ? { data: r.data } : {}) })
     const seen = this.recall(id, cid)
     if (seen) return ack(seen)
     const parsed = PlayerCommand.safeParse({ type, payload })
@@ -538,7 +538,7 @@ export class Room {
     const now = this.now()
     this.handle(advance(this.state, pack, now))
     const res = apply(this.state, pack, { actor: 'player', playerId: id, type, payload: parsed.data.payload }, now)
-    const rec: AckRecord = res.ok ? { ok: true } : { ok: false, error: res.error }
+    const rec: AckRecord = res.ok ? { ok: true } : { ok: false, error: res.error, ...(res.data ? { data: res.data } : {}) }
     if (res.ok) {
       this.seq = db.insertCommand({
         code: this.code, actor: 'player', player_id: id, cid, game_ms: now, wall_ms: config.wallNow(),

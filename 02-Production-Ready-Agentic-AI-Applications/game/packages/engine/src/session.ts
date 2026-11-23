@@ -367,7 +367,7 @@ function playerCommand(s: SessionState, pack: Pack, playerId: PlayerId, type: st
   if (!mod || !handler) return fail(mod ? 'not_available' : 'bad_message')
   if (phaseOfStage(s.stage) !== mod.phase) return fail('wrong_stage')
   const res = handler(s, pack, p, payload, now)
-  if (!res.ok) return fail(res.error)
+  if (!res.ok) return { ...fail(res.error), ...(res.data ? { data: res.data } : {}) }
   p.lastCmdMs = now
   p.acted[mod.phase] = true
   refreshLive(s, pack, p, now)

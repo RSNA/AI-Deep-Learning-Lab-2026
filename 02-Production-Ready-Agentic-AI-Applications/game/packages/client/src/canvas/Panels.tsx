@@ -73,9 +73,11 @@ export type ToolboxItem = Item & { task?: string | null; group?: string | null; 
 export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPick, words, phone = false }: {
   workers: ToolboxItem[]; groups?: { id: string; label: string }[]; unlocked: ReadonlySet<string>; lockedBy?: Record<string, string>
   picked: string | null; onPick: (id: string | null) => void; phone?: boolean
-  words: { locked: (a: string) => string; lockedNoAction: string; pickHint: string; picked: string; kinds: Record<string, string> }
+  words: { locked: (a: string) => string; lockedNoAction: string; pickHint: string; picked: string; kinds: Record<string, string>; lockedTold?: (action: string | null) => string }
 }) {
   const [hover, setHover] = useState<{ id: string; top: number; right: number } | null>(null)
+  // A press on a locked kind says, in its row, what opens it.
+  const [told, setTold] = useState<string | null>(null)
   const known = new Set(groups.map((g) => g.id))
   const sections: { id: string; label: string | null; list: ToolboxItem[] }[] = groups.length
     ? [...groups.map((g) => ({ id: g.id, label: g.label, list: workers.filter((w) => w.group === g.id) })),
@@ -104,7 +106,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
         aria-label={[w.label, words.kinds[w.kind ?? ''], w.task, w.description, w.costLine, w.extra, lock ? lockText(lockedBy, w.id, words) : null].filter(Boolean).join('. ')}
         onDragStart={(e) => { setHover(null); e.dataTransfer.setData('text/x-lab02-kind', w.id); e.dataTransfer.effectAllowed = 'copy' }}
         onMouseEnter={(e) => point(w.id, e.currentTarget)} onMouseLeave={() => setHover(null)}
-        onClick={() => { if (lock) return; setHover(null); onPick(on ? null : w.id) }}>
+        onClick={() => { if (lock) { setTold(w.id); return } setTold(null); setHover(null); onPick(on ? null : w.id) }}>
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
           <span className="tb-l"><span className="tb-ln">{w.label}</span><span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
@@ -112,6 +114,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
           {(phone || on) && details(w)}
           {lock && lockLine(w)}
           {on && <span className="tb-on">{words.picked}</span>}
+          {lock && told === w.id && words.lockedTold && <span className="tb-told" role="status">{words.lockedTold(lockedBy?.[w.id] ?? null)}</span>}
         </span>
       </button>
     )
