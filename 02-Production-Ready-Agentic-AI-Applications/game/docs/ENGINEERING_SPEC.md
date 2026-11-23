@@ -2898,11 +2898,13 @@ as dashed boxes.
   under it and an arrowhead at its end. A line between two tiles or into the result, a handoff, is
   drawn about twice as heavy as a line from a source, which only says that the worker may read
   it. Fixed anchors: a line leaves the right edge of its origin and enters the left edge of its
-  target, so a head never lies over a tile. The lines into one node are spread over its edge in
+  target. Its head stands in the middle of the line and points the way the line runs there; when
+  the middle lies behind a tile, the head moves along the line to the nearest clear stretch. So a
+  head never lies over a tile, the edge where many lines enter stays clean, and a short line
+  between two neighbours still shows its direction. The legend draws the head in the middle too. The lines into one node are spread over its edge in
   the order of their origins' height, and the lines out of one node in the order of where they
-  go, so they do not cross on the way in or out. The gap between two columns (32 px, 44 px on a
-  large screen) holds a line with its head, so the line between two tiles side by side, or from
-  a source to the first column, is still an arrow.
+  go, so they do not cross on the way in or out. The gap between two columns is 32 px (44 px on a
+  large screen).
 - **Lines and clicks.** While a worker is placed or a tile is moved, the lines let clicks through,
   so a cell that a line crosses can still be chosen.
 - **Place**: click a worker in the toolbox, then an empty cell, which is lit with a "+" while a
