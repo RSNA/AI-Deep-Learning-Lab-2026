@@ -112,7 +112,7 @@ in these materials; participant section titles describe the task rather than the
 
 ## Opening overview and optional inference finale
 
-The first embedded image maps clinical records (FHIR), Orthanc images (DICOMweb), Colab curation/preprocessing,
+The first image maps clinical records (FHIR), Orthanc images (DICOMweb), Colab curation/preprocessing,
 the training example and optional image/context inference. The detailed route guide remains in section 1.
 
 The final cell posts the prepared PNG and age/gender/visit reason to the hospital's `/api/inference` endpoint
