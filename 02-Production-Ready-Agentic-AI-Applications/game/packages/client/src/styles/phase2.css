@@ -56,10 +56,10 @@
   display: grid;
   /* The side columns take a share of the width, never a fixed maximum: a grid fills fixed
      maximums before its cells get any room. */
-  grid-template-columns: minmax(96px, 13%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
+  grid-template-columns: minmax(100px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
   grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(60px, 1fr));
   /* The gap between two columns holds a line with its head, so a short line still reads as an arrow. */
-  column-gap: 36px; row-gap: 6px; padding: 4px 14px 8px 8px;
+  column-gap: 32px; row-gap: 6px; padding: 4px 14px 8px 8px;
 }
 .chdr { grid-row: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; align-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chdr:first-child { text-align: left; }
@@ -90,14 +90,14 @@
 .ccell-plus { font-family: var(--face); font-size: 26px; line-height: 1; color: var(--good); }
 .ctile {
   position: relative; z-index: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 2px;
-  padding: 0 5px 4px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
+  padding: 0 4px 4px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
 }
-.ctile .ct-head { display: flex; align-items: center; gap: 5px; margin: 0 -5px 1px; padding: 1px 5px; min-height: 19px; border-bottom: 2px solid var(--line); font-size: 13px; font-weight: 800; line-height: 1.15; color: var(--on); }
+.ctile .ct-head { display: flex; align-items: center; gap: 5px; margin: 0 -4px 1px; padding: 1px 4px; min-height: 19px; border-bottom: 2px solid var(--line); font-size: 13px; font-weight: 800; line-height: 1.15; color: var(--on); }
 .ctile.k-ai .ct-head { background: var(--sky); }
 .ctile.k-fixed .ct-head { background: var(--lav); }
 .ctile.k-person .ct-head { background: var(--sun); }
 .ctile .ct-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ctile .ct-part { display: flex; align-items: center; gap: 4px; min-height: 17px; height: 17px; padding: 0 4px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ctile .ct-part { display: flex; align-items: center; gap: 3px; min-height: 17px; height: 17px; padding: 0 3px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 11.5px; letter-spacing: -0.01em; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
 .ctile .ct-part span { overflow: hidden; text-overflow: ellipsis; }
 .ctile .ct-part:hover { background: var(--sky-bg); }
 .ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
@@ -341,8 +341,8 @@
 @media (min-width: 1600px) and (min-height: 900px) {
   .cgrid:not(.compact) .ct-head, .cgrid:not(.compact) .csource, .cgrid:not(.compact) .cresult { font-size: 15px; }
   .cgrid:not(.compact) .ct-part { font-size: 13.5px; height: 22px; min-height: 22px; }
-  .cgrid:not(.compact) .ct-note { font-size: 13px; }
-  .cgrid:not(.compact) { column-gap: 28px; row-gap: 8px; }
+  .cgrid:not(.compact) .ct-note, .cgrid:not(.compact) .ct-body { font-size: 13px; }
+  .cgrid:not(.compact) { column-gap: 44px; row-gap: 8px; }
   .toolbox:not(.phone) .tb-l { font-size: 15px; }
   .toolbox:not(.phone) .tb-task, .toolbox:not(.phone) .tb-lock { font-size: 13px; }
   .tbgroup-t { font-size: 19px; }

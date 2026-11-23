@@ -246,12 +246,21 @@ The downloads stay available on the first page until you delete the session.
 
 ## 11. What players can do on their own
 
+- **Find their way:** a short tour starts by itself when a phase opens, after its letter. It
+  lights one part of the screen at a time, and the clock keeps running. "Take the tour" and
+  "Help" in the menu (☰) bring it back at any time of the phase. You do not need to do anything
+  for it, and your console shows nothing of it.
+- **Know why something does not work:** a grey Validate says beside it what to do next, and a
+  line or a tile that cannot be placed says why where they clicked. If a player says "the
+  button does nothing", point them to the sentence beside it.
 - **Day or night:** the sun or moon button in their top bar.
 - **Lost their screen:** the join link brings them back in the same browser. On another device
   they press "Rejoin with a code".
 - **Their rejoin code and the opening letter:** in the menu (☰).
 - **Their results of a finished phase:** in the menu, "Look at your Phase 1 result" and, once
   Phase 2 is scored, "Look at your Phase 2 result".
+- **In Phase 1, on a phone:** the assessment is the first tab. An interview that ends keeps its
+  words on screen until they tap "Read it again" or "Keep going".
 - **In Phase 2:** undo and redo in the bar of the map (Ctrl+Z on a laptop), any earlier
   validation loaded back onto the map, and the map they want sent chosen from the validations.
   Without a choice, the map with the best accuracy is sent.

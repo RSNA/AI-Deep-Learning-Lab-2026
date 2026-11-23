@@ -4,8 +4,10 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.3. Phase 2 is now played on a canvas (Step 7, section 16): the player
-builds a map on a grid and validates it, and the slot board of version 1.1 is gone. The
+**Status.** Version 1.4. Phase 2 is now played on a canvas (Step 7, section 16): the player
+builds a map on a grid and validates it, and the slot board of version 1.1 is gone. Version 1.4
+adds what the screen says to guide the player: a tour of each phase, a help panel, the reason
+beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`. The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
@@ -507,7 +509,8 @@ type Build = {
   problem: ProblemId                        // the flagship problem this map solves
   grid: { cols: number; rows: number       // cells between the sources and the result, at most 8 by 8
           columns?: { label: Text; hint: Text }[] }   // one per column: the stage of the work it
-                                            // stands for, and one sentence on it. Names only
+                                            // stands for, and one sentence on it. Names only.
+                                            // Without it nothing stands above the columns
   efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
@@ -559,6 +562,11 @@ type Build = {
            decision_miss: Text              // shown when the facts arrived and the judgment failed
            key?: object }[]
   notes?: { id: 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'; text: Text }[]   // in order of priority
+  line_rules?: { from: SourceId | WorkerId    // a line the practice cannot draw (`refuse`), or
+                 to: WorkerId                 // one that comes with advice. Its text reaches a
+                 refuse: boolean; text: Text }[]  // player only with a matching line of theirs
+  required?: { workers: WorkerId[]; text: Text }[]  // kinds of worker a map must have on the way
+                                            // to the result; the text is said while it fails
   key: { reference: { map: PackMap; needs_actions: ActionId[]; public_summary: Text; rationale?: Text }
          traps?: { id: string; kind: 'overbuilt' | 'underbuilt' | 'shortcut'; map: PackMap }[] }
 }
@@ -600,7 +608,9 @@ and a case needs, the models of `by_model`, the computes of `runs_on`, the worke
 `efforts` is there, every source names one of them, and every worker has a `fetch` number, and
 every person `per_line` minutes, for each of them; without it, the same holds for every effort
 that a source names. When `toolbox_groups` is there, every worker has one of them as `group`.
-`grid.columns`, when there, has one entry per column. A prompt has `sample` or `samples`. A case needs
+`grid.columns`, when there, has one entry per column. A prompt has `sample` or `samples`. A line
+rule starts at a source or a kind of worker and ends at a kind of worker; a second rule for the
+same pair is a warning, because the first counts. Every kind of a `required` entry exists. A case needs
 no fact that no source gives. A worker with `needs_model` is of kind `ai` and has `by_model`; one
 without has `quality`. A person has a pool and minutes, and nobody else has either. An action
 unlocks something or brings an insight, and needs no more developers than the practice has. The
@@ -1085,7 +1095,9 @@ actions. Validation ids are `v1`, `v2` and so on.
 
 Refusals: `wrong_stage`, `invalid_map`, `unknown_action`, `action_taken`, `requires_action`,
 `not_enough_money`, `developers_busy`, `validation_running`, `no_validations_left`, `not_ready`,
-`unknown_validation`. Each has one plain sentence in the client (section 8.2). The client does not
+`unknown_validation`, `line_refused`. Each has one plain sentence in the client (section 8.2).
+`set_map` answers `line_refused` when the only fault of the map is a line that a rule of
+`line_rules` refuses, with the line and the rule's text in the `data` of the answer. The client does not
 offer a command that would be refused and says why beside the control.
 
 **When an action ends** its developers are free, its items are unlocked and its insight joins the
@@ -1114,6 +1126,10 @@ holds. `mapErrors` names each case.
 8. A line runs from a source straight to the result.
 9. A line between two tiles does not go to a higher column.
 10. More than one line enters the result. More than 80 lines in all.
+11. A line matches a rule of `line_rules` with `refuse: true` (`line_refused`). A line matches a
+    rule when `from` is its source, or the kind of the tile it starts at, and `to` is the kind of
+    the tile it ends at. A line into the result matches no rule, and the first rule that matches
+    counts.
 
 Lines never form a loop, because every line between tiles goes right.
 
@@ -1124,10 +1140,18 @@ reasons that fail, and the Validate button shows the first as a sentence.
 2. At least one live tile has a line from a source (`no_source_connected`).
 3. Every live tile that needs a model has a model and a compute (`tile_incomplete`). A prompt that
    is null counts as the default prompt.
-4. For every pool, the minutes the map asks of it (below, every placed person counts) are at most
+4. For every entry `n` of `required` (counted from 0), a live tile is of one of its kinds
+   (`required_missing:<n>`).
+5. For every pool, the minutes the map asks of it (below, every placed person counts) are at most
    its `max` (`too_many_minutes:<pool>`).
 
-A stray tile does not stop a validation.
+The reasons come in this order, each once. While nothing reaches the result,
+`nothing_reaches_result` is the only one. The view carries each reason with what it names
+(`ready.details`): every incomplete live tile with its missing parts, the text of a `required`
+entry, the pool with the minutes asked and its limit and its person tiles. A stray tile does not
+stop a validation. The view also carries the lines of the draft that a rule with `refuse: false`
+matches, with the rule's text (`lineAdvice`), and the minutes a case each person tile asks
+(`tileMinutes`, when the pack shows what a map takes to run).
 
 **A validation.** When it completes, the engine scores the copy of the map (below), stores the
 `Validation`, and adds its missed case and its note to `shownCases` and `shownNotes`, so the next
@@ -1800,7 +1824,7 @@ Server to client:
 | Message | When | Fields |
 | --- | --- | --- |
 | `welcome` | After `hello` | `protocol`, `build`, `me`, `session`, `system` (the `public` of the health system, its people with their click lines, and its banter), `ladder` (each rung with the id and the `short` label of the class it falls in), `clock`, `view` |
-| `ack` | After each `cmd` | `cid`, `ok`, `error?` |
+| `ack` | After each `cmd` | `cid`, `ok`, `error?`, `data?` (with `line_refused`: the line and the rule's text) |
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
 | `standing` | On each leaderboard beat | The player's ranks and the top three per column |
@@ -2021,7 +2045,10 @@ type DevelopmentView = {
   actionsRunning: { id: ActionId; startedAtMs: GameMs; completesAtMs: GameMs }[]
   insights: { action: ActionId; tile: Tile }[]          // Tile as in Phase 1
   map: CanvasMap                                        // the draft
-  ready: { ok: boolean; reasons: string[] }             // the reason ids of section 6.6
+  ready: { ok: boolean; reasons: string[]               // the reason ids of section 6.6
+           details: ReadyDetail[] }                     // each with what it names
+  lineAdvice: { from: string; to: string; text: Text }[]   // lines of the draft a rule advises on
+  tileMinutes: Record<TileId, number>                   // a person tile's minutes a case, or {}
   flags: { stray: string[]; incomplete: string[]; privateData: string[] }
   running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null
   validationsLeft: number
@@ -2303,7 +2330,17 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
 - **Day or night** is one button in the top bar, beside the menu button, with a sun or a moon
   on it: one press switches the theme. The join pages carry the same button in the corner of
   the town strip.
-- **The menu** holds the help and the ways around: the opening letter of the phase, "Look at
+- **A tour opens each phase.** When a player first reaches the play screen of a phase, after its
+  opening letter, the screen dims and one area at a time is lit, with a card beside it: a title,
+  one or two sentences on what the area is and what the player does there (at most 30 words, the
+  screen and never the answer), "2 of 6", Back, Next and End tour. The first card says once that
+  the clock keeps running. Escape ends it, the arrow keys step it, and on a phone it switches to
+  the tab that holds the area and returns to the first tab at the end. A tour that was ended or
+  finished does not start by itself again in that browser (a flag per player, run and phase). A
+  phase only passes a list of steps (`components/Tour.tsx`), so Phase 3 adds a list. The host
+  console gets nothing for it.
+- **The menu** holds the help and the ways around: during play "Take the tour" and "Help" (the
+  same words as a list, with what the marks of the screen mean), the opening letter of the phase, "Look at
   your Phase 1 result" and "Look at your Phase 2 result" once that phase is scored and the stage
   shows something else (section 10.7), the rejoin code, how to play, and "Join as a new player" (section 10.7). The
   automation ladder is not in the menu: the head of each class in "Your assessment" says what
@@ -2676,7 +2713,8 @@ still carries the whole draft, a class over its capacity is still refused, the s
 same and the parity vectors stand (section 6.5).
 
 **Phone layout.** Below 1024 px the three columns become three tabs at the bottom, with the
-titles "Investigations", "Evidence" and "Assessment". A tab carries a count: the investigations
+titles "Assessment", "Investigations" and "Evidence", and the screen opens on the assessment,
+because it is what the phase asks for. A tab carries a count: the investigations
 running, a badge for a new insight, and "6 of 10". The top bar shrinks to the countdown and the
 rank. Evidence is one column of full cards under the panel, which starts collapsed. The
 bandwidth stays at the top of the Investigations tab. The assessment is the same list of five
@@ -2778,7 +2816,9 @@ after the first version of this section. It asks for the following.
   chart in body text.
 - **`quote` tiles.** The body is one or two sentences about the speaker and comes before the
   lines. A bubble in the scene wraps a line of 16 words to three rows at most at the phone crop.
-  The row of the running interview always holds every line released so far.
+  The row of the running interview always holds every line released so far. When the
+  interview ends, its lines stay in the row until the player acts, with "Read it again", which
+  opens its insight among the evidence, and "Keep going", which closes them.
 - **Reveal.** A rationale runs to about 120 words and a burden note to about 40. The corrected
   assessment keeps both behind the opening of a problem, except for the agent project, which
   is open across the full row.
@@ -2834,9 +2874,9 @@ Cancel while a mode runs, and Undo and Redo always. Under it the two shelves, th
 foot with what the map takes to run and the Validate button.
 
 **The grid.** Sources in the left column, stacked to fill its height whatever their number, then
-the cells, then the result, centred in the right column. A row of small headings names the
-columns: "Column 1" and so on, or the `label` of `grid.columns`, the stage of the work that column
-stands for, on up to two lines. A tap or a pointer on a stage name shows its `hint` under it. The
+the cells, then the result, centred in the right column. Above the cells nothing stands, so the
+player feels that a worker may stand in any cell; a pack with `grid.columns` names each column
+by the stage of the work it stands for, on up to two lines. A tap or a pointer on a stage name shows its `hint` under it. The
 names are only names: any worker may stand in any column. Wherever a map is drawn (the board, the
 reveal, the host's view, the projector) its columns carry the same headings. Empty cells are drawn
 as dashed boxes.
@@ -2848,13 +2888,21 @@ as dashed boxes.
   the reveal. An AI tile has three small boxes: the model, where it runs and the
   prompt, each with its icon. A box that is missing reads "+ Model" or "+ Runs on" in the warning
   color. A prompt left empty shows the default prompt's label.
+- **A tile without parts** (a person or a tool) shows, under its name, a person's minutes a case
+  in this map against the limit of its pool ("3 of 3 min a case", in the warning color when the
+  pool is over), or a tool's `task`. On small maps both show the task. Every tile has the height
+  of its cell.
 - **A port** is a round button on the right edge of a source and a tile, in the color of that
   origin. Every line takes the color of its origin from a set of ten, sources first in pack
   order, then tiles by column and row, and is drawn as a curve with a halo of the panel color
   under it and an arrowhead at its end. A line between two tiles or into the result, a handoff, is
   drawn about twice as heavy as a line from a source, which only says that the worker may read
-  it. Lines that enter one tile are spread over its left edge in the order of their origins'
-  height. So six lines that cross can still be told apart.
+  it. Fixed anchors: a line leaves the right edge of its origin and enters the left edge of its
+  target, so a head never lies over a tile. The lines into one node are spread over its edge in
+  the order of their origins' height, and the lines out of one node in the order of where they
+  go, so they do not cross on the way in or out. The gap between two columns (32 px, 44 px on a
+  large screen) holds a line with its head, so the line between two tiles side by side, or from
+  a source to the first column, is still an arrow.
 - **Lines and clicks.** While a worker is placed or a tile is moved, the lines let clicks through,
   so a cell that a line crosses can still be chosen.
 - **Place**: click a worker in the toolbox, then an empty cell, which is lit with a "+" while a
@@ -2890,6 +2938,18 @@ as dashed boxes.
   and says so in the title bar. Whenever nothing waits, the server's draft wins, after a reload,
   a reconnect or a refusal.
 
+**Every refusal says why, at its place.** A placement or a line that cannot be made gets one
+sentence in a bubble beside the tile, the cell, the source or the result where the player
+clicked or dropped, until their next action: a cell that is taken, a handoff that does not run to
+the right ("…stand in one column", "…stands left of…"), a line that exists, a line into a source,
+a line from a source straight to the result, a locked source or tool with the action that opens
+it (a locked tool says it in its toolbox row). While joining, every node takes the click, so a
+wrong target is answered and the player may pick another. A line that a rule of the pack refuses
+is answered by the server with the rule's words, and the map stays as it was. A second line into
+the result still replaces the first and says so. A line that a rule advises on is drawn, its
+words stand once beside it, and a small "i" on the line says them again. No error name reaches the
+screen.
+
 **What the canvas tells the player while they build.** A stray tile is dashed and dimmed and says
 "Not connected to the result. It does nothing." (on an AI tile, where the parts leave no room, a
 badge says "Not connected" and the title bar says the sentence when the tile is selected). A tile
@@ -2924,8 +2984,17 @@ running action shows the seconds left, a bar, and the developers it holds. A fin
 stays as done. One short line at the top says that an action is paid up front and cannot be
 stopped, with the full sentence as its tooltip. About six rows are in view at 1280 by 720.
 
-**A validation.** The Validate button reads "Validate · 4 left" and, while it cannot act, is
-disabled with the first reason in words beside it ("Join a tile to the result first."). While a
+**A validation.** The Validate button reads "Validate · 4 left". It is never a dead control:
+while it cannot act it looks unavailable (`aria-disabled`), the line beside it says the next
+thing to do and how many more follow ("Agent 1 has no place to run. Choose one in its box. 1 more
+thing after this."), a press makes the line flash and brings its tile into view, and the tile, the
+box, the result or the sources it names carry a glowing mark, the same on every map drawn for
+the player. The order is the one a player fixes things in: a validation that runs, none left,
+no tile yet, no source joined to a tile, nothing reaching the result, no source reaching the
+live tiles, each incomplete tile with its missing part, each required worker (the pack's words),
+then the minutes ("Radiologist would need 9 minutes a case and has 3."). The first steps follow
+the draft in the browser, so before the first validation the same line guides through the
+first map; once the map is ready it says so. While a
 validation runs, the button shows the seconds left and a bar, and the whole screen stays usable.
 When it lands, a notice at the foot of the page says "Validation done: 58%" with Show, which
 scrolls to the panel without stealing the scroll by itself. **The panel** shows the accuracy large,
@@ -3704,6 +3773,23 @@ For the Phase 2 screen (`e2e/phase2.spec.ts`):
   grid scrolling inside itself, and the host's view of the player with the draft, the key and the
   reference map.
 
+For the guidance of the screen (`e2e/guide.spec.ts`, and `packages/client/test/guide.test.ts`
+for the order of the reasons and the sentence of every refusal):
+
+- The tour of Phase 1 and of Phase 2: it waits for the letter, says once that the clock runs,
+  steps with Next, Back and the arrow keys, ends with Escape, does not come back after a refresh,
+  and comes back from the menu, where Help lists the same steps and the marks.
+- Validate that always says why, step by step through a first map, with the guide mark on the
+  sources, the result and the box of a tile, a press on it while it cannot act, the required
+  worker of the pack, and the minutes of a person with the tile's body over its limit.
+- Every refusal at its place: a source straight to the result, a cell that is taken, a handoff to
+  the left, a line that exists, a line into a source, a locked source, a locked tool, the words of
+  a refusing line rule from the server, and the advice of a line said once and again from its mark.
+- On a phone: the assessment first, a tour that switches tabs, and an interview that keeps its
+  words until "Read it again" or "Keep going".
+- The host console (`e2e/host-slides.spec.ts`): the host looks ahead through the deck while the
+  projector and the players keep their slide, then shows the slide looked at.
+
 For the scene, the lobby and the people:
 
 - The lobby shows "Who you are", the practice with an edge that the arrow keys move and a
@@ -3939,6 +4025,7 @@ report.
 | 5 | The second round after the first play of Phase 1: slides inside the game as one deck with a mirror to the players, one controlling host, errors in plain words, a living scene with banter, click lines and extras, one sprite per person, a Phase 1 screen of three titled columns with an assessment that is not dragged, a reveal without empty space, and a rewritten host console with its manual in `docs/HOST_MANUAL.md` (sections 1, 5.1, 5.5, 5.7, 6.3, 6.5, 6.8, 6.11, 6.13, 7.2, 7.3, 7.10, 8.2, 8.4, 8.5, 9.2, 10.1 to 10.4, 10.7 to 10.9, 11.1, 11.4, 12 and 15). Play check 1 then added a game that starts again and ends without a dead end (`restart_game`, `reset_stage` at a break, `run`, `GET /api/open`, the `ended` status and the pages of an ended game), the host console in three columns with a confirmation that asks for the join code only in an event session, sheets that keep the focus, the band of the reading room, one or two cards per row, and a menu without the ladder (sections 6.3, 7.2, 7.3, 7.6, 7.7, 8.4, 10.1, 10.2, 10.4, 10.7, 10.8 and 12). Its next round made "Follow the game" a programme during play (the activity list, the leaderboard of one phase by health system, one practice at work), added the scene `feed` and the phase choice of `screen_filter`, set the rule that one row of controls has one size, and took the stage controls off an ended session (sections 5.1, 6.13, 10.1, 10.8, 10.9 and 12) |
 | 6 | Phase 2 on a canvas in place of the slot board (planning session of 2026-11-22), written as a contract for Step 7 |
 | 7 | Phase 2 on a canvas, built: sections 1, 5.1, 5.4, 5.5 (`build.yaml`, the development rules, `palette.yaml` removed), 5.7, 6.6 and 6.7 (the reference map), 6.8, 6.9, 6.13, 8.2 to 8.5, 9.2, 10.1, 10.5 in full, 10.6 to 10.9, 12 and 15 |
+| 7, feedback after the demo | Version 1.4: `line_rules` and `required` (sections 5.5, 6.6), `line_refused` with the `data` of an answer (6.6, 8.2), `ready.details`, `lineAdvice`, `tileMinutes` and a worker's `task` in the legend (8.4); a tour of each phase and a help panel (10.1); the assessment first on a phone and an interview that keeps its words (10.4); no header over unnamed columns, fixed line anchors and wider gaps, a body on every tile, Validate that always says why, a sentence for every refusal (10.5); the host looks through the deck without showing it (10.8) |
 | 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |

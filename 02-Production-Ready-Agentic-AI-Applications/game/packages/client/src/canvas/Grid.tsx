@@ -82,6 +82,10 @@ export function Grid(p: GridProps) {
   const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const [hintCol, setHintCol] = useState<number | null>(null)
+  // A sentence at the place of an action is brought into view, also where the grid scrolls sideways.
+  const noteEl = useRef<HTMLDivElement>(null)
+  const noteKey = p.note ? `${p.note.at}|${p.note.text}` : ''
+  useLayoutEffect(() => { if (noteKey) noteEl.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [noteKey])
   useLayoutEffect(() => {
     if (hintCol === null) return
     const id = setTimeout(() => setHintCol(null), 6000)
@@ -445,7 +449,7 @@ export function Grid(p: GridProps) {
         const left = Math.max(4, Math.min(ax - bw / 2, gw - bw - 4))
         const below = ay + ah + 96 < gh || ay < gh / 2
         return (
-          <div className={`cnote ${n.tone}${below ? ' below' : ' above'}`} role="status" style={{ left, width: bw, ...(below ? { top: ay + ah + 8 } : { bottom: gh - ay + 8 }) }}>
+          <div ref={noteEl} className={`cnote ${n.tone}${below ? ' below' : ' above'}`} role="status" style={{ left, width: bw, ...(below ? { top: ay + ah + 8 } : { bottom: gh - ay + 8 }) }}>
             <span>{n.text}</span>
             {p.onNoteClose && <button type="button" className="cnote-x" aria-label={words.close} onClick={(ev) => { ev.stopPropagation(); p.onNoteClose?.() }}>✕</button>}
           </div>
