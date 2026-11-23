@@ -1,0 +1,25 @@
+id: ls
+slug: lakeshore
+public:
+  name: Lakeshore Library District
+  setting: A rural district of six small branches and one book bus.
+  premise: >-
+    Lakeshore serves towns spread along a long shore. The district won a grant that pays for
+    one project per branch, and the grant office wants reports that nobody has time to write.
+    Your branch has the book bus and a reading room that is always full.
+  practice_profile:
+    - {label: Staff, value: 6}
+    - {label: Loans per year, value: "48,000"}
+    - {label: Bus stops per week, value: 14}
+  baseline:
+    - {label: Hours spent on grant reports per month, value: 22}
+    - {label: Room bookings per week, value: 60}
+    - {label: Printer calls last month, value: 2}
+  cast: [demo-priya, demo-tom, demo-mara, demo-idris]
+key:
+  flagship_problem: ls-q-grant
+  summary: The grant report pulls numbers from many systems and chases what is missing, which is agent work.
+calibration:
+  planning:    {zero: 0, floor: 150, ceiling: 850, provisional: true}
+  development: {zero: null, floor: null, ceiling: null, provisional: true}
+  maintaining: {zero: null, floor: null, ceiling: null, provisional: true}

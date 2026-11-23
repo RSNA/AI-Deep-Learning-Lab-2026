@@ -1,0 +1,425 @@
+/* Phase 2: the canvas, its shelves, the toolbox, the actions, the validation and the reveal
+   (spec, sections 10.5 and 11). The look of section 11: thick outlines, hard shadows, no blur. */
+
+/* ---------------------------------------------------------------- the three columns */
+.p2 { display: flex; flex-direction: column; min-width: 0; }
+.p2-top {
+  --act-w: clamp(236px, 19.5vw, 300px); --tool-w: clamp(200px, 16.5vw, 260px);
+  height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); min-height: 560px;
+  display: grid; grid-template-columns: var(--act-w) minmax(0, 1fr) var(--tool-w);
+  gap: 10px; padding: 8px 10px 10px;
+}
+.p2-below { padding: 4px 10px 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 12px; align-items: start; }
+.colhead .s.ellip { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.p2-map { overflow: hidden; }
+.p2-map .colhead { justify-content: flex-start; }
+.p2-map .colhead .s { margin-left: 6px; }
+
+/* Money, developers, validations */
+.purse { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.purse .pf { display: inline-flex; align-items: baseline; gap: 6px; font-size: 14px; white-space: nowrap; }
+.purse .pl { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.85; }
+.purse .num { font-size: 22px; line-height: 1; }
+.purse .muted { color: inherit; opacity: 0.7; }
+.purse .unit { font-size: 12px; font-weight: 800; opacity: 0.85; }
+.purse .devs { display: inline-flex; gap: 3px; align-self: center; }
+.purse .devs i { display: block; width: 10px; height: 15px; border: 2px solid currentColor; }
+.purse .devs i.held { background: var(--sun); }
+.topbar .purse { margin-left: 4px; padding-left: 14px; border-left: 2px solid var(--bar-muted); }
+.purse-col { flex-shrink: 0; padding: 7px 12px 6px; border-bottom: 3px solid var(--line); background: var(--inset); }
+.purse-col .bwline, .bwline.pad { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.bwline.pad { padding: 4px 4px 8px; }
+
+/* The title bar of the map holds what is going on, the selection, undo and redo. One height. */
+.colhead.maphead { height: 46px; gap: 12px; padding-right: 6px; }
+.mapbar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.mapbar .btn.small { min-height: 34px; height: 34px; font-size: 17px; border-color: #1d2140; box-shadow: 2px 2px 0 rgba(29, 33, 64, 0.45); background: #fff; color: #1d2140; }
+.mapbar .btn.small.danger { background: var(--bad-bg); color: var(--bad); }
+.mapbar .btn.small:disabled { opacity: 0.5; }
+.mhint { flex: 1; min-width: 0; font-size: 13px; font-weight: 800; color: var(--on); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mhint.msg { background: #fff; color: #1d2140; padding: 2px 6px; border: 2px solid #1d2140; }
+
+/* Shelves: chips that inform. A chip is flat and round, so nobody takes it for a button. */
+.shelves { flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; padding: 5px 10px; border-bottom: 2px solid var(--soft); }
+.shelf { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.shelf-t { width: 104px; white-space: nowrap; flex-shrink: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.shelf-items { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.schip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px; background: var(--inset); color: var(--ink); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.schip:hover { background: var(--sky-bg); }
+.schip.is-locked { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--soft); }
+
+/* ---------------------------------------------------------------- the grid */
+.gridwrap { flex: 1; min-height: 0; overflow: hidden; }
+.gridscroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.cgrid {
+  position: relative; height: 100%; box-sizing: border-box;
+  display: grid;
+  /* The side columns take a share of the width, never a fixed maximum: a grid fills fixed
+     maximums before its cells get any room. */
+  grid-template-columns: minmax(100px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
+  grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(60px, 1fr));
+  /* The gap between two columns holds a line with its head, so a short line still reads as an arrow. */
+  column-gap: 32px; row-gap: 6px; padding: 4px 14px 8px 8px;
+}
+.chdr { grid-row: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; align-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chdr:first-child { text-align: left; }
+/* The name of a stage of the work over a column: up to four words on two lines. A tap or a
+   pointer says its sentence. It is a quiet word, not a button. */
+.chdr.stage { position: relative; z-index: 5; overflow: visible; white-space: normal; text-transform: none; letter-spacing: 0; font-size: 12px; line-height: 1.15; color: var(--ink); }
+.chdr-b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: help; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+.chdr-b:focus-visible { outline: 3px solid var(--sky); }
+.chint { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); width: max(180px, 100%); padding: 6px 8px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); font-size: 12.5px; font-weight: 700; line-height: 1.3; text-align: left; }
+.csources { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.csource {
+  position: relative; z-index: 2; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; column-gap: 4px;
+  padding: 2px 12px 2px 5px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
+  font-size: 13px; font-weight: 800; line-height: 1.15;
+}
+.csource .cs-name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.csource.is-locked { border-style: dashed; color: var(--muted); box-shadow: none; background: var(--inset); padding-right: 6px; }
+.csource .cs-lock { grid-column: 1 / -1; font-size: 11px; font-weight: 700; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* A locked source keeps one line for its name and one for what opens it; the whole text is its title. */
+.csource.is-locked { align-content: center; }
+.csource.is-locked { cursor: help; }
+.csource.is-locked .cs-lock { -webkit-line-clamp: 1; }
+.csource.from { box-shadow: 0 0 0 4px var(--sky); }
+.ccell { z-index: 0; border: 2px dashed var(--soft); min-width: 0; }
+.ccell.open { border-color: var(--go); background: var(--go-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ccell.open:hover, .ccell.open:focus-visible { outline: 3px solid var(--go); outline-offset: -1px; }
+.ccell.dropping { background: var(--sky-bg); border-color: var(--sky); }
+.ccell-plus { font-family: var(--face); font-size: 26px; line-height: 1; color: var(--good); }
+.ctile {
+  position: relative; z-index: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 2px;
+  padding: 0 4px 4px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
+}
+.ctile .ct-head { display: flex; align-items: center; gap: 3px; margin: 0 -4px 1px; padding: 1px 4px; min-height: 19px; border-bottom: 2px solid var(--line); font-size: 13px; font-weight: 800; line-height: 1.15; color: var(--on); }
+.ctile.k-ai .ct-head { background: var(--sky); }
+.ctile.k-fixed .ct-head { background: var(--lav); }
+.ctile.k-person .ct-head { background: var(--sun); }
+/* A little tighter, so that an eleven-letter name fits a tile at 1280 wide. */
+.ctile .ct-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.2px; }
+.ctile .ct-part { display: flex; align-items: center; gap: 3px; min-height: 17px; height: 17px; padding: 0 3px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 11.5px; letter-spacing: -0.01em; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ctile .ct-part span { overflow: hidden; text-overflow: ellipsis; }
+.ctile .ct-part:hover { background: var(--sky-bg); }
+.ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
+.ctile div.ct-part { cursor: default; }
+.ctile .ct-note { font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -11px; z-index: 4; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
+.ctile .ct-parts { font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctile.sel { outline: 3px solid var(--sky); outline-offset: 2px; }
+.ctile:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.ctile.stray { border-style: dashed; box-shadow: none; opacity: 0.62; }
+.ctile.moving { opacity: 0.4; }
+.ctile.lit, .cresult.lit { box-shadow: 0 0 0 4px var(--go); cursor: pointer; }
+.ctile.over, .cresult.over { box-shadow: 0 0 0 6px var(--go); }
+.joining .ctile:not(.lit) { cursor: not-allowed; }
+.cmark { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; font-size: 12px; font-weight: 900; line-height: 1; }
+.cmark.warn { background: var(--sun); color: #1d2140; border: 2px solid #1d2140; }
+.cmark.lock { color: var(--muted); }
+.cport {
+  position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 3px solid var(--line); cursor: crosshair; touch-action: none;
+}
+.cport::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+.cport:hover, .cport:focus-visible { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); outline: none; }
+.cport.on { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); }
+.cport.ro { width: 10px; height: 10px; right: -7px; border-width: 2px; cursor: default; }
+.cresult-col { display: flex; align-items: center; min-width: 0; }
+.cresult {
+  position: relative; z-index: 2; width: 100%; min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px 4px; background: var(--go-bg); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
+  font-size: 13px; font-weight: 800; line-height: 1.15; text-align: center; color: var(--ink); outline: none;
+}
+.cresult .cr-name { overflow-wrap: anywhere; }
+.clines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: visible; }
+.cline path { fill: none; }
+.cline .halo { stroke: var(--panel); stroke-width: 8; }
+.cline .ink { stroke-width: 3; }
+.cline.handoff .halo { stroke-width: 10; }
+.cline.handoff .ink { stroke-width: 5.5; }
+.cline .hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; outline: none; }
+/* While a worker is placed or moved, a click on a cell under a line goes to the cell. */
+.cgrid.placing .cline .hit { pointer-events: none; }
+.cline:hover .ink { stroke-width: 5; }
+.cline.sel .halo { stroke: var(--sky); stroke-width: 12; }
+.cline.sel .ink { stroke-width: 5; }
+.cline.handoff.sel .ink, .cline.handoff:hover .ink { stroke-width: 7; }
+/* What the two kinds of line mean, where the hint above the grid stands */
+.lglegend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lg-i { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.lg-line path { fill: none; stroke: currentColor; stroke-width: 2; }
+.lg-line.heavy path { stroke-width: 4.5; }
+.lg-line .lg-head { fill: currentColor; stroke: none; }
+.mhint .lg-tip { font-weight: 700; opacity: 0.9; }
+.cline .hit:focus-visible { stroke: var(--sky); stroke-opacity: 0.35; }
+.cline.faded { opacity: 0.3; }
+.cline-drag { fill: none; stroke-width: 3; stroke-dasharray: 7 5; }
+
+/* A small drawing: a reveal, a card on the projector, the host's view of a player. */
+.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 24px; row-gap: 4px; padding: 2px 10px 4px 4px; }
+.cgrid.compact .chdr { font-size: 9.5px; }
+.cgrid.compact .chdr.stage { font-size: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* A tile's name on a small map takes two lines before it is cut, and has no icon beside it. */
+.cgrid.compact .ct-name { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.1; }
+.cgrid.compact .ct-head { align-items: flex-start; }
+.cgrid.compact .cline.handoff .halo { stroke-width: 7; }
+.cgrid.compact .cline.handoff .ink { stroke-width: 4; }
+.cgrid.compact .csource, .cgrid.compact .cresult { font-size: 10.5px; border-width: 2px; box-shadow: 2px 2px 0 var(--shade); min-height: 0; }
+.cgrid.compact .cresult { padding: 3px; }
+.cgrid.compact .ctile { border-width: 2px; box-shadow: 2px 2px 0 var(--shade); padding: 0 3px 2px; }
+.cgrid.compact .ct-head { font-size: 10px; margin: 0 -3px; padding: 1px 3px; }
+.cgrid.compact .cline .halo { stroke-width: 5; }
+.cgrid.compact .cline .ink { stroke-width: 1.8; }
+.cgrid.compact .csource { grid-template-columns: minmax(0, 1fr) auto; padding: 1px 10px 1px 4px; }
+.cgrid.compact .csource > .cicon { display: none; }
+.cgrid.compact .csource .cs-name { -webkit-line-clamp: 3; font-size: 10px; }
+.cgrid.compact .ct-mini { font-size: 9.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.cgrid.compact .ct-mini.missing { color: var(--bad); }
+.cgrid.compact .ctile { gap: 0; }
+
+/* The foot of the map: what it takes to run, and Validate */
+.mapfoot { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-height: 58px; border-top: 2px solid var(--soft); }
+.runline { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.3; }
+.runline > span:first-child { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.runline .over { color: var(--bad); font-weight: 800; }
+.runline .pwarn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.vwrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.vwhy { max-width: 300px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+/* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
+.vwhy.block { color: var(--ink); font-weight: 800; }
+.vwhy.ok { color: var(--good); }
+.vwhy.warn { color: var(--bad); font-weight: 800; }
+.vwhy .vmore { font-weight: 700; color: var(--muted); }
+@keyframes whyflash { 0% { background: var(--sun-bg); box-shadow: 0 0 0 4px var(--sun); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+.vwhy.flash { animation: whyflash 1.4s ease-out; }
+/* A Validate that cannot act looks unavailable and still answers a press with its reason. */
+.vbtn.off { opacity: 0.55; box-shadow: none; transform: none; cursor: help; }
+.vbtn { min-height: 44px; min-width: 196px; font-size: 22px; }
+.vbtn.running { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 12px; border: 3px solid var(--line); background: var(--sky-bg); font-size: 14px; font-weight: 800; }
+.vbtn .runbar, .arow .runbar { width: 100%; height: 9px; border: 2px solid var(--line); background: var(--panel); display: block; }
+.vbtn .runbar i, .arow .runbar i { display: block; height: 100%; background: var(--sky); transition: width .25s linear; }
+
+/* ---------------------------------------------------------------- toolbox */
+.toolbox { display: flex; flex-direction: column; }
+.tb-hint { padding: 6px 10px; font-size: 12.5px; line-height: 1.3; color: var(--muted); border-bottom: 2px solid var(--soft); }
+.tbgroup-t { padding: 2px 10px 1px; font-family: var(--face); font-size: 17px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+.tbrow { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 8px 4px 10px; border: 0; border-bottom: 2px solid var(--soft); background: var(--panel); color: var(--ink); text-align: left; font: inherit; cursor: grab; min-height: 40px; width: 100%; }
+.toolbox.phone .tbrow { min-height: 48px; }
+.tbrow:hover:not(:disabled) { background: var(--inset); }
+.tbrow.on { background: var(--sun-bg); box-shadow: inset 5px 0 0 var(--sun); }
+.tbrow.is-locked { cursor: not-allowed; }
+.tbrow.is-locked .tb-ic, .tbrow.is-locked .tb-l, .tbrow.is-locked .tb-d, .tbrow.is-locked .tb-task { opacity: 0.55; }
+.tb-ic { width: 26px; height: 26px; border: 3px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--on); }
+.toolbox.phone .tb-ic { width: 32px; height: 32px; }
+.toolbox.phone .tbrow { grid-template-columns: 32px minmax(0, 1fr); }
+.tbrow.k-ai .tb-ic { background: var(--sky); } .tbrow.k-fixed .tb-ic { background: var(--lav); } .tbrow.k-person .tb-ic { background: var(--sun); }
+.tb-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tb-l { display: block; font-size: 13.5px; font-weight: 800; line-height: 1.2; }
+.toolbox.phone .tb-l { font-size: 14px; }
+.tb-ln { margin-right: 6px; }
+.tb-k { white-space: nowrap; font-size: 10px; letter-spacing: 0.03em; }
+.tb-task { font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--ink); opacity: 0.8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.toolbox.phone .tb-task { -webkit-line-clamp: unset; }
+.toolbox:not(.phone) .tbrow .tb-lock > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbox.phone .tb-lock { align-items: flex-start; }
+.tb-pop .tb-lock { font-weight: 800; }
+/* The card beside a row that is pointed at: what the row leaves out. */
+.tb-pop { position: fixed; z-index: 60; width: 250px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); pointer-events: none; }
+.tb-pop.k-ai { border-left: 8px solid var(--sky); } .tb-pop.k-fixed { border-left: 8px solid var(--lav); } .tb-pop.k-person { border-left: 8px solid var(--sun); }
+.tb-k { font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tb-d { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.tb-c { font-size: 12px; line-height: 1.3; color: var(--muted); font-style: italic; }
+.tb-lock, .tb-on { font-size: 12px; font-weight: 800; line-height: 1.3; display: flex; align-items: center; gap: 4px; }
+.tb-on { color: var(--ink); }
+.toolbox.phone .tbrow { padding: 10px 12px; }
+
+/* ---------------------------------------------------------------- actions */
+.agroup-t { padding: 5px 12px 3px; font-family: var(--face); font-size: 20px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+.alist .inv-note.one { padding: 5px 10px; font-size: 12.5px; line-height: 1.3; cursor: help; }
+.arow { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 2px 8px; align-items: center; padding: 5px 10px 6px; border-bottom: 2px solid var(--soft); }
+.arow .ttl { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.arow .ttl:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.arow .amark { margin-left: 6px; color: var(--muted); }
+.arow .amore { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 1px; }
+.arow .iact .ibtn { min-height: 34px; }
+.arow.running { background: var(--sky-bg); }
+.arow.blocked .t, .arow.blocked .tz { color: var(--muted); }
+.arow .t { font-size: 14px; font-weight: 800; line-height: 1.2; }
+.arow .tz { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.arow .meta { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.3; }
+.arow .meta.opens { color: var(--good); }
+.arow .ablock { grid-column: 1 / -1; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.arow .ibtn.run small { font-size: 11px; }
+
+/* ---------------------------------------------------------------- choosers */
+.partlist { display: flex; flex-direction: column; gap: 8px; }
+.partrow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 8px 12px; border: 3px solid var(--line); background: var(--panel); color: var(--ink); box-shadow: 2px 2px 0 var(--shade); text-align: left; font: inherit; cursor: pointer; }
+.partrow:hover:not(:disabled) { background: var(--inset); }
+.partrow.on { background: var(--sky-bg); }
+.partrow:disabled { box-shadow: none; cursor: not-allowed; }
+.partrow:disabled .pr-l, .partrow:disabled .pr-d { opacity: 0.6; }
+.pr-l { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.pr-cur { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 7px; background: var(--go-bg); color: var(--good); }
+.pr-d { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.pr-x { font-size: 13px; font-weight: 800; color: var(--bad); }
+.sheet.promptsheet { width: min(1120px, 100%); }
+.pcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.pcard { display: flex; flex-direction: column; min-width: 0; border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); }
+.pcard.on { box-shadow: 0 0 0 4px var(--go), 3px 3px 0 var(--shade); }
+.pcard.is-locked .pc-desc, .pcard.is-locked .pc-sample { opacity: 0.6; }
+.pc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 10px; background: var(--lav); color: var(--on); border-bottom: 3px solid var(--line); font-family: var(--face); font-size: 22px; line-height: 1.1; }
+.pc-def { font-family: var(--text); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.pc-desc { padding: 8px 10px 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+.pc-about { font-size: 15px; font-weight: 800; line-height: 1.35; }
+.pc-intro { font-size: 14px; line-height: 1.35; }
+.pc-sample { flex: 1; margin: 8px 10px; padding: 7px 9px; background: var(--inset); border: 2px solid var(--soft); color: var(--ink); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pc-s { display: flex; flex-direction: column; }
+.pc-s + .pc-s { margin-top: -2px; }
+.pc-sl { padding: 6px 10px 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.pc-s .pc-sample { flex: 0 0 auto; margin-top: 3px; }
+.pc-foot { padding: 0 10px 10px; min-height: 44px; display: flex; align-items: center; }
+.pc-foot .btn { width: 100%; min-height: 40px; }
+.pc-lock { font-size: 13px; font-weight: 800; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.pc-in { font-size: 14px; font-weight: 800; color: var(--good); }
+
+/* ---------------------------------------------------------------- results and insights */
+.p2results .panel-body, .p2insights .panel-body { gap: 10px; }
+.vtop { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.vacc { display: flex; align-items: baseline; gap: 8px; }
+.vacc .num { font-size: 56px; line-height: 1; }
+.vacc .face { font-size: 22px; }
+.vrank { font-size: 16px; font-weight: 800; }
+.vhist { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vhist .pl { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.hchip { height: 28px; padding: 0 10px; border: 0; border-radius: 14px; background: var(--inset); box-shadow: inset 0 0 0 2px var(--soft); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.hchip.on { background: var(--sky-bg); box-shadow: inset 0 0 0 2px var(--line); }
+.hchip.send { color: var(--good); }
+.vmiss p { font-size: 15px; line-height: 1.45; }
+.vmiss .why { color: var(--muted); }
+.vnote { padding: 6px 10px; background: var(--sun-bg); border-left: 5px solid var(--sun); font-size: 14.5px; line-height: 1.4; }
+.vacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vacts .flag { margin-left: 0; font-size: 12px; padding: 4px 10px; }
+.icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: stretch; }
+.icards .card { cursor: default; }
+.h-g-learn { background: var(--sky); } .h-g-build { background: var(--go); } .h-g-buy { background: var(--sun); } .h-g-negotiate { background: var(--lav); }
+.p2toast { display: flex; align-items: center; gap: 12px; bottom: 24px; }
+.p2toast .btn { min-height: 32px; }
+
+/* ---------------------------------------------------------------- phone */
+.p2-phone { flex: 1; min-height: 0; display: flex; flex-direction: column; height: calc(100dvh - var(--top-h)); }
+.p2-phone-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; background: var(--panel); }
+.p2pmap { display: flex; flex-direction: column; min-height: 0; }
+.p2pmap .purse, .p2pcol .purse { padding: 8px 10px; background: var(--inset); border-bottom: 2px solid var(--soft); gap: 12px; }
+.p2pmap .gridscroll { flex-shrink: 0; }
+.p2pmap .cgrid { min-width: 780px; height: auto; grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(84px, auto)); }
+.p2pmap .mapfoot { flex-wrap: wrap; }
+.p2pmap .vwrap { width: 100%; justify-content: space-between; }
+.p2pmap .vwhy { text-align: left; max-width: none; flex: 1; }
+.p2pcol { display: flex; flex-direction: column; }
+.p2pcol.pad { padding: 8px; gap: 12px; background: var(--bg); }
+.ptabs.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.p2-phone .mapbar { flex-wrap: wrap; padding: 6px 10px; }
+.p2-phone .mhint { flex-basis: 100%; }
+.p2-phone .shelf { align-items: flex-start; }
+.p2-phone .shelf-t { padding-top: 6px; width: 104px; }
+
+/* ---------------------------------------------------------------- reveal */
+.p2maps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.p2maps .panel-head .sub { margin-left: auto; }
+.p2maps .cgrid { height: 420px; min-width: 520px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
+.refsum { font-size: 15px; line-height: 1.45; }
+.rcases { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(130px, 1fr) minmax(130px, 1fr); gap: 8px 16px; align-items: center; }
+.rcases .rc-head, .rcases .rcase { display: contents; }
+.rc-head span { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.rc-t { font-size: 15px; font-weight: 800; }
+.rc-x { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.rc-bar { display: flex; align-items: center; gap: 8px; }
+.rc-bar .bar { flex: 1; height: 14px; border: 2px solid var(--line); background: var(--inset); }
+.rc-bar .bar i { display: block; height: 100%; background: var(--go); }
+.rc-bar.ref .bar i { background: var(--lav); }
+.rc-bar .num { width: 46px; text-align: right; font-size: 18px; }
+.panel-head.go { background: var(--go); }
+
+@media (min-width: 1600px) and (min-height: 900px) {
+  .cgrid:not(.compact) .ct-head, .cgrid:not(.compact) .csource, .cgrid:not(.compact) .cresult { font-size: 15px; }
+  .cgrid:not(.compact) .ct-part { font-size: 13.5px; height: 22px; min-height: 22px; }
+  .cgrid:not(.compact) .ct-note, .cgrid:not(.compact) .ct-body { font-size: 13px; }
+  .cgrid:not(.compact) { column-gap: 44px; row-gap: 8px; }
+  .toolbox:not(.phone) .tb-l { font-size: 15px; }
+  .toolbox:not(.phone) .tb-task, .toolbox:not(.phone) .tb-lock { font-size: 13px; }
+  .tbgroup-t { font-size: 19px; }
+  .arow .t { font-size: 15.5px; }
+  .arow .meta, .alist .inv-note.one { font-size: 13px; }
+}
+@media (max-width: 1023px) {
+  /* A notice stands above the tab bar of a phone, never over it. */
+  .toast, .p2toast { bottom: 74px; }
+  .p2-below { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+  .p2maps { grid-template-columns: minmax(0, 1fr); }
+  .p2maps .gridscroll .cgrid { min-width: 640px; }
+  .rcases { grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 8px 10px; }
+  .vacc .num { font-size: 44px; }
+}
+@media (max-width: 560px) {
+  .rcases { grid-template-columns: minmax(0, 1fr) 92px 92px; }
+  .rc-bar .num { width: 40px; font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .vbtn .runbar i, .arow .runbar i { transition: none; } }
+
+/* The host's view of one player in Phase 2 (section 10.8) */
+.insp-map .cgrid { height: 360px; min-width: 640px; }
+.insp-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.insp-vals, .insp-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.insp-acts .chip { font-size: 12.5px; }
+.insp-cases .kv { font-size: 14px; }
+.insp-flags { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+@media (max-width: 760px) { .insp-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* A practice's map on the projector, at its 1920 by 1080 design (section 10.9) */
+.screen-map { padding: 10px 14px; }
+.screen-map .cgrid { grid-template-columns: minmax(150px, 16%) repeat(var(--cols), minmax(0, 1fr)) minmax(110px, 12%); grid-template-rows: minmax(26px, auto) repeat(var(--rows), minmax(0, 1fr)); column-gap: 34px; row-gap: 10px; }
+.screen-map .cgrid .chdr { font-size: 16px; }
+.screen-map .cgrid .csource, .screen-map .cgrid .cresult { font-size: 21px; border-width: 4px; }
+.screen-map .cgrid .ctile { border-width: 4px; }
+.screen-map .cgrid .ct-head { font-size: 21px; min-height: 30px; }
+.screen-map .cgrid.compact .ct-name { -webkit-line-clamp: 2; }
+.screen-map .cgrid .ct-part { font-size: 18px; height: 27px; min-height: 27px; }
+.screen-map .cline .halo { stroke-width: 11; }
+.screen-map .cline .ink { stroke-width: 4.5; }
+.screen-map .cline.handoff .halo { stroke-width: 15; }
+.screen-map .cline.handoff .ink { stroke-width: 9; }
+.screen-map .cgrid .chdr.stage { font-size: 17px; }
+.screen-map .cport.ro { width: 16px; height: 16px; right: -10px; border-width: 3px; }
+
+/* What stands in a tile that has no boxes of parts: a person's minutes, a tool's task. */
+.ctile .ct-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--muted); padding-top: 1px; }
+.ctile.k-person .ct-body { color: var(--ink); font-size: 12px; }
+.ctile .ct-body.over { color: var(--bad); }
+.cgrid.compact .ct-body { font-size: 9.5px; line-height: 1.2; -webkit-line-clamp: 2; padding-top: 0; }
+/* The mark of the next thing to do: the tile, the box, the result or the sources it is about.
+   The same mark wherever a map is drawn for the player. */
+@keyframes guidepulse { 0%, 100% { box-shadow: 0 0 0 3px var(--sun); } 50% { box-shadow: 0 0 0 7px rgba(255, 185, 60, 0.45); } }
+.ctile.guided, .cresult.guided, .csource.guided { animation: guidepulse 1.6s ease-in-out infinite; }
+.ctile .ct-part.guided { box-shadow: inset 0 0 0 2px var(--bad); background: var(--bad-bg); }
+@media (prefers-reduced-motion: reduce) { .ctile.guided, .cresult.guided, .csource.guided { animation: none; box-shadow: 0 0 0 5px var(--sun); } }
+/* A sentence at the place of an action: why it was refused, or advice on a line. */
+.cnote { position: absolute; z-index: 8; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 13px; font-weight: 700; line-height: 1.3; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); animation: pop .18s ease-out; }
+.cnote.refuse { border-color: var(--bad); background: var(--bad-bg); }
+.cnote.advice { border-color: var(--sky); background: var(--sky-bg); }
+.cnote span { flex: 1; min-width: 0; }
+.cnote-x { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1; cursor: pointer; }
+.cgrid.compact .cnote { font-size: 11px; }
+/* The mark on a line that comes with advice. */
+.cadvice circle:first-child { fill: var(--sky); stroke: var(--line); stroke-width: 2; }
+.cadvice text { font-family: var(--text); font-size: 12px; font-weight: 900; fill: #1d2140; pointer-events: none; }
+.cgrid.compact .cadvice text { font-size: 9px; }
+.cadvice .cadvice-hit { fill: transparent; pointer-events: all; cursor: pointer; outline: none; }
+.cadvice .cadvice-hit:focus-visible { stroke: var(--sky); stroke-width: 3; }
+.joining .csource:not(.is-locked), .joining .cresult:not(.lit) { cursor: not-allowed; }
+
+.tb-told { font-size: 12.5px; font-weight: 800; line-height: 1.3; color: var(--bad); }
+/* The help panel's samples of the marks of the map. */
+.hm-stray { display: inline-block; width: 40px; height: 24px; border: 3px dashed var(--line); opacity: .62; }
+.hm-missing { font-size: 11px; font-weight: 700; padding: 1px 4px; background: var(--sun-bg); box-shadow: inset 0 0 0 2px var(--sun); white-space: nowrap; }
+.hm-guide { display: inline-block; width: 40px; height: 24px; border: 3px solid var(--line); box-shadow: 0 0 0 4px var(--sun); }
+.help-marks .lglegend { flex-direction: column; align-items: flex-start; gap: 4px; grid-column: 1 / -1; justify-self: start; }
