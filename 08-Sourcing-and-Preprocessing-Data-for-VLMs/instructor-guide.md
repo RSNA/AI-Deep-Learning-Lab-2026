@@ -99,3 +99,13 @@ capacity still require rehearsal; this access plan does not provision or purchas
 Arena availability and quota are separate from hospital access. Its last inspected public API used an image-only
 fixed prompt and external inference had not been validated successfully. Recheck before promising it for
 independent practice. Drafts remain separate from finalized hospital reports. See the deployment guide.
+
+
+## Presenter guidance versus participant instructions
+
+The notebooks address participants directly. Keep timing decisions, faculty handoffs and the history of
+integrating contributions in this guide and the adaptation notes. Begin installation during the introduction;
+if setup takes longer, shorten the walkthrough and omit the optional cohort exercise to preserve catch-up time.
+Run collapsed helpers once and expand them for discussion only when useful.
+Imon Banerjee's matching and extraction contribution and Alessia Guarnera's visual exercises remain credited
+in these materials; participant section titles describe the task rather than the contributor.
