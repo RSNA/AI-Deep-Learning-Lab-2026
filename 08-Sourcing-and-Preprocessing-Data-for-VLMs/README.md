@@ -96,13 +96,17 @@ the backup walkthrough provides expected results while those slides are consolid
 
 ### Workflow overview and one-case inference
 
-The main notebook now opens with an embedded [stack overview](assets/lab-workflow-overview.png), showing
-FHIR clinical records, Orthanc/DICOMweb images, Colab curation and preprocessing, and the resulting training example.
-A final optional cell sends only the first prepared PNG to pretrained MedGemma through Radiology Arena and
-compares a successful generated draft with the reference Findings. Clinical context is not accepted by this
-image-only endpoint. Run all leaves inference disabled; the cell attempts at most once per runtime.
+The main notebook opens with an embedded [stack overview](assets/lab-workflow-openrouter.png): FHIR clinical
+records, Orthanc/DICOMweb images, Colab curation/preprocessing, the training example and model inference.
+The final optional cell sends its prepared image and clinical context to the hospital's `/api/inference`
+endpoint using the classroom token. The server calls pretrained GPT-6.1 Sol through OpenRouter; provider
+credentials remain server-side. Students need no Hugging Face account, model download, provider key or GPU.
+Reference Findings are not sent to the model. The returned draft is compared with that teaching target,
+without presenting the comparison as an accuracy benchmark or writing a hospital report.
 
-November 23 validation: both notebooks passed in fresh local kernels against public HTTPS; all 30 automated
-tests passed. Live calls to CheXOne and MedGemma returned model-backend configuration errors. This optional
-finale therefore still needs a successful live rehearsal after the Arena backend is restored; it does not
-block the core lab. No successful model output is claimed for those failed attempts.
+Identical requests share a persisted model response, labelled as cached; each classroom token may use two
+distinct teaching cases. Run all leaves inference disabled. On November 23, public live inference succeeded
+and 20 simultaneous student requests shared one generation. Both notebooks passed in independent fresh
+local kernels against public HTTPS, including the enabled GPT finale, and 32 automated tests passed.
+The earlier Colab rehearsal predates this endpoint; a new Colab rehearsal of the GPT finale is still pending.
+Arena remains separate optional material in the complementary notebook.

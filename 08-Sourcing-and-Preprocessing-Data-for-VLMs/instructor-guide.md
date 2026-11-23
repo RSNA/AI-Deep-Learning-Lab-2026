@@ -112,17 +112,19 @@ in these materials; participant section titles describe the task rather than the
 
 ## Opening overview and optional inference finale
 
-The first image maps the clinical records (FHIR), Orthanc images (DICOMweb), Colab curation/preprocessing,
-training example and optional image-only inference. It is embedded in the notebook so opening the diagram
-requires no hospital connection. The detailed API route guide remains in section 1.
+The first embedded image maps clinical records (FHIR), Orthanc images (DICOMweb), Colab curation/preprocessing,
+the training example and optional image/context inference. The detailed route guide remains in section 1.
 
-The final cell optionally sends the first prepared PNG to pretrained MedGemma through Radiology Arena.
-It compares generated text with the reference Findings and does not train a model or write a hospital report.
-The reference is a short teaching target, not a complete gold standard. The Arena endpoint accepts images
-only: age, gender and visit reason are not inference inputs in this demo. Reserve this for the wrap-up if time
-allows; it should not displace the FHIR, matching or preprocessing exercises. Run all leaves it disabled.
-The cell attempts inference once per runtime; a failure is shown explicitly, without a substitute draft.
+The final cell posts the prepared PNG and age/gender/visit reason to the hospital's `/api/inference` endpoint
+using the classroom token. The hospital validates the case and calls pretrained GPT-6.1 Sol through OpenRouter.
+No provider credentials, Hugging Face login, model download or GPU are required from students. Reference
+Findings are not sent to the model. Compare the generated draft with the short teaching target and inspect
+agreements and disagreements; this is not a clinical accuracy benchmark and no training occurred in the lab.
 
-November 23 live check: the Arena front-end contract was reachable, but both CheXOne and MedGemma returned
-“Could not fetch config” for their model backends. Do not promise a live generated report until the backend
-is restored and rehearsed. The core data preparation workflow remains independent of this optional service.
+Each token may use two distinct cases among study-001 through study-004. Identical inputs share one persisted
+result, including concurrent requests. The notebook labels cached responses clearly and polls pending work.
+Run all leaves inference disabled. A failed/uncertain provider call is not automatically charged again.
+Keep this optional within the wrap-up; Arena polling/deployment remains in the complementary notebook.
+
+November 23 rehearsal: public inference returned a real GPT-6.1 Sol draft. Twenty concurrent student-token
+requests resulted in one generation and shared results. Both notebooks are tested against the public hospital.
