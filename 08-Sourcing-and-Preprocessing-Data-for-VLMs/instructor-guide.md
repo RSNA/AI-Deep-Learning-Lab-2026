@@ -109,3 +109,20 @@ if setup takes longer, shorten the walkthrough and omit the optional cohort exer
 Run collapsed helpers once and expand them for discussion only when useful.
 Imon Banerjee's matching and extraction contribution and Alessia Guarnera's visual exercises remain credited
 in these materials; participant section titles describe the task rather than the contributor.
+
+## Opening overview and optional inference finale
+
+The first image maps the clinical records (FHIR), Orthanc images (DICOMweb), Colab curation/preprocessing,
+training example and optional image-only inference. It is embedded in the notebook so opening the diagram
+requires no hospital connection. The detailed API route guide remains in section 1.
+
+The final cell optionally sends the first prepared PNG to pretrained MedGemma through Radiology Arena.
+It compares generated text with the reference Findings and does not train a model or write a hospital report.
+The reference is a short teaching target, not a complete gold standard. The Arena endpoint accepts images
+only: age, gender and visit reason are not inference inputs in this demo. Reserve this for the wrap-up if time
+allows; it should not displace the FHIR, matching or preprocessing exercises. Run all leaves it disabled.
+The cell attempts inference once per runtime; a failure is shown explicitly, without a substitute draft.
+
+November 23 live check: the Arena front-end contract was reachable, but both CheXOne and MedGemma returned
+“Could not fetch config” for their model backends. Do not promise a live generated report until the backend
+is restored and rehearsed. The core data preparation workflow remains independent of this optional service.

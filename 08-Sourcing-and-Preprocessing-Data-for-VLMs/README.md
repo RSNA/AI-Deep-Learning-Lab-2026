@@ -92,3 +92,17 @@ the backup walkthrough provides expected results while those slides are consolid
 ---
 
 [← Back to all labs](../README.md)
+
+
+### Workflow overview and one-case inference
+
+The main notebook now opens with an embedded [stack overview](assets/lab-workflow-overview.png), showing
+FHIR clinical records, Orthanc/DICOMweb images, Colab curation and preprocessing, and the resulting training example.
+A final optional cell sends only the first prepared PNG to pretrained MedGemma through Radiology Arena and
+compares a successful generated draft with the reference Findings. Clinical context is not accepted by this
+image-only endpoint. Run all leaves inference disabled; the cell attempts at most once per runtime.
+
+November 23 validation: both notebooks passed in fresh local kernels against public HTTPS; all 30 automated
+tests passed. Live calls to CheXOne and MedGemma returned model-backend configuration errors. This optional
+finale therefore still needs a successful live rehearsal after the Arena backend is restored; it does not
+block the core lab. No successful model output is claimed for those failed attempts.
