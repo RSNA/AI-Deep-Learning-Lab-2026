@@ -156,7 +156,7 @@ export function Assessment({ board, content, onEvidence, focus, phone = false }:
     <ProblemCard key={p.id} p={p} board={board} sorted={sorted} open={open === p.id} setOpen={(o) => setOpen(o ? p.id : null)} fresh={fresh === p.id} onEvidence={onEvidence} />
   )
   return (
-    <section className={`colbox assess sortcol${phone ? ' phone' : ''}`} aria-label={P1.assessment}>
+    <section className={`colbox assess sortcol${phone ? ' phone' : ''}`} aria-label={P1.assessment} data-tour="p1-assess">
       <div className="colhead sun">
         <span className="l"><h2>{P1.assessment}</h2><span className="s">{P1.filled(n, content.problems.length)}</span></span>
         <span className="r">{!board.locked && <button type="button" className="btn go small sendbtn" onClick={() => setSending(true)}>{P1.send}</button>}</span>

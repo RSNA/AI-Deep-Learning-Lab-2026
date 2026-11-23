@@ -97,14 +97,18 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
 /**
  * Texts of Phase 2 that a player receives one at a time, with their own validation or action:
  * the title and text of a case, what a missed fact or a decision says, a note, and the insight of
- * an action. They are in no list above, and the leak scan checks them per player.
+ * an action. They are in no list above, and the leak scan checks them per player. `rules` are the
+ * words of `line_rules` and `required`, which reach a player only with a line or a draft of their
+ * own and are never in the static content.
  */
 export function perPlayerTexts(pack: Pack, system: string): {
   cases: Record<string, string[]>; facts: Record<string, string[]>; notes: Record<string, string>; insights: Record<string, string[]>
+  rules: string[]
 } {
   const b = pack.systems[system]?.build
-  const out = { cases: {} as Record<string, string[]>, facts: {} as Record<string, string[]>, notes: {} as Record<string, string>, insights: {} as Record<string, string[]> }
+  const out = { cases: {} as Record<string, string[]>, facts: {} as Record<string, string[]>, notes: {} as Record<string, string>, insights: {} as Record<string, string[]>, rules: [] as string[] }
   if (!b) return out
+  out.rules = [...b.line_rules.map((r) => r.text), ...b.required.map((r) => r.text)].filter((x) => x.length >= LEAK_MIN_CHARS)
   for (const c of b.cases) out.cases[c.id] = [c.public.title, c.public.text, c.decision_miss]
   for (const f of b.facts) out.facts[f.id] = [f.miss.missing, f.miss.weak]
   for (const n of b.notes) out.notes[n.id] = n.text

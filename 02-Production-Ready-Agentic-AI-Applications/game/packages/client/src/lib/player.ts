@@ -26,7 +26,7 @@ type PlayerStore = {
   clearRestarted(): void
   start(token: string): void
   stop(): void
-  send(type: string, payload: unknown): Promise<{ ok: boolean; error?: string }>
+  send(type: string, payload: unknown): Promise<{ ok: boolean; error?: string; data?: unknown }>
 }
 
 let bubbleKey = 0
@@ -132,7 +132,7 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
     const conn = get().conn
     if (!conn) return { ok: false, error: 'network' }
     const r = await conn.command(type, payload)
-    return r.ok ? { ok: true } : { ok: false, error: r.error }
+    return r.ok ? { ok: true } : { ok: false, error: r.error, ...(r.data ? { data: r.data } : {}) }
   },
 }))
 

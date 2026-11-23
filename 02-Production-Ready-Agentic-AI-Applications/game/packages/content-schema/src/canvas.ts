@@ -40,7 +40,12 @@ export type CanvasTables = {
   actions?: readonly { id: string; unlocks?: readonly string[] }[]
   cases: readonly { id: string; weight: number; needs: readonly string[]; difficulty: 'plain' | 'hard' }[]
   notes?: readonly { id: string }[]
+  line_rules?: readonly LineRule[]
+  required?: readonly { workers: readonly string[]; text: string }[]
 }
+
+/** A line the practice cannot draw (`refuse`), or one that comes with a word of advice. */
+export type LineRule = { from: string; to: string; refuse: boolean; text: string }
 
 export const TILE_ID = /^t[0-9a-z]{1,8}$/
 export const MAX_LINES = 80
@@ -48,7 +53,7 @@ export const MAX_LINES = 80
 export type MapError =
   | 'bad_tile_id' | 'bad_kind' | 'off_grid' | 'cell_taken' | 'no_parts_here' | 'bad_model' | 'bad_compute'
   | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end'
-  | 'source_locked' | 'source_to_result' | 'line_backward' | 'result_takes_one_line'
+  | 'source_locked' | 'source_to_result' | 'line_backward' | 'result_takes_one_line' | 'line_refused'
 
 /** The items that some action unlocks. Every other item is open from the start. */
 export function lockedItems(t: CanvasTables): Set<string> {
@@ -84,6 +89,32 @@ export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col
 }
 
 const isInt = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x)
+
+/**
+ * The rule of `line_rules` that a line matches, or null: `from` is the id of its source or the
+ * kind of the tile it starts at, `to` the kind of the tile it ends at. A line into the result
+ * matches no rule. The first rule of the list that matches counts.
+ */
+export function lineRuleOf(line: CanvasLine, m: CanvasMap, t: CanvasTables): LineRule | null {
+  const rules = t.line_rules
+  if (!rules?.length || line.to === t.result.id) return null
+  const to = m.tiles.find((x) => x.id === line.to)
+  if (!to) return null
+  const fromTile = m.tiles.find((x) => x.id === line.from)
+  const from = fromTile ? fromTile.kind : line.from
+  return rules.find((r) => r.from === from && r.to === to.kind) ?? null
+}
+
+/** The lines of a map that a rule refuses (`refuse: true`) or advises on (`refuse: false`), with the rule. */
+export function ruledLines(m: CanvasMap, t: CanvasTables): { line: CanvasLine; rule: LineRule }[] {
+  if (!t.line_rules?.length) return []
+  const out: { line: CanvasLine; rule: LineRule }[] = []
+  for (const line of m.lines) {
+    const rule = lineRuleOf(line, m, t)
+    if (rule) out.push({ line: { from: line.from, to: line.to }, rule })
+  }
+  return out
+}
 
 /**
  * Why `set_map` refuses a map (section 6.6), sorted, without repeats. Empty when it is accepted.
@@ -141,6 +172,7 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
       const ca = tiles.get(a)!.col, cb = tiles.get(b)!.col
       if (typeof ca === 'number' && typeof cb === 'number' && !(ca < cb)) errs.add('line_backward')
     }
+    if (t.line_rules?.length && lineRuleOf(ln, m, t)?.refuse) errs.add('line_refused')
   }
   if (intoResult > 1) errs.add('result_takes_one_line')
   return [...errs].sort()
@@ -209,20 +241,77 @@ export function peopleMinutes(m: CanvasMap, t: CanvasTables): Record<string, num
   return out
 }
 
-export type ReadyReason = 'nothing_reaches_result' | 'no_source_connected' | 'tile_incomplete' | `too_many_minutes:${string}`
+export type ReadyReason =
+  | 'nothing_reaches_result' | 'no_source_connected' | 'tile_incomplete'
+  | `required_missing:${number}` | `too_many_minutes:${string}`
+
+/**
+ * One reason a map cannot be validated, with what it names: the tile and its missing parts, the
+ * entry of `required` with its text, or the pool with its minutes. `readyReasons` is the list of
+ * their codes, each once.
+ */
+export type ReadyDetail =
+  | { reason: 'nothing_reaches_result' }
+  | { reason: 'no_source_connected' }
+  | { reason: 'tile_incomplete'; tile: string; missing: ('model' | 'runsOn')[] }
+  | { reason: 'required_missing'; index: number; workers: string[]; text: string }
+  | { reason: 'too_many_minutes'; pool: string; used: number; max: number; tiles: string[] }
+
+/**
+ * Why an accepted map cannot be validated yet (section 6.6), in the order of `readyReasons`, with
+ * every incomplete live tile in the order of the map. Empty when it can.
+ */
+export function readyDetails(m: CanvasMap, t: CanvasTables): ReadyDetail[] {
+  const sh = mapShape(m, t)
+  if (sh.signer === null) return [{ reason: 'nothing_reaches_result' }]
+  const workers = new Map(t.workers.map((w) => [w.id, w]))
+  const out: ReadyDetail[] = []
+  if (![...sh.live].some((n) => sh.srcIn.get(n)!.length > 0)) out.push({ reason: 'no_source_connected' })
+  for (const n of sh.order) {
+    const tile = sh.tiles.get(n)!
+    if (!workers.get(tile.kind)!.needs_model) continue
+    const missing: ('model' | 'runsOn')[] = []
+    if (tile.model === null) missing.push('model')
+    if (tile.runsOn === null) missing.push('runsOn')
+    if (missing.length) out.push({ reason: 'tile_incomplete', tile: n, missing })
+  }
+  ;(t.required ?? []).forEach((r, index) => {
+    if (![...sh.live].some((n) => r.workers.includes(sh.tiles.get(n)!.kind))) {
+      out.push({ reason: 'required_missing', index, workers: [...r.workers], text: r.text })
+    }
+  })
+  const used = peopleMinutes(m, t)
+  for (const pool of t.pools ?? []) {
+    if ((used[pool.id] ?? 0) > pool.max + 1e-9) {
+      const tiles = [...sh.tiles.values()].filter((x) => workers.get(x.kind)?.pool === pool.id).sort((a, b) => a.col - b.col || a.row - b.row).map((x) => x.id)
+      out.push({ reason: 'too_many_minutes', pool: pool.id, used: used[pool.id]!, max: pool.max, tiles })
+    }
+  }
+  return out
+}
 
 /** Why an accepted map cannot be validated yet (section 6.6). Empty when it can. */
 export function readyReasons(m: CanvasMap, t: CanvasTables): ReadyReason[] {
-  const sh = mapShape(m, t)
-  if (sh.signer === null) return ['nothing_reaches_result']
-  const workers = new Map(t.workers.map((w) => [w.id, w]))
   const out: ReadyReason[] = []
-  if (![...sh.live].some((n) => sh.srcIn.get(n)!.length > 0)) out.push('no_source_connected')
-  for (const n of sh.order) {
-    const tile = sh.tiles.get(n)!
-    if (workers.get(tile.kind)!.needs_model && (tile.model === null || tile.runsOn === null)) { out.push('tile_incomplete'); break }
+  for (const d of readyDetails(m, t)) {
+    const code: ReadyReason = d.reason === 'required_missing' ? `required_missing:${d.index}` : d.reason === 'too_many_minutes' ? `too_many_minutes:${d.pool}` : d.reason
+    if (!out.includes(code)) out.push(code)
   }
-  const used = peopleMinutes(m, t)
-  for (const pool of t.pools ?? []) if ((used[pool.id] ?? 0) > pool.max + 1e-9) out.push(`too_many_minutes:${pool.id}`)
+  return out
+}
+
+/** The minutes a case each person tile asks in this map: the parts that `peopleMinutes` adds up. */
+export function tileMinutes(m: CanvasMap, t: CanvasTables): Record<string, number> {
+  const sources = new Map(t.sources.map((s) => [s.id, s]))
+  const tileIds = new Set(m.tiles.map((x) => x.id))
+  const out: Record<string, number> = {}
+  for (const tile of m.tiles) {
+    const mn = t.workers.find((x) => x.id === tile.kind)?.minutes
+    if (!mn) continue
+    const into = m.lines.filter((l) => l.to === tile.id)
+    let used = into.some((l) => tileIds.has(l.from)) ? mn.check : mn.decide
+    for (const l of into) { const s = sources.get(l.from); if (s) used += mn.per_line[s.effort] ?? 0 }
+    out[tile.id] = used
+  }
   return out
 }

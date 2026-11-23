@@ -56,9 +56,10 @@
   display: grid;
   /* The side columns take a share of the width, never a fixed maximum: a grid fills fixed
      maximums before its cells get any room. */
-  grid-template-columns: minmax(104px, 15%) repeat(var(--cols), minmax(0, 1fr)) minmax(76px, 11%);
+  grid-template-columns: minmax(96px, 13%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
   grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(60px, 1fr));
-  column-gap: 22px; row-gap: 6px; padding: 4px 14px 8px 8px;
+  /* The gap between two columns holds a line with its head, so a short line still reads as an arrow. */
+  column-gap: 36px; row-gap: 6px; padding: 4px 14px 8px 8px;
 }
 .chdr { grid-row: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; align-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chdr:first-child { text-align: left; }
@@ -115,8 +116,8 @@
 .cmark.warn { background: var(--sun); color: #1d2140; border: 2px solid #1d2140; }
 .cmark.lock { color: var(--muted); }
 .cport {
-  position: absolute; right: -12px; top: 50%; transform: translateY(-50%); z-index: 3;
-  width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 3px solid var(--line); cursor: crosshair; touch-action: none;
+  position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 3px solid var(--line); cursor: crosshair; touch-action: none;
 }
 .cport::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
 .cport:hover, .cport:focus-visible { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); outline: none; }
@@ -154,7 +155,7 @@
 .cline-drag { fill: none; stroke-width: 3; stroke-dasharray: 7 5; }
 
 /* A small drawing: a reveal, a card on the projector, the host's view of a player. */
-.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 13px; row-gap: 4px; padding: 2px 10px 4px 4px; }
+.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 24px; row-gap: 4px; padding: 2px 10px 4px 4px; }
 .cgrid.compact .chdr { font-size: 9.5px; }
 .cgrid.compact .chdr.stage { font-size: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* A tile's name on a small map takes two lines before it is cut, and has no icon beside it. */
@@ -182,7 +183,15 @@
 .runline .over { color: var(--bad); font-weight: 800; }
 .runline .pwarn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
 .vwrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.vwhy { max-width: 230px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+.vwhy { max-width: 300px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+/* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
+.vwhy.block { color: var(--ink); font-weight: 800; }
+.vwhy.ok { color: var(--good); }
+.vwhy .vmore { font-weight: 700; color: var(--muted); }
+@keyframes whyflash { 0% { background: var(--sun-bg); box-shadow: 0 0 0 4px var(--sun); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+.vwhy.flash { animation: whyflash 1.4s ease-out; }
+/* A Validate that cannot act looks unavailable and still answers a press with its reason. */
+.vbtn.off { opacity: 0.55; box-shadow: none; transform: none; cursor: help; }
 .vbtn { min-height: 44px; min-width: 196px; font-size: 22px; }
 .vbtn.running { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 12px; border: 3px solid var(--line); background: var(--sky-bg); font-size: 14px; font-weight: 800; }
 .vbtn .runbar, .arow .runbar { width: 100%; height: 9px; border: 2px solid var(--line); background: var(--panel); display: block; }
@@ -377,3 +386,36 @@
 .screen-map .cline.handoff .ink { stroke-width: 9; }
 .screen-map .cgrid .chdr.stage { font-size: 17px; }
 .screen-map .cport.ro { width: 16px; height: 16px; right: -10px; border-width: 3px; }
+
+/* What stands in a tile that has no boxes of parts: a person's minutes, a tool's task. */
+.ctile .ct-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--muted); padding-top: 1px; }
+.ctile.k-person .ct-body { color: var(--ink); font-size: 12px; }
+.ctile .ct-body.over { color: var(--bad); }
+.cgrid.compact .ct-body { font-size: 9.5px; line-height: 1.2; -webkit-line-clamp: 2; padding-top: 0; }
+/* The mark of the next thing to do: the tile, the box, the result or the sources it is about.
+   The same mark wherever a map is drawn for the player. */
+@keyframes guidepulse { 0%, 100% { box-shadow: 0 0 0 3px var(--sun); } 50% { box-shadow: 0 0 0 7px rgba(255, 185, 60, 0.45); } }
+.ctile.guided, .cresult.guided, .csource.guided { animation: guidepulse 1.6s ease-in-out infinite; }
+.ctile .ct-part.guided { box-shadow: inset 0 0 0 2px var(--bad); background: var(--bad-bg); }
+@media (prefers-reduced-motion: reduce) { .ctile.guided, .cresult.guided, .csource.guided { animation: none; box-shadow: 0 0 0 5px var(--sun); } }
+/* A sentence at the place of an action: why it was refused, or advice on a line. */
+.cnote { position: absolute; z-index: 8; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 13px; font-weight: 700; line-height: 1.3; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); animation: pop .18s ease-out; }
+.cnote.refuse { border-color: var(--bad); background: var(--bad-bg); }
+.cnote.advice { border-color: var(--sky); background: var(--sky-bg); }
+.cnote span { flex: 1; min-width: 0; }
+.cnote-x { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1; cursor: pointer; }
+.cgrid.compact .cnote { font-size: 11px; }
+/* The mark on a line that comes with advice. */
+.cadvice circle:first-child { fill: var(--sky); stroke: var(--line); stroke-width: 2; }
+.cadvice text { font-family: var(--text); font-size: 12px; font-weight: 900; fill: #1d2140; pointer-events: none; }
+.cgrid.compact .cadvice text { font-size: 9px; }
+.cadvice .cadvice-hit { fill: transparent; pointer-events: all; cursor: pointer; outline: none; }
+.cadvice .cadvice-hit:focus-visible { stroke: var(--sky); stroke-width: 3; }
+.joining .csource:not(.is-locked), .joining .cresult:not(.lit) { cursor: not-allowed; }
+
+.tb-told { font-size: 12.5px; font-weight: 800; line-height: 1.3; color: var(--bad); }
+/* The help panel's samples of the marks of the map. */
+.hm-stray { display: inline-block; width: 40px; height: 24px; border: 3px dashed var(--line); opacity: .62; }
+.hm-missing { font-size: 11px; font-weight: 700; padding: 1px 4px; background: var(--sun-bg); box-shadow: inset 0 0 0 2px var(--sun); white-space: nowrap; }
+.hm-guide { display: inline-block; width: 40px; height: 24px; border: 3px solid var(--line); box-shadow: 0 0 0 4px var(--sun); }
+.help-marks .lglegend { flex-direction: column; align-items: flex-start; gap: 4px; grid-column: 1 / -1; justify-self: start; }

@@ -114,10 +114,11 @@ export type CanvasColumn = z.infer<typeof CanvasColumn>
 
 export const CanvasLegend = S({
   cols: Int, rows: Int,
-  columns: z.array(CanvasColumn).nullable(),    // one per column, or null: the columns keep their numbers
+  columns: z.array(CanvasColumn).nullable(),    // one per column, or null: nothing stands above the columns
   sources: z.array(S({ id: z.string(), label: Text, icon: z.string(), privateData: z.boolean() })),
   result: S({ id: z.string(), label: Text }),
-  workers: z.array(S({ id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, icon: z.string() })),
+  // `task` is the job of a worker, on its tile where the tile has no boxes of parts.
+  workers: z.array(S({ id: z.string(), kind: z.enum(['ai', 'fixed', 'person']), label: Text, short: Text, icon: z.string(), task: Text.nullable() })),
   models: z.array(S({ id: z.string(), label: Text, short: Text })),
   compute: z.array(S({ id: z.string(), label: Text, short: Text, protectsPrivateData: z.boolean() })),
   prompts: z.array(S({ id: z.string(), label: Text })),
@@ -226,6 +227,15 @@ export const PlanningView = S({
 export type PlanningView = z.infer<typeof PlanningView>
 
 const Missed = S({ title: Text, text: Text, why: Text })
+export const ReadyDetail = z.discriminatedUnion('reason', [
+  S({ reason: z.literal('nothing_reaches_result') }),
+  S({ reason: z.literal('no_source_connected') }),
+  S({ reason: z.literal('tile_incomplete'), tile: z.string(), missing: z.array(z.enum(['model', 'runsOn'])) }),
+  S({ reason: z.literal('required_missing'), workers: z.array(z.string()), text: Text }),
+  S({ reason: z.literal('too_many_minutes'), pool: z.string(), used: z.number(), max: z.number(), tiles: z.array(z.string()) }),
+])
+export type ReadyDetail = z.infer<typeof ReadyDetail>
+
 export const DevelopmentView = S({
   money: z.number(),
   developers: S({ total: Int, free: Int }),
@@ -234,7 +244,12 @@ export const DevelopmentView = S({
   actionsRunning: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms })),
   insights: z.array(S({ action: z.string(), tile: Tile })),
   map: CanvasMap,                                   // the draft
-  ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),
+  // Why the draft cannot be validated: the codes, and each with what it names (spec 6.6).
+  ready: S({ ok: z.boolean(), reasons: z.array(z.string()), details: z.array(ReadyDetail) }),
+  // Lines of the draft that a rule of the pack advises on, with its words.
+  lineAdvice: z.array(S({ from: z.string(), to: z.string(), text: Text })),
+  // The minutes a case each person tile asks in this map. Empty when the pack does not show it.
+  tileMinutes: z.record(z.string(), z.number()),
   flags: S({ stray: z.array(z.string()), incomplete: z.array(z.string()), privateData: z.array(z.string()) }),
   running: Running.nullable(),                      // null when the pack does not show it
   validationsLeft: Int,

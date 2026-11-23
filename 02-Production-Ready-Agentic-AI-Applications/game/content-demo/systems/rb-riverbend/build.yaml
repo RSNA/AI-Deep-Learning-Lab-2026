@@ -389,6 +389,22 @@ notes:
   - {id: prompt, text: "One prompt on your map makes its worker worse, not better."}
   - {id: stray, text: "Part of your map is not connected to the result, so it does nothing."}
 
+# A line that cannot be drawn says why, and a line worth a second thought gives advice.
+line_rules:
+  - from: rb-s-cards
+    to: rb-w-agent
+    refuse: true
+    text: The old card files are pictures of handwritten cards. An agent cannot read them as they are. Put the card reader between them.
+  - from: rb-s-forum
+    to: rb-w-agent
+    refuse: false
+    text: The forum is full of opinions. An agent that reads it may take a rumour about a partner for a fact.
+
+# Nothing goes to a patron that a librarian has not seen.
+required:
+  - workers: [rb-w-librarian]
+    text: A reference librarian signs every answer before it reaches a patron. Put one on the way to the result.
+
 key:
   reference:
     map:

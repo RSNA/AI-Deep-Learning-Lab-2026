@@ -41,9 +41,11 @@ async function joinPicked(page: Page, code: string, name: string, system: RegExp
 async function toDevelopment(page: Page, s: Awaited<ReturnType<typeof setup>>) {
   await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).click()
+  await page.getByRole('button', { name: 'End tour' }).click()
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await expect(page.getByText('A letter for you')).toBeVisible()
   await page.getByRole('button', { name: 'Start building' }).click()
+  await page.getByRole('button', { name: 'End tour' }).click()
 }
 
 async function noOverflow(page: Page) {
@@ -79,8 +81,9 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   expect(fold.validate).toBeLessThanOrEqual(fold.h)
   await noOverflow(page)
   await expect(page.locator('.purse')).toContainText('Money')
-  await expect(page.locator('.vbtn')).toBeDisabled()
-  await expect(page.locator('.vwhy')).toHaveText('Join a tile to the result first.')
+  // Validate cannot act, and the line beside it guides through the first map.
+  await expect(page.locator('.vbtn')).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.locator('.vwhy')).toContainText('Place a worker first')
 
   // Place an agent by two clicks, give it a model and a place to run, join it.
   await tool(page, 'Agent').click()
@@ -97,6 +100,14 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await join(page, 'Courier site', /Join to Agent/)
   await join(page, 'Agent', /Join to Loan arranged/)
   await expect(page.locator('.cline')).toHaveCount(4)
+  // The pack requires a librarian on the way to the result, and the line beside Validate says so.
+  await expect(page.locator('.vwhy')).toContainText('A reference librarian signs every answer')
+  await expect(page.locator('.vbtn')).toHaveAttribute('aria-disabled', 'true')
+  await tool(page, 'Reference librarian').click()
+  await cell(page, 3, 2).click()
+  await join(page, 'Agent', /Join to Reference librarian/)
+  await join(page, 'Reference librarian', /Join to Loan arranged/)
+  await expect(page.locator('.cline')).toHaveCount(5)   // the second line into the result replaced the first
   // A locked source takes no line: it has no port.
   await expect(page.getByRole('button', { name: 'Draw a line from Partner mailbox' })).toHaveCount(0)
   // The warning mark: patron data through a service that does not protect it.
@@ -116,7 +127,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.getByRole('button', { name: /Validate · 6 left/ }).click()
   await expect(page.locator('.vbtn.running')).toBeVisible()
   await tool(page, 'Rule').click()
-  await cell(page, 3, 4).click()
+  await cell(page, 1, 4).click()
   await expect(page.locator('.ctile.stray')).toHaveCount(1)
   await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+%$/, { timeout: 15_000 })
   await expect(page.locator('#p2-results')).toContainText('One case it missed')
@@ -124,12 +135,12 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
 
   // Undo takes the rule away, redo brings it back, Delete removes the selection.
   await page.getByRole('button', { name: 'Undo' }).click()
-  await expect(page.locator('.ctile')).toHaveCount(1)
-  await page.getByRole('button', { name: 'Redo' }).click()
   await expect(page.locator('.ctile')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Redo' }).click()
+  await expect(page.locator('.ctile')).toHaveCount(3)
   await page.locator('.ctile.stray').click()
   await page.keyboard.press('Delete')
-  await expect(page.locator('.ctile')).toHaveCount(1)
+  await expect(page.locator('.ctile')).toHaveCount(2)
 
   // An action that unlocks an item: the free model leaves its lock once the action ends.
   await expect(page.locator('.schip', { hasText: 'Pine' })).toHaveClass(/is-locked/)
@@ -143,14 +154,15 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   // Load an earlier map: remove a line, then load the validated map back.
   await page.locator('.cline .hit').first().click({ force: true })
   await page.keyboard.press('Delete')
-  await expect(page.locator('.cline')).toHaveCount(3)
+  await expect(page.locator('.cline')).toHaveCount(4)
   await page.getByRole('button', { name: 'Load this map' }).click()
-  await expect(page.locator('.cline')).toHaveCount(4)
+  await expect(page.locator('.cline')).toHaveCount(5)
 
-  // A refresh brings the same draft back.
+  // A refresh brings the same draft back, and the tour does not start again.
   await page.reload()
-  await expect(page.locator('.ctile')).toHaveCount(1)
-  await expect(page.locator('.cline')).toHaveCount(4)
+  await expect(page.locator('.ctile')).toHaveCount(2)
+  await expect(page.locator('.cline')).toHaveCount(5)
+  await expect(page.locator('.tour-card')).toHaveCount(0)
   await noErrorNames(page)
 
   // The reveal: the letter, the score, both maps, every case.
@@ -209,7 +221,7 @@ test('the same map by drag, on a laptop, in the dark theme', async ({ page }, in
   test.skip(info.project.name !== 'laptop', 'laptop only')
   const s = await setup(page, 'E2E canvas drag')
   await page.emulateMedia({ colorScheme: 'dark' })
-  await joinPicked(page, s.code, 'Canvas Drag', /Riverbend/)
+  await joinPicked(page, s.code, 'Canvas Drag', /Lakeshore/)
   await toDevelopment(page, s)
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgb(230, 233, 251)')
   // From the toolbox to a cell.
@@ -228,11 +240,13 @@ test('the same map by drag, on a laptop, in the dark theme', async ({ page }, in
     await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2, { steps: 8 })
     await page.mouse.up()
   }
-  await drag('Request form', '.ctile')
-  await drag('Shared catalog', '.ctile')
+  await drag('Circulation system', '.ctile')
+  await drag('Door counters', '.ctile')
   await drag('Rule', '.cresult')
   await expect(page.locator('.cline')).toHaveCount(3)
-  await expect(page.locator('.vbtn')).toBeEnabled()
+  await expect(page.locator('.vbtn')).not.toHaveAttribute('aria-disabled', 'true')
+  // A pack without names for its columns shows nothing above them.
+  await expect(page.locator('.p2-map .chdr')).toHaveText(['Sources', '', '', '', '', 'Result'])
   s.close()
 })
 

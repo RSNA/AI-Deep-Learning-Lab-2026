@@ -1,6 +1,6 @@
 // Session state. Plain JSON data: no classes, maps, sets or dates (engineering spec, 6.1).
 import type { CanvasMap } from '@lab02/content-schema'
-import type { AvatarId, ColumnId, ErrorCode, InboxItem, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
+import type { AckData, AvatarId, ColumnId, ErrorCode, InboxItem, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
 import type { Missed, NoteId, Running } from './canvas.ts'
 
 export type PlayerId = string
@@ -160,7 +160,7 @@ export type FeedEntry = { kind: 'started' | 'finished' | 'sent' | 'validated'; t
 export type PlayerCard = { now: string[]; facts: { label: string; value: string }[]; map?: CanvasMap | null }
 
 export type Outcome = { dirty: PlayerId[] | 'all'; events: EngineEvent[] }
-export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode })
+export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode; data?: AckData })
 
 /** Commands the engine applies. The server stamps each with the game time it handles it. */
 export type Command =

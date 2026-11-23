@@ -110,6 +110,7 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   await expect(screen.getByText('Phase 1 of 3 · Planning')).toBeVisible()
   await expect(pp.getByRole('button', { name: 'Start investigating' })).toBeVisible()
   await pp.getByRole('button', { name: 'Start investigating' }).click()
+  await pp.getByRole('button', { name: 'End tour' }).click()
   await page.getByRole('button', { name: '+30 s' }).click()
   await page.getByRole('button', { name: 'Pause' }).click()
   await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible()

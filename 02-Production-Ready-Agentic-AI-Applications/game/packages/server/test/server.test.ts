@@ -126,8 +126,9 @@ describe('Phase 2 across a restart', () => {
     for (const t of ['next', 'next', 'end_now', 'next', 'next']) expect((await host1.command(t)).ok).toBe(true)
     const room1 = srv1.app.manager.get(code)!
     expect(room1.state.stage).toBe('development.play')
-    const map = { tiles: [{ id: 't1', kind: 'rb-w-agent', col: 2, row: 2, model: 'rb-m-small', runsOn: 'rb-c-api', prompt: null }],
-      lines: [{ from: 'rb-s-form', to: 't1' }, { from: 'rb-s-catalog', to: 't1' }, { from: 't1', to: 'rb-result' }] }
+    // A small agent, and the librarian that the demo pack requires before a map can be validated.
+    const map = { tiles: [{ id: 't1', kind: 'rb-w-agent', col: 2, row: 2, model: 'rb-m-small', runsOn: 'rb-c-api', prompt: null }, { id: 't2', kind: 'rb-w-librarian', col: 3, row: 2, model: null, runsOn: null, prompt: null }],
+      lines: [{ from: 'rb-s-form', to: 't1' }, { from: 'rb-s-catalog', to: 't1' }, { from: 't1', to: 't2' }, { from: 't2', to: 'rb-result' }] }
     expect((await bot.conn.command('development.set_map', { map })).ok).toBe(true)
     expect((await bot.conn.command('development.act', { id: 'rb-a-mailbox' })).ok).toBe(true)
     expect((await bot.conn.command('development.validate', {})).ok).toBe(true)
@@ -143,7 +144,7 @@ describe('Phase 2 across a restart', () => {
     cleanups.push(srv2.cleanup)
     const room2 = srv2.app.manager.get(code)!
     const st = () => room2.state.players[bot.playerId]!.development!
-    expect(st().map.tiles).toHaveLength(1)
+    expect(st().map.tiles).toHaveLength(2)
     expect(st().money).toBe(p1.money)
     // The game clock goes on: the validation (6 s) and the action (20 s) end on the server.
     const host2 = hostConn(srv2.ws, token, code)

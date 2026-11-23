@@ -308,3 +308,8 @@ button.ahbtn { cursor: pointer; }
 .p1-phone .assess .acard.sorted .four button { min-height: 40px; }
 .agentrow > .rhead { background: var(--go); }
 .agentrow, .agentrow .agentbody { color: var(--ink); }
+/* An interview that has ended keeps its words until the player acts (section 10.4). */
+.ilines.ended { border-top: 2px dashed var(--soft); padding-top: 6px; }
+.iend { font-size: 13px; font-weight: 800; color: var(--good); }
+.iend-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.iend-btns .btn { flex: 1 1 0; }

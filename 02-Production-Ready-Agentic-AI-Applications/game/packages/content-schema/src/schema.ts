@@ -446,6 +446,13 @@ export const BuildFile = W({
     key: K({}).optional(),
   })).min(1),
   notes: z.array(S({ id: z.enum(NOTE_IDS), text: Text })).default([]),
+  // Lines the practice cannot draw (`refuse: true`) or should think twice about. `from` is a
+  // source or a kind of worker, `to` a kind of worker. The text reaches a player only when a line
+  // of theirs matches. Never in the static content.
+  line_rules: z.array(S({ from: Id, to: Id, refuse: z.boolean(), text: Text })).default([]),
+  // Kinds of worker a map must have on a path to the result before it can be validated. The
+  // text is said to the player while the entry fails.
+  required: z.array(S({ workers: z.array(Id).min(1), text: Text })).default([]),
   key: K({
     reference: K({
       map: PackMap,

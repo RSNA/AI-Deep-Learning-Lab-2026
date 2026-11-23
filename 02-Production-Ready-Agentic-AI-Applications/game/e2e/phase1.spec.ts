@@ -61,6 +61,7 @@ test('the laptop screen: three columns, the assessment, a full class, a refresh,
   // The opening letter pops up once, and stays as the first card.
   await expect(page.getByText('A letter for you')).toBeVisible()
   await page.getByRole('button', { name: 'Start investigating' }).click()
+  await page.getByRole('button', { name: 'End tour' }).click()
   await expect(page.locator('.colhead h2')).toHaveText(['Investigations', 'Evidence', 'Your assessment'])
   await expect(page.locator('.cards .card').first()).toHaveAttribute('data-card', 'letter')
   await expect(page.locator('.ask')).toHaveText('Find the 1 problem that needs an agentic system, the 1 that needs one AI model, the 2 that need no AI and the 2 that are not real.')
@@ -160,6 +161,7 @@ test('an empty assessment is said once at the top, and the letter has its empty 
   await joinPicked(page, s.code, 'Empty Laptop', /Riverbend/)
   await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).click()
+  await page.getByRole('button', { name: 'End tour' }).click()
   await s.host('end_now')
   await expect(page.getByText('You sent an empty assessment, so no problem scored.')).toBeVisible()
   await expect(page.locator('.rpick')).toHaveCount(0)
@@ -173,7 +175,11 @@ test('the phone: three tabs, the same assessment, a full class, the evidence and
   await joinPicked(page, s.code, 'Board Phone', /Riverbend/)
   await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).tap()
-  await expect(page.locator('.ptabs button .tl')).toHaveText(['Investigations', 'Evidence', 'Assessment'])
+  await page.getByRole('button', { name: 'End tour' }).tap()
+  // The assessment comes first, and the screen opens on it.
+  await expect(page.locator('.ptabs button .tl')).toHaveText(['Assessment', 'Investigations', 'Evidence'])
+  await expect(page.locator('.ptabs button').first()).toHaveAttribute('aria-pressed', 'true')
+  await page.locator('.ptabs button', { hasText: 'Investigations' }).tap()
   await expect(page.locator('.bwrow')).toBeVisible()
   await page.locator('.ptabs button', { hasText: 'Assessment' }).tap()
   await expect(page.locator('.asec.unsorted .acard')).toHaveCount(6)
@@ -254,14 +260,15 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await p2.goto(page.url())
   await expect(p2.locator('.sessbar .chip.watch')).toHaveText("Maya's laptop is in charge")
   await expect(p2.getByRole('button', { name: /^Next:/ })).toBeDisabled()
-  // A watching host still goes through the deck alone, with the notes, and changes nothing for the room.
-  await p2.getByRole('button', { name: 'Look through the slides' }).click()
-  await expect(p2.locator('.owndeck .notes')).toContainText('Wait until most people have joined')
-  await p2.locator('.owndeck').getByRole('button', { name: 'Next →' }).click()
-  await expect(p2.locator('.owndeck .notes')).toContainText('Keep this short')
-  await expect(p2.locator('.owndeck .slidecount')).toHaveText('Slide 2 of 9')
+  // A watching host still looks through the deck, with the notes, and changes nothing for the room.
+  const look2 = p2.locator('.looker')
+  await expect(look2.locator('.notes')).toContainText('Wait until most people have joined')
+  await expect(look2.getByRole('button', { name: 'Show this slide' })).toBeDisabled()
+  await look2.getByRole('button', { name: 'Look ahead →' }).click()
+  await expect(look2.locator('.notes')).toContainText('Keep this short')
+  await expect(look2.locator('.looknav .slidecount')).toHaveText('Looking at 2 · Shown 1')
   await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 9')
-  await p2.locator('.owndeck').getByRole('button', { name: 'Close' }).click()
+  await look2.getByRole('button', { name: 'Back to the shown slide' }).click()
   await p2.getByRole('button', { name: 'Take charge' }).click()
   await expect(p2.getByRole('dialog')).toContainText("Take charge from Maya's laptop?")
   await expect(p2.getByRole('dialog').getByRole('button', { name: 'Take charge' })).toBeDisabled()
@@ -292,9 +299,9 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await p2.getByRole('button', { name: 'Yes, every screen' }).click()
   await expect(p2.getByText("The slides are on every player's screen too.")).toBeVisible()
   await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 9')
-  // The slide on show and the next one are drawn as slides, and the notes sit under them.
-  await expect(p2.locator('.slidepair .sl-thumb')).toHaveCount(2)
-  await expect(p2.locator('.slidepair .sl-thumb').first().locator('.sl-person')).toHaveCount(2)
+  // The slide looked at is drawn as a slide, and the shown one is marked in the strip of the deck.
+  await expect(p2.locator('.looker .lookbox .sl-thumb .sl-person')).toHaveCount(2)
+  await expect(p2.locator('.looker .stripbtn.shown')).toHaveCount(1)
   await p2.locator('body').press('ArrowRight')
   await expect(p2.locator('.slidenav .slidecount')).toHaveText('Slide 2 of 9')
   await expect(p2.locator('.bigscreen > .group > .notes')).toContainText('Keep this short')
@@ -368,6 +375,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await next.click()
   await next.click()
   await pp.getByRole('button', { name: 'Start investigating' }).click()
+  await pp.getByRole('button', { name: 'End tour' }).click()
   const perRow = () => pp.locator('.cards').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)
   await expect(pp.getByRole('button', { name: 'Two cards per row' })).toHaveAttribute('aria-pressed', 'true')
   await pp.getByRole('button', { name: 'One card per row' }).click()
@@ -401,6 +409,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await page.getByRole('dialog').getByRole('button', { name: 'Reset the phase' }).click()
   await expect(pp.locator('.restartbar')).toContainText('The host started Phase 1 again.')
   await pp.getByRole('button', { name: 'Start investigating' }).click()
+  await pp.getByRole('button', { name: 'End tour' }).click()
   await expect(pp.locator('.asec[data-class]').first().locator('.acard')).toHaveCount(0)
 
   // The whole game starts again: the same player is back in the lobby with no points.
@@ -454,6 +463,7 @@ test('the projector during a phase: the activity of the room, a phase by health 
   await s.host('next')
   await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).click()
+  await page.getByRole('button', { name: 'End tour' }).click()
 
   // The big screen, opened the way the console opens it.
   const link = (await (await page.request.post('/api/host/screen-link', { data: { code: s.code }, headers: { authorization: `Bearer ${s.token}` } })).json()).path as string

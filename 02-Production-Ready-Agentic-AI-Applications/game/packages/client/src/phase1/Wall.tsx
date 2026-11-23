@@ -88,7 +88,7 @@ function Panel({ w, content, pv, phone, width }: { w: Welcome; content: Planning
   // The height the room takes by itself, until the player drags the edge under it (section 10.4).
   const [viewH, setViewH] = useHeight(`lab02.striph.${phone ? 'phone' : 'laptop'}`, stripHeight(phone, width, winH))
   return (
-    <div className={`epanel${st.open ? '' : ' shut'}`}>
+    <div className={`epanel${st.open ? '' : ' shut'}`} data-tour="p1-room">
       <div className="ebar" role="tablist" aria-label={P1.panel}>
         {(['room', 'facts'] as const).map((v) => (
           <button key={v} type="button" role="tab" aria-selected={st.open && st.view === v} className={st.open && st.view === v ? 'on' : ''}
@@ -183,7 +183,7 @@ export function Wall({ w, content, pv, phone = false, focusCard, backTo }: {
       </div>
       {backTo}
       <Panel w={w} content={content} pv={pv} phone={phone} width={width} />
-      <div className="colscroll wall-scroll" ref={scroller}>
+      <div className="colscroll wall-scroll" ref={scroller} data-tour="p1-wall">
         <div className={`cards${wide && cols === 1 ? ' single' : ''}`} ref={grid} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {cards.map((c, i) => (
             <EvidenceCard key={cardKey(c)} item={c} content={content} system={w.system} art={w.art} fresh={fresh.has(cardKey(c))} onOpen={() => openAt(i)} />

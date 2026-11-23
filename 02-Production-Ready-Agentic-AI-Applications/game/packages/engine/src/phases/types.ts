@@ -1,10 +1,10 @@
 import type { Pack } from '@lab02/content-schema'
-import type { ErrorCode, PhaseId } from '@lab02/protocol'
+import type { AckData, ErrorCode, PhaseId } from '@lab02/protocol'
 import type { EngineEvent, FeedEntry, GameMs, Outcome, PlayerCard, PlayerState, SessionState } from '../state.ts'
 
 export type CommandHandler = (
   s: SessionState, pack: Pack, p: PlayerState, payload: unknown, now: GameMs,
-) => (Outcome & { ok: true }) | { ok: false; error: ErrorCode }
+) => (Outcome & { ok: true }) | { ok: false; error: ErrorCode; data?: AckData }
 
 /** What each phase adds to the engine. The foundation builds every phase as a stub. */
 export type PhaseModule = {

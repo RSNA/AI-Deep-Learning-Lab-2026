@@ -123,6 +123,7 @@ export function playDevelopment(bot: Bot, base: string): () => void {
   let fetching = false
   let last: unknown = null
   let sentMap = ''
+  const refused = new Set<string>()
   const act = (msg?: unknown) => {
     const fromMsg = (msg as { view?: unknown } | undefined)?.view
     if (fromMsg) last = fromMsg
@@ -147,12 +148,28 @@ export function playDevelopment(bot: Bot, base: string): () => void {
     const m = w && content.models.find((x) => open.has(x.id) && w.models.includes(x.id) && x.runsOn.some((c) => open.has(c)))
     const c = m && m.runsOn.find((x) => open.has(x))
     if (w && m && c) {
-      const map: CanvasMap = {
-        tiles: [{ id: 't1', kind: w.id, col: 2, row: 2, model: m.id, runsOn: c, prompt: null }],
-        lines: [...content.sources.filter((x) => open.has(x.id)).map((x) => ({ from: x.id, to: 't1' })), { from: 't1', to: content.result.id }],
+      const tiles: CanvasMap['tiles'] = [{ id: 't1', kind: w.id, col: 2, row: 2, model: m.id, runsOn: c, prompt: null }]
+      let signer = 't1'
+      // A worker the pack requires stands after the AI tile and signs.
+      for (const d of dv.ready.details) {
+        if (d.reason !== 'required_missing' || tiles.length > 1) continue
+        const r = content.workers.find((x) => d.workers.includes(x.id) && open.has(x.id) && (!x.needsModel || x.models.includes(m.id)))
+        if (r) { tiles.push({ id: 't2', kind: r.id, col: 3, row: 2, model: r.needsModel ? m.id : null, runsOn: r.needsModel ? c : null, prompt: null }); signer = 't2' }
       }
+      if (sentMap) for (const t of JSON.parse(sentMap).tiles as CanvasMap['tiles']) if (t.id === 't2' && tiles.length === 1) { tiles.push(t); signer = 't2' }
+      const lines = content.sources.filter((x) => open.has(x.id) && !refused.has(`${x.id}>t1`)).map((x) => ({ from: x.id, to: 't1' }))
+      if (signer === 't2') lines.push({ from: 't1', to: 't2' })
+      lines.push({ from: signer, to: content.result.id })
+      const map: CanvasMap = { tiles, lines }
       const key = JSON.stringify(map)
-      if (key !== sentMap) { sentMap = key; void bot.conn.command('development.set_map', { map }) }
+      if (key !== sentMap) {
+        sentMap = key
+        // A line that a rule refuses is left out next time.
+        void bot.conn.command('development.set_map', { map }).then((r) => {
+          const d = r.data as { line?: { from: string; to: string } } | undefined
+          if (!r.ok && r.error === 'line_refused' && d?.line) { refused.add(`${d.line.from}>${d.line.to}`); act() }
+        })
+      }
     }
     if (dv.ready.ok && !dv.validating && dv.validationsLeft > 0) void bot.conn.command('development.validate', {})
   }

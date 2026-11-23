@@ -3055,7 +3055,7 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Projector | See below |
 | Room | The leaderboard and, after each phase, the room statistics |
 | Answer key | One press opens the answer key page in a window of its own. No second passcode (section 9.1). It stands above Downloads, which is the panel used least |
-| The slides, for your eyes | Every host, in charge or not, goes through the deck here without changing what the room sees (below) |
+| Look through the deck | Part of the projector panel. Every host, in charge or not, goes through the deck with the notes without changing what the room sees, and the host in charge shows the slide looked at with one button (below) |
 | Downloads, Rehearsal tools, End the session | See below |
 | Manual | A link that opens the manual in a panel beside the console |
 
@@ -3068,9 +3068,10 @@ how often the host needs them.
 │  ▣ name ● online   ☰ │  (the live preview, as wide as    ├────────────────────┤
 │    status · last act │   the column, up to 640 px)       │ End the session    │
 │  ▣ name ● online   ☰ │  Open the big screen              ├────────────────────┤
-├──────────────────────┤  What the projector  │  Slides    │ Downloads          │
-│ Room                 │  shows               │            ├────────────────────┤
-│  statistics, ranking │  Theme                            │ Answer key         │
+├──────────────────────┤  What the projector  │  Slides on │ Downloads          │
+│ Room                 │  shows               │ projector  ├────────────────────┤
+│  statistics, ranking │  Look through the deck            │ Answer key         │
+│                      │  Theme                            │                    │
 └──────────────────────┴───────────────────────────────────┴────────────────────┘
 ```
 
@@ -3092,7 +3093,8 @@ how often the host needs them.
   with a button back to all sessions. The rehearsal tools and the end button are unavailable.
   A session that the server no longer holds sends the console back to the first page.
 
-**The projector panel** has two groups with headings, and one line under every control.
+**The projector panel** has two groups with headings, and one line under every control. Under
+them, across the panel, the look through the deck, then the theme.
 
 *What the projector shows.* Six buttons of one width. The one in use is marked. In a wide
 column the line stands beside its button, in a narrow one under it. The scene that is on the
@@ -3125,13 +3127,49 @@ projector without being picked carries the flag "On now".
 - **The theme switch** ("Day" and "Night", the one in use marked) stands apart from both
   groups, with the line "For a bright or a dim room."
 
-*Slides.* Back and Next as two buttons of one width with the count "Slide 2 of 6" between
-them, the title of the section, and a menu "Go to section" that jumps to the first slide of a
-section. Under the two groups, across the whole panel: the slide on the projector now and the
-next one, each drawn as the real slide at half the width of the panel (so a slide with boxes or
-pictures is recognised at a glance), a "Placeholder" flag on a slide that is one, and the notes
-of the current slide in a box that grows with its text up to 168 px and then scrolls. The notes
-appear on host consoles and nowhere else.
+*Slides on the projector.* Back and Next as two buttons of one width with the count "Slide 2
+of 6" between them, the title of the section, the line "Back and Next change the slide the room
+sees. So do the left and right arrow keys.", and a menu "Go to section" that jumps the shown
+slide to the first slide of a section. These move what the room sees.
+
+*Look through the deck.* Under the two groups, across the whole panel, a look at the deck that
+only this console sees. It keeps a cursor of its own in the browser tab ("looking at") beside the
+shown slide, reads the whole deck with its notes from `GET /api/host/deck/:code` (again at each
+stage, because a slide may show a number of the room that only exists after a phase) and sends
+no command until the host shows a slide.
+
+- A line: "Only you see this. The room keeps the shown slide until you press Show this slide."
+- A row "← Look back", the count, "Look ahead →", two buttons of one width as in the projector
+  row. The count reads "Slide 4 of 9" while the look is on the shown slide and "Looking at 7 ·
+  Shown 4" while it is elsewhere.
+- A row of two buttons of one width: "Show this slide", in the go color, and "Back to the shown
+  slide". Both are unavailable while the look is on the shown slide, and "Show this slide" for a
+  host who is not in charge.
+- One line that says where things stand: "This is the slide the room sees. It moves with Back and
+  Next above." on the shown slide; "The room still sees slide 4." in a warning box elsewhere;
+  "The projector is not on the slides now. Its deck stands at slide 4, and Show this slide moves
+  it there." when the projector shows another scene; "Only the host in charge can show a slide."
+  for a host who is not in charge.
+- The title of the section, the flag "Shown now" or "Only you", and "Placeholder" on a slide
+  that is one. Under them the slide looked at, drawn as the real slide in the projector's theme,
+  as wide as the panel up to 640 px, and its notes in a box that grows with its text up to 168
+  px and then scrolls. The shown slide is drawn from the live host view, any other from the deck
+  read over HTTP. The notes appear on host consoles and nowhere else.
+- A menu "Look at a section" that moves the look to the first slide of a section.
+- A strip of the whole deck: every slide as a small button, by section with its title above, its
+  number under it. The shown slide carries the flag "Shown", the slide looked at a frame. A press
+  moves the look there. The strip scrolls sideways to keep the slide looked at in view, never
+  the page.
+
+"Show this slide" sends `slide_to` with the slide looked at, through the same path as Back and
+Next, so the question "These slides come later" guards it in the same way. **How the two cursors
+move.** A look on the shown slide follows it: Back, Next, the arrow keys, "Go to section" and the
+game moving into a break move both. A look elsewhere stays where it is while the shown slide
+moves, and once the shown slide reaches it, it follows again. After "Show this slide" the two
+agree. **The keys.** For the host in charge, the left and right arrow keys move the shown slide
+and, with Shift, only the look. For a host who is not in charge, they move the look. Nothing
+moves while a field or a dialog has the focus. The look stands outside the controls that need
+control, so a host who is watching can prepare or check a slide while someone else presents.
 
 *Slides that run ahead of the game.* A section is due from the stage before its own: the
 welcome in the lobby, a recap at the reveal of its phase. When the host in charge moves the
@@ -3141,9 +3179,8 @@ first: "These slides come later", with the name of the section, the stage of the
 that the section may show answers the players have not earned yet. "Show it anyway" goes on,
 Cancel stays. Nothing is asked inside a section, on the way back, or while nobody can see the
 slides. A switch "Players' screens follow
-the slides" shows the mirror and is unavailable during a phase, with the reason. The left and
-right arrow keys move the slides while no field has the focus. The group is unavailable in a
-pack without a deck.
+the slides" shows the mirror and is unavailable during a phase, with the reason. The group and
+the look are unavailable in a pack without a deck.
 
 The table says what each button does in each stage. Section 6.13 has the rule behind every
 cell.
@@ -3230,12 +3267,6 @@ draft solves, with its weight, and the flags the scoring raises on the draft (pr
 unprotected, a worker overloaded, a distracting source read, a prompt that only hurts, tiles not
 connected), each with its tiles. Under them, folded, the reference map with its accuracy and its
 summary.
-
-**The slides, for your eyes.** A panel under the projector panel, outside the controls that
-need control. "Look through the slides" opens it: Back and Next, the count, "Go to the slide
-on the projector", Close, the slide drawn as wide as the panel, and its notes. It reads
-`GET /api/host/deck/:code` and keeps its place in the browser tab. It sends no command, so the
-room sees nothing of it.
 
 **The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
 its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status

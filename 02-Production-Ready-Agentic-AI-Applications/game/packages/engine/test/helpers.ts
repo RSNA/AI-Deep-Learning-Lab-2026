@@ -5,7 +5,11 @@ import { advance, apply, createSession, type Command, type SessionState } from '
 export const DEMO_DIR = fileURLToPath(new URL('../../../content-demo', import.meta.url))
 
 let cached: Pack | null = null
+let override: Pack | null = null
+/** A test may run the session helpers on a changed copy of the demo pack. Null goes back. */
+export function setDemoPack(p: Pack | null): void { override = p }
 export function demoPack(): Pack {
+  if (override) return override
   if (cached) return cached
   const r = loadPack(DEMO_DIR)
   if (!r.ok) throw new Error(JSON.stringify(r.errors))
