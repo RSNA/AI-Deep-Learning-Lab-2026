@@ -160,15 +160,40 @@ export function Grid(p: GridProps) {
     sorted.forEach((l, i) => exits.set(lineKey(l), spread(a, i, sorted.length, Math.min(0.5, 0.14 * (sorted.length - 1)))))
   }
   const ctrl = (x1: number, x2: number) => Math.max(14, (x2 - x1) * 0.5)
-  const path = (x1: number, y1: number, x2: number, y2: number) => {
+  type P = { x: number; y: number }
+  const lerp = (a: P, b: P, t: number): P => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+  /** The curve of a line: it leaves and enters level, and bends in between. */
+  const curve = (x1: number, y1: number, x2: number, y2: number): [P, P, P, P] => {
     const dx = ctrl(x1, x2)
-    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`
+    return [{ x: x1, y: y1 }, { x: x1 + dx, y: y1 }, { x: x2 - dx, y: y2 }, { x: x2, y: y2 }]
   }
-  /** The middle of a line, where its mark of advice stands. */
-  const middle = (x1: number, y1: number, x2: number, y2: number) => {
-    const dx = ctrl(x1, x2)
-    return { x: (x1 + 3 * (x1 + dx) + 3 * (x2 - dx) + x2) / 8, y: (y1 + 3 * y1 + 3 * y2 + y2) / 8 }
+  /** A point of the curve, `t` from 0 at its origin to 1 at its target. */
+  const pointAt = (x1: number, y1: number, x2: number, y2: number, t: number): P => {
+    const [a, b, c, d] = curve(x1, y1, x2, y2)
+    const ab = lerp(a, b, t), bc = lerp(b, c, t), cd = lerp(c, d, t)
+    return lerp(lerp(ab, bc, t), lerp(bc, cd, t), t)
   }
+  // The head of a line stands in its middle (Pouria, 2026-11-23): the curve is drawn in two halves
+  // that meet there, so the head is a mid marker on the joint and points the way the line runs.
+  // No head crowds the edge of a tile, and a short line between two neighbours still shows it.
+  // When the middle lies behind a tile, the head moves along the line to the nearest point that
+  // is clear of every node, so a long line that passes behind tiles keeps its head.
+  const clear = (q: P) => !Object.values(boxes).some((b) => q.x > b.x - 7 && q.x < b.x + b.w + 7 && q.y > b.y - 7 && q.y < b.y + b.h + 7)
+  const headAt = (x1: number, y1: number, x2: number, y2: number): number => {
+    for (const dt of [0, 0.05, -0.05, 0.1, -0.1, 0.15, -0.15, 0.2, -0.2, 0.25, -0.25, 0.3, -0.3, 0.35, -0.35]) {
+      if (clear(pointAt(x1, y1, x2, y2, 0.5 + dt))) return 0.5 + dt
+    }
+    return 0.5
+  }
+  const path = (x1: number, y1: number, x2: number, y2: number, t = 0.5) => {
+    const [a, b, c, d] = curve(x1, y1, x2, y2)
+    const ab = lerp(a, b, t), bc = lerp(b, c, t), cd = lerp(c, d, t)
+    const abc = lerp(ab, bc, t), bcd = lerp(bc, cd, t), m = lerp(abc, bcd, t)
+    const f = (q: P) => `${q.x},${q.y}`
+    return `M${f(a)} C${f(ab)} ${f(abc)} ${f(m)} C${f(bcd)} ${f(cd)} ${f(d)}`
+  }
+  /** Where the mark of advice stands: on the first half of the line, clear of the head. */
+  const middle = (x1: number, y1: number, x2: number, y2: number) => pointAt(x1, y1, x2, y2, 0.27)
   const ends = (l: { from: string; to: string }) => {
     const a = boxes[l.from], b = boxes[l.to]
     if (!a || !b) return null
@@ -379,7 +404,7 @@ export function Grid(p: GridProps) {
         <defs>
           {LINE_COLORS.map((c, i) => (
             // Arrowheads of one size whatever the stroke, so a heavy handoff keeps a small head.
-            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="7.5" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 8 : 12} markerHeight={compact ? 8 : 12} orient="auto">
+            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="4" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 9 : 13} markerHeight={compact ? 9 : 13} orient="auto">
               <path d="M0,0 L8,4 L0,8 z" fill={c} />
             </marker>
           ))}
@@ -389,7 +414,7 @@ export function Grid(p: GridProps) {
           if (!e) return null
           const key = lineKey(l)
           const { x1, y1, x2, y2 } = e
-          const d = path(x1, y1, x2, y2)
+          const d = path(x1, y1, x2, y2, headAt(x1, y1, x2, y2))
           const color = colorOf(l.from)
           const idx = LINE_COLORS.indexOf(color)
           const sel = p.selection?.kind === 'line' && p.selection.key === key
@@ -400,7 +425,7 @@ export function Grid(p: GridProps) {
           return (
             <g key={key} className={`cline${handoff ? ' handoff' : ''}${sel ? ' sel' : ''}${faded ? ' faded' : ''}`}>
               <path d={d} className="halo" />
-              <path d={d} className="ink" stroke={color} markerEnd={`url(#ca${idx}${compact ? 'c' : ''})`} />
+              <path d={d} className="ink" stroke={color} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
               {!readOnly && (
                 <path d={d} className="hit" role="button" tabIndex={0} aria-label={words.line(nameOf(l.from), nameOf(l.to))}
                   onClick={(e) => { e.stopPropagation(); p.onLine?.(key) }}
@@ -463,7 +488,7 @@ export function Grid(p: GridProps) {
 export function LineLegend({ words }: { words: { read: string; handoff: string } }) {
   const sample = (heavy: boolean) => (
     <svg width="26" height="10" viewBox="0 0 26 10" aria-hidden="true" className={`lg-line${heavy ? ' heavy' : ''}`}>
-      <path d="M1,5 L21,5" /><path d="M19,1 L25,5 L19,9 z" className="lg-head" />
+      <path d="M1,5 L25,5" /><path d="M10,1 L16,5 L10,9 z" className="lg-head" />
     </svg>
   )
   return (
