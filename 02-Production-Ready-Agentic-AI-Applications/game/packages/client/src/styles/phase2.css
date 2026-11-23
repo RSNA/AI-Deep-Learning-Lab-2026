@@ -187,6 +187,7 @@
 /* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
 .vwhy.block { color: var(--ink); font-weight: 800; }
 .vwhy.ok { color: var(--good); }
+.vwhy.warn { color: var(--bad); font-weight: 800; }
 .vwhy .vmore { font-weight: 700; color: var(--muted); }
 @keyframes whyflash { 0% { background: var(--sun-bg); box-shadow: 0 0 0 4px var(--sun); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
 .vwhy.flash { animation: whyflash 1.4s ease-out; }
@@ -350,6 +351,8 @@
   .arow .meta, .alist .inv-note.one { font-size: 13px; }
 }
 @media (max-width: 1023px) {
+  /* A notice stands above the tab bar of a phone, never over it. */
+  .toast, .p2toast { bottom: 74px; }
   .p2-below { grid-template-columns: minmax(0, 1fr); padding: 8px; }
   .p2maps { grid-template-columns: minmax(0, 1fr); }
   .p2maps .gridscroll .cgrid { min-width: 640px; }

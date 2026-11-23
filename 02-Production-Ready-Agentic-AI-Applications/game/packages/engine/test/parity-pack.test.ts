@@ -23,7 +23,7 @@ describe.runIf(on)('parity on CONTENT_DIR', () => {
     if (!loaded.ok) throw new Error(loaded.errors[0]!.message)
     const pack = loaded.pack
     const rules = pack.game.phases.planning
-    const phaseCfg = { classes: rules.classes, class_order: rules.class_order, flagship_class: rules.flagship_class, scoring: rules.scoring }
+    const phaseCfg = { classes: rules.classes, class_order: rules.class_order, flagship_class: rules.flagship_class, scoring: rules.scoring, investigations: { per_system: rules.investigations.per_system } }
     const rand = rng(20261118)
     const requests: unknown[] = []
     const local: ReturnType<typeof scoreBoard>[] = []
@@ -37,17 +37,19 @@ describe.runIf(on)('parity on CONTENT_DIR', () => {
         problems.forEach((p, i) => { if (n % 4 !== 3 || rand() > 0.3) picks[p.id] = order[i]! })
         if (n === 0) problems.forEach((p) => { picks[p.id] = p.key.class })   // the perfect board
         expect(boardError(picks, problems, rules)).toBeNull()
-        requests.push({ fn: 'planning', report: { picks }, problems, phase_cfg: phaseCfg })
-        local.push(scoreBoard(picks, problems, rules))
+        // The perfect board starts no investigation; the others any number a system has.
+        const started = n === 0 ? 0 : Math.floor(rand() * (rules.investigations.per_system + 1))
+        requests.push({ fn: 'planning', report: { picks, investigations: started }, problems, phase_cfg: phaseCfg })
+        local.push(scoreBoard(picks, problems, rules, started))
       }
     }
     const out = execFileSync('python3', [scorer, '--score'], { input: JSON.stringify(requests), maxBuffer: 64 * 1024 * 1024 })
-    const ref = JSON.parse(out.toString()) as { classify: number; flagship: number; raw: number }[]
+    const ref = JSON.parse(out.toString()) as { classify: number; flagship: number; economy: number; raw: number }[]
     expect(ref.length).toBe(local.length)
-    const bad = ref.map((r, i) => [i, r, local[i]!] as const).filter(([, r, l]) => r.classify !== l.classify || r.flagship !== l.flagship || r.raw !== l.raw)
+    const bad = ref.map((r, i) => [i, r, local[i]!] as const).filter(([, r, l]) => r.classify !== l.classify || r.flagship !== l.flagship || r.economy !== l.economy || r.raw !== l.raw)
     expect(bad.map(([i]) => i)).toEqual([])
     // The perfect board of each system reaches the maximum.
-    for (let k = 0; k < pack.systemIds.length; k++) expect(local[k * 300]!.raw).toBe(rules.candidates * rules.scoring.classify.exact + rules.scoring.flagship.bonus)
+    for (let k = 0; k < pack.systemIds.length; k++) expect(local[k * 300]!.raw).toBe(rules.candidates * rules.scoring.classify.exact + rules.scoring.flagship.bonus + (rules.scoring.economy?.max ?? 0))
   })
 })
 
@@ -59,7 +61,7 @@ describe.runIf(on)('parity on CONTENT_DIR', () => {
 describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR', () => {
   it('the engine scores random maps as the reference does', async () => {
     const { evaluate } = await import('../src/canvas.ts')
-    const { mapErrors, readyReasons } = await import('@lab02/content-schema')
+    const { lineRuleOf, mapErrors, readyReasons } = await import('@lab02/content-schema')
     const { join } = await import('node:path')
     const loaded = loadPack(process.env.CONTENT_DIR!)
     if (!loaded.ok) throw new Error(loaded.errors[0]!.message)
@@ -88,8 +90,9 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
           for (const s of b.sources) if (rand() < 0.35) lines.push({ from: s.id, to: t.id })
           for (const u of tiles) if (u.col > t.col && rand() < 0.4) lines.push({ from: t.id, to: u.id })
         }
-        const m = { tiles, lines }
-        if (readyReasons(m, b).includes('no_source_connected')) lines.push({ from: pick(b.sources).id, to: lines[0]!.from })
+        // A line that a rule of the pack refuses is left out, so that enough maps are accepted.
+        const m = { tiles, lines: lines.filter((l) => !lineRuleOf(l, { tiles, lines }, b)?.refuse) }
+        if (readyReasons(m, b).includes('no_source_connected')) m.lines.push({ from: pick(b.sources).id, to: lines[0]!.from })
         if (mapErrors(m, b, null).length || readyReasons(m, b).length) continue
         maps.push(m)
       }
@@ -106,7 +109,7 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
         expect(e.running.complexity).toBe(r.complexity)
         expect(e.missed).toEqual(r.missed)
         expect(e.note).toEqual(r.note)
-        expect([e.flags.privateData, e.flags.overloaded, e.flags.distracting, e.flags.prompt, e.flags.stray]).toEqual([r.flags.private_data, r.flags.overloaded, r.flags.distracting, r.flags.prompt, r.flags.stray])
+        expect([e.flags.privateData, e.flags.overloaded, e.flags.distracting, e.flags.prompt, e.flags.stray, e.flags.rushed]).toEqual([r.flags.private_data, r.flags.overloaded, r.flags.distracting, r.flags.prompt, r.flags.stray, r.flags.rushed])
         compared++
       })
     }

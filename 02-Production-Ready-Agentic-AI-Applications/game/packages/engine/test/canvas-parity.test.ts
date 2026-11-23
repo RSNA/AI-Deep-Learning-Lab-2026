@@ -12,7 +12,7 @@ type Expect = {
   accepted: boolean; errors?: string[]; ready?: boolean; reasons?: string[]
   accuracy?: number; per_case?: Record<string, number>; run_month?: number; minutes?: Record<string, number>
   complexity?: number; raw?: number
-  flags?: { private_data: string[]; overloaded: string[]; distracting: string[]; prompt: string[]; stray: string[] }
+  flags?: { private_data: string[]; overloaded: string[]; distracting: string[]; prompt: string[]; stray: string[]; rushed: string[] }
   missed?: { case: string; reason: string; fact: string | null } | null; note?: string | null
 }
 type Vector = {
@@ -24,20 +24,24 @@ const file = JSON.parse(readFileSync(new URL('./vectors/canvas.json', import.met
   { tolerance: number; build: CanvasTables; cases: Vector[]; more?: Block[] }
 const tol = file.tolerance
 // The first block is the toy pack of the file itself; `more` holds further blocks, each with its
-// own pack (the second has efforts beyond easy and hard).
+// own pack (the second has efforts beyond easy and hard, the third has lines that the pack refuses
+// or advises on, a required worker and a pool of people that rushes).
 const blocks: Block[] = [{ name: 'toy', build: file.build, cases: file.cases }, ...(file.more ?? [])]
 
+const all = () => blocks.flatMap((b) => b.cases)
 const close = (a: number, b: number) => Math.abs(a - b) <= tol
 const sameNumbers = (got: Record<string, number>, want: Record<string, number>) =>
   Object.keys(got).sort().join() === Object.keys(want).sort().join() && Object.keys(want).every((k) => close(got[k]!, want[k]!))
 
 describe('parity: the canvas', () => {
   it('has every block, and vectors of every kind', () => {
-    expect(blocks.length).toBeGreaterThan(1)
-    const all = blocks.flatMap((b) => b.cases)
+    expect(blocks.length).toBeGreaterThan(2)
+    expect(all().some((v) => v.expect.errors?.includes('line_refused'))).toBe(true)
+    expect(all().some((v) => v.expect.reasons?.some((r) => r.startsWith('required_missing:')))).toBe(true)
+    expect(all().some((v) => (v.expect.flags?.rushed.length ?? 0) > 0 && v.expect.note === 'rushed')).toBe(true)
     expect(file.cases.length).toBeGreaterThan(30)
-    expect(all.some((v) => !v.expect.accepted)).toBe(true)
-    expect(all.some((v) => v.expect.accepted && !v.expect.ready)).toBe(true)
+    expect(all().some((v) => !v.expect.accepted)).toBe(true)
+    expect(all().some((v) => v.expect.accepted && !v.expect.ready)).toBe(true)
     for (const b of blocks) expect(b.cases.some((v) => v.expect.ready)).toBe(true)
   })
   for (const block of blocks) describe(block.name, () => {
@@ -60,7 +64,7 @@ describe('parity: the canvas', () => {
         expect(r.running.complexity).toBe(e.complexity)
         expect({
           private_data: r.flags.privateData, overloaded: r.flags.overloaded, distracting: r.flags.distracting,
-          prompt: r.flags.prompt, stray: r.flags.stray,
+          prompt: r.flags.prompt, stray: r.flags.stray, rushed: r.flags.rushed,
         }).toEqual(e.flags)
         expect(r.missed).toEqual(e.missed)
         expect(r.note).toEqual(e.note)

@@ -106,6 +106,10 @@ the reason for each.
 | ✗ red | A wrong class, such as a real problem under "Not a problem". No points |
 | – grey | Not sorted yet |
 
+Once the phase is scored, one line gives the parts of the score: sorting, the agent project, and
+economy. Economy is a small part for the investigations a player did not start. It grows with
+how well the board is sorted, so guessing without looking earns next to nothing.
+
 
 **In Phase 2 the page opens on its Phase 2 tab.** You see the player's draft map as it is now,
 whether it is ready to validate (and the accuracy it would get, from the key) or what stops it,
@@ -120,6 +124,7 @@ and what the scoring notices on the draft:
 | A distracting source read | An AI worker reads a source that sounds sure and is often wrong |
 | A prompt that only hurts | A prompt that makes its worker worse |
 | Tiles not connected | Tiles that do not reach the result, so they do nothing |
+| People asked for more minutes than they have | The map asks a person for more minutes a case than they have. The map can be validated. That person rushes and gets through only a share of the cases |
 
 The reference map, with its accuracy and summary, is folded at the bottom. The Phase 1 tab is
 still there.

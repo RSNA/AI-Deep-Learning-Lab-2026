@@ -1,7 +1,7 @@
 // Phase 1 as the engine runs it (engineering spec, sections 6.4, 6.5, 6.9, 12.2).
 import { describe, expect, it } from 'vitest'
 import { advance, createSession, project, type SessionState } from '../src/index.ts'
-import { lineAt } from '../src/phases/planning.ts'
+import { lineAt, scoreBoard } from '../src/phases/planning.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
 
 const pack = demoPack()
@@ -135,12 +135,50 @@ describe('the board', () => {
     expect(cmd(s, 'p1', 'planning.set_report', { picks: truth }, t0 + 10).ok).toBe(true)
     host(s, 'end_now', {}, t0 + 2000)
     const r = s.players.p1!.planning!.result!
-    expect(r.raw).toBe(rules.candidates * rules.scoring.classify.exact + rules.scoring.flagship.bonus)
+    // No investigation was started, so the true board earns the whole economy part too.
+    expect(r.classify + r.flagship).toBe(rules.candidates * rules.scoring.classify.exact + rules.scoring.flagship.bonus)
+    expect(r.economy).toBe(rules.scoring.economy!.max)
+    expect(r.raw).toBe(1000)
     expect(r.flagship).toBe(rules.scoring.flagship.bonus)
     expect(s.players.p3!.planning!.result!.raw).toBe(0)
     expect(s.players.p3!.planning!.result!.graded.every((g) => g.picked === null && g.points === 0)).toBe(true)
     // The draft of a player who did not send is sent as it stands.
     expect(s.players.p3!.submittedAtMs.planning).toBe(t0 + 2000)
+  })
+
+  it('pays for the investigations a player did not start, in proportion to the board', () => {
+    const { s, t0 } = playing()
+    const eco = rules.scoring.economy!.max
+    const total = rules.investigations.per_system
+    // One investigation done and one still running when the board is scored: both count.
+    const [first, second] = [...RB.insights!].sort((a, b) => a.bandwidth - b.bandwidth)
+    expect(cmd(s, 'p1', 'planning.investigate', { id: first!.id }, t0).ok).toBe(true)
+    advance(s, pack, t0 + first!.seconds * 1000)
+    expect(cmd(s, 'p1', 'planning.investigate', { id: second!.id }, t0 + first!.seconds * 1000 + 1).ok).toBe(true)
+    cmd(s, 'p1', 'planning.set_report', { picks: truth }, t0 + first!.seconds * 1000 + 2)
+    host(s, 'end_now', {}, t0 + first!.seconds * 1000 + 3)
+    const r = s.players.p1!.planning!.result!
+    expect(r.investigations).toEqual({ started: 2, total })
+    expect(r.economy).toBe(Math.floor((eco * (total - 2)) / total + 0.5))
+    expect(r.raw).toBe(r.classify + r.flagship + r.economy)
+  })
+
+  it('never lets a saved investigation outweigh a problem in its true class', () => {
+    const sc = rules.scoring
+    const problems = RB.problems!
+    // The true board with every investigation against the same board with one problem unsorted
+    // or one class off and no investigation at all.
+    const all = scoreBoard(truth, problems, rules, rules.investigations.per_system)
+    expect(all.economy).toBe(0)
+    for (const p of problems) {
+      const less = Object.fromEntries(Object.entries(truth).filter(([id]) => id !== p.id))
+      expect(scoreBoard(less, problems, rules, 0).raw).toBeLessThan(all.raw)
+    }
+    expect(sc.economy!.max).toBeLessThan(sc.classify.exact - sc.classify.adjacent)
+    // An empty board earns nothing for having looked at nothing, and rules without the part pay nothing.
+    expect(scoreBoard({}, problems, rules, 0).raw).toBe(0)
+    const plain = { ...rules, scoring: { classify: sc.classify, flagship: sc.flagship } }
+    expect(scoreBoard(truth, problems, plain, 0)).toMatchObject({ economy: 0, investigations: { started: 0, total: 0 }, raw: all.raw })
   })
 
   it('gives partial credit one class off among the real classes, and none across the decoy line', () => {
@@ -188,7 +226,8 @@ describe('the live column and the reveal', () => {
     expect(rv.problems.find((p) => p.flagship)!.class).toBe(rules.flagship_class)
     expect(rv.graded.length).toBe(rules.candidates)
     expect(rv.flagship).toBe(rules.scoring.flagship.bonus)
-    expect(rv.classify + rv.flagship).toBe(s.players.p1!.results.planning!.raw)
+    expect(rv.classify + rv.flagship + rv.economy).toBe(s.players.p1!.results.planning!.raw)
+    expect(rv.investigations).toEqual({ started: 0, total: rules.investigations.per_system })
     // A player never receives the raw score or a band id, only the band's label.
     expect(Object.keys(rv)).not.toContain('raw')
     const band = s.players.p1!.results.planning!.band

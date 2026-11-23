@@ -12,6 +12,9 @@ export type PlanningResult = {
   graded: { problem: string; picked: string | null; points: number }[]   // every problem, in pack order
   classify: number
   flagship: number
+  /** What the investigations that were not started earned. 0 when the rules have no economy part. */
+  economy: number
+  investigations: { started: number; total: number }
   raw: number
 }
 

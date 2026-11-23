@@ -3,9 +3,9 @@
 // will call it every month with tables that its events have changed. Everything is an expected
 // value, so one map always gets one score. The executable reference is
 // `tools/canvas_scoring.py` of the private folder, and the parity vectors hold the engine to it.
-import { defaultPrompt, mapShape, peopleMinutes, type CanvasMap, type CanvasTables } from '@lab02/content-schema'
+import { defaultPrompt, mapShape, overPools, peopleMinutes, rushFactors, type CanvasMap, type CanvasTables } from '@lab02/content-schema'
 
-export type NoteId = 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
+export type NoteId = 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
 export type MissReason = 'missing' | 'weak' | 'decision'
 export type Missed = { case: string; reason: MissReason; fact: string | null }
 
@@ -18,6 +18,7 @@ export type Flags = {
   distracting: string[]     // live AI tiles that read a source that distracts
   prompt: string[]          // live tiles whose prompt helps nothing and hurts something
   stray: string[]           // tiles from which the result cannot be reached
+  rushed: string[]          // person tiles of a pool that is asked for more minutes than it has and rushes
 }
 
 export type Evaluation = {
@@ -42,7 +43,7 @@ export function promptEffect(t: CanvasTables, workerId: string, promptId: string
  * which reach nothing. Works on any accepted map, ready or not, so the screen can show it
  * while the player builds.
  */
-export function running(m: CanvasMap, t: CanvasTables): { running: Running; privateData: string[]; stray: string[] } {
+export function running(m: CanvasMap, t: CanvasTables): { running: Running; privateData: string[]; stray: string[]; rushed: string[] } {
   const sources = new Map(t.sources.map((s) => [s.id, s]))
   const workers = new Map(t.workers.map((w) => [w.id, w]))
   const models = new Map((t.models ?? []).map((x) => [x.id, x]))
@@ -90,6 +91,7 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; priv
     running: { money, minutes: peopleMinutes(m, t), complexity },
     privateData: unprotected.sort(),
     stray: [...tiles.keys()].filter((id) => !live.has(id)).sort(),
+    rushed: overPools(m, t).filter((o) => o.rush).flatMap((o) => o.tiles).sort(),
   }
 }
 
@@ -107,6 +109,7 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   const A = new Map<string, Record<string, number>>()     // facts a tile holds
   const D = new Map<string, Record<string, number>>()     // cases a tile solves
   const overloaded: string[] = [], distracting: string[] = [], prompt: string[] = []
+  const rush = rushFactors(m, t)                          // pools asked for more minutes than they have
 
   for (const n of sh.order) {
     const tile = sh.tiles.get(n)!
@@ -144,26 +147,32 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
     decide = { plain: decide.plain * mult, hard: decide.hard * mult }
     catchQ *= mult
 
-    const a: Record<string, number> = {}
+    // A person whose pool is asked for more minutes than it has gets through a share of the
+    // cases, `hurry`, and does the whole job on those. On the others the tile adds nothing: it
+    // passes on the facts and the draft that were handed to it.
+    const hurry = w.minutes && w.pool !== undefined ? rush[w.pool] : undefined
+    const a: Record<string, number> = {}, aFull: Record<string, number> = {}
     for (const f of t.facts) {
-      let best = 0
+      let best = 0, passed = 0
       for (const s of srcIn) {
         const src = sources.get(s)!
         const trust = src.gives[f.id]
         if (trust !== undefined) best = Math.max(best, (fetch[src.effort] ?? 0) * trust)
       }
-      for (const u of wrkIn) best = Math.max(best, A.get(u)![f.id]! * keep)
-      a[f.id] = best
+      for (const u of wrkIn) passed = Math.max(passed, A.get(u)![f.id]! * keep)
+      aFull[f.id] = Math.max(best, passed)
+      a[f.id] = hurry === undefined ? aFull[f.id]! : hurry * aFull[f.id]! + (1 - hurry) * passed
     }
     A.set(n, a)
     const d: Record<string, number> = {}
     for (const k of t.cases) {
       let have = 1
-      for (const f of k.needs) have *= a[f]!
+      for (const f of k.needs) have *= aFull[f]!
       const own = have * decide[k.difficulty]
       let up = 0
       for (const u of wrkIn) up = Math.max(up, D.get(u)![k.id]! * keep)
-      d[k.id] = Math.max(own, up + (1 - up) * catchQ * own)
+      const full = Math.max(own, up + (1 - up) * catchQ * own)
+      d[k.id] = hurry === undefined ? full : hurry * full + (1 - hurry) * up
     }
     D.set(n, d)
   }
@@ -200,10 +209,10 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
 
   const flags: Flags = {
     privateData: run.privateData, overloaded: overloaded.sort(), distracting: distracting.sort(),
-    prompt: prompt.sort(), stray: run.stray,
+    prompt: prompt.sort(), stray: run.stray, rushed: run.rushed,
   }
   const raised: Record<NoteId, boolean> = {
-    private_data: flags.privateData.length > 0, overloaded: flags.overloaded.length > 0,
+    rushed: flags.rushed.length > 0, private_data: flags.privateData.length > 0, overloaded: flags.overloaded.length > 0,
     distracting: flags.distracting.length > 0, prompt: flags.prompt.length > 0, stray: flags.stray.length > 0,
   }
   const listed = (t.notes ?? []).map((x) => x.id as NoteId).filter((id) => raised[id])

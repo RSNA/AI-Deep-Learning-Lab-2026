@@ -144,9 +144,12 @@ phases:
       cancel: none
     live_leaderboard: {metric: progress, label: Progress}
     submission: {letter_empty_below: 2}
+    # Economy: the investigations a branch did not start pay up to `max`, in proportion to how
+    # well the board is sorted. `max` stays below exact minus adjacent.
     scoring:
-      classify: {exact: 125, adjacent: 40}
-      flagship: {bonus: 250}
+      classify: {exact: 120, adjacent: 40}
+      flagship: {bonus: 240}
+      economy: {max: 40}
   development:
     label: Development
     play_seconds: 180

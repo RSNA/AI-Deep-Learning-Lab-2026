@@ -6,7 +6,9 @@ grid: {cols: 4, rows: 5}
 budget: {money: 90, developers: 3}
 validate: {runs: 6, seconds: 6}
 pools:
-  - {id: officer, public: {label: Grant officer minutes}, max: 5}
+  # A map may ask the officer for more minutes than there are. The officer then rushes and gets
+  # through a share of the reports. The aides keep the plain limit.
+  - {id: officer, public: {label: Grant officer minutes}, max: 5, over: rush}
   - {id: aides, public: {label: Library aide minutes}, max: 10}
 handoff: {keep: 0.95}
 quality_cap: 0.99
@@ -277,6 +279,7 @@ cases:
     decision_miss: The map had the year and missed the months that do not add up.
 
 notes:
+  - {id: rushed, text: "Your map asks the grant officer for more minutes than there are, so part of the reports went out unread."}
   - {id: private_data, text: Patron data on your map goes through a service that does not protect it.}
   - {id: overloaded, text: One worker on your map has more lines coming in than it can keep track of.}
   - {id: distracting, text: An AI worker on your map reads a source that sounds sure and is often wrong.}

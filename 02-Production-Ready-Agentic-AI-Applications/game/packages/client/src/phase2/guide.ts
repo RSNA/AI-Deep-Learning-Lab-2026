@@ -9,7 +9,8 @@ import { isSource, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { P2 } from './copy.ts'
 
 export type GuideItem = { text: string; nodes: string[]; part?: Part | null }
-export type Guide = { first: GuideItem | null; others: number; ready: boolean }
+/** `warn`: the map can be validated, and the player should know this first (people who will rush). */
+export type Guide = { first: GuideItem | null; others: number; ready: boolean; warn: GuideItem | null }
 
 const num = (x: number) => (Number.isInteger(x) ? String(x) : x.toLocaleString('en-US', { maximumFractionDigits: 1 }))
 
@@ -18,8 +19,8 @@ const num = (x: number) => (Number.isInteger(x) ? String(x) : x.toLocaleString('
  * runs, none left, then the map from its first tile to the minutes of its people.
  */
 export function guideOf(dv: DevelopmentView, c: DevelopmentContent, map: CanvasMap, nameOf: (id: string) => string): Guide {
-  if (dv.validating) return { first: { text: P2.why.running, nodes: [] }, others: 0, ready: false }
-  if (dv.validationsLeft <= 0) return { first: { text: P2.why.noneLeft, nodes: [] }, others: 0, ready: false }
+  if (dv.validating) return { first: { text: P2.why.running, nodes: [] }, others: 0, ready: false, warn: null }
+  if (dv.validationsLeft <= 0) return { first: { text: P2.why.noneLeft, nodes: [] }, others: 0, ready: false, warn: null }
   const out: GuideItem[] = []
   const open = new Set(dv.unlocked)
   const sources = c.sources.filter((s) => open.has(s.id)).map((s) => s.id)
@@ -58,7 +59,15 @@ export function guideOf(dv: DevelopmentView, c: DevelopmentContent, map: CanvasM
       }
     }
   }
-  return { first: out[0] ?? null, others: Math.max(0, out.length - 1), ready: out.length === 0 && dv.ready.ok }
+  // People who are asked for more minutes than they have rush. The map can be validated.
+  const r = (dv.rushed ?? [])[0]
+  let warn: GuideItem | null = null
+  if (r) {
+    const tiles = r.tiles.filter((id) => tileOf(map, id))
+    const pool = c.rules.pools.find((x) => x.id === r.pool)
+    warn = { text: tiles.length === 1 ? P2.why.rushOne(nameOf(tiles[0]!), num(r.used), num(r.max)) : P2.why.rushPool(pool?.label ?? '', num(r.used), num(r.max)), nodes: tiles }
+  }
+  return { first: out[0] ?? null, others: Math.max(0, out.length - 1), ready: out.length === 0 && dv.ready.ok, warn }
 }
 
 /**

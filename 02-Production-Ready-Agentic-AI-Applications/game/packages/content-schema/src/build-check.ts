@@ -143,4 +143,5 @@ export function checkBuild(
   })
   const noteIds = new Set(b.notes.map((n) => n.id))
   for (const n of ['private_data', 'overloaded', 'distracting', 'prompt', 'stray']) if (!noteIds.has(n as never)) warn('notes', `no note for "${n}"`)
+  if (b.pools.some((p) => p.over === 'rush') && !noteIds.has('rushed')) warn('notes', 'a pool rushes and there is no note for "rushed"')
 }

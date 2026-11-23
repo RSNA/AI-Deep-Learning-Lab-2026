@@ -83,7 +83,8 @@ export type PlanningClass = z.infer<typeof PlanningClass>
 export const PlanningContent = S({
   phase: z.literal('planning'),
   brief: Brief,
-  rules: S({ bandwidth: Int, classes: z.array(PlanningClass) }),   // classes in class_order
+  // `economy`: the score has a part for the investigations a player did not start (section 6.5).
+  rules: S({ bandwidth: Int, economy: z.boolean(), classes: z.array(PlanningClass) }),   // classes in class_order
   problems: z.array(S({ id: z.string(), title: Text, description: Text })),
   investigations: z.array(S({
     id: z.string(), method: Method, character: z.string().nullable(),
@@ -221,7 +222,9 @@ export const PlanningView = S({
       burden: S({ kind: z.string(), size: z.string(), note: Text }).optional(),
     })),
     graded: z.array(S({ problem: z.string(), picked: z.string().nullable(), points: z.number() })),   // every problem, in pack order
-    classify: z.number(), flagship: z.number(),      // the two parts of the score
+    classify: z.number(), flagship: z.number(),      // the parts of the score
+    economy: z.number(),                             // 0 when the pack has no economy part
+    investigations: S({ started: Int, total: Int }), // total is 0 when the pack has no economy part
   }).nullable(),
 })
 export type PlanningView = z.infer<typeof PlanningView>
@@ -250,6 +253,9 @@ export const DevelopmentView = S({
   lineAdvice: z.array(S({ from: z.string(), to: z.string(), text: Text })),
   // The minutes a case each person tile asks in this map. Empty when the pack does not show it.
   tileMinutes: z.record(z.string(), z.number()),
+  // Pools of people that the draft asks more minutes of than they have and that rush: the map
+  // can be validated, and these people get through a share of the cases (spec 6.6).
+  rushed: z.array(S({ pool: z.string(), used: z.number(), max: z.number(), tiles: z.array(z.string()) })),
   flags: S({ stray: z.array(z.string()), incomplete: z.array(z.string()), privateData: z.array(z.string()) }),
   running: Running.nullable(),                      // null when the pack does not show it
   validationsLeft: Int,

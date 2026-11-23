@@ -50,7 +50,7 @@ export function Blocks({ n, held = n, flash = 0 }: { n: number; held?: number; f
 }
 
 /** The bandwidth: blocks held and free, and what holding means. Blocks that come free flash once. */
-export function Bandwidth({ total, free }: { total: number; free: number }) {
+export function Bandwidth({ total, free, economy = false }: { total: number; free: number; economy?: boolean }) {
   const prev = useRef(free)
   const [flash, setFlash] = useState(0)
   useEffect(() => {
@@ -64,7 +64,7 @@ export function Bandwidth({ total, free }: { total: number; free: number }) {
         <Blocks n={total} held={total - free} flash={flash} />
         <span className="bwf">{P1.freeOf(free, total)}</span>
       </div>
-      <div className="bwline">{P1.bwLine}</div>
+      <div className="bwline">{P1.bwLine}{economy && <> {P1.economyLine2}</>}</div>
     </div>
   )
 }
@@ -178,7 +178,7 @@ export function Investigations({ content, pv, onShowCard, phone = false }: { con
           <span className="s">{P1.doneOf(done, content.investigations.length)}</span>
         </div>
       )}
-      <Bandwidth total={content.rules.bandwidth} free={pv.status === 'playing' ? pv.bandwidthFree : content.rules.bandwidth} />
+      <Bandwidth total={content.rules.bandwidth} free={pv.status === 'playing' ? pv.bandwidthFree : content.rules.bandwidth} economy={content.rules.economy} />
       <div className="colscroll">
         <InvestigationList content={content} pv={pv} onShowCard={onShowCard} />
       </div>

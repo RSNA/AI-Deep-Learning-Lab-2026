@@ -13,7 +13,7 @@ const content = {
 } as unknown as DevelopmentContent
 
 const view = (over: Partial<DevelopmentView> = {}): DevelopmentView => ({
-  unlocked: ['s1'], validating: null, validationsLeft: 6, flags: { stray: [], incomplete: [], privateData: [] },
+  unlocked: ['s1'], validating: null, validationsLeft: 6, flags: { stray: [], incomplete: [], privateData: [] }, rushed: [],
   ready: { ok: false, reasons: ['nothing_reaches_result'], details: [{ reason: 'nothing_reaches_result' }] },
   ...over,
 } as unknown as DevelopmentView)
@@ -50,7 +50,20 @@ describe('the next thing to do', () => {
     expect(guideOf(view({ validating: { id: 'v1', startedAtMs: 0, completesAtMs: 1 } }), content, { tiles: [], lines: [] }, name).first?.text).toMatch(/running/)
     expect(guideOf(view({ validationsLeft: 0 }), content, { tiles: [], lines: [] }, name).first?.text).toMatch(/No validations are left/)
     const map: CanvasMap = { tiles: [T('t1', 'rule', 2)], lines: [{ from: 's1', to: 't1' }, { from: 't1', to: 'res' }] }
-    expect(guideOf(view({ ready: { ok: true, reasons: [], details: [] } }), content, map, name)).toEqual({ first: null, others: 0, ready: true })
+    expect(guideOf(view({ ready: { ok: true, reasons: [], details: [] } }), content, map, name)).toEqual({ first: null, others: 0, ready: true, warn: null })
+  })
+  it('warns that people will rush, and leaves the map ready', () => {
+    const map: CanvasMap = { tiles: [T('t1', 'agent', 2), T('t2', 'lib', 3)], lines: [{ from: 's1', to: 't1' }, { from: 't1', to: 't2' }, { from: 't2', to: 'res' }] }
+    const ready = { ok: true, reasons: [], details: [] }
+    const one = guideOf(view({ ready, rushed: [{ pool: 'lib', used: 9, max: 4, tiles: ['t2'] }] }), content, map, name)
+    expect(one.first).toBeNull()
+    expect(one.ready).toBe(true)
+    expect(one.warn?.text).toMatch(/^Librarian is asked for 9 minutes a case and has 4\. They will rush and miss cases\. You can still validate\.$/)
+    expect(one.warn?.nodes).toEqual(['t2'])
+    const two: CanvasMap = { tiles: [...map.tiles, T('t3', 'lib', 4)], lines: map.lines }
+    const pool = guideOf(view({ ready, rushed: [{ pool: 'lib', used: 12, max: 4, tiles: ['t2', 't3'] }] }), content, two, name)
+    expect(pool.warn?.text).toMatch(/^Librarian minutes: the map asks 12 a case and there are 4\./)
+    expect(plain(one.warn!.text) && plain(pool.warn!.text)).toBe(true)
   })
 })
 
