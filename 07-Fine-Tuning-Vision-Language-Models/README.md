@@ -36,24 +36,45 @@ By the end of this session, participants will be able to:
 
 ## Materials
 
-Materials for this lab will be posted here before the meeting.
-
-<!--
-PRESENTERS: Replace the line above with links to your materials. For example:
-
 | Material | Link |
 | --- | --- |
-| Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/07-Fine-Tuning-Vision-Language-Models/YOUR_NOTEBOOK.ipynb) |
-| Slides | [Slides.pdf](./Slides.pdf) |
+| Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/07-Fine-Tuning-Vision-Language-Models/Lab07_Fine_Tune_a_VLM.ipynb) |
+| Dataset (FracAtlas, 512 px, with report text) | [magnooj/fracatlas-vlm-512](https://huggingface.co/datasets/magnooj/fracatlas-vlm-512) |
+| Fine-tuned LoRA adapter and precomputed results | [magnooj/qwen3-vl-2b-fracatlas-lora](https://huggingface.co/magnooj/qwen3-vl-2b-fracatlas-lora) |
+| Training and evaluation scripts | [`training/`](./training) |
+| Diagrams used in the notebook | [`figures/`](./figures) |
 
-Also add any setup participants must complete before the session (e.g., accounts, API keys, runtime type).
-See ../CONTRIBUTING.md for full instructions.
--->
+![How this lab works](./figures/lab_pipeline.png)
+
+In the notebook we teach [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct), a small open vision-language model, to read a musculoskeletal X-ray and fill in a four-line report (body part, view, hardware, fracture). The training runs were done before the lab; the notebook downloads the results, so every part runs in a few seconds, even without a GPU. With a free Colab T4 GPU you can also ask the model your own questions and fine-tune your own small adapter in about two minutes.
+
+| Part | Topic |
+| --- | --- |
+| 1–2 | What a vision-language model is; full fine-tuning, LoRA and prompt tuning |
+| 3–4 | Inside the model; the data, its splits and hidden duplicates |
+| 5–6 | The untrained model; fine-tune your own adapter |
+| 7–8 | Before vs after; learning rate, rank, data size and overfitting |
+| 9–10 | Failure probes (hallucination, shortcuts, forgetting); a clinical read |
+
+### Reproduce the training (optional, needs a large GPU)
+
+```bash
+pip install -r training/requirements.txt   # install torch for your CUDA first (see the file)
+# download FracAtlas from https://doi.org/10.6084/m9.figshare.22363012 into data/raw/FracAtlas
+python training/prepare_data.py --src data/raw/FracAtlas --out data/fracatlas_vlm
+python training/train_lora.py --data data/fracatlas_vlm/hf --out runs/main
+python training/evaluate.py --adapter runs/main/adapter --data data/fracatlas_vlm/hf --split test --out results/main_test.jsonl
+```
+
+The main run takes about 11 minutes on one 80 GB A100. On a smaller GPU, lower `--batch-size` and raise `--grad-accum` so their product stays 8.
+
+**For teaching only. The models and results here are not for clinical use.**
 
 ## Before the Session
 
 - Bring a laptop with a recent version of the [Chrome browser](https://www.google.com/chrome/).
 - Make sure you can sign in to a Google account, which you need to run notebooks in [Google Colab](https://colab.research.google.com/).
+- No Hugging Face account or token is needed. In Colab, choose **Runtime → Change runtime type → T4 GPU** to use the optional live parts.
 
 ---
 
