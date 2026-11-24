@@ -19,39 +19,94 @@
 
 ## Overview
 
-This interactive workshop focuses on the "data-first" engineering required to build medical imaging datasets from the ground up. The session goes beyond model training to teach the foundational skills of a medical AI researcher: selecting a cohort from EHR and radiology report data, fetching studies via DICOM networking (pynetdicom), and implementing professional anonymization and quality control pipelines.
-
-The workshop runs in a Colab notebook using public data and guides participants through transforming raw clinical inputs into structured, de-identified image-report pairs optimized for vision-language model (VLM) training. Attendees will leave with a framework for clinical data orchestration that can be adapted to any institution or research use case.
+Build a CXR training example through one continuous patient workflow: authenticate to the teaching
+hospital, retrieve patient and visit context through FHIR, match the correct report to the selected
+study, retrieve its image through DICOMweb, and prepare an image/context/Findings pair for a VLM.
+The RIS uses fictional clinical records and the PACS serves a small, attributed teaching image pack.
+The main lesson runs on a free Colab CPU runtime; model training is outside its scope.
 
 ## Learning Objectives
 
-By the end of this session, participants will be able to:
+1. Use authenticated FHIR requests to find patients, imaging studies, orders, encounters and reports.
+2. Match reports using accession and order identifiers, inspect distractors and extract Findings without Impression leakage.
+3. Retrieve matched DICOM images with QIDO/WADO, verify their identifiers, apply display transformations and resize proportionally to a maximum of 896 pixels.
+4. Assemble a multimodal training example with age, gender and reason for visit as context and Findings as the target.
 
-1. Demonstrate how to programmatically identify and select clinical cohorts by querying EHR databases and radiology reports, integrating disparate data sources into a unified research pipeline.
-2. Execute end-to-end imaging retrieval and sanitization using pynetdicom for PACS communication and DICOM de-identification protocols to ensure HIPAA compliance.
-3. Synthesize image-text pairs by applying NLP-based anonymization to free-text reports and synchronizing them with the corresponding imaging volumes.
+This demonstration does not implement institutional de-identification or establish regulatory compliance.
 
 ## Materials
 
-Materials for this lab will be posted here before the meeting.
-
-<!--
-PRESENTERS: Replace the line above with links to your materials. For example:
+The proposed live lesson uses **one continuous main notebook**, with presenter handoffs between sections.
+The complementary notebook is optional post-session material.
 
 | Material | Link |
 | --- | --- |
-| Notebook | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/08-Sourcing-and-Preprocessing-Data-for-VLMs/YOUR_NOTEBOOK.ipynb) |
-| Slides | [Slides.pdf](./Slides.pdf) |
+| Main notebook — sections 1–12 | [Open in Colab](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/08-Sourcing-and-Preprocessing-Data-for-VLMs/notebooks/01_source_and_pair.ipynb) · [Source](notebooks/01_source_and_pair.ipynb) |
+| Complementary practice — windowing, loader, splits and Arena | [Open in Colab](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/08-Sourcing-and-Preprocessing-Data-for-VLMs/notebooks/02_complementary.ipynb) · [Source](notebooks/02_complementary.ipynb) |
+| Backup expected results | [Walkthrough with images](backup-walkthrough.md) |
+| Faculty handoffs and readiness checklist | [Instructor guide](instructor-guide.md) |
+| FHIR / DICOMweb route guide | [Image](assets/hospital-api-guide.png) |
+| Image attribution | [Sources and modifications](assets/ATTRIBUTION.md) |
 
-Also add any setup participants must complete before the session (e.g., accounts, API keys, runtime type).
-See ../CONTRIBUTING.md for full instructions.
--->
+Colab links target the official main branch and become available after this submission is merged.
+
+### Proposed session division
+
+| Time (Central) | Lead | Content |
+| --- | --- | --- |
+| 9:30–9:35 | Felipe | Introduction and lab overview |
+| 9:35–9:50 | Eduardo | Sections 1–6: FHIR, authentication, patient/study selection, order and encounter context |
+| 9:50–10:05 | Imon | Sections 7–9: report–study matching, findings curation and QIDO/WADO retrieval |
+| 10:05–10:20 | Alessia | Sections 10–12: image preprocessing, visual inspection, training pair and cohort exercise if time permits |
+| 10:20–10:30 | Felipe | Wrap-up, questions, troubleshooting and catch-up |
+
+Imon Banerjee's matching and report-curation exercise from [PR #11](https://github.com/RSNA/AI-Deep-Learning-Lab-2026/pull/11)
+is integrated into sections 7–9. Her CSVs populate the teaching RIS and are retrieved through FHIR;
+participants do not upload CSVs or switch notebooks. See [adaptation and attribution notes](report-matching-notes.md)
+for preserved matching logic, CXR mapping and small correctness fixes. Section 8 compares Imon’s original CXR, CT and mammography report structures, including organ/breast subheadings and separate BI-RADS. These are text-only examples already in the RIS; no mammography images are claimed to exist in the PACS. The selected CXR is aligned with
+an actual Orthanc study; historical RIS-only records are explicitly distinguished from available images.
+
+Alessia Guarnera's November 20 additions are integrated into sections 10–12: compare full-resolution and
+resized images, inspect the actual saved image with its input/target, and switch between four available
+radiographs and three eligible training pairs. The two completed exercises use `RESIZE_SIDE` and `VIEW`;
+changing previews does not download the cohort again or modify the exported dataset. The cohort is optional
+within the 45-minute guided pathway. The closing take-home messages link to independent complementary practice.
+
+**Preparation status (November 20, 2026):** the [hospital](https://rsnalearninglab.eduardofarina.com)
+is online. This revision passed both notebooks in independent fresh local kernels against public HTTPS,
+including both cohort views, three smaller preview resolutions and the embedded recovery route. Imon's
+sections 7–9 are unchanged from the preceding integrated version. Both notebooks also completed on newly allocated Google Colab CPU runtimes with dependency installation
+enabled, using this public hospital. Faculty rehearsal remains planned. Arena remains optional complementary material; successful live inference
+remains unverified after an earlier external GPU quota failure.
+The instructor supplies classroom tokens. Planned hospital access continues through March 2, 2027.
+Alessia's separate slides were mentioned in email but not included in the supplied notebook attachment;
+the backup walkthrough provides expected results while those slides are consolidated.
 
 ## Before the Session
 
+- Use a free CPU runtime; no GPU or model weights are needed for the main lesson.
+- The instructor supplies the hospital URL and classroom token; enter the token at the notebook prompt.
 - Bring a laptop with a recent version of the [Chrome browser](https://www.google.com/chrome/).
 - Make sure you can sign in to a Google account, which you need to run notebooks in [Google Colab](https://colab.research.google.com/).
 
 ---
 
 [← Back to all labs](../README.md)
+
+
+### Workflow overview and one-case inference
+
+The main notebook opens with an embedded [stack overview](assets/lab-workflow-openrouter.png): FHIR clinical
+records, Orthanc/DICOMweb images, Colab curation/preprocessing, the training example and model inference.
+The final optional cell sends its prepared image and clinical context to the hospital's `/api/inference`
+endpoint using the classroom token. The server calls pretrained GPT-6.1 Sol through OpenRouter; provider
+credentials remain server-side. Students need no Hugging Face account, model download, provider key or GPU.
+Reference Findings are not sent to the model. The returned draft is compared with that teaching target,
+without presenting the comparison as an accuracy benchmark or writing a hospital report.
+
+Identical requests share a persisted model response, labelled as cached; each classroom token may use two
+distinct teaching cases. Run all leaves inference disabled. On November 23, public live inference succeeded
+and 20 simultaneous student requests shared one generation. Both notebooks passed in independent fresh
+local kernels against public HTTPS, including the enabled GPT finale, and 32 automated tests passed.
+The earlier Colab rehearsal predates this endpoint; a new Colab rehearsal of the GPT finale is still pending.
+Arena remains separate optional material in the complementary notebook.
