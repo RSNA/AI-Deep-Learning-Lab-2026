@@ -1,0 +1,48 @@
+name: Presenter auto-merge
+
+# Merges pull requests from lab presenters that stay inside their own lab
+# folder. The rules are in .github/scripts/presenter_auto_merge.py.
+# This workflow runs from main and never checks out or runs pull request code.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+  schedule:
+    - cron: "17 */6 * * *" # Every 6 hours, as a second chance
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: presenter-auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Stop after RSNA 2026
+        id: season
+        run: |
+          if [ "$(date -u +%F)" \> "2026-12-02" ]; then
+            echo "RSNA 2026 is over. Disabling this workflow."
+            gh workflow disable presenter-auto-merge.yml -R "$GITHUB_REPOSITORY"
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Get the script from main
+        if: steps.season.outputs.active == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github
+      - name: Merge presenter pull requests
+        if: steps.season.outputs.active == 'true'
+        run: python3 .github/scripts/presenter_auto_merge.py
