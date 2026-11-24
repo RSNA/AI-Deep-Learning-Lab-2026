@@ -1,0 +1,243 @@
+report_id,patient_id,accession_number,service_request_id,encounter_id,report_datetime,modality,exam_name,report_text
+RPT-2001,PAT-001,ACC-2026-00142,SR-1042,ENC-501,2026-05-14 10:48:00,CT,CT CHEST WITH IV CONTRAST,"
+EXAM:
+CT CHEST WITH IV CONTRAST
+
+CLINICAL HISTORY:
+Persistent cough. History of smoking. Pulmonary nodule
+identified on prior examination.
+
+COMPARISON:
+CT chest dated 11/10/2025.
+
+TECHNIQUE:
+Contrast-enhanced CT images of the chest were obtained from
+the thoracic inlet through the upper abdomen.
+
+FINDINGS:
+LUNGS AND AIRWAYS:
+8 mm solid pulmonary nodule in the posterior right upper
+lobe, previously measuring 6 mm. Mild bibasilar dependent
+atelectatic change. No focal airspace consolidation.
+
+PLEURA:
+No pleural effusion or pneumothorax.
+
+MEDIASTINUM:
+No pathologically enlarged mediastinal or hilar lymph nodes.
+
+HEART:
+Heart size is within normal limits. No pericardial effusion.
+
+UPPER ABDOMEN:
+Small hypodense lesion in the right hepatic lobe,
+incompletely characterized.
+
+IMPRESSION:
+1. Interval increase in size of an 8 mm right upper lobe
+   pulmonary nodule.
+2. No thoracic lymphadenopathy.
+3. Indeterminate hepatic lesion. Please refer to the
+   separately performed CT abdomen and pelvis.
+"
+RPT-2002,PAT-001,ACC-2026-00143,SR-1043,ENC-501,2026-05-14 12:32:00,CT,CT ABDOMEN AND PELVIS WITH IV CONTRAST,"
+EXAM:
+CT ABDOMEN AND PELVIS WITH IV CONTRAST
+
+CLINICAL HISTORY:
+Abdominal discomfort. Indeterminate hepatic lesion seen on
+same-day chest CT.
+
+COMPARISON:
+CT abdomen and pelvis dated 08/21/2024.
+
+FINDINGS:
+LOWER CHEST:
+Mild bibasilar atelectasis.
+
+LIVER:
+1.4 cm low-attenuation lesion in hepatic segment VII,
+unchanged from 2024 and compatible with a benign cyst.
+
+PANCREAS:
+No focal pancreatic lesion or pancreatic ductal dilatation.
+
+KIDNEYS:
+No hydronephrosis or suspicious renal mass.
+
+LYMPH NODES:
+No abdominal or pelvic lymphadenopathy.
+
+IMPRESSION:
+1. Stable benign hepatic cyst corresponding to the lesion
+   identified on the same-day chest CT.
+2. No suspicious abdominal or pelvic mass.
+"
+RPT-2003,PAT-001,ACC-2026-00144,SR-1044,ENC-501,2026-05-14 14:51:00,DX,CHEST RADIOGRAPH 2 VIEWS,"
+EXAM:
+CHEST RADIOGRAPH, PA AND LATERAL
+
+CLINICAL HISTORY:
+Cough. Pulmonary nodule.
+
+COMPARISON:
+Chest radiograph 01/12/2026 and CT chest performed earlier
+today.
+
+FINDINGS:
+Cardiomediastinal silhouette is within normal limits.
+
+No focal airspace consolidation, pleural effusion, or
+pneumothorax.
+
+The small right upper lobe pulmonary nodule demonstrated on
+CT is not well visualized radiographically.
+
+IMPRESSION:
+1. No acute cardiopulmonary abnormality.
+2. Known right upper lobe pulmonary nodule is better
+   demonstrated on same-day CT.
+"
+RPT-2004,PAT-001,ACC-2026-00145,SR-1045,ENC-502,2026-05-16 09:05:00,MG,DIAGNOSTIC BILATERAL MAMMOGRAPHY,"
+EXAM:
+BILATERAL DIAGNOSTIC DIGITAL MAMMOGRAPHY
+
+CLINICAL HISTORY:
+Recall from screening mammography for possible left breast
+asymmetry.
+
+COMPARISON:
+Prior mammograms dated 03/11/2025 and 02/28/2024.
+
+BREAST COMPOSITION:
+The breasts are heterogeneously dense.
+
+FINDINGS:
+RIGHT BREAST:
+No suspicious mass, architectural distortion, or suspicious
+calcifications.
+
+LEFT BREAST:
+Persistent 1.2 cm irregular high-density mass in the upper
+outer breast at posterior depth with associated fine
+pleomorphic calcifications spanning 1.6 cm.
+
+IMPRESSION:
+Suspicious left breast mass with associated calcifications.
+Targeted ultrasound and tissue sampling are recommended.
+
+BI-RADS:
+Category 4 - Suspicious abnormality.
+"
+RPT-1990,PAT-001,ACC-2025-00891,SR-0891,ENC-430,2025-11-10 16:22:00,CT,CT CHEST WITHOUT IV CONTRAST,"
+EXAM:
+CT CHEST WITHOUT IV CONTRAST
+
+CLINICAL HISTORY:
+Pulmonary nodule follow-up.
+
+FINDINGS:
+6 mm solid pulmonary nodule in the posterior right upper
+lobe. No focal pulmonary consolidation.
+
+No pleural effusion or pneumothorax.
+
+IMPRESSION:
+6 mm right upper lobe pulmonary nodule.
+Follow-up chest CT recommended.
+"
+RPT-2005,PAT-001,ACC-2026-00140,SR-1040,ENC-501,2026-05-14 07:45:00,CT,CT PULMONARY ANGIOGRAM,"
+EXAM:
+CT PULMONARY ANGIOGRAM
+
+CLINICAL HISTORY:
+Acute shortness of breath and chest pain.
+
+FINDINGS:
+No filling defect within the pulmonary arteries to suggest
+acute pulmonary embolism.
+
+7 mm right upper lobe pulmonary nodule is noted.
+
+Mild dependent bibasilar atelectasis.
+
+No pleural effusion or pneumothorax.
+
+IMPRESSION:
+1. No pulmonary embolism.
+2. Right upper lobe pulmonary nodule. Follow-up according
+   to clinical risk factors is recommended.
+"
+RPT-2006,PAT-001,ACC-2026-00141,SR-1041,ENC-501,2026-05-14 09:15:00,DX,PORTABLE CHEST RADIOGRAPH,"
+EXAM:
+PORTABLE AP CHEST
+
+CLINICAL HISTORY:
+Shortness of breath.
+
+FINDINGS:
+Low lung volumes with mild bibasilar linear opacity,
+favored to represent atelectatic change.
+
+No focal consolidation, pleural effusion, or pneumothorax.
+
+IMPRESSION:
+Mild bibasilar atelectatic change. No acute focal
+cardiopulmonary abnormality.
+"
+RPT-2007,PAT-001,ACC-2026-00150,SR-1050,ENC-503,2026-05-20 13:12:00,MG,LEFT DIAGNOSTIC MAMMOGRAPHY,"
+EXAM:
+LEFT DIAGNOSTIC MAMMOGRAPHY
+
+CLINICAL HISTORY:
+Further evaluation of left breast mass and calcifications.
+
+FINDINGS:
+Irregular mass with associated pleomorphic calcifications
+again identified in the upper outer left breast.
+
+IMPRESSION:
+Persistent suspicious left breast mass and calcifications.
+
+BI-RADS:
+Category 4 - Suspicious abnormality.
+"
+RPT-2008,PAT-001,ACC-2026-00201,SR-1101,ENC-510,2026-06-03 11:35:00,CT,CT ABDOMEN WITH IV CONTRAST,"
+EXAM:
+CT ABDOMEN WITH IV CONTRAST
+
+CLINICAL HISTORY:
+Follow-up hepatic lesion.
+
+FINDINGS:
+Stable 1.4 cm low-attenuation lesion in hepatic segment VII
+compatible with a cyst.
+
+No suspicious liver lesion.
+
+Visualized lung bases demonstrate mild dependent
+atelectatic change.
+
+IMPRESSION:
+Stable benign hepatic cyst.
+"
+RPT-2009,PAT-001,,SR-1099,ENC-509,2026-05-28 10:10:00,CT,CT CHEST WITHOUT IV CONTRAST,"
+EXAM:
+CT CHEST WITHOUT IV CONTRAST
+
+CLINICAL HISTORY:
+Pulmonary nodule.
+
+COMPARISON:
+CT chest 05/14/2026.
+
+FINDINGS:
+8 mm right upper lobe pulmonary nodule is unchanged.
+
+No new suspicious pulmonary nodule.
+
+No focal consolidation, pleural effusion, or pneumothorax.
+
+IMPRESSION:
+Stable 8 mm right upper lobe pulmonary nodule.
+"
