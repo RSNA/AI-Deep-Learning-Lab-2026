@@ -11,7 +11,7 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('next'), payload: S({}) }),
   S({ type: z.literal('pause'), payload: S({}) }),
   S({ type: z.literal('resume'), payload: S({}) }),
-  S({ type: z.literal('extend'), payload: S({ seconds: z.union([z.literal(30), z.literal(60)]) }) }),
+  S({ type: z.literal('extend'), payload: S({ seconds: z.union([z.literal(30), z.literal(60), z.literal(300)]) }) }),
   S({ type: z.literal('end_now'), payload: S({}) }),
   S({ type: z.literal('rename_player'), payload: S({ playerId: z.string(), name: z.string().max(100) }) }),
   S({ type: z.literal('remove_player'), payload: S({ playerId: z.string() }) }),

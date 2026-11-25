@@ -163,7 +163,11 @@ input.field.bad { border-color: var(--bad); }
   background: var(--bar); color: var(--bar-ink);
 }
 .topbar .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.topbar .who .name { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar .who .name { flex: 0 1 auto; min-width: 3ch; font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The name of the health system is never cut. A long name of a practice gives way first. */
+.topbar .who .sysbadge { flex: 0 0 auto; }
+/* Phase 2 holds its money in the middle of the bar, so the middle is no longer the centre: the name gets what is left. */
+.topbar.wide-mid { grid-template-columns: minmax(0, 1fr) auto auto; }
 .topbar .mid { display: flex; align-items: center; gap: 14px; }
 .topbar .right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .topbar .phase { font-family: var(--face); font-size: 24px; line-height: 1; white-space: nowrap; }
@@ -412,11 +416,12 @@ input.field.bad { border-color: var(--bad); }
 .sessbar .chip.good { background: var(--go); color: var(--on); border-color: #1d2140; }
 .sessbar .chip.watch { background: var(--sun); color: var(--on); border-color: #1d2140; }
 .lostctl { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 16px; background: var(--bad-bg); color: var(--bad); border-bottom: 3px solid var(--line); font-weight: 800; }
-.stagectl { flex: 1 1 540px; max-width: 760px; margin-left: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+/* As many controls side by side as fit at their full words: a narrow console stacks them and cuts nothing. */
+.stagectl { flex: 1 1 540px; max-width: 800px; min-width: 0; margin-left: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: start; }
 /* One row of controls, one size (section 10.1). Colour marks the main action, never height. */
-.stagectl .btn { width: 100%; min-height: 44px; font-size: 20px; padding: 0 8px; box-shadow: 3px 3px 0 var(--shade); }
-.stagectl .ctl-row { flex-wrap: nowrap; gap: 8px; }
-.stagectl .ctl-row .btn { flex: 1; min-width: 0; }
+.stagectl .btn { width: 100%; min-height: 44px; font-size: 20px; padding: 2px 8px; box-shadow: 3px 3px 0 var(--shade); white-space: normal; text-align: center; }
+.stagectl .ctl-row { flex-wrap: nowrap; gap: 6px; }
+.stagectl .ctl-row .btn { flex: 1 1 auto; min-width: 0; padding: 2px 4px; white-space: nowrap; font-size: 18px; }
 .stagectl .hint { font-size: 12px; }
 .sectitle { font-weight: 800; font-size: 14px; }
 .check.off { color: var(--muted); }
@@ -522,3 +527,16 @@ input.field.bad { border-color: var(--bad); }
 .help-marks { display: flex; flex-direction: column; gap: 8px; }
 .help-marks .hm { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; line-height: 1.35; }
 .help-marks .hm > :first-child { justify-self: center; }
+
+/* The programme of the session on the host console. */
+.prog { display: flex; flex-direction: column; gap: 5px; }
+.prog-bars { display: flex; gap: 4px; }
+.prog-bar { min-width: 0; height: 14px; background: var(--inset); border: 2px solid var(--soft); }
+.prog-bar.done { background: var(--lav); }
+.prog-bar.now { background: var(--sun); border-color: var(--line); }
+.prog-names { display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.prog-name { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.prog-name i { width: 9px; height: 9px; background: var(--inset); border: 2px solid var(--soft); }
+.prog-name.done i { background: var(--lav); }
+.prog-name.now { color: var(--ink); font-weight: 800; }
+.prog-name.now i { background: var(--sun); border-color: var(--line); }

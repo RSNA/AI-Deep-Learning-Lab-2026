@@ -13,7 +13,7 @@ import { H } from './hostCopy.ts'
 import { Grid } from '../canvas/Grid.tsx'
 import { tileNames } from '../canvas/model.ts'
 import { gridWords, reasonText } from '../phase2/Phase2.tsx'
-import { runCost } from '../phase2/copy.ts'
+import { P2, runCost } from '../phase2/copy.ts'
 
 type Mark = 'right' | 'near' | 'wrong' | 'unsorted'
 const MARK_ICON: Record<Mark, string> = { right: '✓', near: '≈', wrong: '✗', unsorted: '–' }
@@ -99,7 +99,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
   const raised = Object.entries(d.key.flags).filter(([, ids]) => ids.length > 0)
   const names = tileNames(d.map, d.legend)
   const v = d.validations.find((x) => x.id === shown)
-  const minutes = d.pools.map((pl) => `${pl.label} ${d.key.running.minutes[pl.id] ?? 0} of ${pl.max}`).join(' · ')
+  const minutes = d.pools.map((pl) => P2.minutes(pl.label, d.key.running.minutes[pl.id] ?? 0, pl.max)).join(' · ')
   return (
     <div className="inspect">
       <div className="inspect-top">
