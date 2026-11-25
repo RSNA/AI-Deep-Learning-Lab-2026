@@ -84,7 +84,7 @@ export const P2 = {
   tour: [
     { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
     { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from the round port on the right of a tile to the tile that gets its work. A line may run any way across the map, but never in a loop. The work ends in the result.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round port of a tile to the tile that gets its work. It joins the two sides that face each other. A line may run any way across the map, but never in a loop. The work ends in the result.' },
     { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
     { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays with the practice, so pay for what your map will use.' },

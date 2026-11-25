@@ -157,7 +157,16 @@ test('Validate always says why, and every refused placement or line says why at 
   await page.locator('.ctile', { hasText: 'Rule' }).click()
   await expect(note).toHaveCount(0)
   await expect(page.locator('.cline')).toHaveCount(before + 1)
-  await expect(page.locator('.cline .chead')).toHaveCount(1)          // it goes around, with a head of its own
+  await expect(page.locator('.cheads .chead')).toHaveCount(before + 1)   // every line has its head, in the layer over the tiles
+  // It leaves the left side of Agent and enters the right side of Rule: the sides that face each other.
+  const ends = await page.evaluate(() => {
+    const d = document.querySelector('.cline .hit[aria-label^="Line from Agent to Rule"]')!.getAttribute('d')!
+    const n = d.match(/-?\d+(\.\d+)?/g)!.map(Number)
+    const box = (sel: string) => { const e = [...document.querySelectorAll<HTMLElement>('.ctile')].find((x) => x.textContent!.includes(sel))!; return { x: e.offsetLeft, w: e.offsetWidth } }
+    return { x1: n[0]!, x2: n[n.length - 2]!, agent: box('Agent'), rule: box('Rule') }
+  })
+  expect(Math.abs(ends.x1 - ends.agent.x)).toBeLessThan(3)
+  expect(Math.abs(ends.x2 - (ends.rule.x + ends.rule.w))).toBeLessThan(3)
   await port(page, 'Rule').click()
   await page.locator('.ctile', { hasText: 'Agent' }).click()
   await expect(note).toContainText('That would close a loop: Agent already hands its work on to Rule')
