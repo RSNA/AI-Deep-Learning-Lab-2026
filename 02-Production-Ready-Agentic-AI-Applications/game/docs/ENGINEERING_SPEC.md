@@ -3145,6 +3145,20 @@ does now.
   column on a laptop and above the tab bar on a phone, never over the line beside Validate or
   the buttons of the results.
 
+**Version 1.7, the second round after that play check.**
+
+- *Lines in any direction.* The port of a tile joins to any other tile unless the line would
+  close a loop, and the refusal says so. A line that does not run to the right goes around: out
+  of the port into the gap right of its column, along the nearest gap between two rows, and into
+  the left edge of the target, with its arrowhead on the last stretch beside the target. A move
+  of a tile never drops a line.
+- *A map of five columns* fits a laptop of 1280 wide (class `dense`): narrower gaps, and below
+  1440 wide a tile shows its name and parts without their small pictures.
+- *The chosen map.* The validation list says "Your chosen map so far" and "Choose this map", and
+  the reveal says that the chosen map counts.
+- *Accuracy with one decimal* in the validation list and at the reveal, because the maps of a
+  real pack differ by less than a point at the top.
+
 ### 10.6 Phase 3 screens (outline)
 
 - **Setup.** The player's own map from Phase 2, with the choice to take the reference map in its

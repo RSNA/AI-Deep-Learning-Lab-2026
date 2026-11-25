@@ -42,7 +42,7 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
         <section className="panel score">
           <div className="panel-head"><span>{P2.yourScore}</span></div>
           <div className="panel-body">
-            <div className="srow2"><div><div>{P2.accuracySent}</div><div className="muted">{sent ? P2.validationOf(sent.id, sent.accuracy) : P2.noMapSent}</div></div><span className="num">{P2.pct(rv.accuracy)}</span></div>
+            <div className="srow2"><div><div>{P2.accuracySent}</div><div className="muted">{sent ? P2.validationOf(sent.id, sent.accuracy) : P2.noMapSent}</div></div><span className="num">{P2.acc1(rv.accuracy)}</span></div>
             {pts && (
               <div className="bigpts">
                 <span className="num">{pts.points}</span><span className="face">{P2.phasePoints}</span>
@@ -55,13 +55,13 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
       </div>
       <div className="p2maps">
         <section className="panel">
-          <div className="panel-head sky"><span>{P2.yourMap}</span>{sent && <span className="sub">{P2.pct(rv.accuracy)}</span>}</div>
+          <div className="panel-head sky"><span>{P2.yourMap}</span>{sent && <span className="sub">{P2.acc1(rv.accuracy)}</span>}</div>
           <div className="panel-body">
             {sent ? <div className="gridscroll"><Grid v={v} map={sent.map} flags={none} compact words={gridWords} label={P2.yourMap} /></div> : <p className="muted">{P2.noMapSent}</p>}
           </div>
         </section>
         <section className="panel">
-          <div className="panel-head go"><span>{P2.referenceMap}</span><span className="sub">{P2.pct(rv.reference.accuracy)}</span></div>
+          <div className="panel-head go"><span>{P2.referenceMap}</span><span className="sub">{P2.acc1(rv.reference.accuracy)}</span></div>
           <div className="panel-body">
             <div className="gridscroll"><Grid v={v} map={rv.reference.map} flags={none} compact words={gridWords} label={P2.referenceMap} /></div>
             <p className="refsum">{rv.reference.summary}</p>

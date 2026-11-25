@@ -181,7 +181,7 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
                   {v.rank !== null && <span className="vrank">{P2.rank(v.rank, v.of)}</span>}
                 </div>
                 <div className="vrun-b">
-                  <div className="vacc"><span className="num">{P2.pct(v.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
+                  <div className="vacc"><span className="num">{P2.acc1(v.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
                   <div className="vrun-t">
                     {v.missed && (
                       <div className="vmiss">
@@ -669,7 +669,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   if (phone) {
     const counts: Record<Tab, string> = {
       map: `${map.tiles.length}`, actions: dv.actionsRunning.length ? `${dv.actionsRunning.length} running` : `${dv.actionsDone.length} done`,
-      toolbox: '', results: dv.validations.length ? P2.pct(dv.validations.at(-1)!.accuracy) : '–',
+      toolbox: '', results: dv.validations.length ? P2.acc1(dv.validations.at(-1)!.accuracy) : '–',
     }
     return (
       <PopLayer off>

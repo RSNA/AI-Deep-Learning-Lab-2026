@@ -129,7 +129,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await tool(page, 'Rule').click()
   await cell(page, 1, 4).click()
   await expect(page.locator('.ctile.stray')).toHaveCount(1)
-  await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+%$/, { timeout: 15_000 })
+  await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+\.\d%$/, { timeout: 15_000 })
   await expect(page.locator('#p2-results')).toContainText('One patient it got wrong, as an example')
   await expect(page.locator('#p2-results')).toContainText('Your chosen map so far')
 

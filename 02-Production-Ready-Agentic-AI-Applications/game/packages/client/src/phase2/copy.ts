@@ -4,6 +4,8 @@ import type { GridWords } from '../canvas/Grid.tsx'
 
 const secs = (s: number) => `${Math.max(0, Math.ceil(s))} s`
 const pct = (x: number) => `${Math.round(100 * x)}%`
+// The accuracy of a map, with one decimal: at the top the maps of a pack differ by less than a point.
+const acc1 = (x: number) => `${(Math.round(1000 * x) / 10).toFixed(1)}%`
 /** A sum of money: whole when it is whole, else two decimals below 10 and one above. */
 export const money = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: Math.abs(x) < 10 ? 2 : 1 }))
 const num = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: 1 }))
@@ -234,7 +236,7 @@ export const P2 = {
   // What happened when the people of a map had fewer minutes than it asks of them.
   rushedPool: (label: string, used: number, max: number) => `${poolPeople(label)}: this map needs ${num(used)} min per patient and there are ${num(max)}, so ${reach(used, max, true)}. The others passed without one.`,
   rushedPlain: 'The people on this map had fewer minutes than it asks of them, so part of the patients passed without a full look.',
-  unhurried: (acc: number) => `With the time it asks for, this map would be right for ${pct(acc)} of the patients.`,
+  unhurried: (acc: number) => `With the time it asks for, this map would be right for ${acc1(acc)} of the patients.`,
   restoreMap: 'Restore this map',
   restored: (n: number) => `The map of validation ${n} is back on your canvas. Undo returns to the one before.`,
   onCanvas: 'On your canvas now',
@@ -243,8 +245,8 @@ export const P2 = {
   defaultSend: 'Unless you choose another, the map with the best accuracy counts when the time is up.',
   backToDefault: 'Go back to the best one',
   noValidation: 'No validation yet. When something reaches the result, press Validate. It takes a few seconds, and the map stays usable meanwhile.',
-  validationOf: (id: string, acc: number) => `${id.replace('v', 'Validation ')}: ${pct(acc)}`,
-  doneToast: (acc: number) => `Validation done: ${pct(acc)}`,
+  validationOf: (id: string, acc: number) => `${id.replace('v', 'Validation ')}: ${acc1(acc)}`,
+  doneToast: (acc: number) => `Validation done: ${acc1(acc)}`,
   insightToast: (title: string) => `New insight: ${title}`,
   show: 'Show',
   insights: 'Insights',
@@ -256,6 +258,7 @@ export const P2 = {
   letterStays: 'This letter stays as the first card under Insights.',
   warn: (s: number) => `${s} seconds left. Your chosen map, or the one with the best accuracy, counts when the time is up.`,
   pct,
+  acc1,
   // Reveal
   letterTitle: 'A letter for you',
   timeUp: 'Time is up. The map you chose, or the one with the best accuracy, counts.',
