@@ -87,7 +87,7 @@ export const P2 = {
     { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round port of a tile to the tile that gets its work. It joins the two sides that face each other. A line may run any way across the map, but never in a loop. The work ends in the result.' },
     { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
-    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays with the practice, so pay for what your map will use.' },
+    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays in your budget, so pay for what your map will use.' },
     { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Test the map against patients whose answers people checked. While the button cannot act, the line beside it says what to do next.' },
     { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy and one patient the map got wrong, and you can bring back the map of any of them. The opening letter and the insights of actions wait here too.' },
   ],
@@ -171,7 +171,7 @@ export const P2 = {
   // Said once, when a player has started this many actions.
   spendAfter: 4,
   spendTitle: 'A word on money',
-  spendText: (n: number) => `That is ${n === 4 ? 'four' : n} actions started. Money spent on something your map does not use is gone, and what you keep stays with the practice. Pay for what the map needs.`,
+  spendText: (n: number) => `That is ${n === 4 ? 'four' : n} actions started. Money spent on something your map does not use is gone, and what you keep stays in your budget. Pay for what the map needs.`,
   spendOk: 'Got it',
   // Running and validating
   toRun: 'To run:',
