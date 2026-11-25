@@ -40,11 +40,11 @@
 .mhint.msg { background: #fff; color: #1d2140; padding: 2px 6px; border: 2px solid #1d2140; }
 
 /* Shelves: chips that inform. A chip is flat and round, so nobody takes it for a button. */
-.shelves { flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; padding: 5px 10px; border-bottom: 2px solid var(--soft); }
-.shelf { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.shelves { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; padding: 3px 10px; border-bottom: 2px solid var(--soft); }
+.shelf { display: flex; align-items: center; gap: 8px; min-height: 26px; }
 .shelf-t { width: 104px; white-space: nowrap; flex-shrink: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .shelf-items { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
-.schip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px; background: var(--inset); color: var(--ink); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.schip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 0; border-radius: 13px; background: var(--inset); color: var(--ink); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .schip:hover { background: var(--sky-bg); }
 .schip.is-locked { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--soft); }
 
@@ -173,18 +173,19 @@
 .cgrid.compact .csource { grid-template-columns: minmax(0, 1fr) auto; padding: 1px 10px 1px 4px; }
 .cgrid.compact .csource > .cicon { display: none; }
 .cgrid.compact .csource .cs-name { -webkit-line-clamp: 3; font-size: 10px; }
-.cgrid.compact .ct-mini { font-size: 9.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.cgrid.compact .ct-mini { font-size: 9.5px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; color: var(--ink); }
 .cgrid.compact .ct-mini.missing { color: var(--bad); }
 .cgrid.compact .ctile { gap: 0; }
 
-/* The foot of the map: what it takes to run, and Validate */
-.mapfoot { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-height: 58px; border-top: 2px solid var(--soft); }
-.runline { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.3; }
-.runline > span:first-child { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* The foot of the map: what it takes to run in one line, and under it Validate with its sentence. */
+.mapfoot { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 3px 10px 5px; border-top: 2px solid var(--soft); }
+.runline { display: flex; flex-wrap: wrap; gap: 0 14px; font-size: 12.5px; line-height: 1.35; }
+.runline > span { white-space: nowrap; }
 .runline .over { color: var(--bad); font-weight: 800; }
-.runline .pwarn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
-.vwrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.vwhy { max-width: 300px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+.footrow { display: flex; align-items: center; gap: 10px; min-height: 46px; }
+.footrow .pwarn { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.vwrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; min-width: 0; }
+.vwhy { max-width: 400px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
 /* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
 .vwhy.block { color: var(--ink); font-weight: 800; }
 .vwhy.ok { color: var(--good); }
@@ -202,7 +203,8 @@
 /* ---------------------------------------------------------------- toolbox */
 .toolbox { display: flex; flex-direction: column; }
 .tb-hint { padding: 6px 10px; font-size: 12.5px; line-height: 1.3; color: var(--muted); border-bottom: 2px solid var(--soft); }
-.tbgroup-t { padding: 2px 10px 1px; font-family: var(--face); font-size: 17px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+/* The heading of a group stays in sight while its rows scroll under it. */
+.tbgroup-t { position: sticky; top: 0; z-index: 2; padding: 2px 10px 1px; font-family: var(--face); font-size: 17px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
 .tbrow { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 8px 4px 10px; border: 0; border-bottom: 2px solid var(--soft); background: var(--panel); color: var(--ink); text-align: left; font: inherit; cursor: grab; min-height: 40px; width: 100%; }
 .toolbox.phone .tbrow { min-height: 48px; }
 .tbrow:hover:not(:disabled) { background: var(--inset); }
@@ -218,14 +220,11 @@
 .toolbox.phone .tb-l { font-size: 14px; }
 .tb-ln { margin-right: 6px; }
 .tb-k { white-space: nowrap; font-size: 10px; letter-spacing: 0.03em; }
-.tb-task { font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--ink); opacity: 0.8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.toolbox.phone .tb-task { -webkit-line-clamp: unset; }
-.toolbox:not(.phone) .tbrow .tb-lock > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-task { font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--ink); opacity: 0.8; }
+.toolbox:not(.phone) .tbrow .tb-lock > span { min-width: 0; overflow-wrap: anywhere; }
+.toolbox:not(.phone) .tbrow .tb-lock { min-width: 0; font-weight: 700; color: var(--muted); align-items: flex-start; }
+.toolbox:not(.phone) .tbrow .tb-lock svg { flex-shrink: 0; margin-top: 2px; }
 .toolbox.phone .tb-lock { align-items: flex-start; }
-.tb-pop .tb-lock { font-weight: 800; }
-/* The card beside a row that is pointed at: what the row leaves out. */
-.tb-pop { position: fixed; z-index: 60; width: 250px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); pointer-events: none; }
-.tb-pop.k-ai { border-left: 8px solid var(--sky); } .tb-pop.k-fixed { border-left: 8px solid var(--lav); } .tb-pop.k-person { border-left: 8px solid var(--sun); }
 .tb-k { font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .tb-d { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
 .tb-c { font-size: 12px; line-height: 1.3; color: var(--muted); font-style: italic; }
@@ -234,17 +233,17 @@
 .toolbox.phone .tbrow { padding: 10px 12px; }
 
 /* ---------------------------------------------------------------- actions */
-.agroup-t { padding: 5px 12px 3px; font-family: var(--face); font-size: 20px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+.agroup-t { position: sticky; top: 0; z-index: 2; padding: 3px 12px 2px; font-family: var(--face); font-size: 19px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
 .alist .inv-note.one { padding: 5px 10px; font-size: 12.5px; line-height: 1.3; cursor: help; }
-.arow { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 2px 8px; align-items: center; padding: 5px 10px 6px; border-bottom: 2px solid var(--soft); }
+.arow { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 1px 8px; align-items: center; padding: 3px 8px 4px 10px; border-bottom: 2px solid var(--soft); }
 .arow .ttl { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .arow .ttl:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .arow .amark { margin-left: 6px; color: var(--muted); }
 .arow .amore { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 1px; }
-.arow .iact .ibtn { min-height: 34px; }
+.arow .iact .ibtn { min-height: 32px; }
 .arow.running { background: var(--sky-bg); }
 .arow.blocked .t, .arow.blocked .tz { color: var(--muted); }
-.arow .t { font-size: 14px; font-weight: 800; line-height: 1.2; }
+.arow .t { font-size: 13.5px; font-weight: 800; line-height: 1.18; }
 .arow .tz { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
 .arow .meta { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.3; }
 .arow .meta.opens { color: var(--good); }
@@ -263,8 +262,9 @@
 .pr-d { font-size: 14px; line-height: 1.35; color: var(--muted); }
 .pr-x { font-size: 13px; font-weight: 800; color: var(--bad); }
 .sheet.promptsheet { width: min(1120px, 100%); }
-.pcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-.pcard { display: flex; flex-direction: column; min-width: 0; border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); }
+.pcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.pcards .stdcard { height: 372px; }
+.pcard { min-width: 0; border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); }
 .pcard.on { box-shadow: 0 0 0 4px var(--go), 3px 3px 0 var(--shade); }
 .pcard.is-locked .pc-desc, .pcard.is-locked .pc-sample { opacity: 0.6; }
 .pc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 10px; background: var(--lav); color: var(--on); border-bottom: 3px solid var(--line); font-family: var(--face); font-size: 22px; line-height: 1.1; }
@@ -272,12 +272,12 @@
 .pc-desc { padding: 8px 10px 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
 .pc-about { font-size: 15px; font-weight: 800; line-height: 1.35; }
 .pc-intro { font-size: 14px; line-height: 1.35; }
-.pc-sample { flex: 1; margin: 8px 10px; padding: 7px 9px; background: var(--inset); border: 2px solid var(--soft); color: var(--ink); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pc-sample { margin: 8px 10px; padding: 7px 9px; background: var(--inset); border: 2px solid var(--soft); color: var(--ink); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pc-s { display: flex; flex-direction: column; }
 .pc-s + .pc-s { margin-top: -2px; }
 .pc-sl { padding: 6px 10px 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .pc-s .pc-sample { flex: 0 0 auto; margin-top: 3px; }
-.pc-foot { padding: 0 10px 10px; min-height: 44px; display: flex; align-items: center; }
+.pc-foot { flex-shrink: 0; padding: 0 10px 10px; min-height: 44px; display: flex; align-items: center; }
 .pc-foot .btn { width: 100%; min-height: 40px; }
 .pc-lock { font-size: 13px; font-weight: 800; color: var(--muted); display: flex; align-items: center; gap: 5px; }
 .pc-in { font-size: 14px; font-weight: 800; color: var(--good); }
@@ -289,17 +289,31 @@
 .vacc .num { font-size: 56px; line-height: 1; }
 .vacc .face { font-size: 22px; }
 .vrank { font-size: 16px; font-weight: 800; }
-.vhist { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.vhist .pl { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
-.hchip { height: 28px; padding: 0 10px; border: 0; border-radius: 14px; background: var(--inset); box-shadow: inset 0 0 0 2px var(--soft); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
-.hchip.on { background: var(--sky-bg); box-shadow: inset 0 0 0 2px var(--line); }
-.hchip.send { color: var(--good); }
+/* Every validation, the newest first and largest. None is hidden behind a chip or a hover. */
+.vruns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.vrun { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; border: 2px solid var(--soft); background: var(--panel); }
+.vrun.newest { border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
+.vrun.send { border-left: 8px solid var(--go); }
+.vrun-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vrun-n { font-family: var(--face); font-size: 22px; line-height: 1; }
+.vrun-h .flag { margin-left: 0; }
+.vrun-h .vrank { margin-left: auto; font-size: 13px; color: var(--muted); }
+.vrun-b { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; }
+.vrun .vacc { flex-direction: column; align-items: flex-start; gap: 0; }
+.vrun .vacc .num { font-size: 40px; }
+.vrun .vacc .face { font-size: 16px; }
+.vrun.newest .vacc .num { font-size: 56px; }
+.vrun.newest .vacc .face { font-size: 20px; }
+.vrun-t { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vnote.rush { background: var(--sky-bg); border-left-color: var(--sky); display: flex; flex-direction: column; gap: 4px; }
+.vfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .vmiss p { font-size: 15px; line-height: 1.45; }
 .vmiss .why { color: var(--muted); }
 .vnote { padding: 6px 10px; background: var(--sun-bg); border-left: 5px solid var(--sun); font-size: 14.5px; line-height: 1.4; }
 .vacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vacts .flag { margin-left: 0; font-size: 12px; padding: 4px 10px; }
-.icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: stretch; }
+.icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+.icards .stdcard { height: 340px; }
 .icards .card { cursor: default; }
 .h-g-learn { background: var(--sky); } .h-g-build { background: var(--go); } .h-g-buy { background: var(--sun); } .h-g-negotiate { background: var(--lav); }
 .p2toast { display: flex; align-items: center; gap: 12px; bottom: 24px; }
@@ -312,7 +326,8 @@
 .p2pmap .purse, .p2pcol .purse { padding: 8px 10px; background: var(--inset); border-bottom: 2px solid var(--soft); gap: 12px; }
 .p2pmap .gridscroll { flex-shrink: 0; }
 .p2pmap .cgrid { min-width: 780px; height: auto; grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(84px, auto)); }
-.p2pmap .mapfoot { flex-wrap: wrap; }
+.p2pmap .footrow { flex-wrap: wrap; }
+.p2pmap .runline > span { white-space: normal; }
 .p2pmap .vwrap { width: 100%; justify-content: space-between; }
 .p2pmap .vwhy { text-align: left; max-width: none; flex: 1; }
 .p2pcol { display: flex; flex-direction: column; }
@@ -351,14 +366,19 @@
   .arow .t { font-size: 15.5px; }
   .arow .meta, .alist .inv-note.one { font-size: 13px; }
 }
-@media (max-width: 1023px) {
+@media (max-width: 1179px) {
   /* A notice stands above the tab bar of a phone, never over it. */
-  .toast, .p2toast { bottom: 74px; }
+  .p2toast { bottom: 74px; }
   .p2-below { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+}
+@media (max-width: 1023px) {
+  .toast { bottom: 74px; }
   .p2maps { grid-template-columns: minmax(0, 1fr); }
   .p2maps .gridscroll .cgrid { min-width: 640px; }
   .rcases { grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 8px 10px; }
-  .vacc .num { font-size: 44px; }
+  .vacc .num, .vrun.newest .vacc .num { font-size: 44px; }
+  .vrun .vacc .num { font-size: 34px; }
+  .vrun-b { grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }
 }
 @media (max-width: 560px) {
   .rcases { grid-template-columns: minmax(0, 1fr) 92px 92px; }
@@ -423,3 +443,41 @@
 .hm-missing { font-size: 11px; font-weight: 700; padding: 1px 4px; background: var(--sun-bg); box-shadow: inset 0 0 0 2px var(--sun); white-space: nowrap; }
 .hm-guide { display: inline-block; width: 40px; height: 24px; border: 3px solid var(--line); box-shadow: 0 0 0 4px var(--sun); }
 .help-marks .lglegend { flex-direction: column; align-items: flex-start; gap: 4px; grid-column: 1 / -1; justify-self: start; }
+
+/* The play area is a board, not a text: a drag across it draws a line or moves a tile and never
+   marks the labels as selected. What is read stays selectable below, in results and insights. */
+.p2-top, .p2pmap, .p2-phone .ptabs, .toolbox, .alist .ttl, .alist .agroup-t { -webkit-user-select: none; user-select: none; }
+
+/* The card beside whatever is pointed at or holds the focus. It never takes a click. */
+.pop { position: fixed; z-index: 65; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; padding: 9px 11px 10px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); pointer-events: none; overflow-wrap: anywhere; }
+.pop.k-ai { border-left: 8px solid var(--sky); } .pop.k-fixed { border-left: 8px solid var(--lav); } .pop.k-person { border-left: 8px solid var(--sun); }
+.pop-t { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 800; line-height: 1.2; }
+.pop-k { flex-shrink: 0; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.pop-lead { font-size: 13px; font-weight: 800; line-height: 1.3; }
+.pop-b { font-size: 13.5px; line-height: 1.4; }
+.pop-m { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.pop-lock { display: flex; align-items: flex-start; gap: 5px; padding-top: 2px; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.pop-lock svg { flex-shrink: 0; margin-top: 2px; }
+.csource:not(.is-locked), .cresult { cursor: help; }
+.joining .cresult.lit { cursor: pointer; }
+
+/* A card of the standard size: its text is cut where the card ends, and a button shows the rest. */
+.stdcard { display: flex; flex-direction: column; min-height: 0; }
+.stdcard.open { height: auto !important; }
+.stdcard .clamp-box { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.stdcard .clamp-box.open { overflow: visible; }
+.stdcard .clamp-box.cut::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(to bottom, transparent, var(--panel)); pointer-events: none; }
+.stdcard .clamp-foot { flex-shrink: 0; min-height: 30px; display: flex; align-items: center; padding: 0 10px; }
+.clamp-btn { min-height: 28px; padding: 0 2px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.clamp-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.icards .card .cbody { flex: 0 0 auto; }
+
+/* A word the player should read before the next action, at the head of the list. */
+.spendnote { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin: 6px 8px; padding: 8px 10px; background: var(--sun-bg); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); font-size: 13px; line-height: 1.35; -webkit-user-select: text; user-select: text; }
+.spendnote b { font-size: 14px; }
+.spendnote .btn { min-height: 32px; }
+.mapbar .btn.small.off { opacity: 0.5; cursor: help; }
+/* Between a phone and a wide laptop the bar of the map keeps the two kinds of line and leaves
+   the sentence on how to start to the line beside Validate, which says the same. */
+@media (max-width: 1499px) { .mhint .lg-tip { display: none; } }
+.p2pmap .footrow .pwarn { flex-basis: 100%; }

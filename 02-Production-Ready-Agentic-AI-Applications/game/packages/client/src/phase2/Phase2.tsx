@@ -6,10 +6,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasMap, DevelopmentContent, DevelopmentView, Welcome } from '@lab02/protocol'
 import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
-import { HelpSheet, Tour } from '../components/Tour.tsx'
-import { Portrait } from '../components/ui.tsx'
+import { PopLayer, type PopInfo } from '../canvas/Pop.tsx'
+import { ClampCard } from '../components/Clamp.tsx'
+import { HelpSheet, Tour, useTour } from '../components/Tour.tsx'
+import { Portrait, Sheet as Dialog } from '../components/ui.tsx'
 import { COPY } from '../copy.ts'
 import { gameNow, useTick } from '../lib/clock.ts'
 import { plainError } from '../lib/errors.ts'
@@ -17,7 +19,7 @@ import { Paragraphs } from '../lib/marks.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import { TileBody } from '../phase1/Cards.tsx'
-import { BriefSheet, PHONE_BELOW, useNarrow, useWarnings } from '../phase1/Phase1.tsx'
+import { BriefSheet, useNarrow, useWarnings } from '../phase1/Phase1.tsx'
 import { P2, money, setMoneyUnit } from './copy.ts'
 import { DevReveal } from './Reveal.tsx'
 import { guideOf, lineRefusal, type Guide } from './guide.ts'
@@ -44,6 +46,9 @@ export function lockedByOf(c: DevelopmentContent): Record<string, string> {
   for (const a of c.actions) for (const id of a.unlocks) if (!out[id]) out[id] = a.title
   return out
 }
+
+/** Below this width Phase 2 shows its four tabs: three columns side by side need more room. */
+export const P2_TABS_BELOW = 1180
 
 export const gridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, lockedShort: P2.lockedShort, model: P2.model, compute: P2.compute, prompt: P2.prompt }
 
@@ -72,27 +77,24 @@ function Toast({ text, onShow, onClose }: { text: string; onShow?: () => void; o
 }
 
 /** Money, developers and validations: what the phase spends, in one quiet strip. */
-export function Purse({ dv, content }: { dv: DevelopmentView; content: DevelopmentContent }) {
+export function Purse({ dv, content, bar = false }: { dv: DevelopmentView; content: DevelopmentContent; bar?: boolean }) {
   return (
     <div className="purse" aria-label={`${P2.money} ${dv.money}. ${P2.developers} ${P2.freeOf(dv.developers.free, dv.developers.total)}. ${P2.validations} ${P2.left(dv.validationsLeft)}`}>
       <span className="pf"><span className="pl">{P2.money}</span><b className="num">{money(dv.money)}</b>{content.rules.moneyUnit && <span className="unit">{content.rules.moneyUnit}</span>}</span>
       <span className="pf"><span className="pl">{P2.developers}</span><span className="devs" aria-hidden="true">{Array.from({ length: dv.developers.total }, (_, i) => <i key={i} className={i < dv.developers.total - dv.developers.free ? 'held' : ''} />)}</span><b>{P2.freeOf(dv.developers.free, dv.developers.total)}</b></span>
-      <span className="pf" title={`${dv.validationsLeft} of ${content.rules.validations}`}><span className="pl">{P2.validations}</span><b>{P2.left(dv.validationsLeft)}</b></span>
+      {!bar && <span className="pf" title={`${dv.validationsLeft} of ${content.rules.validations}`}><span className="pl">{P2.validations}</span><b>{P2.left(dv.validationsLeft)}</b></span>}
     </div>
   )
 }
 
+/** What the map on the canvas takes to run: money a month, and the minutes it asks of each pool of people. */
 function RunningLine({ dv, content }: { dv: DevelopmentView; content: DevelopmentContent }) {
   const r = dv.running
+  if (!r) return null
   return (
     <div className="runline">
-      {r && (
-        <span>
-          <b>{P2.toRun}</b> {P2.perMonth(r.money)}
-          {content.rules.pools.map((pl) => <span key={pl.id} className={(r.minutes[pl.id] ?? 0) > pl.max ? 'over' : ''}> · {P2.minutes(pl.label, r.minutes[pl.id] ?? 0, pl.max)}</span>)}
-        </span>
-      )}
-      {dv.flags.privateData.length > 0 && <span className="pwarn"><span className="cmark warn" aria-hidden="true">!</span> {P2.privateWarn}</span>}
+      <span><b>{P2.toRun}</b> {P2.perMonth(r.money)}</span>
+      {content.rules.pools.map((pl) => <span key={pl.id} className={(r.minutes[pl.id] ?? 0) > pl.max ? 'over' : ''}>{P2.minutes(pl.label, r.minutes[pl.id] ?? 0, pl.max)}</span>)}
     </div>
   )
 }
@@ -137,47 +139,74 @@ function ValidateButton({ dv, guide, first, onValidate, onWhy, refused }: { dv: 
 }
 
 // ------------------------------------------------------------------------------------------
-// The last validation, and every earlier one
+// Every validation of the phase, the newest first. Nothing of an earlier one is hidden: each
+// keeps its accuracy, its example and its note, and its map can be put back on the canvas.
 // ------------------------------------------------------------------------------------------
-export function ResultsPanel({ dv, onLoad, onChoose, readOnly = false }: { dv: DevelopmentView; onLoad: (m: CanvasMap) => void; onChoose: (id: string | null) => void; readOnly?: boolean }) {
-  const [pick, setPick] = useState<string | null>(null)
-  const last = dv.validations.at(-1)
-  const shown = dv.validations.find((v) => v.id === pick) ?? last
-  useEffect(() => { setPick(null) }, [dv.validations.length])
-  if (!shown) return <section className="panel p2results" id="p2-results"><div className="panel-head sky">{P2.lastValidation}</div><div className="panel-body"><p className="muted">{P2.noValidation}</p></div></section>
+type Pool = { id: string; label: string; max: number }
+
+/** What happened to a validated map whose people had fewer minutes than it asks of them. */
+function rushedLines(v: DevelopmentView['validations'][number], pools: Pool[]): string[] {
+  if (v.unhurried === null || v.unhurried === undefined) return []
+  const out = pools.filter((pl) => (v.running?.minutes[pl.id] ?? 0) > pl.max + 1e-9).map((pl) => P2.rushedPool(pl.label, v.running!.minutes[pl.id]!, pl.max))
+  if (!out.length) out.push(P2.rushedPlain)
+  out.push(P2.unhurried(v.unhurried))
+  return out
+}
+
+export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readOnly = false }: {
+  dv: DevelopmentView; runs: number; pools: Pool[]
+  /** The draft on the canvas, so that a validation can say that its map is the one there now. */
+  current?: CanvasMap
+  onLoad: (m: CanvasMap, n: number) => void; onChoose: (id: string | null) => void; readOnly?: boolean
+}) {
+  const n = dv.validations.length
+  const head = <div className="panel-head sky"><span>{P2.validationsTitle}</span><span className="sub">{P2.usedOf(n, runs)}</span></div>
+  if (!n) return <section className="panel p2results" id="p2-results">{head}<div className="panel-body"><p className="muted">{P2.noValidation}</p></div></section>
   const best = dv.validations.reduce((b, v) => (v.accuracy > b.accuracy ? v : b), dv.validations[0]!)
-  const sending = dv.submitId === shown.id
   return (
     <section className="panel p2results" id="p2-results">
-      <div className="panel-head sky"><span>{shown === last ? P2.lastValidation : P2.validationOf(shown.id, shown.accuracy)}</span></div>
+      {head}
       <div className="panel-body">
-        <div className="vtop">
-          <div className="vacc"><span className="num">{P2.pct(shown.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
-          {shown.rank !== null && <span className="vrank">{P2.rank(shown.rank, shown.of)}</span>}
-          <div className="vhist" aria-label={P2.earlier}>
-            <span className="pl">{P2.earlier}</span>
-            {dv.validations.map((v) => (
-              <button key={v.id} type="button" className={`hchip${v.id === shown.id ? ' on' : ''}${dv.submitId === v.id ? ' send' : ''}`} aria-pressed={v.id === shown.id} onClick={() => setPick(v.id)}>
-                {P2.pct(v.accuracy)}{dv.submitId === v.id ? ' ✓' : ''}
-              </button>
-            ))}
-          </div>
+        <ol className="vruns" reversed>
+          {[...dv.validations].reverse().map((v, i) => {
+            const num = n - i
+            const sending = dv.submitId === v.id
+            const here = !!current && sameLayout(current, v.map)
+            const rushed = rushedLines(v, pools)
+            return (
+              <li key={v.id} className={`vrun${i === 0 ? ' newest' : ''}${sending ? ' send' : ''}`} data-validation={v.id}>
+                <div className="vrun-h">
+                  <span className="vrun-n">{P2.validationN(num, runs)}</span>
+                  {i === 0 && n > 1 && <span className="flag look">{P2.latest}</span>}
+                  {v.rank !== null && <span className="vrank">{P2.rank(v.rank, v.of)}</span>}
+                </div>
+                <div className="vrun-b">
+                  <div className="vacc"><span className="num">{P2.pct(v.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
+                  <div className="vrun-t">
+                    {v.missed && (
+                      <div className="vmiss">
+                        <div className="eyebrow">{P2.missedOne}</div>
+                        <p><b>{v.missed.title}.</b> {v.missed.text} <span className="why">{v.missed.why}</span></p>
+                      </div>
+                    )}
+                    {rushed.length > 0 && <div className="vnote rush">{rushed.map((x, k) => <p key={k}>{x}</p>)}</div>}
+                    {v.note && <div className="vnote"><b>{P2.note}:</b> {v.note}</div>}
+                  </div>
+                </div>
+                {!readOnly && (
+                  <div className="vacts">
+                    {here ? <span className="flag look">{P2.onCanvas}</span> : <button type="button" className="btn small" onClick={() => onLoad(v.map, num)}>{P2.restoreMap}</button>}
+                    {sending ? <span className="flag">✓ {P2.willSend}</span> : <button type="button" className="btn small" onClick={() => onChoose(v.id)}>{P2.useMap}</button>}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+        <div className="vfoot">
+          <p className="hint">{P2.defaultSend}</p>
+          {!readOnly && dv.submitId !== best.id && <button type="button" className="btn small" onClick={() => onChoose(null)}>{P2.backToDefault}</button>}
         </div>
-        {shown.missed && (
-          <div className="vmiss">
-            <div className="eyebrow">{P2.missedOne}</div>
-            <p><b>{shown.missed.title}.</b> {shown.missed.text} <span className="why">{shown.missed.why}</span></p>
-          </div>
-        )}
-        {shown.note && <div className="vnote"><b>{P2.note}:</b> {shown.note}</div>}
-        {!readOnly && (
-          <div className="vacts">
-            <button type="button" className="btn small" onClick={() => onLoad(shown.map)}>{P2.loadMap}</button>
-            {sending ? <span className="flag go">✓ {P2.willSend}</span> : <button type="button" className="btn small" onClick={() => onChoose(shown.id)}>{P2.useMap}</button>}
-            {dv.submitId !== best.id && <button type="button" className="btn small" onClick={() => onChoose(null)}>{P2.backToDefault}</button>}
-          </div>
-        )}
-        <p className="hint">{P2.defaultSend}</p>
       </div>
     </section>
   )
@@ -196,22 +225,21 @@ export function InsightsPanel({ w, content, dv, fresh }: { w: Welcome; content: 
       <div className="panel-body">
         <div className="icards">
           {b && (
-            <article className="card letter">
-              <div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>
-              <div className="cbody">
-                <h3>{b.title}</h3>
-                {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
-                <div className="letter-text"><Paragraphs text={b.text} /></div>
-              </div>
-            </article>
+            <ClampCard className="card letter" bodyClass="cbody" words={{ more: P2.showMore, less: P2.showLess }}
+              head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
+              <h3>{b.title}</h3>
+              {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
+              <div className="letter-text"><Paragraphs text={b.text} /></div>
+            </ClampCard>
           )}
           {dv.insights.map((x) => {
             const a = content.actions.find((y) => y.id === x.action)
             return (
-              <article key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} data-insight={x.action}>
-                <div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>
-                <div className="cbody"><h3>{x.tile.headline}</h3><TileBody tile={x.tile} cast={w.system.cast} /></div>
-              </article>
+              <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
+                head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
+                <h3>{x.tile.headline}</h3>
+                <TileBody tile={x.tile} cast={w.system.cast} />
+              </ClampCard>
             )
           })}
         </div>
@@ -225,7 +253,7 @@ export function InsightsPanel({ w, content, dv, fresh }: { w: Welcome; content: 
 // The phase in play
 // ------------------------------------------------------------------------------------------
 type Tab = 'map' | 'actions' | 'toolbox' | 'results'
-type Sheet = { kind: 'part'; tile: string; part: Part } | { kind: 'item'; item: Item } | null
+type Sheet = { kind: 'part'; tile: string; part: Part } | { kind: 'item'; item: Item; more?: (string | null)[]; state?: boolean } | { kind: 'clear' } | { kind: 'same'; n: number; last: boolean } | null
 
 function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   useTick(500)
@@ -234,7 +262,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   setMoneyUnit(content.rules.moneyUnit)
   const send = usePlayer((s) => s.send)
   const clock = usePlayer((s) => s.clock)
-  const phone = useNarrow(PHONE_BELOW)
+  const phone = useNarrow(P2_TABS_BELOW)
   const v = useMemo(() => vocabularyOf(content), [content])
   const lockedBy = useMemo(() => lockedByOf(content), [content])
   const unlockedKey = dv.unlocked.join(',')
@@ -257,6 +285,11 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const [briefOpen, setBriefOpen] = useState(() => !store.flag(briefFlag))
   const warning = useWarnings(P2.warn)
   const now = clock ? gameNow(clock) : 0
+  const touring = useTour((t) => t.open !== null)
+  // The word on money, once, when the fourth action has been started.
+  const spendFlag = `spend-told-${view.me.id}-${view.run}`
+  const [spendSeen, setSpendSeen] = useState(() => store.flag(spendFlag))
+  const started = dv.actionsDone.length + dv.actionsRunning.length
 
   const say = (text: string) => { setMsg(text); setTimeout(() => setMsg((m) => (m === text ? null : m)), 5000) }
   const reset = useCallback(() => { setMode({ kind: 'idle' }); setSel(null) }, [])
@@ -332,6 +365,8 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     else if (sel?.kind === 'line') commit(removeLine(map, sel.key))
     setSel(null)
   }
+  const empty = map.tiles.length === 0 && map.lines.length === 0
+  const clearMap = () => { reset(); setSheet(null); commit({ tiles: [], lines: [] }); say(P2.cleared) }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -376,6 +411,10 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     if (pool && used !== undefined) bodies[t.id] = { text: P2.personBody(used, pool.max), over: (dv.running?.minutes[pool.id] ?? 0) > pool.max }
   }
 
+  // A tile is marked only while it has no line out: the moment it hands its work on, it is quiet,
+  // and what the whole map still lacks stands beside Validate.
+  const noLineOut = map.tiles.filter((t) => !map.lines.some((l) => l.from === t.id)).map((t) => t.id)
+
   // --- actions
   const doneIds = new Set(dv.actionsDone.map((d) => d.id))
   const rows: ActionRow[] = content.actions.map((a) => {
@@ -397,10 +436,16 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       if (!r.ok) { setRefusedAction({ id, text: plainError(r.error) }); setTimeout(() => setRefusedAction((x) => (x?.id === id ? null : x)), 6000) }
     })
   }
-  const validate = () => {
+  const runValidation = () => {
     void send('development.validate', {}).then((r) => {
       if (!r.ok) { setRefusedValidate(plainError(r.error)); setTimeout(() => setRefusedValidate(null), 6000) }
     })
+  }
+  // A map that was validated before gives the same accuracy again: the player is asked first.
+  const validate = () => {
+    const at = dv.validations.findLastIndex((x) => sameLayout(x.map, map))
+    if (at >= 0) setSheet({ kind: 'same', n: at + 1, last: at === dv.validations.length - 1 })
+    else runValidation()
   }
   const choose = (id: string | null) => { void send('development.choose', { id }) }
 
@@ -412,7 +457,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   if (mode.kind === 'place') hint = P2.hint.place(workerLabel(mode.worker))
   else if (mode.kind === 'move') hint = P2.hint.move(nodeLabel(mode.tile))
   else if (mode.kind === 'join') hint = P2.hint.join(nodeLabel(mode.from))
-  else if (selTile) hint = dv.flags.stray.includes(selTile.id) ? `${P2.hint.tile(nodeLabel(selTile.id))} ${P2.grid.stray}` : dv.flags.privateData.includes(selTile.id) ? `${P2.hint.tile(nodeLabel(selTile.id))} ${P2.grid.privateData}` : P2.hint.tile(nodeLabel(selTile.id))
+  else if (selTile) hint = P2.hint.tile(nodeLabel(selTile.id))
   else if (selLine) hint = P2.hint.line(nodeLabel(selLine.from), nodeLabel(selLine.to))
   const bar = (
     <div className="mapbar">
@@ -427,11 +472,46 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       {mode.kind !== 'idle' && <button type="button" className="btn small" onClick={reset}>{P2.cancel}</button>}
       <button type="button" className="btn small" disabled={!draft.canUndo} onClick={draft.undo} title={`${P2.undo} (Ctrl+Z)`}>{P2.undo}</button>
       <button type="button" className="btn small" disabled={!draft.canRedo} onClick={draft.redo} title={`${P2.redo} (Ctrl+Shift+Z)`}>{P2.redo}</button>
+      <button type="button" className={`btn small${empty ? ' off' : ''}`} aria-disabled={empty || undefined} title={empty ? P2.clearEmpty : undefined}
+        onClick={() => { if (empty) say(P2.clearEmpty); else { reset(); setSheet({ kind: 'clear' }) } }}>{P2.clear}</button>
     </div>
   )
 
+  const lockOf = (id: string): string | null => (unlocked.has(id) ? null : lockedBy[id] ? P2.locked(lockedBy[id]!) : P2.lockedNoAction)
+  const shortOf = (id: string) => content.compute.find((x) => x.id === id)?.short ?? content.models.find((x) => x.id === id)?.short ?? id
+  /** The quiet lines of a model or a place to run, beyond the words of the pack. */
+  const shelfMore = (id: string): (string | null)[] => {
+    const m = content.models.find((x) => x.id === id)
+    if (m) return [P2.pop.runsOn(m.runsOn.map(shortOf).join(', '))]
+    const c = content.compute.find((x) => x.id === id)
+    if (!c) return []
+    const here = content.models.filter((x) => x.runsOn.includes(c.id)).map((x) => x.short)
+    return [c.protectsPrivateData ? P2.pop.protected : P2.pop.unprotected, here.length ? P2.pop.runsHere(here.join(', ')) : null]
+  }
+  const nodeMore = (id: string): (string | null)[] => {
+    const src = content.sources.find((x) => x.id === id)
+    if (!src) return [P2.pop.resultHow]
+    return [src.privateData ? P2.pop.privateSource : null, unlocked.has(id) ? P2.pop.sourceHow : null]
+  }
+  const popOfShelf = (id: string): PopInfo | null => {
+    const it = content.models.find((x) => x.id === id) ?? content.compute.find((x) => x.id === id)
+    return it ? { title: it.label, body: [it.description], meta: [it.costLine, ...shelfMore(id)], lock: lockOf(id) } : null
+  }
+  const popOfTool = (id: string): PopInfo | null => {
+    const x = content.workers.find((y) => y.id === id)
+    if (!x) return null
+    return {
+      title: x.label, tag: P2.kinds[x.kind] || null, tone: x.kind, lead: x.task, body: [x.description],
+      meta: [x.costLine, x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null, x.needsModel ? P2.pop.needsParts : null], lock: lockOf(id),
+    }
+  }
+  const popOfNode = (id: string): PopInfo | null => {
+    const src = content.sources.find((x) => x.id === id)
+    if (src) return { title: src.label, body: [src.description], meta: nodeMore(id), lock: lockOf(id) }
+    return id === content.result.id ? { title: content.result.label, body: [content.result.description], meta: nodeMore(id) } : null
+  }
   const shelves = (
-    <div data-tour="p2-shelves"><Shelves unlocked={unlocked} lockedBy={lockedBy} onInfo={(item) => setSheet({ kind: 'item', item })}
+    <div data-tour="p2-shelves"><Shelves unlocked={unlocked} lockedBy={lockedBy} onInfo={(item) => setSheet({ kind: 'item', item, more: shelfMore(item.id) })} popOf={phone ? undefined : popOfShelf}
       rows={[
         { title: P2.models, icon: 'model', items: content.models.map((m) => ({ id: m.id, label: m.label, short: m.short, description: m.description, costLine: m.costLine })) },
         { title: P2.computes, icon: 'compute', items: content.compute.map((c) => ({ id: c.id, label: c.label, short: c.short, description: c.description, costLine: c.costLine })) },
@@ -441,7 +521,15 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
 
   const targets = mode.kind === 'join' ? targetsOf(map, v, mode.from) : undefined
   const grid = (
-    <Grid v={v} map={map} flags={{ stray: dv.flags.stray, incomplete: dv.flags.incomplete, privateData: dv.flags.privateData }}
+    <Grid v={v} map={map} flags={{ stray: noLineOut, incomplete: dv.flags.incomplete, privateData: dv.flags.privateData }}
+      popOf={phone ? undefined : popOfNode}
+      onAbout={(id) => {
+        // A phone has no pointer to rest on a source, so a tap opens its card.
+        if (!phone || mode.kind !== 'idle') return
+        const src = content.sources.find((x) => x.id === id)
+        const it = src ?? (id === content.result.id ? content.result : undefined)
+        if (it) setSheet({ kind: 'item', item: { id: it.id, label: it.label, description: it.description }, more: nodeMore(id), state: !!src })
+      }}
       unlocked={unlocked} lockedBy={lockedBy} mode={mode} selection={sel} targets={targets} label={P2.map}
       onCell={onCell} onNode={onNode} onPort={onPort}
       onLine={(key) => { if (mode.kind === 'idle') setSel((s) => (s?.kind === 'line' && s.key === key ? null : { kind: 'line', key })) }}
@@ -457,15 +545,36 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const footer = (
     <div className="mapfoot">
       <RunningLine dv={dv} content={content} />
-      <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} onValidate={validate} onWhy={showWhy} refused={refusedValidate} />
+      <div className="footrow">
+        {dv.flags.privateData.length > 0 && <span className="pwarn"><span className="cmark warn" aria-hidden="true">!</span> {P2.privateWarn}</span>}
+        <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} onValidate={validate} onWhy={showWhy} refused={refusedValidate} />
+      </div>
     </div>
   )
+  const popOfAction = (id: string): PopInfo | null => {
+    const a = rows.find((x) => x.id === id)
+    if (!a) return null
+    return {
+      title: a.title, body: [a.teaser],
+      meta: [P2.cost(a.money, a.developers, a.seconds), a.storyTime ? P2.story(a.storyTime) : null, a.opens.length ? P2.opens(a.opens.join(', ')) : null,
+        a.state === 'done' ? P2.pop.done : a.state === 'running' ? P2.pop.running(a.left ?? 0) : null],
+      lock: a.state === 'blocked' ? a.blocked ?? null : null,
+    }
+  }
+  const spendNote = !spendSeen && started >= P2.spendAfter ? (
+    <div className="spendnote" role="status">
+      <b>{P2.spendTitle}</b>
+      <span>{P2.spendText(started)}</span>
+      <button type="button" className="btn small" onClick={() => { store.setFlag(spendFlag); setSpendSeen(true) }}>{P2.spendOk}</button>
+    </div>
+  ) : null
   const actions = (
-    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction}
+    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={spendNote}
       words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more }} />
   )
   const toolbox = (
     <Toolbox phone={phone} picked={mode.kind === 'place' ? mode.worker : null} unlocked={unlocked} lockedBy={lockedBy} groups={content.rules.toolboxGroups}
+      popOf={phone ? undefined : popOfTool}
       onPick={(id) => { setSel(null); setNote(null); setMode(id ? { kind: 'place', worker: id } : { kind: 'idle' }); if (id && phone) setTab('map') }}
       workers={content.workers.map((x) => ({
         id: x.id, label: x.label, short: x.short, description: x.description, costLine: x.costLine, icon: x.icon, kind: x.kind,
@@ -473,13 +582,36 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       }))}
       words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, pickHint: P2.pickHint, picked: P2.picked, kinds: P2.kinds, lockedTold: P2.lockedTold }} />
   )
-  const results = <ResultsPanel dv={dv} onLoad={(m) => { commit(m); if (phone) setTab('map') }} onChoose={choose} />
+  const results = (
+    <ResultsPanel dv={dv} runs={content.rules.validations} pools={content.rules.pools} current={map} onChoose={choose}
+      onLoad={(m, n) => { reset(); commit(m); say(P2.restored(n)); if (phone) setTab('map'); else window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
+  )
   const insights = <InsightsPanel w={w} content={content} dv={dv} fresh={fresh} />
 
   // --- the sheets of a tile's parts and of a shelf item
   let sheetEl: React.ReactNode = null
   if (sheet?.kind === 'item') {
-    sheetEl = <ItemSheet item={sheet.item} locked={!unlocked.has(sheet.item.id)} lockedBy={lockedBy} onClose={() => setSheet(null)} words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, close: P2.close, open: P2.open }} />
+    sheetEl = <ItemSheet item={sheet.item} more={sheet.more} state={sheet.state} locked={!unlocked.has(sheet.item.id)} lockedBy={lockedBy} onClose={() => setSheet(null)} words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, close: P2.close, open: P2.open }} />
+  } else if (sheet?.kind === 'clear') {
+    sheetEl = (
+      <Dialog title={P2.clearTitle} head="sun" onClose={() => setSheet(null)}>
+        <p style={{ fontSize: 16, lineHeight: 1.45 }}>{P2.clearText(map.tiles.length, map.lines.length)}</p>
+        <div className="sheet-actions">
+          <button type="button" className="btn" onClick={() => setSheet(null)}>{P2.clearNo}</button>
+          <button type="button" className="btn danger" onClick={clearMap}>{P2.clearYes}</button>
+        </div>
+      </Dialog>
+    )
+  } else if (sheet?.kind === 'same') {
+    sheetEl = (
+      <Dialog title={P2.sameTitle} head="sun" onClose={() => setSheet(null)}>
+        <p style={{ fontSize: 16, lineHeight: 1.45 }}>{sheet.last ? P2.sameLast : P2.sameEarlier(sheet.n)} {P2.sameAsk(dv.validationsLeft)}</p>
+        <div className="sheet-actions">
+          <button type="button" className="btn go" onClick={() => setSheet(null)}>{P2.sameNo}</button>
+          <button type="button" className="btn" onClick={() => { setSheet(null); runValidation() }}>{P2.sameYes}</button>
+        </div>
+      </Dialog>
+    )
   } else if (sheet?.kind === 'part') {
     const t = tileOf(map, sheet.tile)
     const w2 = t ? content.workers.find((x) => x.id === t.kind) : undefined
@@ -492,10 +624,10 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
         const from = map.lines.filter((l) => l.to === t.id && tileOf(map, l.from)).map((l) => nodeLabel(l.from))
         sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={content.prompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
           onPick={(id) => set('prompt', id)} onClose={close}
-          words={{ intro: P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction }} />
+          words={{ intro: P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction, more: P2.showMore, less: P2.showLess }} />
       } else if (sheet.part === 'model') {
         sheetEl = <PartSheet title={P2.modelOf(name)} onPick={(id) => set('model', id)} onClose={close}
-          words={{ close: P2.close, current: P2.current, clear: P2.clear }}
+          words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
           choices={content.models.map((m) => ({
             id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id,
             disabled: !w2.models.includes(m.id) ? P2.cannotCarry : !unlocked.has(m.id) ? P2.locked(lockedBy[m.id] ?? '') : null,
@@ -503,7 +635,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       } else {
         const model = content.models.find((m) => m.id === t.model)
         sheetEl = <PartSheet title={P2.computeOf(name)} intro={P2.computeIntro(model?.label ?? null)} onPick={(id) => set('runsOn', id)} onClose={close}
-          words={{ close: P2.close, current: P2.current, clear: P2.clear }}
+          words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
           choices={content.compute.map((c) => ({
             id: c.id, label: c.label, detail: [c.description, c.costLine].filter(Boolean).join(' '), current: t.runsOn === c.id,
             disabled: !unlocked.has(c.id) ? P2.locked(lockedBy[c.id] ?? '') : model && !model.runsOn.includes(c.id)
@@ -541,6 +673,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       toolbox: '', results: dv.validations.length ? P2.pct(dv.validations.at(-1)!.accuracy) : '–',
     }
     return (
+      <PopLayer off>
       <div className="p2-phone">
         <div className="p2-phone-main">
           {tab === 'map' && (
@@ -565,10 +698,12 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
         </nav>
         {overlays}
       </div>
+      </PopLayer>
     )
   }
 
   return (
+    <PopLayer off={touring || sheet !== null}>
     <div className="p2">
       <div className="p2-top">
         <section className="colbox p2-actions" aria-label={P2.actions} data-tour="p2-actions">
@@ -592,6 +727,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       </div>
       {overlays}
     </div>
+    </PopLayer>
   )
 }
 

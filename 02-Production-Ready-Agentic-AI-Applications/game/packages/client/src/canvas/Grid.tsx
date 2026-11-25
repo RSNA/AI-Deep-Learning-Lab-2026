@@ -6,6 +6,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from '
 import type { CanvasLegend, CanvasMap, CanvasTile } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
 import { lineKey, tileNames, type Vocabulary } from './model.ts'
+import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
 
 /** One color per origin of lines, so that six crossing lines can be told apart. */
 export const LINE_COLORS = ['#2f7bf5', '#f0742a', '#1fa971', '#b44fd6', '#e0434f', '#0f9fb0', '#b8860b', '#5b5ff0', '#d1478f', '#5f8f1f']
@@ -53,6 +54,10 @@ export type GridProps = {
   /** Lines that come with advice, by line key. A mark on the line says it again. */
   advice?: ReadonlySet<string>
   onAdvice?: (key: string) => void
+  /** What the card beside a source or the result says while it is pointed at. */
+  popOf?: (id: string) => PopInfo | null
+  /** A press on a source or the result that starts nothing else: a phone shows its card then. */
+  onAbout?: (id: string) => void
   words: GridWords
 }
 
@@ -76,6 +81,7 @@ const Mark = ({ children, title, tone }: { children: ReactNode; title: string; t
 
 export function Grid(p: GridProps) {
   const { v, map, compact = false, readOnly = !!compact, words } = p
+  const pop = usePop()
   const box = useRef<HTMLDivElement>(null)
   const nodes = useRef(new Map<string, HTMLElement>())
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
@@ -218,6 +224,7 @@ export function Grid(p: GridProps) {
   const startDrag = (from: string, e: React.PointerEvent) => {
     if (readOnly || e.button !== 0 || e.pointerType === 'touch') return
     onPort.current = true
+    pop.hide()
     const el = box.current!
     const root = el.getBoundingClientRect()
     const k = root.width / Math.max(1, el.offsetWidth)
@@ -374,10 +381,11 @@ export function Grid(p: GridProps) {
           const by = p.lockedBy?.[s.id]
           return (
             <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
-              title={lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
-              role={(lock || joining) && !readOnly ? 'button' : undefined} tabIndex={(lock || joining) && !readOnly ? 0 : undefined}
+              title={p.popOf && !readOnly ? undefined : lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
+              role={(lock || joining) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
               aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : undefined}
-              onClick={(lock || joining) && !readOnly ? () => p.onNode?.(s.id) : undefined}
+              {...(p.popOf && !readOnly ? popHandlers(pop, `node:${s.id}`, 'right', () => (drag ? null : p.popOf!(s.id))) : {})}
+              onClick={readOnly ? undefined : () => { if (lock || joining) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
               onKeyDown={(lock || joining) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
               <Icon name={s.icon} size={compact ? 12 : 15} />
               <span className="cs-name">{s.label}</span>
@@ -392,9 +400,11 @@ export function Grid(p: GridProps) {
       {map.tiles.map(tileEl)}
       <div className="cresult-col" style={{ gridColumn: v.cols + 2, gridRow: `2 / span ${v.rows}` }}>
         <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${over === res.id ? ' over' : ''}${p.guide?.nodes.includes(res.id) ? ' guided' : ''}`} data-target={resLit ? res.id : undefined} data-node={res.id}
-          role={joining && !readOnly ? 'button' : undefined} tabIndex={joining && !readOnly ? 0 : undefined}
+          data-tour={readOnly ? undefined : 'p2-result'}
+          role={joining && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
           aria-label={resLit ? words.joinHere(res.label) : res.label}
-          onClick={joining && !readOnly ? () => p.onNode?.(res.id) : undefined}
+          {...(p.popOf && !readOnly ? popHandlers(pop, `node:${res.id}`, 'left', () => (drag || joining ? null : p.popOf!(res.id))) : {})}
+          onClick={readOnly ? undefined : () => { if (joining) p.onNode?.(res.id); else p.onAbout?.(res.id) }}
           onKeyDown={joining && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
           <Icon name="result" size={compact ? 14 : 18} />
           <span className="cr-name">{res.label}</span>
