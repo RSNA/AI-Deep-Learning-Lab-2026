@@ -547,3 +547,20 @@
 /* A small map shows the task of a tool on up to four short lines, never cut in the middle of a sentence. */
 .cgrid.compact .ct-body { -webkit-line-clamp: 4; }
 .cgrid.dense:not(.compact) .ct-note { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }
+
+/* The host's coaching block on a player's Phase 2: three short lists, and the guide of one kind on a click. */
+.coach { border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.coach-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 15px; }
+.coach-head b { font-size: 17px; }
+.coach-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.coach-cols ul { margin: 2px 0 0; padding-left: 18px; }
+.coach-cols li, .coach-cols p { font-size: 14px; line-height: 1.35; margin: 0 0 5px; }
+.coach-name { border: 0; background: none; padding: 0; font: inherit; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.coach-name.on { background: var(--sun-bg); }
+.coach-name:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.coach-guide { border-left: 4px solid var(--sky); background: var(--inset); padding: 6px 10px; font-size: 14px; }
+.coach-guide p { margin: 4px 0 0; line-height: 1.35; }
+.coach-maps { align-self: flex-start; max-width: 100%; }
+.coach-maps button { white-space: nowrap; font-size: 15px; min-height: 40px; padding: 6px 14px; }
+.coach-maps button:disabled { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 900px) { .coach-cols { grid-template-columns: minmax(0, 1fr); } }

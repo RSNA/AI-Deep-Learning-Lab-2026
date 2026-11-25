@@ -21,6 +21,9 @@ export type Flags = {
   rushed: string[]          // person tiles of a pool that is asked for more minutes than it has and rushes
 }
 
+/** Why the map loses cases of some kinds, added up over the kinds with the same reason. */
+export type Loss = { reason: MissReason; fact: string | null; lost: number; kinds: number }
+
 export type Evaluation = {
   accuracy: number                      // 0 to 1
   // The accuracy the same map would reach if its people had the minutes it asks of them. Null
@@ -31,6 +34,9 @@ export type Evaluation = {
   flags: Flags
   missed: Missed | null
   note: NoteId | null
+  // Every kind of case the map does not solve in full, by reason, the largest loss first: the
+  // weight that is lost and the number of kinds. For a host who helps a player, never for the player.
+  losses: Loss[]
 }
 
 /** What the prompt of a tile does to its fetching and its judgment, for this kind of worker. */
@@ -236,25 +242,40 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   }
   const run = running(m, t)
 
+  // Why a case is lost, read at the signer: a needed fact that never arrived, the weakest fact
+  // that did, or the judgment.
+  const whyLost = (k: (typeof t.cases)[number]): { reason: MissReason; fact: string | null } => {
+    const a = seenFacts
+    const gone = k.needs.filter((f) => a[f]! <= 0)
+    if (gone.length) return { reason: 'missing', fact: gone[0]! }
+    let have = 1, low = 2, lowF: string | null = null
+    for (const f of k.needs) {
+      have *= a[f]!
+      if (a[f]! < low) { low = a[f]!; lowF = f }
+    }
+    const dec = have > 0 ? seenCase[k.id]! / have : 0
+    return lowF !== null && low <= dec ? { reason: 'weak', fact: lowF } : { reason: 'decision', fact: null }
+  }
   // The case to show: the largest loss that this player has not been shown, pack order on a tie.
   let missed: Missed | null = null
   const loss = (k: (typeof t.cases)[number]) => k.weight * (1 - seenCase[k.id]!)
   const ranked = [...t.cases].sort((x, y) => loss(y) - loss(x))
   if (ranked.length && loss(ranked[0]!) > 1e-12) {
     const pick = ranked.find((k) => !shownCases.includes(k.id) && loss(k) > 1e-12) ?? ranked[0]!
-    const a = seenFacts
-    const gone = pick.needs.filter((f) => a[f]! <= 0)
-    if (gone.length) missed = { case: pick.id, reason: 'missing', fact: gone[0]! }
-    else {
-      let have = 1, low = 2, lowF: string | null = null
-      for (const f of pick.needs) {
-        have *= a[f]!
-        if (a[f]! < low) { low = a[f]!; lowF = f }
-      }
-      const dec = have > 0 ? seenCase[pick.id]! / have : 0
-      missed = lowF !== null && low <= dec ? { case: pick.id, reason: 'weak', fact: lowF } : { case: pick.id, reason: 'decision', fact: null }
-    }
+    missed = { case: pick.id, ...whyLost(pick) }
   }
+  // Every loss by its reason, for the host's view of a player.
+  const byReason = new Map<string, Loss>()
+  for (const k of t.cases) {
+    if (loss(k) <= 1e-12) continue
+    const w = whyLost(k)
+    const key = `${w.reason}:${w.fact ?? ''}`
+    const row = byReason.get(key) ?? { reason: w.reason, fact: w.fact, lost: 0, kinds: 0 }
+    row.lost += loss(k)
+    row.kinds += 1
+    byReason.set(key, row)
+  }
+  const losses = [...byReason.values()].sort((x, y) => y.lost - x.lost)
 
   const flags: Flags = {
     privateData: run.privateData, overloaded: overloaded.sort(), distracting: distracting.sort(),
@@ -266,5 +287,42 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   }
   const listed = (t.notes ?? []).map((x) => x.id as NoteId).filter((id) => raised[id])
   const note = listed.find((id) => !shownNotes.includes(id)) ?? listed[0] ?? null
-  return { accuracy, unhurried, perCase, running: run.running, flags, missed, note }
+  return { accuracy, unhurried, perCase, running: run.running, flags, missed, note, losses }
+}
+
+/** Who reads a source best among the tools and AI workers of a pack, with or without a tool in front. */
+export type BestReader = { worker: string; model: string | null; via: string | null; quality: number }
+
+/**
+ * For every source: the worker that brings back the most of what the source holds, the model it
+ * carries for that, and the tool that prepares the source for it, if one helps. A tool or an AI
+ * worker is named when one reads the source well (0.85 or more), because people have few
+ * minutes. Otherwise the best of all workers is named, a person included: some sources answer
+ * only to a person. For a host who helps a player. Null for a source that nobody reads.
+ */
+export function bestReaders(t: CanvasTables): Record<string, BestReader | null> {
+  const out: Record<string, BestReader | null> = {}
+  const preps = t.workers.filter((w) => w.prepares)
+  for (const s of t.sources) {
+    const trust = Math.max(0, ...Object.values(s.gives))
+    const ways: { via: string | null; effort: string }[] = [{ via: null, effort: s.effort }]
+    for (const p of preps) {
+      const as = p.prepares![s.effort]?.as
+      if (as !== undefined && as !== s.effort) ways.push({ via: p.id, effort: as })
+    }
+    let best: BestReader | null = null, person: BestReader | null = null
+    for (const w of t.workers) {
+      if (w.prepares) continue
+      const tables: [string | null, Readonly<Record<string, number>>][] = w.needs_model
+        ? Object.entries(w.by_model ?? {}).map(([m, q]) => [m, q.fetch])
+        : w.quality ? [[null, w.quality.fetch]] : []
+      for (const [model, fetch] of tables) for (const way of ways) {
+        const quality = (fetch[way.effort] ?? 0) * trust
+        if (w.kind === 'person') { if (quality > (person?.quality ?? 0) + 1e-9) person = { worker: w.id, model, via: way.via, quality } }
+        else if (quality > (best?.quality ?? 0) + 1e-9) best = { worker: w.id, model, via: way.via, quality }
+      }
+    }
+    out[s.id] = best && best.quality >= 0.85 - 1e-9 ? best : person && person.quality > (best?.quality ?? 0) ? person : best
+  }
+  return out
 }

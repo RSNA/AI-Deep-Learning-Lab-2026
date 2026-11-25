@@ -455,3 +455,12 @@ key:
           - {from: t1, to: rb-result}
       why_tempting: A rule is free and never wrong on the plain case.
       why_it_fails: Most requests are not the plain case.
+  # What a host reads beside a player's map: for a kind of worker, its best use and the wrong
+  # choices. Never sent to a player.
+  guide:
+    rb-w-agent:
+      best: One agent that reads the four places a request can be answered from, with a person behind it.
+      wrong: The forum as a fifth source, or an agent for every source.
+    rb-w-librarian:
+      best: Last before the answer goes out, checking what the agent prepared.
+      wrong: Reading every source herself. She has minutes for a check and not for the search.

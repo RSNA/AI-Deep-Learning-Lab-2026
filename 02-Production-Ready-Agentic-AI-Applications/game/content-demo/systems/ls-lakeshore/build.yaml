@@ -334,3 +334,15 @@ key:
           - {from: t1, to: ls-result}
       why_tempting: A rule fills the plain month for free.
       why_it_fails: The plain month is one report in four.
+  # What a host reads beside a player's map: for a kind of worker, its best use and the wrong
+  # choices. Never sent to a player.
+  guide:
+    ls-w-rule:
+      best: The plain month, where the numbers only need to be copied.
+      wrong: Letting it decide alone. Most months are not the plain month.
+    ls-w-agent:
+      best: Gathering the numbers from every place that holds them, with the grant officer behind it.
+      wrong: One agent for every source, or the officer left out.
+    ls-w-officer:
+      best: Last before the report goes out, checking what was prepared.
+      wrong: Gathering the numbers herself. She has minutes for a check.

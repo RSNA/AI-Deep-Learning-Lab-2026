@@ -15,6 +15,9 @@ import { tileNames } from '../canvas/model.ts'
 import { gridWords, reasonText } from '../phase2/Phase2.tsx'
 import { P2, runCost } from '../phase2/copy.ts'
 
+// The flags of a map, the one that costs a player the most first.
+const FLAG_ORDER = ['rushed', 'overloaded', 'privateData', 'distracting', 'prompt', 'stray']
+
 type Mark = 'right' | 'near' | 'wrong' | 'unsorted'
 const MARK_ICON: Record<Mark, string> = { right: '✓', near: '≈', wrong: '✗', unsorted: '–' }
 
@@ -89,54 +92,122 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
 }
 
 /**
- * A player's Phase 2 beside the key: the draft map drawn read-only, the money, the actions and
- * every validation, and beside them what only the key knows: the share solved of every case
- * for the draft, every flag of the scoring, and the reference map.
+ * A player's Phase 2 for a host who wants to help: first a few lines of coaching (what holds the
+ * map back, what is worth saying, what is good on it), then the map now beside the chosen map,
+ * and under a fold everything else: the validations, the actions and the key.
  */
 function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> }) {
   const [shown, setShown] = useState<string | null>(null)
+  const [which, setWhich] = useState<'now' | 'chosen'>('now')
+  const [guideOf, setGuideOf] = useState<string | null>(null)
+  const C = H.dev.coach
+  const c = d.coach
   const none = { stray: d.key.flags.stray, incomplete: [], privateData: d.key.flags.privateData }
   const raised = Object.entries(d.key.flags).filter(([, ids]) => ids.length > 0)
   const names = tileNames(d.map, d.legend)
   const v = d.validations.find((x) => x.id === shown)
+  const chosen = d.validations.find((x) => x.id === d.submitId) ?? null
   const minutes = d.pools.map((pl) => P2.minutes(pl.label, d.key.running.minutes[pl.id] ?? 0, pl.max)).join(' · ')
+  const worker = (id: string) => d.legend.workers.find((w) => w.id === id)?.label ?? id
+  const source = (id: string | null) => (id ? d.legend.sources.find((x) => x.id === id)?.label ?? id : '')
+  // A name opens its guide where the pack has one. Without one it is only a name.
+  const guided = new Set(c.guide.map((g) => g.id))
+  const list = (ids: string[]) => ids.map((id) => (guided.has(id)
+    ? <button key={id} type="button" className={`coach-name${guideOf === id ? ' on' : ''}`} aria-expanded={guideOf === id} onClick={() => setGuideOf(guideOf === id ? null : id)}>{worker(id)}</button>
+    : <b key={id}>{worker(id)}</b>
+  ))
+  const joined = (ids: string[]) => list(ids).flatMap((x, i) => (i ? [', ', x] : [x]))
+  const guide = c.guide.find((g) => g.id === guideOf)
+  // What holds the map back: the largest losses first, then what the scoring flags.
+  const back = c.losses.slice(0, 3).map((l, i) => {
+    const n = C.patients(l.lost, c.total)
+    const line = l.reason === 'decision' ? C.decision(n) : l.reason === 'missing' ? C.missing(source(l.source), n) : C.weak(source(l.source), n)
+    return <li key={`l${i}`}>{line}{l.best && l.reason !== 'decision' ? ` ${C.best(worker(l.best.worker), l.best.via ? worker(l.best.via) : null, l.best.quality)}` : ''}</li>
+  })
+  // The flags in one line, so that the list stays short.
+  const flagLines = raised.length ? [<li key="flags">{C.flags}{raised.map(([k, ids]) => `${H.dev.flagName[k]} (${ids.map((id) => names.get(id)?.label ?? id).join(', ')})`).join('; ')}.</li>] : []
+  // Worth saying, three lines at most: one for each of the two largest losses, and one for the
+  // flag that costs the most. Then what the reference map has that this map lacks.
+  const worst = FLAG_ORDER.find((k) => raised.some(([x]) => x === k))
+  const say = [
+    ...c.losses.slice(0, 2).map((l, i) => <li key={`s${i}`}>{l.reason === 'decision' || !l.best ? C.sayDecision : C.sayRead(source(l.source), worker(l.best.worker), l.best.via ? worker(l.best.via) : null)}</li>),
+    ...(worst && C.sayFlag[worst] ? [<li key="flag">{C.sayFlag[worst]}</li>] : []),
+  ]
+  const acc = (x: number) => P2.acc1(x)
   return (
     <div className="inspect">
       <div className="inspect-top">
         <span className={`chip ${d.status === 'playing' ? 'sun' : 'good'}`}>{H.dev[d.status]}</span>
         <span className="chip">{H.dev.money(d.money)}</span>
         <span className="chip">{H.dev.devs(d.developers.free, d.developers.total)}</span>
+        <span className="chip">{c.chosen ? C.chosen(c.chosen.id.replace('v', ''), acc(c.chosen.accuracy)) : C.noChosen}</span>
       </div>
-      <div className="eyebrow">{H.dev.draft}</div>
-      <div className="gridscroll insp-map"><Grid v={d.legend} map={d.map} flags={none} compact words={gridWords} label={H.dev.draft} /></div>
+      <section className="coach" aria-label={C.title}>
+        <div className="coach-head"><b>{C.title}</b><span>{c.of === 'draft' && c.accuracy !== null ? C.ofDraft(acc(c.accuracy)) : c.of === 'chosen' && c.accuracy !== null ? C.ofChosen(acc(c.accuracy)) : C.nothingYet}</span></div>
+        <div className="coach-cols">
+          <div>
+            <div className="eyebrow">{C.back}</div>
+            {back.length || flagLines.length ? <ul>{back}{flagLines}</ul> : <div className="muted">{c.of ? C.nothingBack : '–'}</div>}
+          </div>
+          <div>
+            <div className="eyebrow">{C.say}</div>
+            {say.some(Boolean) || c.missing.length ? (
+              <ul>
+                {say}
+                {c.missing.length > 0 && <li>{C.sayMissing}{joined(c.missing)}</li>}
+              </ul>
+            ) : <div className="muted">–</div>}
+          </div>
+          <div>
+            <div className="eyebrow">{C.good}</div>
+            {c.shared.length ? <p>{C.shared}{joined(c.shared)}</p> : <div className="muted">{C.nothingGood}</div>}
+            {c.extra.length > 0 && <p>{C.extra}{joined(c.extra)}</p>}
+          </div>
+        </div>
+        {guide ? (
+          <div className="coach-guide" role="note">
+            <b>{worker(guide.id)}</b>
+            <p><span className="eyebrow">{C.bestUse}</span> {guide.best}</p>
+            <p><span className="eyebrow">{C.wrong}</span> {guide.wrong}</p>
+          </div>
+        ) : c.guide.length > 0 && <div className="hint">{C.guideHint}</div>}
+      </section>
+      <div className="seg coach-maps" role="tablist">
+        <button role="tab" aria-selected={which === 'now'} aria-pressed={which === 'now'} onClick={() => setWhich('now')}>{C.mapNow}</button>
+        <button role="tab" aria-selected={which === 'chosen'} aria-pressed={which === 'chosen'} disabled={!chosen} onClick={() => setWhich('chosen')}>{C.mapChosen}{chosen ? ` · ${acc(chosen.accuracy)}` : ''}</button>
+      </div>
+      {which === 'chosen' && chosen
+        ? <div className="gridscroll insp-map"><Grid v={d.legend} map={chosen.map} compact words={gridWords} label={C.mapChosen} /></div>
+        : <div className="gridscroll insp-map"><Grid v={d.legend} map={d.map} flags={none} compact words={gridWords} label={H.dev.draft} /></div>}
       <div className="hint">{d.ready.ok && d.key.accuracy !== null ? H.dev.ready(d.key.accuracy) : H.dev.notReady(d.ready.reasons.map((r) => reasonText(r, d.pools)).join(' '))} {H.dev.running(runCost(d.key.running.money), minutes, d.key.running.complexity)}</div>
-      <div className="insp-two">
-        <div>
-          <div className="eyebrow">{H.dev.validations}</div>
-          {d.validations.length ? (
-            <div className="insp-vals">
-              {d.validations.map((x) => (
-                <button key={x.id} type="button" className={`hchip${shown === x.id ? ' on' : ''}${d.submitId === x.id ? ' send' : ''}`} onClick={() => setShown(shown === x.id ? null : x.id)}>
-                  {x.id} · {Math.round(100 * x.accuracy)}%{d.submitId === x.id ? ` · ${H.dev.sends}` : ''}
-                </button>
+      <details className="inspect-done">
+        <summary>{C.more}</summary>
+        <div className="insp-two">
+          <div>
+            <div className="eyebrow">{H.dev.validations}</div>
+            {d.validations.length ? (
+              <div className="insp-vals">
+                {d.validations.map((x) => (
+                  <button key={x.id} type="button" className={`hchip${shown === x.id ? ' on' : ''}${d.submitId === x.id ? ' send' : ''}`} onClick={() => setShown(shown === x.id ? null : x.id)}>
+                    {x.id} · {acc(x.accuracy)}{d.submitId === x.id ? ` · ${H.dev.sends}` : ''}
+                  </button>
+                ))}
+              </div>
+            ) : <div className="muted">{H.dev.noValidations}</div>}
+            {v && <div className="gridscroll insp-map"><Grid v={d.legend} map={v.map} compact words={gridWords} /></div>}
+            <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.actions}</div>
+            <div className="insp-acts">{d.actions.filter((a) => a.state !== 'open').map((a) => <span key={a.id} className={`chip ${a.state === 'done' ? 'good' : 'sun'}`}>{a.title} · {H.dev.state[a.state]}</span>)}{d.actions.every((a) => a.state === 'open') && <span className="muted">–</span>}</div>
+          </div>
+          <div>
+            <div className="eyebrow">{H.dev.key} · {H.dev.cases}</div>
+            <div className="insp-cases">
+              {d.key.cases.map((k) => (
+                <div key={k.id} className="kv"><span>{k.title} <span className="muted">· {H.dev.weight} {k.weight}</span></span><span className="v">{k.solved === null ? '–' : `${Math.round(100 * k.solved)}%`}</span></div>
               ))}
             </div>
-          ) : <div className="muted">{H.dev.noValidations}</div>}
-          {v && <div className="gridscroll insp-map"><Grid v={d.legend} map={v.map} compact words={gridWords} /></div>}
-          <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.actions}</div>
-          <div className="insp-acts">{d.actions.map((a) => <span key={a.id} className={`chip ${a.state === 'done' ? 'good' : a.state === 'running' ? 'sun' : ''}`}>{a.title} · {H.dev.state[a.state]}</span>)}</div>
-        </div>
-        <div>
-          <div className="eyebrow">{H.dev.key} · {H.dev.cases}</div>
-          <div className="insp-cases">
-            {d.key.cases.map((k) => (
-              <div key={k.id} className="kv"><span>{k.title} <span className="muted">· {H.dev.weight} {k.weight}</span></span><span className="v">{k.solved === null ? '–' : `${Math.round(100 * k.solved)}%`}</span></div>
-            ))}
           </div>
-          <div className="eyebrow" style={{ marginTop: 8 }}>{H.dev.flags}</div>
-          {raised.length ? <ul className="insp-flags">{raised.map(([k, ids]) => <li key={k}>{H.dev.flagName[k]}: {ids.map((id) => names.get(id)?.label ?? id).join(', ')}</li>)}</ul> : <div className="muted">{H.dev.noFlags}</div>}
         </div>
-      </div>
+      </details>
       <details className="inspect-done">
         <summary>{H.dev.reference(d.key.reference.accuracy)}</summary>
         <div className="gridscroll insp-map"><Grid v={d.legend} map={d.key.reference.map} compact words={gridWords} /></div>
