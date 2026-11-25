@@ -51,6 +51,11 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey])
 
+  // Whoever must act on the saved draft (a validation) waits until nothing is on its way.
+  const waiters = useRef<(() => void)[]>([])
+  const release = () => { const w = waiters.current; waiters.current = []; for (const f of w) f() }
+  const settled = useCallback((): Promise<void> => (pending.current ? new Promise((resolve) => { waiters.current.push(resolve) }) : Promise.resolve()), [])
+
   // Every change gets a number. Only the answer to the newest change ends the wait, so a view of
   // an older draft never overwrites a newer one.
   const seq = useRef(0)
@@ -79,16 +84,18 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
             hRef.current = h2
             setH(h2)
             if (!now || !sameMap(cleaned, now)) pushRef.current(cleaned)
+            else release()
             return
           }
           if (now) setH((prev) => ({ ...prev, map: now, past: prev.past.length && sameMap(prev.past.at(-1)!, now) ? prev.past.slice(0, -1) : prev.past }))
         }
+        release()
       })
     }, 200)
   }, [send])
   pushRef.current = push
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); release() }, [])
 
   /** Make a change. Returns false when the browser can tell it breaks a rule. */
   const commit = useCallback((next: CanvasMap): boolean => {
@@ -130,5 +137,7 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
     redo: () => step(false),
     error,
     clearError: () => setError(null),
+    /** Resolves once the last change has been saved, at once when nothing waits. */
+    settled,
   }
 }

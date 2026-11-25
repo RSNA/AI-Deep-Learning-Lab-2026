@@ -15,7 +15,7 @@ import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
 import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
-import { Development, Purse } from '../phase2/Phase2.tsx'
+import { Development, P2_TABS_BELOW, Purse } from '../phase2/Phase2.tsx'
 import { P2 } from '../phase2/copy.ts'
 import type { DevelopmentContent } from '@lab02/protocol'
 
@@ -63,21 +63,22 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const narrow = useNarrow(1024)
   const sys = w.session.systems.find((s) => s.id === view.me.system)
   const phase = phaseOfStage(view.stage)
-  const devPlay = view.stage === 'development.play' && !narrow
+  const tabsP2 = useNarrow(P2_TABS_BELOW)
+  const devPlay = view.stage === 'development.play' && !narrow && !tabsP2
   const title = phase ? (devPlay ? `Phase ${PHASE_NUMBER[phase]}` : `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}`) : STAGE_TITLE[view.stage]
   const phaseRank = standing?.ranks.phase ?? null
   const rank = phaseRank ?? standing?.ranks.overall ?? null
   const timed = clock?.clock.stageEndsAtMs !== null && clock?.clock.stageEndsAtMs !== undefined
   // Phase 2 spends money, developers and validations: they stand in the top bar (section 10.5).
   const devContent = usePlayer((s) => s.content.development) as DevelopmentContent | undefined
-  const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} /> : null
+  const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} bar /> : null
   const rankBtn = (
     <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
       {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
     </button>
   )
   return (
-    <header className="topbar" style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto auto', padding: '6px 10px' } : undefined}>
+    <header className={`topbar${devPlay ? ' wide-mid' : ''}`} style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto auto', padding: '6px 10px' } : undefined}>
       <div className="who">
         <Avatar id={view.me.avatar} size={32} />
         <span className="name">{view.me.name}</span>
@@ -105,6 +106,8 @@ function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave, onTour, onH
   const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
+      {/* The practice by name: a small phone has no room for it in the top bar. */}
+      <div className="menu-who"><Avatar id={view.me.avatar} size={32} /><b>{view.me.name}</b></div>
       {(onTour || onHelp) && (
         <div className="menulist">
           {onTour && <button type="button" className="btn small text" onClick={onTour}><span>{COPY.takeTour}</span><span className="muted">{COPY.takeTourLine}</span></button>}
@@ -183,7 +186,7 @@ export function SystemsStrip({ systems, standings, big = false }: { systems: Sys
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="num" style={{ fontSize: big ? 32 : 22 }}>{s.rank}</span>
               <SystemShape index={ref?.index ?? 0} size={big ? 20 : 14} />
-              <span style={{ fontWeight: 700, fontSize: big ? 24 : 15, flexGrow: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ref?.name}</span>
+              <span style={{ fontWeight: 700, fontSize: big ? 24 : 15, flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.15 }}>{ref?.name}</span>
               <span className="num" style={{ fontSize: big ? 32 : 22 }}>{Math.round(s.score)}</span>
             </div>
             <div style={{ height: big ? 14 : 10, background: 'var(--inset)', border: '2px solid var(--line)' }}>

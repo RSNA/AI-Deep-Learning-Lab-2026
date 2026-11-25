@@ -237,7 +237,7 @@ export function canvasLegend(b: BuildFile): CanvasLegend {
     workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon, task: x.public.task ?? null })),
     models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short })),
     compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, protectsPrivateData: x.protects_private_data })),
-    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.label })),
+    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.short ?? x.public.label })),
   }
 }
 
@@ -279,7 +279,7 @@ export function developmentContent(s: SessionState, pack: Pack, playerId: Player
     models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, runsOn: [...x.runs_on] })),
     compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, protectsPrivateData: x.protects_private_data })),
     prompts: b.prompts.map((x) => ({
-      id: x.id, label: x.public.label, description: x.public.description,
+      id: x.id, label: x.public.label, short: x.public.short ?? null, description: x.public.description,
       sample: x.public.samples ? null : x.public.sample ?? null,
       samples: (x.public.samples ?? []).map((y) => ({ label: y.label, text: y.text })),
     })),
@@ -363,7 +363,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v) => ({
-      id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, rank: v.rank, of: v.of,
+      id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null, rank: v.rank, of: v.of,
       missed: missedView(b, v.missed),
       note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
       running: show ? runningView(v.running) : null,

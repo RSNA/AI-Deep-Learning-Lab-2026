@@ -148,3 +148,12 @@ export function targetsOf(m: CanvasMap, v: Vocabulary, from: string): Set<string
 export function sameMap(a: CanvasMap, b: CanvasMap): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
+
+/** Whether two maps are the same map: the same tiles and lines, whatever order they are listed in. */
+export function sameLayout(a: CanvasMap, b: CanvasMap): boolean {
+  if (a.tiles.length !== b.tiles.length || a.lines.length !== b.lines.length) return false
+  const tile = (t: CanvasTile) => `${t.id}|${t.kind}|${t.col}|${t.row}|${t.model ?? ''}|${t.runsOn ?? ''}|${t.prompt ?? ''}`
+  const ta = a.tiles.map(tile).sort(), tb = b.tiles.map(tile).sort()
+  const la = a.lines.map(lineKey).sort(), lb = b.lines.map(lineKey).sort()
+  return ta.every((x, i) => x === tb[i]) && la.every((x, i) => x === lb[i])
+}

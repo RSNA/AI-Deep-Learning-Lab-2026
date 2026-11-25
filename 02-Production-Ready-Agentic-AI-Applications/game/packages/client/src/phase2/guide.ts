@@ -65,7 +65,7 @@ export function guideOf(dv: DevelopmentView, c: DevelopmentContent, map: CanvasM
   if (r) {
     const tiles = r.tiles.filter((id) => tileOf(map, id))
     const pool = c.rules.pools.find((x) => x.id === r.pool)
-    warn = { text: tiles.length === 1 ? P2.why.rushOne(nameOf(tiles[0]!), num(r.used), num(r.max)) : P2.why.rushPool(pool?.label ?? '', num(r.used), num(r.max)), nodes: tiles }
+    warn = { text: tiles.length === 1 ? P2.why.rushOne(nameOf(tiles[0]!), r.used, r.max) : P2.why.rushPool(pool?.label ?? '', r.used, r.max), nodes: tiles }
   }
   return { first: out[0] ?? null, others: Math.max(0, out.length - 1), ready: out.length === 0 && dv.ready.ok, warn }
 }

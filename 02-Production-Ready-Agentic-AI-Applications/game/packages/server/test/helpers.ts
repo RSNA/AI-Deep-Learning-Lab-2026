@@ -124,6 +124,7 @@ export function playDevelopment(bot: Bot, base: string): () => void {
   let last: unknown = null
   let sentMap = ''
   const refused = new Set<string>()
+  const asked = new Set<string>()       // actions this bot has started, so that a burst of views asks once
   const act = (msg?: unknown) => {
     const fromMsg = (msg as { view?: unknown } | undefined)?.view
     if (fromMsg) last = fromMsg
@@ -139,9 +140,13 @@ export function playDevelopment(bot: Bot, base: string): () => void {
     const open = new Set(dv.unlocked)
     let money = dv.money, free = dv.developers.free
     const busy = new Set([...dv.actionsDone, ...dv.actionsRunning].map((a) => a.id))
+    // A pack may hold twenty actions, and the server takes twenty commands in five seconds from
+    // one connection. The bot starts at most six actions, each once, and leaves room for its map.
     for (const a of content.actions) {
-      if (busy.has(a.id) || a.money > money || a.developers > free || a.requires.some((r) => !dv.actionsDone.some((d) => d.id === r))) continue
+      if (asked.size >= 6) break
+      if (busy.has(a.id) || asked.has(a.id) || a.money > money || a.developers > free || a.requires.some((r) => !dv.actionsDone.some((d) => d.id === r))) continue
       money -= a.money; free -= a.developers
+      asked.add(a.id)
       void bot.conn.command('development.act', { id: a.id })
     }
     const w = content.workers.find((x) => x.needsModel && open.has(x.id))
@@ -168,6 +173,8 @@ export function playDevelopment(bot: Bot, base: string): () => void {
         void bot.conn.command('development.set_map', { map }).then((r) => {
           const d = r.data as { line?: { from: string; to: string } } | undefined
           if (!r.ok && r.error === 'line_refused' && d?.line) { refused.add(`${d.line.from}>${d.line.to}`); act() }
+          // A pack with many actions makes a bot talk fast. A map that was turned away for that is sent again.
+          if (!r.ok && r.error === 'rate_limited') { sentMap = ''; setTimeout(act, 1500) }
         })
       }
     }

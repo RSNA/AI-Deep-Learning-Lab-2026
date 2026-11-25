@@ -145,7 +145,7 @@ export const H = {
     cases: 'Share solved of each case, for the draft',
     weight: 'weight',
     flags: 'What the scoring sees on the draft',
-    flagName: { privateData: 'Private data unprotected', overloaded: 'A worker overloaded', distracting: 'A distracting source read', prompt: 'A prompt that only hurts', stray: 'Tiles not connected', rushed: 'People asked for more minutes than they have' } as Record<string, string>,
+    flagName: { privateData: 'Private data unprotected', overloaded: 'A tile overloaded', distracting: 'A distracting source read', prompt: 'A prompt that only hurts', stray: 'Tiles not connected', rushed: 'People asked for more minutes than they have' } as Record<string, string>,
     noFlags: 'Nothing raised.',
     running: (money: string, minutes: string, complexity: number) => `To run: ${money} a month${minutes ? ` · ${minutes}` : ''} · complexity ${complexity}`,
     reference: (acc: number) => `The reference map · ${Math.round(100 * acc)}%`,

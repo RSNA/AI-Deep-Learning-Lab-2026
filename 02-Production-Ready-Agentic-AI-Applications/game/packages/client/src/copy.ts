@@ -32,7 +32,7 @@ export const COPY = {
   howToPlay: 'How to play',
   steps: [
     { title: 'Planning', text: 'Investigate your practice. Sort its problems: which are real, and what each one needs.' },
-    { title: 'Development', text: 'Design a solution on the board. Pilot it, read what failed, and improve it.' },
+    { title: 'Development', text: 'Build a solution on the map. Validate it, read what it got wrong, and improve it.' },
     { title: 'Maintaining', text: 'Keep it working for a year as models, data and costs change.' },
   ],
   eachPhase: 'Each phase is worth 1,000 points. Keep this page open.',

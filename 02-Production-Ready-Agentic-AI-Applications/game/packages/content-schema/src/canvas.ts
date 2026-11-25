@@ -11,7 +11,9 @@ export type CanvasTile = {
 export type CanvasLine = { from: string; to: string }
 export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[] }
 
-type Quality = { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number }
+// `knows` is what a worker holds of a fact without a line to any source (a person who knows the
+// guideline by heart, a model that has read about it).
+type Quality = { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number; knows?: Readonly<Record<string, number>> }
 
 /**
  * Everything of a build file that the rules and the scoring read. A `BuildFile` is one, and so is
@@ -33,6 +35,10 @@ export type CanvasTables = {
     by_model?: Readonly<Record<string, Quality>>; quality?: Quality
     load?: { free: number; factor: number }; calls?: number; run?: number; complexity?: number
     pool?: string; minutes?: { decide: number; check: number; per_line: Readonly<Record<string, number>> }
+    // A tile that prepares its sources for the worker behind it, by kind of effort: that worker
+    // reads the source with its own skill, and the gain (0 to 1) closes that share of what it
+    // would have missed. The source counts as a line into that worker, and a person pays its minutes.
+    prepares?: Readonly<Record<string, number>>
   }[]
   models?: readonly { id: string; run?: number; runs_on: readonly string[] }[]
   compute?: readonly { id: string; protects_private_data?: boolean; price_factor?: number; run_fixed?: number }[]
@@ -216,25 +222,47 @@ export function mapShape(m: CanvasMap, t: CanvasTables): MapShape {
   return { tiles, srcIn, wrkIn, signer, live, order }
 }
 
+/**
+ * The sources that tile `u` prepares for the worker behind it, each with its kind of effort and
+ * the gain: the sources with a line into `u` whose effort its worker names in `prepares`. Empty
+ * for a tile of any other worker.
+ */
+export function preparedBy(
+  u: string, tiles: ReadonlyMap<string, CanvasTile>, srcIn: ReadonlyMap<string, readonly string[]>,
+  sources: ReadonlyMap<string, CanvasTables['sources'][number]>, workers: ReadonlyMap<string, CanvasTables['workers'][number]>,
+): { source: string; effort: string; gain: number }[] {
+  const prep = workers.get(tiles.get(u)!.kind)?.prepares
+  if (!prep) return []
+  const out: { source: string; effort: string; gain: number }[] = []
+  for (const s of srcIn.get(u) ?? []) {
+    const effort = sources.get(s)!.effort
+    const gain = prep[effort]
+    if (gain !== undefined) out.push({ source: s, effort, gain })
+  }
+  return out
+}
+
 /** Minutes per case that a map asks of each pool of people. Every placed person counts. */
 export function peopleMinutes(m: CanvasMap, t: CanvasTables): Record<string, number> {
   const sources = new Map(t.sources.map((s) => [s.id, s]))
   const workers = new Map(t.workers.map((w) => [w.id, w]))
   const tiles = new Map(m.tiles.map((x) => [x.id, x]))
   const srcIn = new Map<string, string[]>([...tiles.keys()].map((id) => [id, []]))
-  const hasWorkerIn = new Set<string>()
+  const wrkIn = new Map<string, string[]>([...tiles.keys()].map((id) => [id, []]))
   for (const ln of m.lines) {
     if (ln.to === t.result.id) continue
     if (sources.has(ln.from)) srcIn.get(ln.to)!.push(ln.from)
-    else hasWorkerIn.add(ln.to)
+    else wrkIn.get(ln.to)!.push(ln.from)
   }
   const out: Record<string, number> = {}
   for (const n of [...tiles.keys()].sort(byCell(tiles))) {
     const w = workers.get(tiles.get(n)!.kind)!
     const mn = w.minutes
     if (!mn) continue
-    let used = hasWorkerIn.has(n) ? mn.check : mn.decide
+    let used = wrkIn.get(n)!.length ? mn.check : mn.decide
     for (const s of srcIn.get(n)!) used += mn.per_line[sources.get(s)!.effort] ?? 0
+    // What a tile that prepares hands a person is still hers to read.
+    for (const u of wrkIn.get(n)!) for (const p of preparedBy(u, tiles, srcIn, sources, workers)) used += mn.per_line[p.effort] ?? 0
     const pool = w.pool!
     out[pool] = (out[pool] ?? 0) + used
   }
@@ -328,14 +356,21 @@ export function readyReasons(m: CanvasMap, t: CanvasTables): ReadyReason[] {
 /** The minutes a case each person tile asks in this map: the parts that `peopleMinutes` adds up. */
 export function tileMinutes(m: CanvasMap, t: CanvasTables): Record<string, number> {
   const sources = new Map(t.sources.map((s) => [s.id, s]))
-  const tileIds = new Set(m.tiles.map((x) => x.id))
+  const workers = new Map(t.workers.map((w) => [w.id, w]))
+  const tiles = new Map(m.tiles.map((x) => [x.id, x]))
+  const srcIn = new Map<string, string[]>([...tiles.keys()].map((id) => [id, []]))
+  for (const l of m.lines) if (sources.has(l.from) && tiles.has(l.to)) srcIn.get(l.to)!.push(l.from)
   const out: Record<string, number> = {}
   for (const tile of m.tiles) {
-    const mn = t.workers.find((x) => x.id === tile.kind)?.minutes
+    const mn = workers.get(tile.kind)?.minutes
     if (!mn) continue
     const into = m.lines.filter((l) => l.to === tile.id)
-    let used = into.some((l) => tileIds.has(l.from)) ? mn.check : mn.decide
-    for (const l of into) { const s = sources.get(l.from); if (s) used += mn.per_line[s.effort] ?? 0 }
+    let used = into.some((l) => tiles.has(l.from)) ? mn.check : mn.decide
+    for (const l of into) {
+      const s = sources.get(l.from)
+      if (s) used += mn.per_line[s.effort] ?? 0
+      else if (tiles.has(l.from)) for (const p of preparedBy(l.from, tiles, srcIn, sources, workers)) used += mn.per_line[p.effort] ?? 0
+    }
     out[tile.id] = used
   }
   return out

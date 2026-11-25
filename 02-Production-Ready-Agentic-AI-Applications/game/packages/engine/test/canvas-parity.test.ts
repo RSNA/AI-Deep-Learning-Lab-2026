@@ -10,7 +10,7 @@ import { evaluate } from '../src/canvas.ts'
 
 type Expect = {
   accepted: boolean; errors?: string[]; ready?: boolean; reasons?: string[]
-  accuracy?: number; per_case?: Record<string, number>; run_month?: number; minutes?: Record<string, number>
+  accuracy?: number; unhurried?: number | null; per_case?: Record<string, number>; run_month?: number; minutes?: Record<string, number>
   complexity?: number; raw?: number
   flags?: { private_data: string[]; overloaded: string[]; distracting: string[]; prompt: string[]; stray: string[]; rushed: string[] }
   missed?: { case: string; reason: string; fact: string | null } | null; note?: string | null
@@ -25,7 +25,8 @@ const file = JSON.parse(readFileSync(new URL('./vectors/canvas.json', import.met
 const tol = file.tolerance
 // The first block is the toy pack of the file itself; `more` holds further blocks, each with its
 // own pack (the second has efforts beyond easy and hard, the third has lines that the pack refuses
-// or advises on, a required worker and a pool of people that rushes).
+// or advises on, a required worker and a pool of people that rushes, the fourth has workers that
+// know a fact without a line and a tile that prepares a source for the worker behind it).
 const blocks: Block[] = [{ name: 'toy', build: file.build, cases: file.cases }, ...(file.more ?? [])]
 
 const all = () => blocks.flatMap((b) => b.cases)
@@ -35,7 +36,9 @@ const sameNumbers = (got: Record<string, number>, want: Record<string, number>) 
 
 describe('parity: the canvas', () => {
   it('has every block, and vectors of every kind', () => {
-    expect(blocks.length).toBeGreaterThan(2)
+    expect(blocks.length).toBeGreaterThan(3)
+    expect(all().some((v) => typeof v.expect.unhurried === 'number')).toBe(true)
+    expect(blocks.some((b) => b.build.workers.some((w) => w.prepares) && b.build.workers.some((w) => w.quality?.knows))).toBe(true)
     expect(all().some((v) => v.expect.errors?.includes('line_refused'))).toBe(true)
     expect(all().some((v) => v.expect.reasons?.some((r) => r.startsWith('required_missing:')))).toBe(true)
     expect(all().some((v) => (v.expect.flags?.rushed.length ?? 0) > 0 && v.expect.note === 'rushed')).toBe(true)
@@ -58,6 +61,8 @@ describe('parity: the canvas', () => {
         const r = evaluate(m, block.build, v.shown_cases, v.shown_notes)
         expect(close(r.accuracy, e.accuracy!)).toBe(true)
         expect(close(1000 * r.accuracy, e.raw!)).toBe(true)
+        if (e.unhurried === null || e.unhurried === undefined) expect(r.unhurried).toBeNull()
+        else expect(close(r.unhurried!, e.unhurried)).toBe(true)
         expect(sameNumbers(r.perCase, e.per_case!)).toBe(true)
         expect(close(r.running.money, e.run_month!)).toBe(true)
         expect(sameNumbers(r.running.minutes, e.minutes!)).toBe(true)

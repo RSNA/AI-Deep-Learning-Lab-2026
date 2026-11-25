@@ -341,6 +341,8 @@ const Quality = S({
   fetch: z.record(Id, Unit),
   decide: S({ plain: Unit, hard: Unit }),
   catch: Unit.optional(),
+  // What the worker holds of a fact without a line to a source, by fact.
+  knows: z.record(Id, Unit).optional(),
 })
 export type Quality = z.infer<typeof Quality>
 
@@ -405,6 +407,8 @@ export const BuildFile = W({
     complexity: NonNeg.optional(),
     pool: Id.optional(),
     minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
+    // A tool that prepares its sources for the worker behind it: a gain per kind of effort.
+    prepares: z.record(Id, Unit).optional(),
     key: K({}).optional(),
   })).min(1),
   models: z.array(W({
@@ -423,7 +427,8 @@ export const BuildFile = W({
   prompts: z.array(W({
     id: Id,
     // `samples`, when present, are shown in place of `sample`, each under its label.
-    public: S({ label: Text, description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
+    // `short` is the name on a tile, where the label of a card would be cut.
+    public: S({ label: Text, short: Text.optional(), description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
     fetch: Num.positive().optional(),
     decide: Num.positive().optional(),
     by_worker: z.record(z.string(), S({ fetch: Num.positive().optional(), decide: Num.positive().optional() })).optional(),

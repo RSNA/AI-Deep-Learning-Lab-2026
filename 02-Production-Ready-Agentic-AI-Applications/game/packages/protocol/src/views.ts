@@ -160,7 +160,7 @@ export const DevelopmentContent = S({
   models: z.array(S({ ...Part, runsOn: z.array(z.string()) })),
   compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),
   // The first is the default. A card shows `samples`, each under its label, or else `sample`.
-  prompts: z.array(S({ id: z.string(), label: Text, description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
+  prompts: z.array(S({ id: z.string(), label: Text, short: Text.nullable(), description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
   actions: z.array(S({
     id: z.string(), group: z.string(), title: Text, teaser: Text,
     money: z.number(), developers: Int, seconds: z.number(),
@@ -262,6 +262,7 @@ export const DevelopmentView = S({
   validating: S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms }).nullable(),
   validations: z.array(S({
     id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
+    unhurried: z.number().nullable(),               // what the map would reach if nobody rushed
     rank: Int.nullable(), of: Int,                  // the rank in the live column right after it
     missed: Missed.nullable(),
     note: Text.nullable(),

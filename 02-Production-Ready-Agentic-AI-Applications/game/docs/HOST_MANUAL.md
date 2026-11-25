@@ -84,7 +84,7 @@ takes charge with one press, and a host who is alone gets it automatically.
 | --- | --- |
 | Next | Moves the whole room to the next stage |
 | Pause, Resume | Stops and restarts the clock for everyone. Nobody loses work |
-| +30 s, +60 s | Adds time to the running phase |
+| +30 s, +60 s, +5 min | Adds time to the running phase |
 | End now | Ends the running phase. Every player's work is sent as it stands |
 
 In an untimed stage the clock is a guide: nothing happens at zero. The strip under the controls
@@ -284,7 +284,7 @@ The downloads stay available on the first page until you delete the session.
 | A button is greyed out for you | Another host is in charge. Press "Take charge" if you should drive |
 | The host in charge is not answering | Press "Take charge" and enter the passcode |
 | Your laptop dies | Nothing is lost. Sign in on another laptop, open the session and take charge |
-| A phase needs more time | Press +30 s or +60 s, as often as needed |
+| A phase needs more time | Press +30 s, +60 s or +5 min, as often as needed |
 | Something confuses the room | Press Pause. Press Resume when you are ready |
 | The clock runs far too fast | Look for the game speed badge. Pause, then set the speed to 1× |
 | A phase went wrong in a rehearsal | "Reset Phase 1" in the rehearsal tools |

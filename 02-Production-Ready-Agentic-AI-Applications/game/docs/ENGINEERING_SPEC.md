@@ -4,13 +4,16 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.5. Phase 2 is now played on a canvas (Step 7, section 16): the player
+**Status.** Version 1.6. Phase 2 is now played on a canvas (Step 7, section 16): the player
 builds a map on a grid and validates it, and the slot board of version 1.1 is gone. Version 1.4
 added what the screen says to guide the player: a tour of each phase, a help panel, the reason
 beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`.
 Version 1.5 adds two rules of scoring: in Phase 1 the investigations a player did not start earn
 a small part of the score (`scoring.economy`), and in Phase 2 a pool of people may rush in place
-of refusing a map that asks too many minutes of it (`over: rush`). The
+of refusing a map that asks too many minutes of it (`over: rush`). Version 1.6 adds three more
+to the scoring of a map: a worker may know a fact without a line (`knows`), a tool may prepare a
+source for the worker behind it (`prepares`), and a validation of a map whose people rush also
+says what the map would reach with the time (`unhurried`). The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
@@ -547,6 +550,7 @@ type Build = {
               key?: object }[]
   prompts?: { id: PromptId                  // three or four formats. The first is the default
               public: { label: Text; description: Text
+                        short?: Text        // the name on a tile, where the label would be cut
                         sample?: Text       // the opening of such a prompt, up to 35 words
                         samples?: { label: Text; text: Text }[] }   // several openings, each
                                             // under a label, shown in place of `sample`
@@ -591,8 +595,11 @@ type Worker = {
   run?: number; complexity?: number
   pool?: PoolId                             // required for a person
   minutes?: { decide: number; check: number; per_line: Record<Effort, number> }   // required for a person
+  prepares?: Record<Effort, number>         // a `fixed` worker only: it prepares its sources of these kinds
+                                            // of effort for the worker behind it, with a gain from 0 to 1
 }
-type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: number }; catch?: number }
+type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: number }; catch?: number
+                 knows?: Record<FactId, number> }   // what the worker holds of a fact without a line
 type PackMap = { tiles: { id: string; kind: WorkerId; col: number; row: number
                           model?: ModelId | null; runs_on?: ComputeId | null; prompt?: PromptId | null }[]
                  lines: { from: string; to: string }[] }
@@ -864,7 +871,7 @@ length from `run_of_show` for the rest. When a play stage ends, the engine submi
 player has, computes every score of that phase, the leaderboard and the room statistics, and
 moves to the reveal.
 
-Host commands: `next`, `pause`, `resume`, `extend` (30 or 60 seconds, added to the current timed
+Host commands: `next`, `pause`, `resume`, `extend` (30, 60 or 300 seconds, added to the current timed
 stage, or to the current month in `maintaining.year`), `end_now`, `rename_player`,
 `remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
 not on the engine. The commands of the projector and the deck are in section 6.13. Only the
@@ -1090,6 +1097,7 @@ type DevelopmentState = {
 type Validation = {
   id: string; atMs: GameMs; map: CanvasMap
   accuracy: number                              // 0 to 1
+  unhurried: number | null                      // what the map would reach if no pool rushed
   missed: { case: CaseId; reason: 'missing' | 'weak' | 'decision'; fact: FactId | null } | null
   note: NoteId | null
   running: { money: number; minutes: Record<PoolId, number>; complexity: number }
@@ -1231,7 +1239,22 @@ D_n(k)  = hurry × (the D_n(k) above, with have taken over the unhurried facts) 
 
 So a person who is asked to do everything alone in a quarter of the time solves a quarter of
 what they would, and two looks by the same pool are each cut short. Every placed person counts
-for the minutes, a stray one too.
+for the minutes, a stray one too. When some pool rushes, the evaluation also returns `unhurried`:
+the accuracy of the same map with every `hurry` at 1. It is null when nobody rushes.
+
+*What a worker knows.* `knows` gives, per fact, what a worker holds without a line to any source
+(a person who has a rule by heart, a model that has read about it). The `direct` of a fact starts
+at `knows(f)` in place of 0, so a line to the source only helps when the worker fetches there
+better than it remembers.
+
+*A tool that prepares.* A `fixed` worker with `prepares` reads nothing itself. When its tile `u`
+hands to tile `n`, every source `s` with a line into `u` whose kind of effort `u` names reaches
+`n` as if by a line of its own: `n` fetches it with `own = fetch_n[effort(s)]`, raised to
+`own + (1 − own) × gain`, and nothing is lost at the handoff. For the load of `n` the tile `u`
+counts as the number of sources it prepares, at least 1, so a connector hides nothing from the
+worker behind it. A person behind `u` pays `per_line[effort(s)]` for each such source. With a
+gain of 0 the tool is a plain connector: the worker behind it reads exactly as well as by a
+direct line.
 
 ```
 solved(k) = D_signer(k)
@@ -2092,6 +2115,7 @@ type DevelopmentView = {
   validationsLeft: number
   validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs } | null
   validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
+                 unhurried: number | null               // set when people rushed: the accuracy with the time
                  rank: number | null; of: number        // the rank in the live column right after it
                  missed: { title: Text; text: Text; why: Text } | null
                  note: Text | null
@@ -3073,6 +3097,42 @@ bars, the share the player's map solved and the share the reference map solves. 
 says that the map, the money and what was unlocked go into Phase 3. On a phone the parts stack in
 the same order.
 
+**After the second play check (version 1.6).** What a player met in play and what the screen
+does now.
+
+- *A card on hover.* A toolbox row, an action row, a chip of a shelf, a source and the result
+  each show a card when pointed at or focused: the full name, the description of the pack, the
+  cost line, what the item needs (a model and a place to run), where a model can run, and for a
+  locked item the action that opens it. A toolbox row itself shows the label and the `task`
+  line, and a locked row a small lock. On a phone, where nothing hovers, a row shows its details
+  in place and a tap on a source or the result opens the card as a sheet.
+- *Three columns from 1280 wide.* Below that the phase uses its four tabs, because three
+  columns cut names between 1024 and 1279.
+- *Words.* A placed thing is a tile, the kinds are operators and tools, and a source holds
+  patient data and evidence. The minutes of a pool read "Radiologist: needs 6 min per patient,
+  has 3", with the label of the pool as the pack gives it.
+- *Every validation stays.* The results list holds every validation, newest first and
+  numbered, each with its accuracy, one case the map got wrong as an example, its note, a
+  button that puts its map back on the canvas (undoable) and the choice of the map to send.
+- *A rushed result explains itself.* When people rushed, the result says how many minutes the
+  map asks of them and how many they have, the share of the cases that got a full look, and
+  from `unhurried` what the map would reach with the time. The line beside Validate says the
+  same before the validation.
+- *A tile with no line out* says so, and falls quiet the moment it hands on to any tile. What
+  the whole map still lacks stays beside Validate.
+- *The same map twice.* Validate on a map equal to one already validated asks first, because
+  the accuracy will be the same and a validation is spent.
+- *Clear map*, beside Undo and Redo, with a question, undoable.
+- *A word on money* once, after the fourth action a player starts, and one line in the tour.
+- *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
+  a longer text is cut with "Show more".
+- *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
+  result is waiting when the person who signs opens the case.
+- *Validate waits for the saved draft*, so a press right after an edit is not refused.
+- *A notice* (a validation is done, an insight has arrived) stands over the head of the left
+  column on a laptop and above the tab bar on a phone, never over the line beside Validate or
+  the buttons of the results.
+
 ### 10.6 Phase 3 screens (outline)
 
 - **Setup.** The player's own map from Phase 2, with the choice to take the reference map in its
@@ -3165,7 +3225,7 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Area | Holds |
 | --- | --- |
 | Session bar | Label, session code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, who is in charge by name ("You are in charge", "Maya is in charge"), and for everyone else the button "Take charge". Every box and button in it is 36 px high |
-| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now. Five buttons of one height in four equal columns, Next in the go color. An ended session shows none of them |
+| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, +5 min, End now. Buttons of one height that wrap on a narrow window, Next in the go color. An ended session shows none of them |
 | Schedule | The run of show against real time, and how far ahead or behind the session is. The stage `intro` is named "Intro slides" |
 | Players | A list that can be filtered by health system: character, name, system, connected, status, time since the last command, total, and the points per phase once two phases have opened. A click on the name opens the player beside the key (below). Per row, behind one menu button: look at this player, spotlight, rename, remove, rejoin code. The filter says "Everyone", then one chip per health system |
 | Projector | See below |
@@ -4075,6 +4135,7 @@ report.
 | 7, feedback after the demo | Version 1.4: `line_rules` and `required` (sections 5.5, 6.6), `line_refused` with the `data` of an answer (6.6, 8.2), `ready.details`, `lineAdvice`, `tileMinutes` and a worker's `task` in the legend (8.4); a tour of each phase and a help panel (10.1); the assessment first on a phone and an interview that keeps its words (10.4); no header over unnamed columns, fixed line anchors and wider gaps, a body on every tile, Validate that always says why, a sentence for every refusal (10.5); the host looks through the deck without showing it (10.8) |
 | 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
 | 7, the release after the demo | Version 1.5: the economy part of the Phase 1 score (`scoring.economy`, sections 5.5, 6.5, 8.3, 8.4, 10.4); a pool of people that rushes (`over: rush`, the flag and the note `rushed`, `rushed` in the view; sections 5.5, 6.6, 8.4, 10.5); a refused line leaves the rest of the draft in place (10.5); a notice stands above the tab bar of a phone (10.1) |
+| 7, Play check 2 | Version 1.6: what a worker knows without a line (`knows`), a tool that prepares a source for the worker behind it (`prepares`, with its load and its minutes), and `unhurried` on a validation (sections 5.5, 6.6, 8.4); the screen changes of the same round are in section 10.5 |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
 | 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |

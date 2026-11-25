@@ -686,6 +686,7 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                   <div className="ctl-row">
                     <button className="btn" onClick={() => cmd('extend', { seconds: 30 })} disabled={!hv.timed}>+30 s</button>
                     <button className="btn" onClick={() => cmd('extend', { seconds: 60 })} disabled={!hv.timed}>+60 s</button>
+                    <button className="btn" onClick={() => cmd('extend', { seconds: 300 })} disabled={!hv.timed}>+5 min</button>
                   </div>
                   <div className="hint">{H.stageLines.extend}</div>
                 </div>
@@ -698,13 +699,15 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
             </section>
           </fieldset>
 
-          <div style={{ display: 'flex', gap: 4 }}>
-            {hv.schedule.segments.map((s) => (
-              <div key={s.segment} style={{ flex: s.end - s.start, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <div style={{ height: 14, background: s.state === 'done' ? 'var(--lav)' : s.state === 'now' ? 'var(--sun)' : 'var(--inset)', border: `2px solid ${s.state === 'now' ? 'var(--line)' : 'var(--soft)'}` }} />
-                <div style={{ fontSize: 13, fontWeight: s.state === 'now' ? 800 : 600, color: s.state === 'now' ? 'var(--ink)' : 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label} · {s.start}′</div>
-              </div>
-            ))}
+          {/* The programme: bars in proportion to the minutes, and under them every part by name.
+              A two-minute part has no room for its name under its own bar, so the names wrap as a list. */}
+          <div className="prog">
+            <div className="prog-bars" aria-hidden="true">
+              {hv.schedule.segments.map((s) => <div key={s.segment} className={`prog-bar ${s.state}`} style={{ flex: s.end - s.start }} />)}
+            </div>
+            <div className="prog-names">
+              {hv.schedule.segments.map((s) => <span key={s.segment} className={`prog-name ${s.state}`}><i aria-hidden="true" />{s.label} · {s.start}′</span>)}
+            </div>
           </div>
 
           {/* Three columns (section 10.8): the players, the projector as the main area, and the

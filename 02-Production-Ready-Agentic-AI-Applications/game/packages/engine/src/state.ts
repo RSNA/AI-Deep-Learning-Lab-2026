@@ -34,6 +34,8 @@ export type DevelopmentValidation = {
   atMs: GameMs
   map: CanvasMap
   accuracy: number
+  /** The accuracy the map would reach if its people had the minutes it asks. Null when nobody rushed. */
+  unhurried: number | null
   missed: Missed | null
   note: NoteId | null
   running: Running

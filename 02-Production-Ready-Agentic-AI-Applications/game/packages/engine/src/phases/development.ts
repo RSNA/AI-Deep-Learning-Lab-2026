@@ -96,7 +96,7 @@ function finishValidation(s: SessionState, pack: Pack, p: PlayerState, v: { id: 
   const value = Math.max(before, 100 * r.accuracy)
   const since = value > before ? at : p.live.development.sinceMs
   const { rank, of } = liveRank(s, p, value, since)
-  st.validations.push({ id: v.id, atMs: at, map: v.map, accuracy: r.accuracy, missed: r.missed, note: r.note, running: r.running, rank, of })
+  st.validations.push({ id: v.id, atMs: at, map: v.map, accuracy: r.accuracy, unhurried: r.unhurried, missed: r.missed, note: r.note, running: r.running, rank, of })
   st.validating = null
   if (r.missed && !st.shownCases.includes(r.missed.case)) st.shownCases.push(r.missed.case)
   if (r.note && !st.shownNotes.includes(r.note)) st.shownNotes.push(r.note)
