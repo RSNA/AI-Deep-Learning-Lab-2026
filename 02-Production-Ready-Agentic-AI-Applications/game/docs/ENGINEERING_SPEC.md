@@ -3147,11 +3147,16 @@ does now.
 
 **Version 1.7, the second round after that play check.**
 
-- *Lines in any direction.* The port of a tile joins to any other tile unless the line would
-  close a loop, and the refusal says so. A line that does not run to the right goes around: out
-  of the port into the gap right of its column, along the nearest gap between two rows, and into
-  the left edge of the target, with its arrowhead on the last stretch beside the target. A move
-  of a tile never drops a line.
+- *Lines in any direction, on the sides that face each other.* A tile joins to any other tile
+  unless the line would close a loop, and the refusal says so. A line leaves and enters on the
+  sides of the two tiles that face each other: right to left for a later column, left to right
+  for an earlier one, bottom to top or top to bottom inside a column. When column and row both
+  differ the column decides, and the line bends in the gap between the columns. The ends on one
+  side of a tile are spread along it. Arrowheads stand in a layer over the tiles, at the clear
+  point nearest the middle of each line. A tile has its port on the right, and three small
+  ports on the other sides while it is pointed at or selected: each starts the same line. A
+  source leaves on its right and the result is entered on its left. A move of a tile never
+  drops a line.
 - *A map of five columns* fits a laptop of 1280 wide (class `dense`): narrower gaps, and below
   1440 wide a tile shows its name and parts without their small pictures.
 - *The chosen map.* The validation list says "Your chosen map so far" and "Choose this map", and
