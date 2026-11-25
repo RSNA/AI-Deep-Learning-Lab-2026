@@ -341,6 +341,8 @@ const Quality = S({
   fetch: z.record(Id, Unit),
   decide: S({ plain: Unit, hard: Unit }),
   catch: Unit.optional(),
+  // What the worker holds of a fact without a line to a source, by fact.
+  knows: z.record(Id, Unit).optional(),
 })
 export type Quality = z.infer<typeof Quality>
 
@@ -405,6 +407,8 @@ export const BuildFile = W({
     complexity: NonNeg.optional(),
     pool: Id.optional(),
     minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
+    // A tool that prepares its sources for the worker behind it: a gain per kind of effort.
+    prepares: z.record(Id, Unit).optional(),
     key: K({}).optional(),
   })).min(1),
   models: z.array(W({

@@ -363,7 +363,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v) => ({
-      id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, rank: v.rank, of: v.of,
+      id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null, rank: v.rank, of: v.of,
       missed: missedView(b, v.missed),
       note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
       running: show ? runningView(v.running) : null,

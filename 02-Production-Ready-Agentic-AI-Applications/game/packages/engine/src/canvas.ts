@@ -3,7 +3,7 @@
 // will call it every month with tables that its events have changed. Everything is an expected
 // value, so one map always gets one score. The executable reference is
 // `tools/canvas_scoring.py` of the private folder, and the parity vectors hold the engine to it.
-import { defaultPrompt, mapShape, overPools, peopleMinutes, rushFactors, type CanvasMap, type CanvasTables } from '@lab02/content-schema'
+import { defaultPrompt, mapShape, overPools, peopleMinutes, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
 
 export type NoteId = 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
 export type MissReason = 'missing' | 'weak' | 'decision'
@@ -23,6 +23,9 @@ export type Flags = {
 
 export type Evaluation = {
   accuracy: number                      // 0 to 1
+  // The accuracy the same map would reach if its people had the minutes it asks of them. Null
+  // when nobody rushes.
+  unhurried: number | null
   perCase: Record<string, number>       // the share solved of every case
   running: Running
   flags: Flags
@@ -95,26 +98,29 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; priv
   }
 }
 
+type Solved = {
+  A: Map<string, Record<string, number>>      // the facts a tile holds
+  D: Map<string, Record<string, number>>      // the share of every case a tile solves
+  overloaded: string[]; distracting: string[]; prompt: string[]
+}
+
 /**
- * Score an accepted, ready map. `shownCases` and `shownNotes` are the cases and notes this player
- * has been shown already, so that the next validation shows another when there is one.
+ * One pass over the live tiles of a ready map. `rush` is the share of the cases each pool of
+ * people gets through, and empty when nobody rushes.
  */
-export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly string[] = [], shownNotes: readonly string[] = []): Evaluation {
-  const sh = mapShape(m, t)
-  if (sh.signer === null) throw new Error('evaluate needs a map whose result is reached')
+function solve(sh: MapShape, t: CanvasTables, rush: Readonly<Record<string, number>>): Solved {
   const sources = new Map(t.sources.map((s) => [s.id, s]))
   const workers = new Map(t.workers.map((w) => [w.id, w]))
   const keep = t.handoff?.keep ?? 1
   const cap = t.quality_cap ?? 1
-  const A = new Map<string, Record<string, number>>()     // facts a tile holds
-  const D = new Map<string, Record<string, number>>()     // cases a tile solves
+  const A = new Map<string, Record<string, number>>()
+  const D = new Map<string, Record<string, number>>()
   const overloaded: string[] = [], distracting: string[] = [], prompt: string[] = []
-  const rush = rushFactors(m, t)                          // pools asked for more minutes than they have
 
   for (const n of sh.order) {
     const tile = sh.tiles.get(n)!
     const w = workers.get(tile.kind)!
-    let q: { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number }
+    let q: { fetch: Readonly<Record<string, number>>; decide: { plain: number; hard: number }; catch?: number; knows?: Readonly<Record<string, number>> }
     let pf = 1, pd = 1, c = 1
     if (w.needs_model) {
       q = w.by_model![tile.model!]!
@@ -126,10 +132,18 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
     for (const [e, x] of Object.entries(q.fetch)) fetch[e] = Math.min(c, x * pf)
     let decide = { plain: Math.min(c, q.decide.plain * pd), hard: Math.min(c, q.decide.hard * pd) }
     let catchQ = q.catch ?? 0
+    const knows = q.knows ?? {}
 
-    // Load and distraction act on the judgment and never on a fetch.
+    // Load and distraction act on the judgment and never on a fetch. A tile that prepares hands
+    // on its sources, so each of them is one more thing for the worker behind it to keep apart.
     const srcIn = sh.srcIn.get(n)!, wrkIn = sh.wrkIn.get(n)!
-    const linesIn = srcIn.length + wrkIn.length
+    const prepared: { source: string; effort: string; gain: number }[] = []
+    let linesIn = srcIn.length
+    for (const u of wrkIn) {
+      const got = preparedBy(u, sh.tiles, sh.srcIn, sources, workers)
+      prepared.push(...got)
+      linesIn += Math.max(1, got.length)
+    }
     let mult = 1
     if (w.load && linesIn > w.load.free) {
       for (let i = 0; i < linesIn - w.load.free; i++) mult *= w.load.factor
@@ -153,11 +167,21 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
     const hurry = w.minutes && w.pool !== undefined ? rush[w.pool] : undefined
     const a: Record<string, number> = {}, aFull: Record<string, number> = {}
     for (const f of t.facts) {
-      let best = 0, passed = 0
+      // what the worker knows without looking anything up
+      let best = knows[f.id] ?? 0, passed = 0
       for (const s of srcIn) {
         const src = sources.get(s)!
         const trust = src.gives[f.id]
         if (trust !== undefined) best = Math.max(best, (fetch[src.effort] ?? 0) * trust)
+      }
+      // A source behind a tile that prepares: read with this worker's own skill, and the
+      // preparation closes `gain` of what it would have missed.
+      for (const p of prepared) {
+        const trust = sources.get(p.source)!.gives[f.id]
+        if (trust !== undefined) {
+          const own = fetch[p.effort] ?? 0
+          best = Math.max(best, (own + (1 - own) * p.gain) * trust)
+        }
       }
       for (const u of wrkIn) passed = Math.max(passed, A.get(u)![f.id]! * keep)
       aFull[f.id] = Math.max(best, passed)
@@ -176,6 +200,18 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
     }
     D.set(n, d)
   }
+  return { A, D, overloaded, distracting, prompt }
+}
+
+/**
+ * Score an accepted, ready map. `shownCases` and `shownNotes` are the cases and notes this player
+ * has been shown already, so that the next validation shows another when there is one.
+ */
+export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly string[] = [], shownNotes: readonly string[] = []): Evaluation {
+  const sh = mapShape(m, t)
+  if (sh.signer === null) throw new Error('evaluate needs a map whose result is reached')
+  const rush = rushFactors(m, t)                          // pools asked for more minutes than they have
+  const { A, D, overloaded, distracting, prompt } = solve(sh, t, rush)
 
   const perCase: Record<string, number> = {}
   let total = 0, sum = 0
@@ -185,6 +221,13 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
     sum += k.weight * perCase[k.id]!
   }
   const accuracy = sum / total
+  let unhurried: number | null = null
+  if (Object.keys(rush).length) {
+    const calm = solve(sh, t, {}).D.get(sh.signer)!
+    let s0 = 0
+    for (const k of t.cases) s0 += k.weight * calm[k.id]!
+    unhurried = s0 / total
+  }
   const run = running(m, t)
 
   // The case to show: the largest loss that this player has not been shown, pack order on a tie.
@@ -217,5 +260,5 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   }
   const listed = (t.notes ?? []).map((x) => x.id as NoteId).filter((id) => raised[id])
   const note = listed.find((id) => !shownNotes.includes(id)) ?? listed[0] ?? null
-  return { accuracy, perCase, running: run.running, flags, missed, note }
+  return { accuracy, unhurried, perCase, running: run.running, flags, missed, note }
 }

@@ -262,6 +262,7 @@ export const DevelopmentView = S({
   validating: S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms }).nullable(),
   validations: z.array(S({
     id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
+    unhurried: z.number().nullable(),               // what the map would reach if nobody rushed
     rank: Int.nullable(), of: Int,                  // the rank in the live column right after it
     missed: Missed.nullable(),
     note: Text.nullable(),
