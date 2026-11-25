@@ -704,7 +704,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   return (
     <PopLayer off={touring || sheet !== null}>
     <div className="p2">
-      <div className="p2-top">
+      <div className={`p2-top${content.rules.cols >= 5 ? ' dense' : ''}`}>
         <section className="colbox p2-actions" aria-label={P2.actions} data-tour="p2-actions">
           <div className="colhead sun"><h2>{P2.actions}</h2><span className="s">{dv.actionsDone.length} / {content.actions.length}</span></div>
           {/* Above the list, outside what scrolls: a notice that lands while the list is scrolled is still seen. */}

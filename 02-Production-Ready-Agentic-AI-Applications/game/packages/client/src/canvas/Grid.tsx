@@ -234,25 +234,53 @@ export function Grid(p: GridProps) {
    * curve with its head in the middle. A line between two tiles that does not run to the right
    * (inside one column, or back to an earlier one) goes around: out of the port into the gap
    * right of its column, along the gap between two rows, and into the left edge of its target
-   * from the gap left of that column, so that it crosses no tile. Its head stands on the stretch
-   * between the rows and points the way the work goes.
+   * from the gap left of that column, so that it crosses no tile. Its head stands in that last
+   * gap, where no tile hides it, and points at the target.
    */
-  type Geom = { d: string; head: { at: P; dx: number } | null; advice: P }
-  const geom = (l: { from: string; to: string }): Geom | null => {
+  type Geom = { d: string; head: { at: P; dy: number } | null; advice: P }
+  type Way = { x1: number; y1: number; x2: number; y2: number; xa: number; xb: number; yc: number }
+  const wayAround = (l: { from: string; to: string }): Way | null => {
     const e = ends(l)
-    if (!e) return null
-    const { x1, y1, x2, y2 } = e
+    if (!e || sourceIds.has(l.from) || l.to === v.result.id) return null
     const a = boxes[l.from]!, b = boxes[l.to]!
-    const around = !sourceIds.has(l.from) && l.to !== v.result.id && b.x < a.x + a.w + 2
-    if (!around) return { d: path(x1, y1, x2, y2, headAt(x1, y1, x2, y2)), head: null, advice: middle(x1, y1, x2, y2) }
-    const gx = Math.max(7, gaps.col / 2), gy = gaps.row / 2
+    if (!(b.x < a.x + a.w + 2)) return null
+    const { x1, y1, x2, y2 } = e
+    // In the gap right of the origin the line stands clear of the ports of that column, and in the
+    // gap left of the target it stands close to the target, so the two never share a place.
+    const gy = gaps.row / 2
     // The gap between two rows that makes the shortest way: one of those above and below the two tiles.
     const lanes = [a.y + a.h + gy, b.y - gy, a.y - gy, b.y + b.h + gy]
     let yc = lanes[0]!
     for (const y of lanes) if (Math.abs(y1 - y) + Math.abs(y - y2) < Math.abs(y1 - yc) + Math.abs(yc - y2) - 0.5) yc = y
-    const xa = x1 + gx, xb = x2 - gx + 1
-    const d = rounded([{ x: x1, y: y1 }, { x: xa, y: y1 }, { x: xa, y: yc }, { x: xb, y: yc }, { x: xb, y: y2 }, { x: x2, y: y2 }], compact ? 5 : 9)
-    return { d, head: { at: { x: xa + (xb - xa) * 0.5, y: yc }, dx: xb < xa ? -1 : 1 }, advice: { x: xa + (xb - xa) * 0.2, y: yc } }
+    return { x1, y1, x2, y2, xa: x1 + Math.max(8, gaps.col * 0.62), xb: x2 - Math.max(5, gaps.col * 0.3), yc }
+  }
+  // Two lines that share a stretch of one gap between rows are set a little apart.
+  const shifts = new Map<string, number>()
+  {
+    const taken: { yc: number; lo: number; hi: number }[] = []
+    const steps = compact ? [0, -2, 2, -4, 4] : [0, -3, 3, -6, 6]
+    for (const l of map.lines) {
+      const w = wayAround(l)
+      if (!w) continue
+      const lo = Math.min(w.xa, w.xb), hi = Math.max(w.xa, w.xb)
+      const n = taken.filter((t) => Math.abs(t.yc - w.yc) < 1 && t.lo < hi && lo < t.hi).length
+      taken.push({ yc: w.yc, lo, hi })
+      shifts.set(lineKey(l), steps[Math.min(n, steps.length - 1)]!)
+    }
+  }
+  const geom = (l: { from: string; to: string }): Geom | null => {
+    const e = ends(l)
+    if (!e) return null
+    const { x1, y1, x2, y2 } = e
+    const w = wayAround(l)
+    if (!w) return { d: path(x1, y1, x2, y2, headAt(x1, y1, x2, y2)), head: null, advice: middle(x1, y1, x2, y2) }
+    const yc = w.yc + (shifts.get(lineKey(l)) ?? 0)
+    const d = rounded([{ x: x1, y: y1 }, { x: w.xa, y: y1 }, { x: w.xa, y: yc }, { x: w.xb, y: yc }, { x: w.xb, y: y2 }, { x: x2, y: y2 }], compact ? 5 : 9)
+    // The head on the last stretch down or up to the target, when that stretch is long enough
+    // to hold it. Otherwise on the stretch between the rows.
+    const tall = Math.abs(y2 - yc) >= (compact ? 14 : 22)
+    const head = tall ? { at: { x: w.xb, y: (yc + y2) / 2 }, dy: y2 > yc ? 1 : -1 } : null
+    return { d, head: head ?? { at: { x: (w.xa + w.xb) / 2, y: yc }, dy: 0 }, advice: { x: w.xa, y: (y1 + yc) / 2 } }
   }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
@@ -404,7 +432,7 @@ export function Grid(p: GridProps) {
   const res = v.result
   const resLit = lit(res.id)
   return (
-    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
+    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
       style={{ '--cols': v.cols, '--rows': v.rows } as React.CSSProperties} aria-label={p.label}>
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
       {Array.from({ length: v.cols }, (_, i) => {
@@ -482,7 +510,9 @@ export function Grid(p: GridProps) {
               <path d={d} className="halo" />
               <path d={d} className="ink" stroke={color} markerMid={g.head ? undefined : `url(#ca${idx}${compact ? 'c' : ''})`} />
               {/* The head of a line that goes around: a mark of its own on the stretch between the rows. */}
-              {g.head && <path className="chead" d={`M${g.head.at.x - g.head.dx},${g.head.at.y} L${g.head.at.x},${g.head.at.y} L${g.head.at.x + g.head.dx},${g.head.at.y}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />}
+              {g.head && (g.head.dy
+                ? <path className="chead" d={`M${g.head.at.x},${g.head.at.y - g.head.dy} L${g.head.at.x},${g.head.at.y} L${g.head.at.x},${g.head.at.y + g.head.dy}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
+                : <path className="chead" d={`M${g.head.at.x + 1},${g.head.at.y} L${g.head.at.x},${g.head.at.y} L${g.head.at.x - 1},${g.head.at.y}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />)}
               {!readOnly && (
                 <path d={d} className="hit" role="button" tabIndex={0} aria-label={words.line(nameOf(l.from), nameOf(l.to))}
                   onClick={(e) => { e.stopPropagation(); p.onLine?.(key) }}

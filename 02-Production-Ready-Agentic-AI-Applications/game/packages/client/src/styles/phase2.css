@@ -502,3 +502,25 @@
 
 /* The head of a line that goes around (inside one column, or back to an earlier one). */
 .cline .chead { fill: none; stroke: none; pointer-events: none; }
+
+/* A map of five columns or more (dense). On a laptop of 1280 the two side columns give the map
+   a little of their width, the gaps between its columns are narrower, and a tile shows its name
+   and its parts without their small pictures, so that a name of eleven letters and a part of
+   thirteen stand uncut. From 1440 wide there is room for the pictures again. */
+.p2-top.dense { --act-w: clamp(236px, 18.8vw, 300px); --tool-w: clamp(190px, 15.4vw, 260px); }
+.cgrid.dense:not(.compact) { column-gap: 22px; padding: 4px 12px 8px 6px; grid-template-columns: minmax(104px, 13.5%) repeat(var(--cols), minmax(0, 1fr)) minmax(62px, 8.5%); }
+.cgrid.dense:not(.compact) .ct-body { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }
+.cgrid.dense:not(.compact) .ctile.k-person .ct-body { font-size: 11.5px; }
+@media (max-width: 1439px) {
+  .cgrid.dense:not(.compact) .ct-head > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part { font-size: 11px; letter-spacing: -0.2px; }
+  .cgrid.dense:not(.compact) .ct-name { letter-spacing: -0.3px; }
+}
+/* The small maps of the reveal and of the host: narrower gaps, so that five columns keep their names. */
+.cgrid.dense.compact { column-gap: 14px; }
+.p2maps .cgrid.dense { column-gap: 12px; grid-template-columns: minmax(76px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(58px, 10%); }
+.p2pmap .cgrid.dense { min-width: 900px; }
+/* A small map shows the task of a tool on up to four short lines, never cut in the middle of a sentence. */
+.cgrid.compact .ct-body { -webkit-line-clamp: 4; }
+.cgrid.dense:not(.compact) .ct-note { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }

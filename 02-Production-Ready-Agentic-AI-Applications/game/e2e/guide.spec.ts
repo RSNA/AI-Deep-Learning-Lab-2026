@@ -151,12 +151,22 @@ test('Validate always says why, and every refused placement or line says why at 
   await expect(note).toContainText('This cell is taken')
   await cell(page, 1, 2).click()
   await expect(note).toHaveCount(0)
+  // A line may run back to an earlier column. Only a loop is refused, with its sentence.
+  const before = await page.locator('.cline').count()
   await port(page, 'Agent').click()
   await page.locator('.ctile', { hasText: 'Rule' }).click()
-  await expect(note).toContainText('Rule stands left of Agent')
-  await page.locator('.ctile', { hasText: 'Rule' }).click()
-  await expect(note).toContainText('Rule stands left of Agent')       // still in join mode, still said
+  await expect(note).toHaveCount(0)
+  await expect(page.locator('.cline')).toHaveCount(before + 1)
+  await expect(page.locator('.cline .chead')).toHaveCount(1)          // it goes around, with a head of its own
+  await port(page, 'Rule').click()
+  await page.locator('.ctile', { hasText: 'Agent' }).click()
+  await expect(note).toContainText('That would close a loop: Agent already hands its work on to Rule')
+  await page.locator('.ctile', { hasText: 'Agent' }).click()
+  await expect(note).toContainText('That would close a loop')         // still in join mode, still said
   await page.keyboard.press('Escape')
+  await page.locator('.cline .hit[aria-label^="Line from Agent to Rule"]').dispatchEvent('click')
+  await page.keyboard.press('Delete')
+  await expect(page.locator('.cline')).toHaveCount(before)
   await port(page, 'Request form').click()
   await page.locator('.ctile', { hasText: 'Agent' }).click()
   await expect(note).toContainText('Request form is already joined to Agent')

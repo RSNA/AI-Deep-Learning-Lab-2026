@@ -76,14 +76,23 @@ describe('why a line is refused', () => {
     expect(why('s1', 'res')).toEqual({ at: 'res', text: expect.stringMatching(/^Form cannot reach the result by itself/) })
     expect(why('t1', 's1')?.text).toMatch(/^A line cannot end at Form/)
     expect(why('s1', 't1')?.text).toBe('Form is already joined to Agent.')
-    expect(why('t1', 't2')?.text).toMatch(/stand in one column/)
-    expect(why('t1', 't3')?.text).toMatch(/stands left of Agent/)
     expect(why('s2', 't1')?.text).toBe('Mailbox is locked. Do “Connect the mailbox” in Actions to open it.')
-    for (const [a, b] of [['s1', 'res'], ['t1', 's1'], ['t1', 't2'], ['t1', 't3'], ['s2', 't1']] as const) expect(plain(why(a, b)!.text)).toBe(true)
+    for (const [a, b] of [['s1', 'res'], ['t1', 's1'], ['s2', 't1']] as const) expect(plain(why(a, b)!.text)).toBe(true)
   })
-  it('lets a good line through', () => {
+  it('lets a line run any way between two tiles: inside one column, and back to an earlier one', () => {
+    expect(why('t1', 't2')).toBeNull()        // one column
+    expect(why('t1', 't3')).toBeNull()        // back to the column before
     expect(why('t3', 't1')).toBeNull()
     expect(why('t1', 'res')).toBeNull()
     expect(why('t1', 't1')).toBeNull()
+  })
+  it('refuses a loop, direct or through other tiles, with its sentence', () => {
+    const chain: CanvasMap = { tiles: map.tiles, lines: [{ from: 't1', to: 't2' }, { from: 't2', to: 't3' }] }
+    const back = (from: string, to: string) => lineRefusal(chain, v, from, to, name, open, {})
+    expect(back('t2', 't1')).toEqual({ at: 't1', text: 'That would close a loop: Agent already hands its work on to Librarian, directly or through other tiles.' })
+    expect(back('t3', 't1')?.text).toMatch(/^That would close a loop: Agent already hands its work on to t3/)
+    expect(back('t3', 't2')?.text).toMatch(/^That would close a loop/)
+    expect(back('t1', 't3')).toBeNull()       // a second way forward is no loop
+    expect(plain(back('t3', 't1')!.text)).toBe(true)
   })
 })

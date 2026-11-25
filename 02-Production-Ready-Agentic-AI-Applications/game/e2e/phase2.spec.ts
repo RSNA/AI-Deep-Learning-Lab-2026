@@ -131,7 +131,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await expect(page.locator('.ctile.stray')).toHaveCount(1)
   await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+%$/, { timeout: 15_000 })
   await expect(page.locator('#p2-results')).toContainText('One patient it got wrong, as an example')
-  await expect(page.locator('#p2-results')).toContainText('This map will be sent')
+  await expect(page.locator('#p2-results')).toContainText('Your chosen map so far')
 
   // Undo takes the rule away, redo brings it back, Delete removes the selection.
   await page.getByRole('button', { name: 'Undo' }).click()
