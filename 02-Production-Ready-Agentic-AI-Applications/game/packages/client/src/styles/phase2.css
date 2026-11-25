@@ -499,3 +499,6 @@
 @media (min-width: 1280px) {
   .p2toast { left: 12px; right: auto; transform: none; top: 62px; bottom: auto; max-width: 246px; flex-wrap: wrap; gap: 6px 10px; }
 }
+
+/* The head of a line that goes around (inside one column, or back to an earlier one). */
+.cline .chead { fill: none; stroke: none; pointer-events: none; }

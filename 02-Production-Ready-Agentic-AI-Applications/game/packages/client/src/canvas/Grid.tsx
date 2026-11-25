@@ -1,5 +1,5 @@
 // The canvas (engineering spec, section 10.5): sources on the left, a grid of cells, the result on
-// the right, and lines that only run to the right. It draws any map, editable or read-only, and
+// the right, and lines that run any way between the tiles but never in a loop. It draws any map, editable or read-only, and
 // knows nothing of the phase that shows it. Every action works by click or tap; drag is an
 // extra on a laptop.
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
@@ -85,6 +85,9 @@ export function Grid(p: GridProps) {
   const box = useRef<HTMLDivElement>(null)
   const nodes = useRef(new Map<string, HTMLElement>())
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
+  // The gaps between the columns and the rows: a line that does not run to the right goes around
+  // through them.
+  const [gaps, setGaps] = useState<{ col: number; row: number }>({ col: 32, row: 6 })
   const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const [hintCol, setHintCol] = useState<number | null>(null)
@@ -123,6 +126,9 @@ export function Grid(p: GridProps) {
       next[id] = { x, y, w: el.offsetWidth, h: el.offsetHeight }
     }
     setBoxes((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+    const cs = getComputedStyle(root)
+    const col = parseFloat(cs.columnGap) || 32, row = parseFloat(cs.rowGap) || 6
+    setGaps((prev) => (prev.col === col && prev.row === row ? prev : { col, row }))
   }, [])
   useLayoutEffect(() => { measure() })
   useLayoutEffect(() => {
@@ -206,6 +212,48 @@ export function Grid(p: GridProps) {
     const key = lineKey(l)
     return { x1: a.x + a.w, y1: exits.get(key) ?? a.y + a.h / 2, x2: b.x - 1, y2: entries.get(key) ?? b.y + b.h / 2 }
   }
+  const sourceIds = new Set(v.sources.map((x) => x.id))
+  /** A path through corner points, each corner rounded. */
+  const rounded = (pts: P[], r: number): string => {
+    const q = pts.filter((pt, i) => i === 0 || Math.hypot(pt.x - pts[i - 1]!.x, pt.y - pts[i - 1]!.y) > 0.5)
+    if (q.length < 2) return ''
+    let d = `M${q[0]!.x},${q[0]!.y}`
+    for (let i = 1; i < q.length - 1; i++) {
+      const a = q[i - 1]!, b = q[i]!, c = q[i + 1]!
+      const la = Math.hypot(b.x - a.x, b.y - a.y), lc = Math.hypot(c.x - b.x, c.y - b.y)
+      const k = Math.min(r, la / 2, lc / 2)
+      const p1 = { x: b.x - ((b.x - a.x) / la) * k, y: b.y - ((b.y - a.y) / la) * k }
+      const p2 = { x: b.x + ((c.x - b.x) / lc) * k, y: b.y + ((c.y - b.y) / lc) * k }
+      d += ` L${p1.x},${p1.y} Q${b.x},${b.y} ${p2.x},${p2.y}`
+    }
+    const z = q[q.length - 1]!
+    return `${d} L${z.x},${z.y}`
+  }
+  /**
+   * How a line is drawn. A line to a tile further right, from a source or into the result is one
+   * curve with its head in the middle. A line between two tiles that does not run to the right
+   * (inside one column, or back to an earlier one) goes around: out of the port into the gap
+   * right of its column, along the gap between two rows, and into the left edge of its target
+   * from the gap left of that column, so that it crosses no tile. Its head stands on the stretch
+   * between the rows and points the way the work goes.
+   */
+  type Geom = { d: string; head: { at: P; dx: number } | null; advice: P }
+  const geom = (l: { from: string; to: string }): Geom | null => {
+    const e = ends(l)
+    if (!e) return null
+    const { x1, y1, x2, y2 } = e
+    const a = boxes[l.from]!, b = boxes[l.to]!
+    const around = !sourceIds.has(l.from) && l.to !== v.result.id && b.x < a.x + a.w + 2
+    if (!around) return { d: path(x1, y1, x2, y2, headAt(x1, y1, x2, y2)), head: null, advice: middle(x1, y1, x2, y2) }
+    const gx = Math.max(7, gaps.col / 2), gy = gaps.row / 2
+    // The gap between two rows that makes the shortest way: one of those above and below the two tiles.
+    const lanes = [a.y + a.h + gy, b.y - gy, a.y - gy, b.y + b.h + gy]
+    let yc = lanes[0]!
+    for (const y of lanes) if (Math.abs(y1 - y) + Math.abs(y - y2) < Math.abs(y1 - yc) + Math.abs(yc - y2) - 0.5) yc = y
+    const xa = x1 + gx, xb = x2 - gx + 1
+    const d = rounded([{ x: x1, y: y1 }, { x: xa, y: y1 }, { x: xa, y: yc }, { x: xb, y: yc }, { x: xb, y: y2 }, { x: x2, y: y2 }], compact ? 5 : 9)
+    return { d, head: { at: { x: xa + (xb - xa) * 0.5, y: yc }, dx: xb < xa ? -1 : 1 }, advice: { x: xa + (xb - xa) * 0.2, y: yc } }
+  }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
     const s = v.sources.find((x) => x.id === id)
@@ -213,7 +261,6 @@ export function Grid(p: GridProps) {
     if (id === v.result.id) return v.result.label
     return names.get(id)?.label ?? id
   }
-  const sourceIds = new Set(v.sources.map((x) => x.id))
 
   const joining = mode.kind === 'join'
   const placing = mode.kind === 'place' || mode.kind === 'move'
@@ -419,11 +466,10 @@ export function Grid(p: GridProps) {
           ))}
         </defs>
         {map.lines.map((l) => {
-          const e = ends(l)
-          if (!e) return null
+          const g = geom(l)
+          if (!g) return null
           const key = lineKey(l)
-          const { x1, y1, x2, y2 } = e
-          const d = path(x1, y1, x2, y2, headAt(x1, y1, x2, y2))
+          const d = g.d
           const color = colorOf(l.from)
           const idx = LINE_COLORS.indexOf(color)
           const sel = p.selection?.kind === 'line' && p.selection.key === key
@@ -434,7 +480,9 @@ export function Grid(p: GridProps) {
           return (
             <g key={key} className={`cline${handoff ? ' handoff' : ''}${sel ? ' sel' : ''}${faded ? ' faded' : ''}`}>
               <path d={d} className="halo" />
-              <path d={d} className="ink" stroke={color} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
+              <path d={d} className="ink" stroke={color} markerMid={g.head ? undefined : `url(#ca${idx}${compact ? 'c' : ''})`} />
+              {/* The head of a line that goes around: a mark of its own on the stretch between the rows. */}
+              {g.head && <path className="chead" d={`M${g.head.at.x - g.head.dx},${g.head.at.y} L${g.head.at.x},${g.head.at.y} L${g.head.at.x + g.head.dx},${g.head.at.y}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />}
               {!readOnly && (
                 <path d={d} className="hit" role="button" tabIndex={0} aria-label={words.line(nameOf(l.from), nameOf(l.to))}
                   onClick={(e) => { e.stopPropagation(); p.onLine?.(key) }}
@@ -445,9 +493,9 @@ export function Grid(p: GridProps) {
         })}
         {map.lines.map((l) => {
           const key = lineKey(l)
-          const e = p.advice?.has(key) ? ends(l) : null
-          if (!e) return null
-          const m = middle(e.x1, e.y1, e.x2, e.y2)
+          const g = p.advice?.has(key) ? geom(l) : null
+          if (!g) return null
+          const m = g.advice
           return (
             <g key={`adv-${key}`} className="cadvice" transform={`translate(${m.x},${m.y})`}>
               <circle r={compact ? 6 : 9} />
@@ -467,9 +515,9 @@ export function Grid(p: GridProps) {
         const anchor = (): { ax: number; ay: number; ah: number } | null => {
           if (n.at.startsWith('line:')) {
             const l = map.lines.find((x) => lineKey(x) === n.at.slice(5))
-            const e = l ? ends(l) : null
-            if (!e) return null
-            const m = middle(e.x1, e.y1, e.x2, e.y2)
+            const g = l ? geom(l) : null
+            if (!g) return null
+            const m = g.advice
             return { ax: m.x, ay: m.y - 10, ah: 20 }
           }
           const b = boxes[n.at]

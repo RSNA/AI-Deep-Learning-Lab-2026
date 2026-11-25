@@ -5,7 +5,7 @@
 // or line gets a sentence at its place. No reason id reaches a screen.
 import type { CanvasMap, DevelopmentContent, DevelopmentView } from '@lab02/protocol'
 import type { Part } from '../canvas/Grid.tsx'
-import { isSource, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { isSource, reaches, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { P2 } from './copy.ts'
 
 export type GuideItem = { text: string; nodes: string[]; part?: Part | null }
@@ -84,7 +84,7 @@ export function lineRefusal(map: CanvasMap, v: Vocabulary, from: string, to: str
   const b = tileOf(map, to)
   if (!b) return null
   if (map.lines.some((l) => l.from === from && l.to === to)) return { at: to, text: P2.refuse.twice(nameOf(from), nameOf(to)) }
-  const a = tileOf(map, from)
-  if (a && !(a.col < b.col)) return { at: to, text: a.col === b.col ? P2.refuse.sameColumn(nameOf(from), nameOf(to)) : P2.refuse.backward(nameOf(from), nameOf(to)) }
+  // A line between two tiles may run any way on the map. Only a loop is refused.
+  if (tileOf(map, from) && reaches(map, to, from)) return { at: to, text: P2.refuse.loop(nameOf(from), nameOf(to)) }
   return null
 }

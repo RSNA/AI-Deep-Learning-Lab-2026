@@ -76,14 +76,13 @@ export const P2 = {
     tile: (label: string) => `${label} is selected.`,
     line: (from: string, to: string) => `Line from ${from} to ${to}.`,
   },
-  dropped: (n: number) => (n === 1 ? 'One line would have run backward, so it was removed.' : `${n} lines would have run backward, so they were removed.`),
   replaced: 'The result takes one line. The new line replaced the old one.',
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
   // The tour of the phase (section 10.1). It describes the screen, never an answer.
   tour: [
     { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
     { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from the round port on the right of a tile to the next tile. Work runs left to right and ends in the result.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from the round port on the right of a tile to the tile that gets its work. A line may run any way across the map, but never in a loop. The work ends in the result.' },
     { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
     { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays with the practice, so pay for what your map will use.' },
@@ -220,8 +219,7 @@ export const P2 = {
     intoSource: (name: string) => `A line cannot end at ${name}. Lines run from a source to a tile.`,
     sourceToResult: (name: string) => `${name} cannot reach the result by itself. Join it to a tile, and the tile to the result.`,
     twice: (a: string, b: string) => `${a} is already joined to ${b}.`,
-    sameColumn: (a: string, b: string) => `${a} and ${b} stand in one column. Work is handed on only to the right, so move ${b} further right.`,
-    backward: (a: string, b: string) => `${b} stands left of ${a}. Work is handed on only to the right, so draw the line from ${b} to ${a}, or move a tile.`,
+    loop: (a: string, b: string) => `That would close a loop: ${b} already hands its work on to ${a}, directly or through other tiles.`,
     server: 'That line cannot be drawn on this map.',
   },
   // Results
