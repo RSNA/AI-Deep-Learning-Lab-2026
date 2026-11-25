@@ -4,6 +4,14 @@ Welcome to the Deep Learning Labs at the RSNA 2026 Annual Meeting (Radiological 
 
 The Deep Learning Labs are one-hour, hands-on classes where you work with AI tools directly, from building AI agents and prototyping applications to evaluating, fine-tuning, and preparing data for deep learning models. This repository holds the materials for every lab, including Google Colab notebooks, slides, and supplementary files. Each lab has its own numbered folder, in the order the labs are held.
 
+## Attendee Feedback
+
+Attended a lab? Please take two minutes to tell us how it went. The form is anonymous, and your answers help us improve the labs for the coming years. If you attended more than one lab, please submit one response for each.
+
+<a href="https://docs.google.com/forms/d/e/1FAIpQLSebaB_5ezOlX2GxAC_aJYVBFjrjBgEcCg9ofouv49Y6rvlnxg/viewform"><img src="./assets/attendee-feedback-qr.png" alt="QR code for the RSNA 2026 Deep Learning Labs attendee feedback form" width="200"></a>
+
+**[Open the feedback form](https://docs.google.com/forms/d/e/1FAIpQLSebaB_5ezOlX2GxAC_aJYVBFjrjBgEcCg9ofouv49Y6rvlnxg/viewform)**, or scan the QR code above.
+
 ## Schedule
 
 > Dates and times may change. For the most up-to-date schedule, please check the official RSNA 2026 Annual Meeting program. All times are U.S. Central Time.
