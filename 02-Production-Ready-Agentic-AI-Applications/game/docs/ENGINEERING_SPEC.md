@@ -4,13 +4,16 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.5. Phase 2 is now played on a canvas (Step 7, section 16): the player
+**Status.** Version 1.6. Phase 2 is now played on a canvas (Step 7, section 16): the player
 builds a map on a grid and validates it, and the slot board of version 1.1 is gone. Version 1.4
 added what the screen says to guide the player: a tour of each phase, a help panel, the reason
 beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`.
 Version 1.5 adds two rules of scoring: in Phase 1 the investigations a player did not start earn
 a small part of the score (`scoring.economy`), and in Phase 2 a pool of people may rush in place
-of refusing a map that asks too many minutes of it (`over: rush`). The
+of refusing a map that asks too many minutes of it (`over: rush`). Version 1.6 adds three more
+to the scoring of a map: a worker may know a fact without a line (`knows`), a tool may prepare a
+source for the worker behind it (`prepares`), and a validation of a map whose people rush also
+says what the map would reach with the time (`unhurried`). The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
@@ -591,8 +594,11 @@ type Worker = {
   run?: number; complexity?: number
   pool?: PoolId                             // required for a person
   minutes?: { decide: number; check: number; per_line: Record<Effort, number> }   // required for a person
+  prepares?: Record<Effort, number>         // a `fixed` worker only: it prepares its sources of these kinds
+                                            // of effort for the worker behind it, with a gain from 0 to 1
 }
-type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: number }; catch?: number }
+type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: number }; catch?: number
+                 knows?: Record<FactId, number> }   // what the worker holds of a fact without a line
 type PackMap = { tiles: { id: string; kind: WorkerId; col: number; row: number
                           model?: ModelId | null; runs_on?: ComputeId | null; prompt?: PromptId | null }[]
                  lines: { from: string; to: string }[] }
@@ -1090,6 +1096,7 @@ type DevelopmentState = {
 type Validation = {
   id: string; atMs: GameMs; map: CanvasMap
   accuracy: number                              // 0 to 1
+  unhurried: number | null                      // what the map would reach if no pool rushed
   missed: { case: CaseId; reason: 'missing' | 'weak' | 'decision'; fact: FactId | null } | null
   note: NoteId | null
   running: { money: number; minutes: Record<PoolId, number>; complexity: number }
@@ -1231,7 +1238,22 @@ D_n(k)  = hurry × (the D_n(k) above, with have taken over the unhurried facts) 
 
 So a person who is asked to do everything alone in a quarter of the time solves a quarter of
 what they would, and two looks by the same pool are each cut short. Every placed person counts
-for the minutes, a stray one too.
+for the minutes, a stray one too. When some pool rushes, the evaluation also returns `unhurried`:
+the accuracy of the same map with every `hurry` at 1. It is null when nobody rushes.
+
+*What a worker knows.* `knows` gives, per fact, what a worker holds without a line to any source
+(a person who has a rule by heart, a model that has read about it). The `direct` of a fact starts
+at `knows(f)` in place of 0, so a line to the source only helps when the worker fetches there
+better than it remembers.
+
+*A tool that prepares.* A `fixed` worker with `prepares` reads nothing itself. When its tile `u`
+hands to tile `n`, every source `s` with a line into `u` whose kind of effort `u` names reaches
+`n` as if by a line of its own: `n` fetches it with `own = fetch_n[effort(s)]`, raised to
+`own + (1 − own) × gain`, and nothing is lost at the handoff. For the load of `n` the tile `u`
+counts as the number of sources it prepares, at least 1, so a connector hides nothing from the
+worker behind it. A person behind `u` pays `per_line[effort(s)]` for each such source. With a
+gain of 0 the tool is a plain connector: the worker behind it reads exactly as well as by a
+direct line.
 
 ```
 solved(k) = D_signer(k)
@@ -2092,6 +2114,7 @@ type DevelopmentView = {
   validationsLeft: number
   validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs } | null
   validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
+                 unhurried: number | null               // set when people rushed: the accuracy with the time
                  rank: number | null; of: number        // the rank in the live column right after it
                  missed: { title: Text; text: Text; why: Text } | null
                  note: Text | null
@@ -4075,6 +4098,7 @@ report.
 | 7, feedback after the demo | Version 1.4: `line_rules` and `required` (sections 5.5, 6.6), `line_refused` with the `data` of an answer (6.6, 8.2), `ready.details`, `lineAdvice`, `tileMinutes` and a worker's `task` in the legend (8.4); a tour of each phase and a help panel (10.1); the assessment first on a phone and an interview that keeps its words (10.4); no header over unnamed columns, fixed line anchors and wider gaps, a body on every tile, Validate that always says why, a sentence for every refusal (10.5); the host looks through the deck without showing it (10.8) |
 | 7, second round | Version 1.3, for the second version of the real content: `grid.columns`, `efforts`, `toolbox_groups`, a worker's `group` and `task`, a prompt's `samples` and the letter's `opening` (sections 5.5 and 8.3); `per_line` no longer sent (8.3, 9.2); the list of icons (5.5); compact rows of the toolbox and the actions, stage names over the columns, numbered tiles, heavier handoff lines with a legend, the prompt chooser's line on what a tile reads, cells under a line that take the click, names on small maps, a running cost with one decimal (10.5); parity in blocks (12) |
 | 7, the release after the demo | Version 1.5: the economy part of the Phase 1 score (`scoring.economy`, sections 5.5, 6.5, 8.3, 8.4, 10.4); a pool of people that rushes (`over: rush`, the flag and the note `rushed`, `rushed` in the view; sections 5.5, 6.6, 8.4, 10.5); a refused line leaves the rest of the draft in place (10.5); a notice stands above the tab bar of a phone (10.1) |
+| 7, Play check 2 | Version 1.6: what a worker knows without a line (`knows`), a tool that prepares a source for the worker behind it (`prepares`, with its load and its minutes), and `unhurried` on a validation (sections 5.5, 6.6, 8.4); the screen changes of the same round are in section 10.5 |
 | 8 | Section 10.6 in full, the final `MaintainingView`, the reveal payloads of Phase 3 |
 | 11 | The shapes of the room statistics and the list of report card facts |
 | 5, round 11 | Slides with layouts (people, boxes, figures, a QR code, references, a chart of the room), one slide component for the projector, the players and the console; the lobby in three columns with a scene the player sizes; the host in charge by name, taking charge with the passcode, the answer key with one press, one player beside the key, a host's own look through the deck, the question before slides run ahead of the game; the classes shown from the agentic one down; a scored phase and a fresh start from the menu |
