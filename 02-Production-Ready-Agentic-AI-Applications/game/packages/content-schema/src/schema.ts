@@ -427,7 +427,8 @@ export const BuildFile = W({
   prompts: z.array(W({
     id: Id,
     // `samples`, when present, are shown in place of `sample`, each under its label.
-    public: S({ label: Text, description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
+    // `short` is the name on a tile, where the label of a card would be cut.
+    public: S({ label: Text, short: Text.optional(), description: Text, sample: Text.optional(), samples: z.array(S({ label: Text, text: Text })).min(1).optional() }),
     fetch: Num.positive().optional(),
     decide: Num.positive().optional(),
     by_worker: z.record(z.string(), S({ fetch: Num.positive().optional(), decide: Num.positive().optional() })).optional(),

@@ -550,6 +550,7 @@ type Build = {
               key?: object }[]
   prompts?: { id: PromptId                  // three or four formats. The first is the default
               public: { label: Text; description: Text
+                        short?: Text        // the name on a tile, where the label would be cut
                         sample?: Text       // the opening of such a prompt, up to 35 words
                         samples?: { label: Text; text: Text }[] }   // several openings, each
                                             // under a label, shown in place of `sample`
@@ -3128,8 +3129,9 @@ does now.
 - *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
   result is waiting when the person who signs opens the case.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
-- *A notice* (a validation is done, an insight has arrived) stands at the foot of the left
-  column on a laptop and above the tab bar on a phone, never over the line beside Validate.
+- *A notice* (a validation is done, an insight has arrived) stands over the head of the left
+  column on a laptop and above the tab bar on a phone, never over the line beside Validate or
+  the buttons of the results.
 
 ### 10.6 Phase 3 screens (outline)
 

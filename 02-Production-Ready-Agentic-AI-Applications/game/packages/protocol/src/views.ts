@@ -160,7 +160,7 @@ export const DevelopmentContent = S({
   models: z.array(S({ ...Part, runsOn: z.array(z.string()) })),
   compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),
   // The first is the default. A card shows `samples`, each under its label, or else `sample`.
-  prompts: z.array(S({ id: z.string(), label: Text, description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
+  prompts: z.array(S({ id: z.string(), label: Text, short: Text.nullable(), description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
   actions: z.array(S({
     id: z.string(), group: z.string(), title: Text, teaser: Text,
     money: z.number(), developers: Int, seconds: z.number(),

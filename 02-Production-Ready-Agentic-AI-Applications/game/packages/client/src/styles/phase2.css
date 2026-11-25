@@ -493,8 +493,9 @@
 /* A locked row of the toolbox on a laptop: a small lock beside its name. Its card says what opens it. */
 .toolbox .tbrow .tb-lk { display: inline-flex; align-items: center; margin-left: 5px; color: var(--muted); }
 
-/* On a laptop with the three columns, a notice stands at the foot of the left column: it must
-   not cover the line beside Validate, which says what to do next. */
+/* On a laptop with the three columns, a notice stands over the head of the left column. At the
+   foot of the window it covered the line beside Validate, which says what to do next, and the
+   buttons of the results below the map. */
 @media (min-width: 1280px) {
-  .p2toast { left: 16px; right: auto; transform: none; bottom: 18px; max-width: 250px; flex-wrap: wrap; gap: 6px 10px; }
+  .p2toast { left: 12px; right: auto; transform: none; top: 62px; bottom: auto; max-width: 246px; flex-wrap: wrap; gap: 6px 10px; }
 }

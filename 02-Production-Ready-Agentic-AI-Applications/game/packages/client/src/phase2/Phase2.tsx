@@ -36,7 +36,7 @@ export function vocabularyOf(c: DevelopmentContent): Vocabulary {
     workers: c.workers.map((w) => ({ id: w.id, kind: w.kind, label: w.label, short: w.short, icon: w.icon, task: w.task, needsModel: w.needsModel, models: w.models })),
     models: c.models.map((m) => ({ id: m.id, label: m.label, short: m.short, runsOn: m.runsOn })),
     compute: c.compute.map((x) => ({ id: x.id, label: x.label, short: x.short, protectsPrivateData: x.protectsPrivateData })),
-    prompts: c.prompts.map((p) => ({ id: p.id, label: p.label })),
+    prompts: c.prompts.map((p) => ({ id: p.id, label: p.short ?? p.label })),
   }
 }
 
