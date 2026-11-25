@@ -534,6 +534,11 @@
   .cgrid.dense:not(.compact) .ct-part > .cicon { display: none; }
   .cgrid.dense:not(.compact) .ct-part { font-size: 11px; letter-spacing: -0.2px; }
   .cgrid.dense:not(.compact) .ct-name { letter-spacing: -0.3px; }
+  /* A source of a five-column map is narrow: its name stands without the small picture (a locked
+     source keeps its lock), a little tighter, and a word is not broken to fit. */
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) { grid-template-columns: minmax(0, 1fr); }
+  .cgrid.dense:not(.compact) .csource .cs-name { font-size: 13.5px; letter-spacing: -0.3px; hyphens: manual; }
 }
 /* The small maps of the reveal and of the host: narrower gaps, so that five columns keep their names. */
 .cgrid.dense.compact { column-gap: 14px; }
