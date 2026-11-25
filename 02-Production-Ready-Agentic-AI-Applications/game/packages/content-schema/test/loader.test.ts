@@ -104,7 +104,7 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a person without a pool', `${RB}/build.yaml`, (t) => t.replace('    pool: librarian\n', ''), /workers\[4\]\.pool.*a person needs a pool/],
   ['a person without minutes', `${RB}/build.yaml`, (t) => t.replace('    minutes: {decide: 6, check: 2, per_line: {easy: 1, hard: 5, scan: 6}}\n', ''), /workers\[4\]\.minutes.*a person needs minutes/],
   ['an action that does nothing', `${RB}/build.yaml`, (t) => t.replace('    unlocks: [rb-m-open]\n', ''), /actions\[4\]: an action unlocks nothing and has no insight/],
-  ['a reference map that is refused', `${RB}/build.yaml`, (t) => t.replace('        - {id: t2, kind: rb-w-librarian, col: 4, row: 2}', '        - {id: t2, kind: rb-w-librarian, col: 1, row: 2}'), /key\.reference\.map.*refused: line_backward/],
+  ['a reference map that is refused', `${RB}/build.yaml`, (t) => t.replace('        - {id: t2, kind: rb-w-librarian, col: 4, row: 2}', '        - {id: t2, kind: rb-w-librarian, col: 9, row: 2}'), /key\.reference\.map.*refused: off_grid/],
   ['a reference map that is not ready', `${RB}/build.yaml`, (t) => t.replace('    needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]', '    needs_actions: [rb-a-mailbox, rb-a-workshop]'), /key\.reference\.map.*refused: bad_compute/],
   ['reference actions the budget cannot pay', `${RB}/build.yaml`, (t) => t.replace('budget: {money: 100, developers: 3}', 'budget: {money: 30, developers: 3}'), /needs_actions.*cost 50, the budget is 30/],
   ['an action in a group that does not exist', `${RB}/build.yaml`, (t) => t.replace('    group: negotiate', '    group: bargain'), /actions\[6\]\.group.*unknown group "bargain"/],

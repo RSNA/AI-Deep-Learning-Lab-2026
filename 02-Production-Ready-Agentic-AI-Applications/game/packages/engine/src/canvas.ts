@@ -3,7 +3,7 @@
 // will call it every month with tables that its events have changed. Everything is an expected
 // value, so one map always gets one score. The executable reference is
 // `tools/canvas_scoring.py` of the private folder, and the parity vectors hold the engine to it.
-import { defaultPrompt, mapShape, overPools, peopleMinutes, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
+import { defaultPrompt, handoffOrder, mapShape, overPools, peopleMinutes, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
 
 export type NoteId = 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
 export type MissReason = 'missing' | 'weak' | 'decision'
@@ -69,7 +69,10 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; priv
   const usedModels = new Set<string>()
   const usedCompute = new Set<string>()
   const unprotected: string[] = []
-  const order = [...tiles.keys()].sort((a, b) => tiles.get(a)!.col - tiles.get(b)!.col || tiles.get(a)!.row - tiles.get(b)!.row)
+  // Private data travels along the lines, so the tiles are walked in the order of the handoffs.
+  const pairs: [string, string][] = []
+  for (const [n, from] of wrkIn) for (const u of from) pairs.push([u, n])
+  const order = handoffOrder(tiles, pairs) ?? [...tiles.keys()]
   for (const n of order) {
     const tile = tiles.get(n)!
     const w = workers.get(tile.kind)!
@@ -137,16 +140,16 @@ function solve(sh: MapShape, t: CanvasTables, rush: Readonly<Record<string, numb
     // Load and distraction act on the judgment and never on a fetch. A tile that prepares hands
     // on its sources, so each of them is one more thing for the worker behind it to keep apart.
     const srcIn = sh.srcIn.get(n)!, wrkIn = sh.wrkIn.get(n)!
-    const prepared: { source: string; effort: string; gain: number }[] = []
+    const prepared: { source: string; effort: string; load: number }[] = []
     let linesIn = srcIn.length
     for (const u of wrkIn) {
       const got = preparedBy(u, sh.tiles, sh.srcIn, sources, workers)
       prepared.push(...got)
-      linesIn += Math.max(1, got.length)
+      linesIn += got.length ? got.reduce((sum, x) => sum + x.load, 0) : 1
     }
     let mult = 1
-    if (w.load && linesIn > w.load.free) {
-      for (let i = 0; i < linesIn - w.load.free; i++) mult *= w.load.factor
+    if (w.load && linesIn > w.load.free + 1e-9) {
+      mult = Math.pow(w.load.factor, linesIn - w.load.free)
       overloaded.push(n)
     }
     if (w.kind === 'ai') {
@@ -174,14 +177,11 @@ function solve(sh: MapShape, t: CanvasTables, rush: Readonly<Record<string, numb
         const trust = src.gives[f.id]
         if (trust !== undefined) best = Math.max(best, (fetch[src.effort] ?? 0) * trust)
       }
-      // A source behind a tile that prepares: read with this worker's own skill, and the
-      // preparation closes `gain` of what it would have missed.
+      // A source behind a tile that prepares: this worker reads it itself, as the kind of effort
+      // the tool makes of it, and nothing is lost at a handoff.
       for (const p of prepared) {
         const trust = sources.get(p.source)!.gives[f.id]
-        if (trust !== undefined) {
-          const own = fetch[p.effort] ?? 0
-          best = Math.max(best, (own + (1 - own) * p.gain) * trust)
-        }
+        if (trust !== undefined) best = Math.max(best, (fetch[p.effort] ?? 0) * trust)
       }
       for (const u of wrkIn) passed = Math.max(passed, A.get(u)![f.id]! * keep)
       aFull[f.id] = Math.max(best, passed)

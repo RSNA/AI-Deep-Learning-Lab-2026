@@ -72,7 +72,10 @@ export function checkBuild(
     const qs = w.by_model ? Object.entries(w.by_model).map(([m, q]) => [`by_model.${m}`, q] as const) : w.quality ? [['quality', w.quality] as const] : []
     for (const [at, q] of qs) for (const e of efforts) if (q.fetch[e] === undefined) err(`workers[${i}].${at}.fetch`, `no number for the effort "${e}" of a source`)
     for (const [at, q] of qs) for (const f of Object.keys(q.knows ?? {})) if (!factIds.has(f)) err(`workers[${i}].${at}.knows.${f}`, `unknown fact "${f}"`)
-    for (const e of Object.keys(w.prepares ?? {})) if (!efforts.includes(e)) err(`workers[${i}].prepares.${e}`, `unknown effort "${e}"`)
+    for (const [e, p] of Object.entries(w.prepares ?? {})) {
+      if (!efforts.includes(e)) err(`workers[${i}].prepares.${e}`, `unknown effort "${e}"`)
+      if (!efforts.includes(p.as)) err(`workers[${i}].prepares.${e}.as`, `unknown effort "${p.as}"`)
+    }
     if (w.prepares && w.kind !== 'fixed') err(`workers[${i}].prepares`, 'only a tool without a model prepares a source')
     if (w.minutes) for (const e of efforts) if (w.minutes.per_line[e] === undefined) err(`workers[${i}].minutes.per_line`, `no minutes for the effort "${e}" of a source`)
   })
