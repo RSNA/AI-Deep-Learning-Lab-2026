@@ -105,7 +105,7 @@
 .ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
 .ctile div.ct-part { cursor: default; }
 .ctile .ct-note { font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -16px; z-index: 4; pointer-events: none; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
+.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -21px; z-index: 4; pointer-events: none; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
 .ctile .ct-parts { font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctile.sel { outline: 3px solid var(--sky); outline-offset: 2px; }
 .ctile:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
