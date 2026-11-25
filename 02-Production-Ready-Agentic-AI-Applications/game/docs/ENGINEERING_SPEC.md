@@ -3466,14 +3466,37 @@ after it, and says at the top that only hosts see it. Its actions are "Spotlight
 screen", for the host in charge, and Close. Each later phase adds a tab, which opens first once
 that phase has begun.
 
-**The Phase 2 tab** shows the status, the money and the free developers, the player's draft map
-drawn read-only and small, whether it is ready (and the accuracy it would score now, from the
-key) or why not, and what it would take to run. Beside it, every validation as a chip that opens
-its map, and every action with its state. On the other side the key: the share of every case the
-draft solves, with its weight, and the flags the scoring raises on the draft (private data
-unprotected, a worker overloaded, a distracting source read, a prompt that only hurts, tiles not
-connected), each with its tiles. Under them, folded, the reference map with its accuracy and its
-summary.
+**The Phase 2 tab** is built for a host who helps a player, so it opens with the few lines that
+matter and folds the rest. On top, chips: the status, the money, the free developers, and the
+chosen map with its accuracy. Then the coaching block, "To help this player", from
+`HostInspect.development.coach`. It judges the draft when the draft is ready, and the chosen map
+otherwise, and says which. It has three short lists:
+
+- **What holds this map back.** The three largest of `coach.losses`. `evaluate` returns
+  `losses`: every kind of case the map does not solve in full, grouped by its reason (`missing`,
+  a needed fact that never reaches the signer; `weak`, the weakest fact that does; `decision`),
+  with the weight lost and the number of kinds, the largest loss first. The projection names the
+  source of the fact and, from `bestReaders`, who reads that source best: the tool or AI worker
+  with the highest fetch quality times the trust of the source, with the tool that prepares the
+  source in front where that helps. Where no tool and no AI worker reaches 0.85, the best worker
+  of all is named, a person included. One more line lists the flags of the scoring with their tiles.
+- **Worth saying.** Three lines at most: one for each of the two largest losses, and one for the
+  flag that costs the most (rushed, overloaded, private data, distracting, prompt, stray, in
+  that order). Then the kinds of the reference map that this map lacks (`coach.missing`).
+- **Good on this map.** The kinds on the map that the reference map has too (`coach.shared`),
+  and the kinds that the reference map does not use (`coach.extra`).
+
+Every kind named in the block is a button. A press shows the guide of that kind under the lists:
+its best use and the wrong choices, from `key.guide` of the build file (optional, one entry for
+a kind of worker, host only). At 900 px and below the three lists stand under each other.
+
+Under the block, two buttons of one size switch the map drawn read-only between the map now and
+the chosen map (disabled with no chosen map), and a line says whether the draft is ready (and
+the accuracy it would score now, from the key) or why not, and what it would take to run. Two
+folds close the tab. The first holds every validation as a chip that opens its map, the actions
+that run or are done, and the share of every case the draft solves, with its weight. The second
+holds the reference map with its accuracy and its summary. Nothing of `coach` and nothing of
+`key.guide` is in any player view or screen view, and a test holds that.
 
 **The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
 its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status

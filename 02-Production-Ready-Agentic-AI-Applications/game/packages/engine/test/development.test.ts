@@ -3,7 +3,7 @@
 // submission, the end of the stage, the live column and determinism.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { fromPackMap, mapErrors, overPools, readyDetails, readyReasons, ruledLines, rushFactors, startUnlocked, tileMinutes, type CanvasMap } from '@lab02/content-schema'
-import { advance, carriedIntoMaintaining, evaluate, project, type SessionState } from '../src/index.ts'
+import { advance, bestReaders, carriedIntoMaintaining, evaluate, project, type SessionState } from '../src/index.ts'
 import { demoPack, host, join, newSession, run, setDemoPack } from './helpers.ts'
 
 // The rules of the engine hold for a build file without `line_rules` and `required`, as they did
@@ -474,5 +474,47 @@ describe('line rules and required workers (spec 6.6)', () => {
     const lib = F.workers.find((w) => w.id === 'rb-w-librarian')!.minutes!
     const clerk = F.workers.find((w) => w.id === 'rb-w-clerk')!.minutes!
     expect(per).toEqual({ t2: lib.check + lib.per_line.easy!, t3: clerk.decide + clerk.per_line.easy! })
+  })
+})
+
+describe('what a host sees to help a player (spec 10.8)', () => {
+  it('adds up why a map loses cases, the largest loss first', () => {
+    const r = evaluate(SMALL, B)
+    expect(r.losses.length).toBeGreaterThan(0)
+    for (let i = 1; i < r.losses.length; i++) expect(r.losses[i - 1]!.lost).toBeGreaterThanOrEqual(r.losses[i]!.lost)
+    const total = B.cases.reduce((sum, k) => sum + k.weight, 0)
+    const lost = r.losses.reduce((sum, l) => sum + l.lost, 0)
+    expect(lost).toBeCloseTo(total * (1 - r.accuracy), 9)
+    // The small map reads nothing of the partner mailbox, so some kinds are lost for a missing fact.
+    expect(r.losses.some((l) => l.reason === 'missing' && l.fact !== null)).toBe(true)
+    expect(r.losses.reduce((n, l) => n + l.kinds, 0)).toBeLessThanOrEqual(B.cases.length)
+  })
+  it('names the best reader of every source among the tools and the AI workers', () => {
+    const best = bestReaders(B)
+    for (const s of B.sources) {
+      const x = best[s.id]
+      if (!x) continue
+      const w = B.workers.find((y) => y.id === x.worker)!
+      // A person is named only where no tool and no AI worker reads the source well.
+      if (w.kind === 'person') expect(x.quality).toBeGreaterThan(0.85 - 1e-9)
+      expect(x.quality).toBeGreaterThan(0)
+      expect(x.quality).toBeLessThanOrEqual(1)
+      if (w.needs_model) expect(Object.keys(w.by_model!)).toContain(x.model)
+    }
+    expect(Object.values(best).some((x) => x !== null)).toBe(true)
+  })
+  it('gives the host the losses, the reference kinds this map lacks and the guide, and the player none of it', () => {
+    const { s, t0 } = playing()
+    expect(cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0 + 100).ok).toBe(true)
+    const insp = project.hostInspect(s, demoPack(), 'p1', true)!.development!
+    expect(insp.coach.of).toBe('draft')
+    expect(insp.coach.losses.length).toBeGreaterThan(0)
+    expect(insp.coach.losses.length).toBeLessThanOrEqual(4)
+    expect(insp.coach.shared).toContain('rb-w-agent')
+    expect(insp.coach.missing).toContain('rb-w-librarian')
+    expect(insp.coach.guide.map((g) => g.id).sort()).toEqual(['rb-w-agent', 'rb-w-librarian'])
+    const mine = JSON.stringify(view(s))
+    expect(mine).not.toContain('coach')
+    expect(mine).not.toContain(insp.coach.guide[0]!.best)
   })
 })

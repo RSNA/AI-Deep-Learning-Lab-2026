@@ -1,7 +1,7 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import { fromPackMap, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
+import { fromPackMap, mapShape, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
 import type {
   Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
   LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ReadyDetail, Running, ScreenView, SessionInfo,
@@ -13,10 +13,10 @@ import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
 import { developersFree, submitted, unlockedOf } from '../phases/development.ts'
-import { evaluate, running as runningOf, type Running as EngineRunning } from '../canvas.ts'
+import { bestReaders, evaluate, running as runningOf, type Evaluation, type Running as EngineRunning } from '../canvas.ts'
 import { deckSlides } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
-import type { GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
+import type { DevelopmentState, GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
 
 // ------------------------------------------------------------------------------------------
 // Session, system, ladder, art
@@ -870,6 +870,42 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
       running: runningView(run.running),
       reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: evaluate(ref, b).accuracy },
     },
+    coach: coachView(b, st, ev, ref),
+  }
+}
+
+/**
+ * The few lines a host needs to help a player with their map: why the map loses cases, who
+ * would read each of those sources best, and how its tiles compare with the reference map. It
+ * judges the draft when the draft is ready, and the chosen map otherwise.
+ */
+function coachView(b: BuildFile, st: DevelopmentState, draft: Evaluation | null, ref: PackCanvasMap): NonNullable<HostInspect['development']>['coach'] {
+  const chosenV = submitted(st)
+  const chosenEv = !draft && chosenV ? evaluate(chosenV.map, b) : null
+  const ev = draft ?? chosenEv
+  const map = draft ? st.map : chosenV?.map ?? st.map
+  const readers = bestReaders(b)
+  const total = b.cases.reduce((sum, k) => sum + k.weight, 0)
+  const sourceOf = (fact: string | null) => (fact === null ? null : b.sources.find((x) => (x.gives[fact] ?? 0) >= 1)?.id ?? b.sources.find((x) => x.gives[fact] !== undefined)?.id ?? null)
+  const losses = (ev?.losses ?? []).slice(0, 4).map((l) => {
+    const source = sourceOf(l.fact)
+    return { reason: l.reason, source, lost: l.lost, kinds: l.kinds, best: source ? readers[source] ?? null : null }
+  })
+  const live = mapShape(map, b).live
+  const mine = new Set(map.tiles.filter((x) => live.has(x.id)).map((x) => x.kind))
+  const placed = new Set(map.tiles.map((x) => x.kind))
+  const theirs = new Set(ref.tiles.map((x) => x.kind))
+  const order = b.workers.map((w) => w.id)
+  const shared = order.filter((id) => mine.has(id) && theirs.has(id))
+  const missing = order.filter((id) => theirs.has(id) && !mine.has(id))
+  const extra = order.filter((id) => placed.has(id) && !theirs.has(id))
+  const named = new Set([...shared, ...missing, ...extra])
+  const guide = Object.entries(b.key.guide ?? {}).filter(([id]) => named.has(id)).map(([id, g]) => ({ id, best: g.best, wrong: g.wrong }))
+  return {
+    of: draft ? 'draft' : chosenEv ? 'chosen' : null,
+    accuracy: ev ? ev.accuracy : null,
+    chosen: chosenV ? { id: chosenV.id, accuracy: chosenV.accuracy } : null,
+    total, losses, shared, missing, extra, guide,
   }
 }
 

@@ -137,6 +137,24 @@ export const HostInspect = S({
       running: Running,
       reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),
     }),
+    // What a host needs to help this player, in a few lines (section 10.8): the map that the
+    // coaching is about (the draft when it is ready, else the chosen map), why it loses cases,
+    // who would read each of those sources best, and how its tiles compare with the reference map.
+    coach: S({
+      of: z.enum(['draft', 'chosen']).nullable(),          // null: no map to judge yet
+      accuracy: z.number().nullable(),
+      chosen: S({ id: z.string(), accuracy: z.number() }).nullable(),
+      total: z.number(),                                    // the weight of all cases
+      losses: z.array(S({
+        reason: z.enum(['missing', 'weak', 'decision']), source: z.string().nullable(),
+        lost: z.number(), kinds: Int,
+        best: S({ worker: z.string(), model: z.string().nullable(), via: z.string().nullable(), quality: z.number() }).nullable(),
+      })),
+      shared: z.array(z.string()),                          // kinds on this map that the reference map has too
+      missing: z.array(z.string()),                         // kinds of the reference map that this map lacks
+      extra: z.array(z.string()),                           // kinds on this map that the reference map does not use
+      guide: z.array(S({ id: z.string(), best: Text, wrong: Text })),   // for the kinds named above
+    }),
   }).nullable(),
 })
 export type HostInspect = z.infer<typeof HostInspect>

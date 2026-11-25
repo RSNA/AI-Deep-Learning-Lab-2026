@@ -473,6 +473,9 @@ export const BuildFile = W({
       rationale: Text.optional(),
     }),
     traps: z.array(K({ id: Id, kind: z.enum(['overbuilt', 'underbuilt', 'shortcut']), map: PackMap })).optional(),
+    // For every kind of worker: the best way to use it and the wrong choices. A host sees it
+    // beside a player's map. Never sent to a player.
+    guide: z.record(Id, K({ best: Text, wrong: Text })).optional(),
   }),
 })
 export type BuildFile = z.infer<typeof BuildFile>

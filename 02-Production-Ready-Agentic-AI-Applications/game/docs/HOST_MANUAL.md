@@ -111,23 +111,39 @@ economy. Economy is a small part for the investigations a player did not start. 
 how well the board is sorted, so guessing without looking earns next to nothing.
 
 
-**In Phase 2 the page opens on its Phase 2 tab.** You see the player's draft map as it is now,
-whether it is ready to validate (and the accuracy it would get, from the key) or what stops it,
-their money, free developers, actions and validations. Click a validation to see the map it
-scored. Beside it is what only the key knows: the share of each kind of case the draft solves,
-and what the scoring notices on the draft:
+**In Phase 2 the page opens on its Phase 2 tab.** At the top are four chips: whether the player
+still builds, their money, their free developers, and their chosen map with its accuracy. Under
+them is a box, **To help this player**, with three short lists:
 
-| Note | Means |
+| List | Shows |
 | --- | --- |
-| Private data unprotected | A tile sends private data through a service that does not protect it |
-| A worker overloaded | A worker has more lines coming in than it can keep track of |
-| A distracting source read | An AI worker reads a source that sounds sure and is often wrong |
-| A prompt that only hurts | A prompt that makes its worker worse |
-| Tiles not connected | Tiles that do not reach the result, so they do nothing |
-| People asked for more minutes than they have | The map asks a person for more minutes a case than they have. The map can be validated. That person rushes and gets through only a share of the cases |
+| What holds this map back | The three largest losses of the map, each with the number of patients it costs. A loss is a source that nothing reads, a source that reaches the decision poorly, or a decision that is wrong although everything arrives. For a source, the line names who would read it best, with the tool to put in front, and the quality of that reading from 0 to 1. One more line names what the scoring flags |
+| Worth saying | Up to three things you can tell the player now, the most valuable first, and then the kinds of tiles that the reference map has and this map lacks |
+| Good on this map | The kinds of tiles the player uses that the reference map uses too, and the kinds the reference map does not use |
 
-The reference map, with its accuracy and summary, is folded at the bottom. The Phase 1 tab is
-still there.
+Click any underlined name to read the best use of that tile and the wrong choices people make
+with it. The box judges the map as it is now. While that map is not ready to validate, it judges
+the chosen map and says so.
+
+What the scoring flags, in the words of the page:
+
+| Flag | Means |
+| --- | --- |
+| private data unprotected | A tile sends private data through a service that does not protect it |
+| a tile overloaded | An AI tile has more lines coming in than it can keep track of |
+| a distracting source read | An AI tile reads a source that sounds sure and is often wrong |
+| a prompt that only hurts | A prompt that makes its tile worse |
+| a tile that reaches nothing | A tile that does not reach the result, so it does nothing |
+| a person who rushes | The map asks a person for more minutes a case than they have. The map can be validated. That person rushes and gets through only a share of the cases |
+
+Under the box, two buttons switch between **Their map now** and **Their chosen map**, drawn
+read-only. The line below the map says whether the map is ready to validate, with the accuracy
+it would get, or what stops it, and what it would take to run.
+
+Two folds close the page. **Every validation, the actions and the key** holds each validation
+(click one to see the map it scored), the actions the player has started, and the share of each
+kind of case that the map solves. **The reference map** holds the map of the key with its
+accuracy and summary. The Phase 1 tab is still there.
 
 The page updates as the player works, and it stays available after the phase. Use it to answer a
 question or to give a hint. Only hosts see it, so keep it off the projector.
@@ -277,7 +293,7 @@ The downloads stay available on the first page until you delete the session.
 | What happened | What to do |
 | --- | --- |
 | A player lost their rejoin code | Open the menu (☰) on their row, press "Rejoin code" and read it out |
-| A player is stuck or asks why | Click their name. The page shows their picks beside the key |
+| A player is stuck or asks why | Click their name. In Phase 1 the page shows their picks beside the key. In Phase 2 it shows what holds their map back and what is worth saying |
 | The projector window was closed | Press "Open the big screen in a new window" again |
 | The wrong view is on the projector | Look for the pinned banner and press "Follow the game" |
 | Players do not see the slides | Check "Players' screens follow the slides". It is off during a phase |
