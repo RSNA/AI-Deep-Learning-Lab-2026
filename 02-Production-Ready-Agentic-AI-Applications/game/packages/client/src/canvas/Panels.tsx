@@ -2,9 +2,10 @@
 // to run, the toolbox of workers, the list of actions, and the choosers of a tile's parts. Each
 // takes its content and its state as inputs and does not know which phase shows it.
 import { useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { ClampCard } from '../components/Clamp.tsx'
 import { Sheet } from '../components/ui.tsx'
 import { Icon } from './icons.tsx'
+import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
 
 export type Item = { id: string; label: string; short?: string; description: string; costLine?: string | null; icon?: string; kind?: string }
 
@@ -16,13 +17,16 @@ const lockText = (lockedBy: Record<string, string> | undefined, id: string, w: {
 // ------------------------------------------------------------------------------------------
 // Shelves: they only inform. Choosing happens on a tile.
 // ------------------------------------------------------------------------------------------
-export function Shelves({ rows, unlocked, lockedBy, onInfo, words }: {
+export function Shelves({ rows, unlocked, lockedBy, onInfo, popOf, words }: {
   rows: { title: string; icon: string; items: Item[] }[]
   unlocked: ReadonlySet<string>
   lockedBy?: Record<string, string>
   onInfo: (item: Item) => void
+  /** What the card beside a chip says while it is pointed at. */
+  popOf?: (id: string) => PopInfo | null
   words: { locked: (a: string) => string; lockedNoAction: string; info: (label: string) => string }
 }) {
+  const pop = usePop()
   return (
     <div className="shelves">
       {rows.map((r) => (
@@ -33,7 +37,8 @@ export function Shelves({ rows, unlocked, lockedBy, onInfo, words }: {
               const lock = !unlocked.has(it.id)
               return (
                 <button key={it.id} type="button" className={`schip${lock ? ' is-locked' : ''}`} onClick={() => onInfo(it)}
-                  title={lock ? lockText(lockedBy, it.id, words) : it.label} aria-label={`${words.info(it.label)}${lock ? `. ${lockText(lockedBy, it.id, words)}` : ''}`}>
+                  aria-label={`${words.info(it.label)}${lock ? `. ${lockText(lockedBy, it.id, words)}` : ''}`}
+                  {...(popOf ? popHandlers(pop, `shelf:${it.id}`, 'below', () => popOf(it.id)) : { title: lock ? lockText(lockedBy, it.id, words) : it.label })}>
                   <Icon name={r.icon} size={12} />
                   <span>{it.short ?? it.label}</span>
                   {lock && <Icon name="lock" size={11} />}
@@ -48,34 +53,39 @@ export function Shelves({ rows, unlocked, lockedBy, onInfo, words }: {
 }
 
 /** The card of one shelf item: its description, what it costs to run, and what opens it. */
-export function ItemSheet({ item, locked, lockedBy, onClose, words }: {
+export function ItemSheet({ item, locked, lockedBy, onClose, words, more = [], state = true }: {
   item: Item; locked: boolean; lockedBy?: Record<string, string>; onClose: () => void
   words: { locked: (a: string) => string; lockedNoAction: string; close: string; open: string }
+  /** Further quiet lines: where a model runs, what a source holds. */
+  more?: (string | null | undefined)[]
+  /** Whether the card says that the item is open or what opens it. The result has no such state. */
+  state?: boolean
 }) {
   return (
     <Sheet title={item.label} head="sky" onClose={onClose}>
       <p style={{ fontSize: 16, lineHeight: 1.45 }}>{item.description}</p>
-      {item.costLine && <p className="muted" style={{ fontSize: 15 }}>{item.costLine}</p>}
-      <div className={`chip ${locked ? 'sun' : 'go'}`} style={{ alignSelf: 'flex-start' }}>{locked ? lockText(lockedBy, item.id, words) : words.open}</div>
+      {[item.costLine, ...more].filter(Boolean).map((x, i) => <p key={i} className="muted" style={{ fontSize: 15 }}>{x}</p>)}
+      {state && <div className={`chip ${locked ? 'sun' : 'go'}`} style={{ alignSelf: 'flex-start' }}>{locked ? lockText(lockedBy, item.id, words) : words.open}</div>}
       <div className="sheet-actions"><button type="button" className="btn" onClick={onClose}>{words.close}</button></div>
     </Sheet>
   )
 }
 
 // ------------------------------------------------------------------------------------------
-// The toolbox: the kinds of worker, under the headings of their groups. Click one, then an empty
-// cell. A drag does the same. On a laptop a row is compact (icon, label, kind, task) and says the
-// rest when it is picked, or in a card beside it when it is pointed at. A phone has the width for
-// the full rows.
+// The toolbox: the kinds of tile, under the headings of their groups. Click one, then an empty
+// cell. A drag does the same. On a laptop a row is short (icon, name, kind, its job, and what
+// opens it while it is locked), and a card beside it says the rest while it is pointed at. A phone has the
+// width for the full rows and no pointer to rest.
 // ------------------------------------------------------------------------------------------
 export type ToolboxItem = Item & { task?: string | null; group?: string | null; extra?: string | null }
 
-export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPick, words, phone = false }: {
+export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPick, popOf, words, phone = false }: {
   workers: ToolboxItem[]; groups?: { id: string; label: string }[]; unlocked: ReadonlySet<string>; lockedBy?: Record<string, string>
   picked: string | null; onPick: (id: string | null) => void; phone?: boolean
+  popOf?: (id: string) => PopInfo | null
   words: { locked: (a: string) => string; lockedNoAction: string; pickHint: string; picked: string; kinds: Record<string, string>; lockedTold?: (action: string | null) => string }
 }) {
-  const [hover, setHover] = useState<{ id: string; top: number; right: number } | null>(null)
+  const pop = usePop()
   // A press on a locked kind says, in its row, what opens it.
   const [told, setTold] = useState<string | null>(null)
   const known = new Set(groups.map((g) => g.id))
@@ -83,11 +93,6 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
     ? [...groups.map((g) => ({ id: g.id, label: g.label, list: workers.filter((w) => w.group === g.id) })),
        { id: '_', label: null, list: workers.filter((w) => !w.group || !known.has(w.group)) }].filter((x) => x.list.length)
     : [{ id: '_', label: null, list: workers }]
-  const point = (id: string, el: HTMLElement) => {
-    if (phone) return
-    const r = el.getBoundingClientRect()
-    setHover({ id, top: Math.max(8, Math.min(r.top, window.innerHeight - 190)), right: window.innerWidth - r.left + 8 })
-  }
   const details = (w: ToolboxItem) => (
     <>
       <span className="tb-d">{w.description}</span>
@@ -96,7 +101,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
     </>
   )
   // A locked row is not a disabled button, so that pointing at it still shows its card.
-  const lockLine = (w: ToolboxItem) => <span className="tb-lock" title={lockText(lockedBy, w.id, words)}><Icon name="lock" size={11} /> <span>{lockText(lockedBy, w.id, words)}</span></span>
+  const lockLine = (w: ToolboxItem) => <span className="tb-lock"><Icon name="lock" size={11} /> <span>{lockText(lockedBy, w.id, words)}</span></span>
   const row = (w: ToolboxItem) => {
     const lock = !unlocked.has(w.id)
     const on = picked === w.id
@@ -104,14 +109,14 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
       <button key={w.id} type="button" className={`tbrow k-${w.kind}${on ? ' on' : ''}${lock ? ' is-locked' : ''}`} aria-disabled={lock || undefined} aria-pressed={on}
         data-worker={w.id} draggable={!lock && !phone}
         aria-label={[w.label, words.kinds[w.kind ?? ''], w.task, w.description, w.costLine, w.extra, lock ? lockText(lockedBy, w.id, words) : null].filter(Boolean).join('. ')}
-        onDragStart={(e) => { setHover(null); e.dataTransfer.setData('text/x-lab02-kind', w.id); e.dataTransfer.effectAllowed = 'copy' }}
-        onMouseEnter={(e) => point(w.id, e.currentTarget)} onMouseLeave={() => setHover(null)}
-        onClick={() => { if (lock) { setTold(w.id); return } setTold(null); setHover(null); onPick(on ? null : w.id) }}>
+        onDragStart={(e) => { pop.hide(); e.dataTransfer.setData('text/x-lab02-kind', w.id); e.dataTransfer.effectAllowed = 'copy' }}
+        {...(popOf && !phone ? popHandlers(pop, `tool:${w.id}`, 'left', () => popOf(w.id)) : {})}
+        onClick={() => { if (lock) { setTold(w.id); return } setTold(null); pop.hide(); onPick(on ? null : w.id) }}>
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
           <span className="tb-l"><span className="tb-ln">{w.label}</span><span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
           {w.task && <span className="tb-task">{w.task}</span>}
-          {(phone || on) && details(w)}
+          {phone && details(w)}
           {lock && lockLine(w)}
           {on && <span className="tb-on">{words.picked}</span>}
           {lock && told === w.id && words.lockedTold && <span className="tb-told" role="status">{words.lockedTold(lockedBy?.[w.id] ?? null)}</span>}
@@ -119,7 +124,6 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
       </button>
     )
   }
-  const hw = hover ? workers.find((w) => w.id === hover.id && w.id !== picked) : undefined
   return (
     <div className={`toolbox${phone ? ' phone' : ''}`}>
       {phone && <div className="tb-hint">{words.pickHint}</div>}
@@ -129,12 +133,6 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
           {sec.list.map(row)}
         </div>
       ))}
-      {hw && hover && createPortal(
-        <div className={`tb-pop k-${hw.kind}`} style={{ top: hover.top, right: hover.right }} aria-hidden="true">
-          <span className="tb-l">{hw.label}</span>
-          {details(hw)}
-          {!unlocked.has(hw.id) && <span className="tb-lock">{lockText(lockedBy, hw.id, words)}</span>}
-        </div>, document.body)}
     </div>
   )
 }
@@ -153,18 +151,23 @@ export type ActionRow = {
   left?: number; share?: number         // seconds left and the share done, while it runs
 }
 
-export function ActionList({ groups, rows, onStart, refused, words }: {
+export function ActionList({ groups, rows, onStart, refused, popOf, notice, words }: {
   groups: { id: string; label: string }[]; rows: ActionRow[]
   onStart: (id: string) => void; refused: { id: string; text: string } | null
+  popOf?: (id: string) => PopInfo | null
+  /** Something the player should read before the next action, above the list. */
+  notice?: ReactNode
   words: {
     start: string; done: string; cost: (money: number, devs: number, secs: number) => string; story: (s: string) => string
     opens: (list: string) => string; left: (s: number) => string; holds: (n: number) => string; noCancel: string; noCancelLong: string; more: string
   }
 }) {
+  const pop = usePop()
   const [open, setOpen] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   return (
     <div className="alist">
+      {notice}
       <div className="inv-note one" title={words.noCancelLong}>{words.noCancel}</div>
       {groups.map((g) => {
         const mine = rows.filter((r) => r.group === g.id)
@@ -175,8 +178,9 @@ export function ActionList({ groups, rows, onStart, refused, words }: {
             {mine.map((a) => {
               const isOpen = open.has(a.id)
               return (
-                <div key={a.id} className={`arow ${a.state}${isOpen ? ' open' : ''}`} data-action={a.id}>
-                  <button type="button" className="ttl" aria-expanded={isOpen} title={isOpen ? undefined : a.teaser} onClick={() => toggle(a.id)}>
+                <div key={a.id} className={`arow ${a.state}${isOpen ? ' open' : ''}`} data-action={a.id}
+                  {...(popOf ? popHandlers(pop, `act:${a.id}`, 'right', () => (open.has(a.id) ? null : popOf(a.id))) : {})}>
+                  <button type="button" className="ttl" aria-expanded={isOpen} onClick={() => { pop.hide(); toggle(a.id) }}>
                     <span className="t">{a.title}</span>
                     <span className="meta">{words.cost(a.money, a.developers, a.seconds)}<span className="amark" aria-hidden="true">{isOpen ? '▾' : '▸'}</span></span>
                   </button>
@@ -255,7 +259,7 @@ export function PromptSheet({ title, about, prompts, current, unlocked, lockedBy
   prompts: { id: string; label: string; description: string; sample: string | null; samples: { label: string; text: string }[] }[]
   current: string | null; unlocked: ReadonlySet<string>; lockedBy?: Record<string, string>
   onPick: (id: string) => void; onClose: () => void
-  words: { intro: string; use: string; inUse: string; isDefault: string; close: string; locked: (a: string) => string; lockedNoAction: string }
+  words: { intro: string; use: string; inUse: string; isDefault: string; close: string; locked: (a: string) => string; lockedNoAction: string; more: string; less: string }
 }) {
   const shown = current ?? prompts[0]?.id ?? null
   return (
@@ -267,19 +271,21 @@ export function PromptSheet({ title, about, prompts, current, unlocked, lockedBy
           const lock = !unlocked.has(p.id)
           const on = shown === p.id
           return (
-            <article key={p.id} className={`pcard${on ? ' on' : ''}${lock ? ' is-locked' : ''}`}>
-              <div className="pc-head"><span>{p.label}</span>{i === 0 && <span className="pc-def">{words.isDefault}</span>}</div>
+            <ClampCard key={p.id} className={`pcard${on ? ' on' : ''}${lock ? ' is-locked' : ''}`} words={{ more: words.more, less: words.less }}
+              head={<div className="pc-head"><span>{p.label}</span>{i === 0 && <span className="pc-def">{words.isDefault}</span>}</div>}
+              foot={(
+                <div className="pc-foot">
+                  {lock
+                    ? <span className="pc-lock"><Icon name="lock" size={11} /> {lockText(lockedBy, p.id, words)}</span>
+                    : on ? <span className="pc-in">✓ {words.inUse}</span>
+                      : <button type="button" className="btn small go" onClick={() => onPick(p.id)}>{words.use}</button>}
+                </div>
+              )}>
               <p className="pc-desc">{p.description}</p>
               {p.samples.length
                 ? p.samples.map((x, j) => <div key={j} className="pc-s"><div className="pc-sl">{x.label}</div><pre className="pc-sample">{x.text}</pre></div>)
                 : p.sample && <pre className="pc-sample">{p.sample}</pre>}
-              <div className="pc-foot">
-                {lock
-                  ? <span className="pc-lock"><Icon name="lock" size={11} /> {lockText(lockedBy, p.id, words)}</span>
-                  : on ? <span className="pc-in">✓ {words.inUse}</span>
-                    : <button type="button" className="btn small go" onClick={() => onPick(p.id)}>{words.use}</button>}
-              </div>
-            </article>
+            </ClampCard>
           )
         })}
       </div>

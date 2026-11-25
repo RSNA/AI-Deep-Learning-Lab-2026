@@ -83,7 +83,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await expect(page.locator('.purse')).toContainText('Money')
   // Validate cannot act, and the line beside it guides through the first map.
   await expect(page.locator('.vbtn')).toHaveAttribute('aria-disabled', 'true')
-  await expect(page.locator('.vwhy')).toContainText('Place a worker first')
+  await expect(page.locator('.vwhy')).toContainText('Place a tile first')
 
   // Place an agent by two clicks, give it a model and a place to run, join it.
   await tool(page, 'Agent').click()
@@ -130,7 +130,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await cell(page, 1, 4).click()
   await expect(page.locator('.ctile.stray')).toHaveCount(1)
   await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+%$/, { timeout: 15_000 })
-  await expect(page.locator('#p2-results')).toContainText('One case it missed')
+  await expect(page.locator('#p2-results')).toContainText('One patient it got wrong, as an example')
   await expect(page.locator('#p2-results')).toContainText('This map will be sent')
 
   // Undo takes the rule away, redo brings it back, Delete removes the selection.
@@ -155,8 +155,10 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.locator('.cline .hit').first().click({ force: true })
   await page.keyboard.press('Delete')
   await expect(page.locator('.cline')).toHaveCount(4)
-  await page.getByRole('button', { name: 'Load this map' }).click()
+  await expect(page.locator('#p2-results')).toContainText('Validation 1 of 6')
+  await page.getByRole('button', { name: 'Restore this map' }).click()
   await expect(page.locator('.cline')).toHaveCount(5)
+  await expect(page.locator('#p2-results .vrun')).toContainText('On your canvas now')
 
   // A refresh brings the same draft back, and the tour does not start again.
   await page.reload()

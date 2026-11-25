@@ -25,10 +25,10 @@ const plain = (t: string) => !/[a-z]+_[a-z]+/.test(t)
 describe('the next thing to do', () => {
   it('guides through the first map, step by step, with the count of the others', () => {
     let g = guideOf(view(), content, { tiles: [], lines: [] }, name)
-    expect(g.first?.text).toMatch(/^Place a worker first/)
+    expect(g.first?.text).toMatch(/^Place a tile first/)
     expect(g.others).toBe(1)
     g = guideOf(view(), content, { tiles: [T('t1', 'agent', 2)], lines: [] }, name)
-    expect(g.first?.text).toMatch(/^No source is joined to a worker/)
+    expect(g.first?.text).toMatch(/^No source is joined to a tile/)
     expect(g.first?.nodes).toEqual(['s1'])               // only the sources that are open
     g = guideOf(view(), content, { tiles: [T('t1', 'agent', 2)], lines: [{ from: 's1', to: 't1' }] }, name)
     expect(g.first?.text).toMatch(/^Nothing reaches the result yet/)
@@ -44,7 +44,7 @@ describe('the next thing to do', () => {
     expect(g.first).toEqual({ text: 'Agent has no place to run. Choose one in its box.', nodes: ['t1'], part: 'runsOn' })
     expect(g.others).toBe(2)
     const only = guideOf(view({ ready: { ok: false, reasons: [], details: [{ reason: 'too_many_minutes', pool: 'lib', used: 9, max: 4, tiles: ['t2'] }] } }), content, map, name)
-    expect(only.first?.text).toMatch(/^Librarian would need 9 minutes a case and has 4\./)
+    expect(only.first?.text).toMatch(/^Librarian would need 9 min per patient and has 4\./)
   })
   it('says first that a validation runs or none is left, and is ready when nothing holds', () => {
     expect(guideOf(view({ validating: { id: 'v1', startedAtMs: 0, completesAtMs: 1 } }), content, { tiles: [], lines: [] }, name).first?.text).toMatch(/running/)
@@ -58,11 +58,11 @@ describe('the next thing to do', () => {
     const one = guideOf(view({ ready, rushed: [{ pool: 'lib', used: 9, max: 4, tiles: ['t2'] }] }), content, map, name)
     expect(one.first).toBeNull()
     expect(one.ready).toBe(true)
-    expect(one.warn?.text).toMatch(/^Librarian is asked for 9 minutes a case and has 4\. They will rush and miss cases\. You can still validate\.$/)
+    expect(one.warn?.text).toMatch(/^Librarian needs 9 min per patient and has 4, so only about 44% of the patients get a full look\. You can still validate\.$/)
     expect(one.warn?.nodes).toEqual(['t2'])
     const two: CanvasMap = { tiles: [...map.tiles, T('t3', 'lib', 4)], lines: map.lines }
     const pool = guideOf(view({ ready, rushed: [{ pool: 'lib', used: 12, max: 4, tiles: ['t2', 't3'] }] }), content, two, name)
-    expect(pool.warn?.text).toMatch(/^Librarian minutes: the map asks 12 a case and there are 4\./)
+    expect(pool.warn?.text).toMatch(/^Librarian: the map needs 12 min per patient and there are 4, so only 1 patient in 3 gets a full look\./)
     expect(plain(one.warn!.text) && plain(pool.warn!.text)).toBe(true)
   })
 })
