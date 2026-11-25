@@ -387,11 +387,10 @@ export function Grid(p: GridProps) {
               {...(p.popOf && !readOnly ? popHandlers(pop, `node:${s.id}`, 'right', () => (drag ? null : p.popOf!(s.id))) : {})}
               onClick={readOnly ? undefined : () => { if (lock || joining) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
               onKeyDown={(lock || joining) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
-              <Icon name={s.icon} size={compact ? 12 : 15} />
+              {/* A locked source wears its lock where the others wear their picture, so its name keeps the full width. */}
+              {lock ? <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={compact ? 10 : 12} /></Mark> : <Icon name={s.icon} size={compact ? 12 : 15} />}
               <span className="cs-name">{s.label}</span>
-              {lock && <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={11} /></Mark>}
               {!lock && port(s.id, s.label)}
-              {lock && !compact && <span className="cs-lock">{words.lockedShort}</span>}
             </div>
           )
         })}

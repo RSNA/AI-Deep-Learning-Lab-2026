@@ -164,6 +164,8 @@ input.field.bad { border-color: var(--bad); }
 }
 .topbar .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .topbar .who .name { flex: 0 1 auto; min-width: 3ch; font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A small phone has no room for a name beside the clock and the buttons: the picture stands for the practice, and the menu names it. */
+@media (max-width: 479px) { .topbar:not(.sessbar) .who .name { display: none; } }
 /* The name of the health system is never cut. A long name of a practice gives way first. */
 .topbar .who .sysbadge { flex: 0 0 auto; }
 /* Phase 2 holds its money in the middle of the bar, so the middle is no longer the centre: the name gets what is left. */
@@ -540,3 +542,4 @@ input.field.bad { border-color: var(--bad); }
 .prog-name.done i { background: var(--lav); }
 .prog-name.now { color: var(--ink); font-weight: 800; }
 .prog-name.now i { background: var(--sun); border-color: var(--line); }
+.menu-who { display: flex; align-items: center; gap: 10px; font-size: 17px; overflow-wrap: anywhere; }

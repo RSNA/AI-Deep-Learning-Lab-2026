@@ -75,8 +75,9 @@
   padding: 2px 12px 2px 5px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
   font-size: 13px; font-weight: 800; line-height: 1.15;
 }
-.csource .cs-name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.csource.is-locked { border-style: dashed; color: var(--muted); box-shadow: none; background: var(--inset); padding-right: 6px; }
+/* A name is read whole: a long word breaks before it is cut. The lock and the dashed edge say that a source is locked. */
+.csource .cs-name { overflow-wrap: break-word; hyphens: auto; min-width: 0; }
+.csource.is-locked { border-style: dashed; color: var(--muted); box-shadow: none; background: var(--inset); }
 .csource .cs-lock { grid-column: 1 / -1; font-size: 11px; font-weight: 700; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* A locked source keeps one line for its name and one for what opens it; the whole text is its title. */
 .csource.is-locked { align-content: center; }
@@ -172,7 +173,7 @@
 .cgrid.compact .cline .ink { stroke-width: 1.8; }
 .cgrid.compact .csource { grid-template-columns: minmax(0, 1fr) auto; padding: 1px 10px 1px 4px; }
 .cgrid.compact .csource > .cicon { display: none; }
-.cgrid.compact .csource .cs-name { -webkit-line-clamp: 3; font-size: 10px; }
+.cgrid.compact .csource .cs-name { font-size: 10px; }
 .cgrid.compact .ct-mini { font-size: 9.5px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; color: var(--ink); }
 .cgrid.compact .ct-mini.missing { color: var(--bad); }
 .cgrid.compact .ctile { gap: 0; }
@@ -183,9 +184,9 @@
 .runline > span { white-space: nowrap; }
 .runline .over { color: var(--bad); font-weight: 800; }
 .footrow { display: flex; align-items: center; gap: 10px; min-height: 46px; }
-.footrow .pwarn { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; line-height: 1.25; }
-.vwrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; min-width: 0; }
-.vwhy { max-width: 400px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+.footrow .pwarn { flex: 1 1 230px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.vwrap { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; margin-left: auto; min-width: 0; }
+.vwhy { flex: 0 1 auto; min-width: 150px; max-width: 400px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
 /* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
 .vwhy.block { color: var(--ink); font-weight: 800; }
 .vwhy.ok { color: var(--good); }
@@ -366,7 +367,7 @@
   .arow .t { font-size: 15.5px; }
   .arow .meta, .alist .inv-note.one { font-size: 13px; }
 }
-@media (max-width: 1179px) {
+@media (max-width: 1279px) {
   /* A notice stands above the tab bar of a phone, never over it. */
   .p2toast { bottom: 74px; }
   .p2-below { grid-template-columns: minmax(0, 1fr); padding: 8px; }
@@ -481,3 +482,10 @@
    the sentence on how to start to the line beside Validate, which says the same. */
 @media (max-width: 1499px) { .mhint .lg-tip { display: none; } }
 .p2pmap .footrow .pwarn { flex-basis: 100%; }
+.p2-actions > .spendnote { flex-shrink: 0; margin: 6px 6px 4px; }
+.p2-phone .spendnote { position: sticky; top: 0; z-index: 3; }
+/* A list longer than its column shows a bar that stays in sight, so nobody misses the rows below. */
+.p2-top .colscroll::-webkit-scrollbar { width: 10px; }
+.p2-top .colscroll::-webkit-scrollbar-track { background: var(--inset); border-left: 2px solid var(--soft); }
+.p2-top .colscroll::-webkit-scrollbar-thumb { background: var(--lav); border: 2px solid var(--line); }
+.cgrid.compact .csource.is-locked { grid-template-columns: auto minmax(0, 1fr); padding-right: 4px; }

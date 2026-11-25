@@ -106,6 +106,8 @@ function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave, onTour, onH
   const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
     <Sheet title={COPY.menu} onClose={onClose} head="lav">
+      {/* The practice by name: a small phone has no room for it in the top bar. */}
+      <div className="menu-who"><Avatar id={view.me.avatar} size={32} /><b>{view.me.name}</b></div>
       {(onTour || onHelp) && (
         <div className="menulist">
           {onTour && <button type="button" className="btn small text" onClick={onTour}><span>{COPY.takeTour}</span><span className="muted">{COPY.takeTourLine}</span></button>}

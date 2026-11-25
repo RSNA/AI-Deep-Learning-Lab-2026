@@ -73,8 +73,8 @@ export function ItemSheet({ item, locked, lockedBy, onClose, words, more = [], s
 
 // ------------------------------------------------------------------------------------------
 // The toolbox: the kinds of tile, under the headings of their groups. Click one, then an empty
-// cell. A drag does the same. On a laptop a row is two lines (icon, name, kind, and its job or
-// what opens it), and a card beside it says the rest while it is pointed at. A phone has the
+// cell. A drag does the same. On a laptop a row is short (icon, name, kind, its job, and what
+// opens it while it is locked), and a card beside it says the rest while it is pointed at. A phone has the
 // width for the full rows and no pointer to rest.
 // ------------------------------------------------------------------------------------------
 export type ToolboxItem = Item & { task?: string | null; group?: string | null; extra?: string | null }
@@ -115,8 +115,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
           <span className="tb-l"><span className="tb-ln">{w.label}</span><span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
-          {/* One line under the name on a laptop: what opens a locked kind, else its job. */}
-          {w.task && (phone || !lock) && <span className="tb-task">{w.task}</span>}
+          {w.task && <span className="tb-task">{w.task}</span>}
           {phone && details(w)}
           {lock && lockLine(w)}
           {on && <span className="tb-on">{words.picked}</span>}

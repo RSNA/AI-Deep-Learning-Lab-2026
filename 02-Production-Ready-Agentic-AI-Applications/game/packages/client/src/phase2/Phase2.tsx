@@ -48,7 +48,7 @@ export function lockedByOf(c: DevelopmentContent): Record<string, string> {
 }
 
 /** Below this width Phase 2 shows its four tabs: three columns side by side need more room. */
-export const P2_TABS_BELOW = 1180
+export const P2_TABS_BELOW = 1280
 
 export const gridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, lockedShort: P2.lockedShort, model: P2.model, compute: P2.compute, prompt: P2.prompt }
 
@@ -436,8 +436,9 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       if (!r.ok) { setRefusedAction({ id, text: plainError(r.error) }); setTimeout(() => setRefusedAction((x) => (x?.id === id ? null : x)), 6000) }
     })
   }
+  // The server validates the draft it holds, so a change made a moment ago is saved first.
   const runValidation = () => {
-    void send('development.validate', {}).then((r) => {
+    void draft.settled().then(() => send('development.validate', {})).then((r) => {
       if (!r.ok) { setRefusedValidate(plainError(r.error)); setTimeout(() => setRefusedValidate(null), 6000) }
     })
   }
@@ -569,7 +570,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     </div>
   ) : null
   const actions = (
-    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={spendNote}
+    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={phone ? spendNote : null}
       words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more }} />
   )
   const toolbox = (
@@ -708,6 +709,8 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       <div className="p2-top">
         <section className="colbox p2-actions" aria-label={P2.actions} data-tour="p2-actions">
           <div className="colhead sun"><h2>{P2.actions}</h2><span className="s">{dv.actionsDone.length} / {content.actions.length}</span></div>
+          {/* Above the list, outside what scrolls: a notice that lands while the list is scrolled is still seen. */}
+          {spendNote}
           <div className="colscroll">{actions}</div>
         </section>
         <section className="colbox p2-map" aria-label={P2.map}>
