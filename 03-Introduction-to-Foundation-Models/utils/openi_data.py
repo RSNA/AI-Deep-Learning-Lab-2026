@@ -10,7 +10,7 @@ import urllib.request
 import pandas as pd
 
 OPENI_URL = "https://openi.nlm.nih.gov/imgs/collections"
-# Backup copy of the same archives on Google Drive. Used only when NLM fails.
+# Unchanged copy of the NLM archives on Google Drive. It is faster than NLM, so we try it first.
 DRIVE_URL = "https://drive.usercontent.google.com/download?id={}&export=download&confirm=t"
 DRIVE_IDS = {
     "NLMCXR_reports.tgz": "1H_ByTTbJX0neZaBmYQtBCKB-e11DYeCO",
@@ -82,8 +82,8 @@ def _download_with_resume(url, path, max_fails=10):
 
 def download_openi(dest="data/OpenI-IU-CXR"):
     """
-    Download the Open-i (Indiana University) chest X-ray PNGs and reports from NLM.
-    If NLM fails, use the backup copy on Google Drive.
+    Download the Open-i (Indiana University) chest X-ray PNGs and reports.
+    Uses the copy on Google Drive first, and NLM if Google Drive fails.
 
     Makes the folder layout that RadHarmony expects:
     dest/images/*.png and dest/ecgen-radiology/*.xml. Skips the archives that are done.
@@ -102,20 +102,20 @@ def download_openi(dest="data/OpenI-IU-CXR"):
         if os.path.exists(done):
             continue
         tgz = os.path.join(dest, name)
-        # Try NLM first. If NLM fails, continue the same download from the backup copy on Google Drive.
-        print(f"⬇️  Downloading {name} from NLM ...")
+        # Try Google Drive first. If it fails (for example, too many downloads), continue from NLM.
+        print(f"⬇️  Downloading {name} from Google Drive ...")
         try:
-            _download_with_resume(f"{OPENI_URL}/{name}", tgz, max_fails=3)
+            _download_with_resume(DRIVE_URL.format(DRIVE_IDS[name]), tgz, max_fails=3)
         except RuntimeError:
-            print("⚠️  NLM is not available. Downloading from the backup copy on Google Drive ...")
+            print("⚠️  Google Drive is not available. Downloading from NLM ...")
             try:
-                _download_with_resume(DRIVE_URL.format(DRIVE_IDS[name]), tgz)
-            except RuntimeError as drive_error:
+                _download_with_resume(f"{OPENI_URL}/{name}", tgz)
+            except RuntimeError as nlm_error:
                 raise RuntimeError(
-                    f"Cannot download {name} from NLM or from the backup copy on Google Drive. "
+                    f"Cannot download {name} from Google Drive or from NLM. "
                     "Check the internet connection. Run this cell again in a few minutes. "
                     "The download continues from where it stopped."
-                ) from drive_error
+                ) from nlm_error
         print(f"📦 Extracting {name} ...")
         try:
             with tarfile.open(tgz) as tar:

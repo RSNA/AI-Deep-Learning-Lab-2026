@@ -57,7 +57,7 @@ The session covers only notebook 1. Notebook 2 is a bonus that you can do after 
 
 ## Data
 
-Both notebooks use the open-access [Open-i Indiana University chest X-ray collection](https://openi.nlm.nih.gov/faq) (3,955 reports, 7,470 images). The notebooks download it (about 1.4 GB) and load it with RadHarmony. If the NLM site is down, the notebooks download an unchanged copy of the same Open-i files from Google Drive. Open-i is shared under the [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) license.
+Both notebooks use the open-access [Open-i Indiana University chest X-ray collection](https://openi.nlm.nih.gov/faq) (3,955 reports, 7,470 images). The notebooks download it (about 1.4 GB) and load it with RadHarmony. The notebooks download an unchanged copy of the Open-i files from Google Drive, because it is faster. If Google Drive fails, they download the files from NLM. Open-i is shared under the [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) license.
 
 Notebook 2 also uses the [Montgomery County chest X-ray set](https://data.lhncbc.nlm.nih.gov/public/Tuberculosis-Chest-X-ray-Datasets/Montgomery-County-CXR-Set/MontgomerySet/index.html) (138 images with lung masks) for segmentation. The notebook downloads it (about 0.6 GB) and loads it with RadHarmony.
 
