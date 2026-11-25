@@ -1,10 +1,21 @@
+import http.client
 import os
+import re
+import shutil
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 import pandas as pd
 
 OPENI_URL = "https://openi.nlm.nih.gov/imgs/collections"
+# Backup copy of the same archives on Google Drive. Used only when NLM fails.
+DRIVE_URL = "https://drive.usercontent.google.com/download?id={}&export=download&confirm=t"
+DRIVE_IDS = {
+    "NLMCXR_reports.tgz": "1H_ByTTbJX0neZaBmYQtBCKB-e11DYeCO",
+    "NLMCXR_png.tgz": "1eVyHj98dH1XGR5NVACinXyJCZaQ9YfLo",
+}
 
 # RadHarmony label column -> class name used in the prompts
 CLASS_NAMES = {
@@ -23,12 +34,60 @@ FINDING_COLS = ["no_finding", "cardiomegaly", "edema", "atelectasis",
 _LATERAL_LIST = os.path.join(os.path.dirname(__file__), "openi_lateral_images.txt")
 
 
+def _download_with_resume(url, path, max_fails=10):
+    """
+    Download a large file. If the download stops, try again and continue from where it stopped.
+
+    Args:
+        url: File URL.
+        path: Output file. If a part of the file is there from an earlier run, the download continues it.
+        max_fails: Stop after this many failed tries in a row with no new data.
+    """
+    fails = 0
+    while True:
+        size = os.path.getsize(path) if os.path.exists(path) else 0
+        request = urllib.request.Request(url, headers={"Range": f"bytes={size}-"} if size else {})
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                if response.headers.get_content_type() == "text/html":
+                    # A web page, not the file (for example, when the site is down). Keep the part we have.
+                    raise OSError("The server sent a web page")
+                if response.status == 206:
+                    match = re.fullmatch(r"bytes (\d+)-\d+/(\d+)", response.headers.get("Content-Range", ""))
+                    if not match or int(match[1]) != size:
+                        raise OSError("The server sent the wrong part of the file")
+                    total = match[2]
+                else:  # The server ignores the Range header and sends the full file
+                    size = 0
+                    total = response.headers["Content-Length"]
+                with open(path, "ab" if size else "wb") as f:
+                    shutil.copyfileobj(response, f, 1024 * 1024)
+            # A connection can close early with no error, so compare the size with the full size
+            if total is None or os.path.getsize(path) == int(total):
+                return
+            last_error = OSError("The download stopped before the end of the file")
+        except urllib.error.HTTPError as error:
+            if error.code == 416:  # The file is already complete
+                return
+            last_error = error
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
+            last_error = error
+        new_size = os.path.getsize(path) if os.path.exists(path) else 0
+        fails = 0 if new_size > size else fails + 1
+        if fails >= max_fails:
+            raise RuntimeError(f"Cannot download {url}.") from last_error
+        print("⚠️  The download stopped. Trying again in 5 seconds ...")
+        time.sleep(5)
+
+
 def download_openi(dest="data/OpenI-IU-CXR"):
     """
     Download the Open-i (Indiana University) chest X-ray PNGs and reports from NLM.
+    If NLM fails, use the backup copy on Google Drive.
 
     Makes the folder layout that RadHarmony expects:
     dest/images/*.png and dest/ecgen-radiology/*.xml. Skips the archives that are done.
+    Continues a stopped download.
 
     Args:
         dest: Output folder.
@@ -43,17 +102,27 @@ def download_openi(dest="data/OpenI-IU-CXR"):
         if os.path.exists(done):
             continue
         tgz = os.path.join(dest, name)
-        print(f"⬇️  Downloading {name} ...")
-        urllib.request.urlretrieve(f"{OPENI_URL}/{name}", tgz)
-        if not tarfile.is_tarfile(tgz):  # For example, NLM sends a web page when the site is down
-            os.remove(tgz)
-            raise RuntimeError(
-                f"NLM did not send the archive {name}. The Open-i site may be down for maintenance. "
-                "Open https://openi.nlm.nih.gov to check. Try again later."
-            )
+        # Try NLM first. If NLM fails, continue the same download from the backup copy on Google Drive.
+        print(f"⬇️  Downloading {name} from NLM ...")
+        try:
+            _download_with_resume(f"{OPENI_URL}/{name}", tgz, max_fails=3)
+        except RuntimeError:
+            print("⚠️  NLM is not available. Downloading from the backup copy on Google Drive ...")
+            try:
+                _download_with_resume(DRIVE_URL.format(DRIVE_IDS[name]), tgz)
+            except RuntimeError as drive_error:
+                raise RuntimeError(
+                    f"Cannot download {name} from NLM or from the backup copy on Google Drive. "
+                    "Check the internet connection. Run this cell again in a few minutes. "
+                    "The download continues from where it stopped."
+                ) from drive_error
         print(f"📦 Extracting {name} ...")
-        with tarfile.open(tgz) as tar:
-            tar.extractall(os.path.join(dest, sub), filter="data")
+        try:
+            with tarfile.open(tgz) as tar:
+                tar.extractall(os.path.join(dest, sub), filter="data")
+        except (tarfile.TarError, EOFError, OSError):
+            os.remove(tgz)  # A broken file. The next run downloads it again.
+            raise RuntimeError(f"The archive {name} is broken. Run this cell again.")
         os.remove(tgz)
         open(done, "w").close()
     print(f"✅ Open-i data ready: {dest}")
