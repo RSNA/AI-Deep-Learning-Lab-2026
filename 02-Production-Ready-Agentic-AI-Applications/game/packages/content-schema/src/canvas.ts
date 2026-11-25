@@ -35,10 +35,11 @@ export type CanvasTables = {
     by_model?: Readonly<Record<string, Quality>>; quality?: Quality
     load?: { free: number; factor: number }; calls?: number; run?: number; complexity?: number
     pool?: string; minutes?: { decide: number; check: number; per_line: Readonly<Record<string, number>> }
-    // A tile that prepares its sources for the worker behind it, by kind of effort: that worker
-    // reads the source with its own skill, and the gain (0 to 1) closes that share of what it
-    // would have missed. The source counts as a line into that worker, and a person pays its minutes.
-    prepares?: Readonly<Record<string, number>>
+    // A tool that prepares its sources for the worker behind it, by kind of effort: that worker
+    // reads the source itself, as the kind of effort `as` (its own number for it), and nothing is
+    // lost at a handoff. The source counts toward the load of that worker with the weight `load`
+    // (1 when absent), and a person pays the minutes of the kind `as`.
+    prepares?: Readonly<Record<string, { as: string; load?: number }>>
   }[]
   models?: readonly { id: string; run?: number; runs_on: readonly string[] }[]
   compute?: readonly { id: string; protects_private_data?: boolean; price_factor?: number; run_fixed?: number }[]
@@ -59,7 +60,7 @@ export const MAX_LINES = 80
 export type MapError =
   | 'bad_tile_id' | 'bad_kind' | 'off_grid' | 'cell_taken' | 'no_parts_here' | 'bad_model' | 'bad_compute'
   | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end'
-  | 'source_locked' | 'source_to_result' | 'line_backward' | 'result_takes_one_line' | 'line_refused'
+  | 'source_locked' | 'source_to_result' | 'line_loop' | 'result_takes_one_line' | 'line_refused'
 
 /** The items that some action unlocks. Every other item is open from the start. */
 export function lockedItems(t: CanvasTables): Set<string> {
@@ -158,6 +159,7 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
     if (model !== null && where !== null && models.has(model) && compute.has(where) && !models.get(model)!.runs_on.includes(where)) errs.add('model_cannot_run_there')
   }
   const seen = new Set<string>()
+  const between: [string, string][] = []      // the lines between two tiles
   let intoResult = 0
   if (m.lines.length > MAX_LINES) errs.add('too_many_lines')
   for (const ln of m.lines) {
@@ -174,14 +176,47 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
       continue
     }
     if (!tiles.has(b)) { errs.add('bad_line_end'); continue }
-    if (!fromSource) {
-      const ca = tiles.get(a)!.col, cb = tiles.get(b)!.col
-      if (typeof ca === 'number' && typeof cb === 'number' && !(ca < cb)) errs.add('line_backward')
-    }
+    if (!fromSource) between.push([a, b])
     if (t.line_rules?.length && lineRuleOf(ln, m, t)?.refuse) errs.add('line_refused')
   }
   if (intoResult > 1) errs.add('result_takes_one_line')
+  // Lines between tiles may run in any direction. They must not form a loop.
+  if (between.some(([a, b]) => a === b) || handoffOrder(tiles, between) === null) errs.add('line_loop')
   return [...errs].sort()
+}
+
+/**
+ * The tiles in the order of the handoffs: a tile comes after every tile that hands to it. Among
+ * tiles that are free to come next, the one nearer the top left comes first (column, row, id).
+ * `pairs` are the lines between tiles, `only` limits the order to a set of tiles. Null when the
+ * lines form a loop.
+ */
+export function handoffOrder(tiles: ReadonlyMap<string, CanvasTile>, pairs: readonly (readonly [string, string])[], only: ReadonlySet<string> | null = null): string[] | null {
+  const ids = [...tiles.keys()].filter((id) => only === null || only.has(id))
+  const num = (x: unknown) => (typeof x === 'number' ? x : 0)
+  const before = (a: string, b: string) => {
+    const x = tiles.get(a)!, y = tiles.get(b)!
+    return num(x.col) - num(y.col) || num(x.row) - num(y.row) || (a < b ? -1 : a > b ? 1 : 0)
+  }
+  const waits = new Map<string, number>(ids.map((id) => [id, 0]))
+  const out = new Map<string, string[]>(ids.map((id) => [id, []]))
+  for (const [a, b] of pairs) {
+    if (!waits.has(a) || !waits.has(b)) continue
+    waits.set(b, waits.get(b)! + 1)
+    out.get(a)!.push(b)
+  }
+  const free = ids.filter((id) => waits.get(id) === 0).sort(before)
+  const order: string[] = []
+  while (free.length) {
+    const n = free.shift()!
+    order.push(n)
+    for (const b of out.get(n)!) {
+      waits.set(b, waits.get(b)! - 1)
+      if (waits.get(b) === 0) free.push(b)
+    }
+    free.sort(before)
+  }
+  return order.length === ids.length ? order : null
 }
 
 /** The shape of an accepted map: who reads where, who hands to whom, the signer, the live tiles. */
@@ -191,7 +226,7 @@ export type MapShape = {
   wrkIn: Map<string, string[]>          // tiles with a line into the tile
   signer: string | null
   live: Set<string>
-  order: string[]                       // live tiles by column, then row
+  order: string[]                       // live tiles in the order of the handoffs
 }
 
 const byCell = (tiles: Map<string, CanvasTile>) => (a: string, b: string) => {
@@ -218,26 +253,27 @@ export function mapShape(m: CanvasMap, t: CanvasTables): MapShape {
     live.add(n)
     stack.push(...wrkIn.get(n)!)
   }
-  const order = [...live].sort(byCell(tiles))
+  const pairs: [string, string][] = []
+  for (const [n, from] of wrkIn) for (const u of from) pairs.push([u, n])
+  const order = handoffOrder(tiles, pairs, live) ?? []
   return { tiles, srcIn, wrkIn, signer, live, order }
 }
 
 /**
- * The sources that tile `u` prepares for the worker behind it, each with its kind of effort and
- * the gain: the sources with a line into `u` whose effort its worker names in `prepares`. Empty
- * for a tile of any other worker.
+ * The sources that tile `u` prepares for the worker behind it: each with the kind of effort it
+ * becomes (`effort`) and its weight in the load of that worker. They are the sources with a line
+ * into `u` whose effort its worker names in `prepares`. Empty for a tile of any other worker.
  */
 export function preparedBy(
   u: string, tiles: ReadonlyMap<string, CanvasTile>, srcIn: ReadonlyMap<string, readonly string[]>,
   sources: ReadonlyMap<string, CanvasTables['sources'][number]>, workers: ReadonlyMap<string, CanvasTables['workers'][number]>,
-): { source: string; effort: string; gain: number }[] {
+): { source: string; effort: string; load: number }[] {
   const prep = workers.get(tiles.get(u)!.kind)?.prepares
   if (!prep) return []
-  const out: { source: string; effort: string; gain: number }[] = []
+  const out: { source: string; effort: string; load: number }[] = []
   for (const s of srcIn.get(u) ?? []) {
-    const effort = sources.get(s)!.effort
-    const gain = prep[effort]
-    if (gain !== undefined) out.push({ source: s, effort, gain })
+    const p = prep[sources.get(s)!.effort]
+    if (p !== undefined) out.push({ source: s, effort: p.as, load: p.load ?? 1 })
   }
   return out
 }

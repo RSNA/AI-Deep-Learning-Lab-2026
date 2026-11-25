@@ -4,6 +4,8 @@ import type { GridWords } from '../canvas/Grid.tsx'
 
 const secs = (s: number) => `${Math.max(0, Math.ceil(s))} s`
 const pct = (x: number) => `${Math.round(100 * x)}%`
+// The accuracy of a map, with one decimal: at the top the maps of a pack differ by less than a point.
+const acc1 = (x: number) => `${(Math.round(1000 * x) / 10).toFixed(1)}%`
 /** A sum of money: whole when it is whole, else two decimals below 10 and one above. */
 export const money = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: Math.abs(x) < 10 ? 2 : 1 }))
 const num = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: 1 }))
@@ -76,14 +78,13 @@ export const P2 = {
     tile: (label: string) => `${label} is selected.`,
     line: (from: string, to: string) => `Line from ${from} to ${to}.`,
   },
-  dropped: (n: number) => (n === 1 ? 'One line would have run backward, so it was removed.' : `${n} lines would have run backward, so they were removed.`),
   replaced: 'The result takes one line. The new line replaced the old one.',
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
   // The tour of the phase (section 10.1). It describes the screen, never an answer.
   tour: [
     { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
     { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from the round port on the right of a tile to the next tile. Work runs left to right and ends in the result.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round port of a tile to the tile that gets its work. It joins the two sides that face each other. A line may run any way across the map, but never in a loop. The work ends in the result.' },
     { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
     { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays with the practice, so pay for what your map will use.' },
@@ -91,7 +92,7 @@ export const P2 = {
     { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy and one patient the map got wrong, and you can bring back the map of any of them. The opening letter and the insights of actions wait here too.' },
   ],
   helpTitle: 'Help · Phase 2',
-  helpIntro: 'Build a map that solves the problem of the letter, then validate it. The accuracy of the map you send is your score.',
+  helpIntro: 'Build a map that solves the problem of the letter, then validate it. The accuracy of your chosen map is your score.',
   helpMarks: 'What the marks on the map mean',
   markWarn: 'Private data goes through a service that does not protect it.',
   markStray: 'Dashed and pale: the tile has no line out yet, so its work goes nowhere.',
@@ -198,7 +199,7 @@ export const P2 = {
   // Why Validate cannot act now, said as the next thing to do (section 10.5).
   why: {
     running: 'A validation is running. Its result comes in a few seconds.',
-    noneLeft: 'No validations are left. Your best map is sent when the time is up.',
+    noneLeft: 'No validations are left. Your chosen map counts when the time is up.',
     place: 'Place a tile first: pick an operator or a tool in the toolbox, then click an empty cell.',
     joinSource: 'No source is joined to a tile. Draw a line from the round port of a source to a tile.',
     reachResult: 'Nothing reaches the result yet. Join a tile to it with the tile’s round port.',
@@ -220,8 +221,7 @@ export const P2 = {
     intoSource: (name: string) => `A line cannot end at ${name}. Lines run from a source to a tile.`,
     sourceToResult: (name: string) => `${name} cannot reach the result by itself. Join it to a tile, and the tile to the result.`,
     twice: (a: string, b: string) => `${a} is already joined to ${b}.`,
-    sameColumn: (a: string, b: string) => `${a} and ${b} stand in one column. Work is handed on only to the right, so move ${b} further right.`,
-    backward: (a: string, b: string) => `${b} stands left of ${a}. Work is handed on only to the right, so draw the line from ${b} to ${a}, or move a tile.`,
+    loop: (a: string, b: string) => `That would close a loop: ${b} already hands its work on to ${a}, directly or through other tiles.`,
     server: 'That line cannot be drawn on this map.',
   },
   // Results
@@ -236,17 +236,17 @@ export const P2 = {
   // What happened when the people of a map had fewer minutes than it asks of them.
   rushedPool: (label: string, used: number, max: number) => `${poolPeople(label)}: this map needs ${num(used)} min per patient and there are ${num(max)}, so ${reach(used, max, true)}. The others passed without one.`,
   rushedPlain: 'The people on this map had fewer minutes than it asks of them, so part of the patients passed without a full look.',
-  unhurried: (acc: number) => `With the time it asks for, this map would be right for ${pct(acc)} of the patients.`,
+  unhurried: (acc: number) => `With the time it asks for, this map would be right for ${acc1(acc)} of the patients.`,
   restoreMap: 'Restore this map',
   restored: (n: number) => `The map of validation ${n} is back on your canvas. Undo returns to the one before.`,
   onCanvas: 'On your canvas now',
-  useMap: 'Send this map',
-  willSend: 'This map will be sent',
-  defaultSend: 'Unless you pick another, the map with the best accuracy is sent when the time is up.',
-  backToDefault: 'Send the best one again',
+  useMap: 'Choose this map',
+  willSend: 'Your chosen map so far',
+  defaultSend: 'Unless you choose another, the map with the best accuracy counts when the time is up.',
+  backToDefault: 'Go back to the best one',
   noValidation: 'No validation yet. When something reaches the result, press Validate. It takes a few seconds, and the map stays usable meanwhile.',
-  validationOf: (id: string, acc: number) => `${id.replace('v', 'Validation ')}: ${pct(acc)}`,
-  doneToast: (acc: number) => `Validation done: ${pct(acc)}`,
+  validationOf: (id: string, acc: number) => `${id.replace('v', 'Validation ')}: ${acc1(acc)}`,
+  doneToast: (acc: number) => `Validation done: ${acc1(acc)}`,
   insightToast: (title: string) => `New insight: ${title}`,
   show: 'Show',
   insights: 'Insights',
@@ -256,13 +256,14 @@ export const P2 = {
   phaseStarted: 'Phase 2 has started.',
   briefStart: 'Start building',
   letterStays: 'This letter stays as the first card under Insights.',
-  warn: (s: number) => `${s} seconds left. The map with the best accuracy is sent when the time is up.`,
+  warn: (s: number) => `${s} seconds left. Your chosen map, or the one with the best accuracy, counts when the time is up.`,
   pct,
+  acc1,
   // Reveal
   letterTitle: 'A letter for you',
-  timeUp: 'Time is up. The map you chose, or the one with the best accuracy, was sent.',
+  timeUp: 'Time is up. The map you chose, or the one with the best accuracy, counts.',
   yourScore: 'Your score',
-  accuracySent: 'Accuracy of the map you sent',
+  accuracySent: 'Accuracy of your chosen map',
   phasePoints: 'Phase 2 points',
   scaleLine: 'Points put both health systems on one scale.',
   yourMap: 'Your map',
@@ -270,6 +271,6 @@ export const P2 = {
   cases: 'Every kind of case',
   yours: 'Yours',
   reference: 'Reference',
-  noMapSent: 'You sent no map, so no case was solved.',
+  noMapSent: 'You validated no map, so no case was solved.',
   nextPhase: 'Your map, your money and what you unlocked go with you into Phase 3.',
 }

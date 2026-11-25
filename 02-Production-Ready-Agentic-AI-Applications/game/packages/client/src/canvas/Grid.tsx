@@ -1,5 +1,6 @@
 // The canvas (engineering spec, section 10.5): sources on the left, a grid of cells, the result on
-// the right, and lines that only run to the right. It draws any map, editable or read-only, and
+// the right, and lines that run any way between the tiles but never in a loop, each joining the
+// sides of its two tiles that face each other. It draws any map, editable or read-only, and
 // knows nothing of the phase that shows it. Every action works by click or tap; drag is an
 // extra on a laptop.
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
@@ -138,73 +139,103 @@ export function Grid(p: GridProps) {
   const colorOf = (id: string) => LINE_COLORS[Math.max(0, origins.indexOf(id)) % LINE_COLORS.length]!
   const used = new Set(map.lines.map((l) => l.from))
 
-  // Fixed anchors: a line leaves the right edge of its origin and enters the left edge of its
-  // target. The lines into one node are spread over its edge in the order of where they come
-  // from, and the lines out of one node in the order of where they go, so that they do not cross
-  // on the way in or out.
-  const mid = (id: string) => { const b = boxes[id]; return b ? b.y + b.h / 2 : 0 }
-  const spread = (b: Box, i: number, n: number, band: number) => n <= 1 ? b.y + b.h / 2 : b.y + b.h * (0.5 - band / 2) + (i * b.h * band) / (n - 1)
-  const entries = new Map<string, number>()
-  const exits = new Map<string, number>()
-  const byTarget = new Map<string, typeof map.lines>()
-  const byOrigin = new Map<string, typeof map.lines>()
-  for (const l of map.lines) {
-    byTarget.set(l.to, [...(byTarget.get(l.to) ?? []), l])
-    byOrigin.set(l.from, [...(byOrigin.get(l.from) ?? []), l])
-  }
-  for (const [to, ls] of byTarget) {
-    const t = boxes[to]
-    if (!t) continue
-    const sorted = [...ls].sort((a, b) => mid(a.from) - mid(b.from) || (boxes[a.from]?.x ?? 0) - (boxes[b.from]?.x ?? 0))
-    sorted.forEach((l, i) => entries.set(lineKey(l), spread(t, i, sorted.length, Math.min(0.7, 0.18 * (sorted.length - 1)))))
-  }
-  for (const [from, ls] of byOrigin) {
-    const a = boxes[from]
-    if (!a) continue
-    const into = (l: (typeof map.lines)[number]) => entries.get(lineKey(l)) ?? mid(l.to)
-    const sorted = [...ls].sort((x, y) => into(x) - into(y) || (boxes[x.to]?.x ?? 0) - (boxes[y.to]?.x ?? 0))
-    sorted.forEach((l, i) => exits.set(lineKey(l), spread(a, i, sorted.length, Math.min(0.5, 0.14 * (sorted.length - 1)))))
-  }
-  const ctrl = (x1: number, x2: number) => Math.max(14, (x2 - x1) * 0.5)
+  // Where a line is attached. From a source it leaves the right side, into the result it enters
+  // the left side. Between two tiles it joins the sides that face each other: to a later column
+  // out of the right side and into the left, to an earlier column out of the left and into the
+  // right, inside one column out of the bottom and into the top (or the other way up). When two
+  // tiles differ in column and row, the column decides, and the line bends in the gap between
+  // the columns. So no line travels around a tile to reach its far side.
   type P = { x: number; y: number }
-  const lerp = (a: P, b: P, t: number): P => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
-  /** The curve of a line: it leaves and enters level, and bends in between. */
-  const curve = (x1: number, y1: number, x2: number, y2: number): [P, P, P, P] => {
-    const dx = ctrl(x1, x2)
-    return [{ x: x1, y: y1 }, { x: x1 + dx, y: y1 }, { x: x2 - dx, y: y2 }, { x: x2, y: y2 }]
+  type Side = 'l' | 'r' | 't' | 'b'
+  const sourceIds = new Set(v.sources.map((x) => x.id))
+  const cellOf = new Map(map.tiles.map((t) => [t.id, t]))
+  const sidesOf = (l: { from: string; to: string }): [Side, Side] => {
+    const a = cellOf.get(l.from), b = cellOf.get(l.to)
+    if (!a || !b || b.col > a.col) return ['r', 'l']
+    if (b.col < a.col) return ['l', 'r']
+    return b.row > a.row ? ['b', 't'] : ['t', 'b']
   }
-  /** A point of the curve, `t` from 0 at its origin to 1 at its target. */
-  const pointAt = (x1: number, y1: number, x2: number, y2: number, t: number): P => {
-    const [a, b, c, d] = curve(x1, y1, x2, y2)
-    const ab = lerp(a, b, t), bc = lerp(b, c, t), cd = lerp(c, d, t)
+  const center = (id: string): P => { const b = boxes[id]; return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: 0, y: 0 } }
+  // The ends of the lines on one side of a node are spread along that side, in the order of
+  // where their other ends stand, so that they neither lie on top of each other nor cross on
+  // the way in or out. Lines that leave and lines that arrive on one side share it.
+  const anchors = new Map<string, P>()            // `${line key}|from` and `${line key}|to`
+  {
+    const bySide = new Map<string, { end: string; other: string }[]>()
+    for (const l of map.lines) {
+      const [sa, sb] = sidesOf(l)
+      const key = lineKey(l)
+      bySide.set(`${l.from}|${sa}`, [...(bySide.get(`${l.from}|${sa}`) ?? []), { end: `${key}|from`, other: l.to }])
+      bySide.set(`${l.to}|${sb}`, [...(bySide.get(`${l.to}|${sb}`) ?? []), { end: `${key}|to`, other: l.from }])
+    }
+    for (const [at, ends] of bySide) {
+      const cut = at.lastIndexOf('|')
+      const b = boxes[at.slice(0, cut)]
+      const side = at.slice(cut + 1) as Side
+      if (!b) continue
+      const upright = side === 'l' || side === 'r'
+      const along = (q: P) => (upright ? q.y : q.x), across = (q: P) => (upright ? q.x : q.y)
+      const sorted = [...ends].sort((x, y) => along(center(x.other)) - along(center(y.other)) || across(center(x.other)) - across(center(y.other)))
+      const n = sorted.length
+      const band = Math.min(0.7, 0.18 * (n - 1))
+      sorted.forEach((e, i) => {
+        const f = n <= 1 ? 0.5 : 0.5 - band / 2 + (i * band) / (n - 1)
+        anchors.set(e.end, side === 'r' ? { x: b.x + b.w, y: b.y + b.h * f } : side === 'l' ? { x: b.x - 1, y: b.y + b.h * f }
+          : side === 't' ? { x: b.x + b.w * f, y: b.y - 1 } : { x: b.x + b.w * f, y: b.y + b.h })
+      })
+    }
+  }
+  const lerp = (a: P, b: P, t: number): P => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+  const OUT: Record<Side, P> = { r: { x: 1, y: 0 }, l: { x: -1, y: 0 }, t: { x: 0, y: -1 }, b: { x: 0, y: 1 } }
+  /** The curve of a line: it leaves and enters square to its two sides, and bends in between. */
+  const curve = (a: P, sa: Side, d: P, sd: Side): [P, P, P, P] => {
+    const upright = sa === 't' || sa === 'b'
+    const reach = upright ? Math.max(3, Math.abs(d.y - a.y) * 0.5) : Math.max(14, Math.abs(d.x - a.x) * 0.5)
+    return [a, { x: a.x + OUT[sa].x * reach, y: a.y + OUT[sa].y * reach }, { x: d.x + OUT[sd].x * reach, y: d.y + OUT[sd].y * reach }, d]
+  }
+  const at = (c: [P, P, P, P], t: number): P => {
+    const ab = lerp(c[0], c[1], t), bc = lerp(c[1], c[2], t), cd = lerp(c[2], c[3], t)
     return lerp(lerp(ab, bc, t), lerp(bc, cd, t), t)
   }
-  // The head of a line stands in its middle (Pouria, 2026-11-23): the curve is drawn in two halves
-  // that meet there, so the head is a mid marker on the joint and points the way the line runs.
-  // No head crowds the edge of a tile, and a short line between two neighbours still shows it.
-  // When the middle lies behind a tile, the head moves along the line to the nearest point that
-  // is clear of every node, so a long line that passes behind tiles keeps its head.
-  const clear = (q: P) => !Object.values(boxes).some((b) => q.x > b.x - 7 && q.x < b.x + b.w + 7 && q.y > b.y - 7 && q.y < b.y + b.h + 7)
-  const headAt = (x1: number, y1: number, x2: number, y2: number): number => {
-    for (const dt of [0, 0.05, -0.05, 0.1, -0.1, 0.15, -0.15, 0.2, -0.2, 0.25, -0.25, 0.3, -0.3, 0.35, -0.35]) {
-      if (clear(pointAt(x1, y1, x2, y2, 0.5 + dt))) return 0.5 + dt
+  const draw = (c: [P, P, P, P]) => `M${c[0].x},${c[0].y} C${c[1].x},${c[1].y} ${c[2].x},${c[2].y} ${c[3].x},${c[3].y}`
+  // The head of a line stands in its middle (Pouria, 2026-11-23) and points the way the line
+  // runs. When the middle lies behind a tile, the head moves along the line to the nearest point
+  // that is clear of every node, so a long line that passes behind tiles keeps its head. Heads
+  // are drawn over the tiles, so the short line between two neighbours of one column shows its
+  // head in the gap between them.
+  const clear = (q: P, m: number) => !Object.values(boxes).some((b) => q.x > b.x - m && q.x < b.x + b.w + m && q.y > b.y - m && q.y < b.y + b.h + m)
+  const headAt = (c: [P, P, P, P]): number => {
+    // The clear point nearest the middle: well clear of every node, or else just clear (the gap
+    // between two neighbours is narrow). A line that is nowhere clear keeps its head in the middle.
+    for (const m of [7, 2]) {
+      let best: number | null = null
+      for (let i = 0; i <= 80; i++) {
+        const t = 0.1 + i * 0.01
+        if (clear(at(c, t), m) && (best === null || Math.abs(t - 0.5) < Math.abs(best - 0.5))) best = t
+      }
+      if (best !== null) return best
     }
     return 0.5
   }
-  const path = (x1: number, y1: number, x2: number, y2: number, t = 0.5) => {
-    const [a, b, c, d] = curve(x1, y1, x2, y2)
-    const ab = lerp(a, b, t), bc = lerp(b, c, t), cd = lerp(c, d, t)
-    const abc = lerp(ab, bc, t), bcd = lerp(bc, cd, t), m = lerp(abc, bcd, t)
-    const f = (q: P) => `${q.x},${q.y}`
-    return `M${f(a)} C${f(ab)} ${f(abc)} ${f(m)} C${f(bcd)} ${f(cd)} ${f(d)}`
-  }
-  /** Where the mark of advice stands: on the first half of the line, clear of the head. */
-  const middle = (x1: number, y1: number, x2: number, y2: number) => pointAt(x1, y1, x2, y2, 0.27)
-  const ends = (l: { from: string; to: string }) => {
-    const a = boxes[l.from], b = boxes[l.to]
-    if (!a || !b) return null
+  type Geom = { d: string; head: { at: P; dir: P }; advice: P }
+  const geom = (l: { from: string; to: string }): Geom | null => {
     const key = lineKey(l)
-    return { x1: a.x + a.w, y1: exits.get(key) ?? a.y + a.h / 2, x2: b.x - 1, y2: entries.get(key) ?? b.y + b.h / 2 }
+    const a = anchors.get(`${key}|from`), d = anchors.get(`${key}|to`)
+    if (!a || !d) return null
+    const [sa, sd] = sidesOf(l)
+    const c = curve(a, sa, d, sd)
+    const t = headAt(c)
+    const h = at(c, t), h0 = at(c, Math.max(0, t - 0.02)), h1 = at(c, Math.min(1, t + 0.02))
+    const len = Math.hypot(h1.x - h0.x, h1.y - h0.y) || 1
+    // The mark of advice stands on the first part of the line, clear of the head.
+    return { d: draw(c), head: { at: h, dir: { x: (h1.x - h0.x) / len, y: (h1.y - h0.y) / len } }, advice: at(c, 0.27) }
+  }
+  /** The line that follows the pointer while it is dragged out of a port. */
+  const dragPath = (from: string, x: number, y: number) => {
+    const b = boxes[from]!
+    const a = { x: b.x + b.w, y: b.y + b.h / 2 }
+    const dx = Math.max(14, Math.abs(x - a.x) * 0.5)
+    return `M${a.x},${a.y} C${a.x + dx},${a.y} ${x - dx},${y} ${x},${y}`
   }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
@@ -213,7 +244,6 @@ export function Grid(p: GridProps) {
     if (id === v.result.id) return v.result.label
     return names.get(id)?.label ?? id
   }
-  const sourceIds = new Set(v.sources.map((x) => x.id))
 
   const joining = mode.kind === 'join'
   const placing = mode.kind === 'place' || mode.kind === 'move'
@@ -254,11 +284,31 @@ export function Grid(p: GridProps) {
     window.addEventListener('pointerup', up)
   }
 
+  // The round port of a node starts a line from it. A source has one on its right. A tile has
+  // one on its right that is always there, and one on each other side that shows while the tile
+  // is pointed at or selected: all four start the same thing, and the line then joins whichever
+  // sides face each other. A read-only map marks each side that a line leaves.
   const port = (id: string, label: string) => readOnly ? (used.has(id) ? <span className="cport ro" style={{ background: colorOf(id) }} aria-hidden="true" /> : null) : (
     <button type="button" className={`cport${joining && mode.from === id ? ' on' : ''}`} style={{ background: colorOf(id) }}
       aria-label={words.port(label)} aria-pressed={joining && mode.from === id}
       onClick={(e) => { e.stopPropagation(); p.onPort?.(id) }} onPointerDown={(e) => startDrag(id, e)} />
   )
+  const tilePorts = (id: string, label: string) => {
+    if (readOnly) {
+      const out = new Set(map.lines.filter((l) => l.from === id).map((l) => sidesOf(l)[0]))
+      return [...out].map((sd) => <span key={sd} className={`cport ro s-${sd}`} style={{ background: colorOf(id) }} aria-hidden="true" />)
+    }
+    return (
+      <>
+        {port(id, label)}
+        {(['t', 'b', 'l'] as Side[]).map((sd) => (
+          // The same start as the port on the right, for the pointer: the keyboard and a screen reader have that one.
+          <span key={sd} className={`cport more s-${sd}`} style={{ background: colorOf(id) }} aria-hidden="true"
+            onClick={(e) => { e.stopPropagation(); p.onPort?.(id) }} onPointerDown={(e) => startDrag(id, e)} />
+        ))}
+      </>
+    )
+  }
 
   const workerOf = (t: CanvasTile) => v.workers.find((w) => w.id === t.kind)
   const partLabel = (t: CanvasTile, part: Part): { text: string; missing: boolean; title: string } => {
@@ -322,7 +372,7 @@ export function Grid(p: GridProps) {
         {!isAi && (!stray || compact) && body && <div className={`ct-body${body.over ? ' over' : ''}`} title={body.text}>{body.text}</div>}
         {!isAi && !compact && stray && <div className="ct-note">{words.stray}</div>}
         {isAi && stray && !compact && <div className="ct-badge">{words.strayShort}</div>}
-        {port(t.id, label)}
+        {tilePorts(t.id, label)}
       </div>
     )
   }
@@ -357,7 +407,7 @@ export function Grid(p: GridProps) {
   const res = v.result
   const resLit = lit(res.id)
   return (
-    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
+    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
       style={{ '--cols': v.cols, '--rows': v.rows } as React.CSSProperties} aria-label={p.label}>
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
       {Array.from({ length: v.cols }, (_, i) => {
@@ -410,31 +460,21 @@ export function Grid(p: GridProps) {
         </div>
       </div>
       <svg className="clines" aria-hidden={readOnly ? true : undefined}>
-        <defs>
-          {LINE_COLORS.map((c, i) => (
-            // Arrowheads of one size whatever the stroke, so a heavy handoff keeps a small head.
-            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="4" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 9 : 13} markerHeight={compact ? 9 : 13} orient="auto">
-              <path d="M0,0 L8,4 L0,8 z" fill={c} />
-            </marker>
-          ))}
-        </defs>
         {map.lines.map((l) => {
-          const e = ends(l)
-          if (!e) return null
+          const g = geom(l)
+          if (!g) return null
           const key = lineKey(l)
-          const { x1, y1, x2, y2 } = e
-          const d = path(x1, y1, x2, y2, headAt(x1, y1, x2, y2))
+          const d = g.d
           const color = colorOf(l.from)
-          const idx = LINE_COLORS.indexOf(color)
           const sel = p.selection?.kind === 'line' && p.selection.key === key
           const faded = joining && mode.from !== l.from
           // A line between two tiles (or into the result) is a handoff, drawn heavier than a line
-          // from a source, which only says that the worker may read it.
+          // from a source, which only says that the tile may read it.
           const handoff = !sourceIds.has(l.from)
           return (
             <g key={key} className={`cline${handoff ? ' handoff' : ''}${sel ? ' sel' : ''}${faded ? ' faded' : ''}`}>
               <path d={d} className="halo" />
-              <path d={d} className="ink" stroke={color} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
+              <path d={d} className="ink" stroke={color} />
               {!readOnly && (
                 <path d={d} className="hit" role="button" tabIndex={0} aria-label={words.line(nameOf(l.from), nameOf(l.to))}
                   onClick={(e) => { e.stopPropagation(); p.onLine?.(key) }}
@@ -445,9 +485,9 @@ export function Grid(p: GridProps) {
         })}
         {map.lines.map((l) => {
           const key = lineKey(l)
-          const e = p.advice?.has(key) ? ends(l) : null
-          if (!e) return null
-          const m = middle(e.x1, e.y1, e.x2, e.y2)
+          const g = p.advice?.has(key) ? geom(l) : null
+          if (!g) return null
+          const m = g.advice
           return (
             <g key={`adv-${key}`} className="cadvice" transform={`translate(${m.x},${m.y})`}>
               <circle r={compact ? 6 : 9} />
@@ -458,8 +498,27 @@ export function Grid(p: GridProps) {
           )
         })}
         {drag && boxes[drag.from] && (
-          <path className="cline-drag" d={path(boxes[drag.from]!.x + boxes[drag.from]!.w, boxes[drag.from]!.y + boxes[drag.from]!.h / 2, drag.x, drag.y)} stroke={colorOf(drag.from)} />
+          <path className="cline-drag" d={dragPath(drag.from, drag.x, drag.y)} stroke={colorOf(drag.from)} />
         )}
+      </svg>
+      {/* The heads of the lines, over the tiles: a head in the narrow gap between two neighbours stays whole. */}
+      <svg className="cheads" aria-hidden="true">
+        <defs>
+          {LINE_COLORS.map((c, i) => (
+            // Arrowheads of one size whatever the stroke, so a heavy handoff keeps a small head.
+            <marker key={i} id={`ca${i}${compact ? 'c' : ''}`} viewBox="0 0 8 8" refX="4" refY="4" markerUnits="userSpaceOnUse" markerWidth={compact ? 9 : 13} markerHeight={compact ? 9 : 13} orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill={c} />
+            </marker>
+          ))}
+        </defs>
+        {map.lines.map((l) => {
+          const g = geom(l)
+          if (!g) return null
+          const { at: h, dir } = g.head
+          const idx = LINE_COLORS.indexOf(colorOf(l.from))
+          const faded = joining && mode.from !== l.from
+          return <path key={lineKey(l)} className={`chead${faded ? ' faded' : ''}`} d={`M${h.x - dir.x},${h.y - dir.y} L${h.x},${h.y} L${h.x + dir.x},${h.y + dir.y}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
+        })}
       </svg>
       {p.note && (() => {
         // The sentence stands under the place of the action, or over it near the foot of the grid.
@@ -467,9 +526,9 @@ export function Grid(p: GridProps) {
         const anchor = (): { ax: number; ay: number; ah: number } | null => {
           if (n.at.startsWith('line:')) {
             const l = map.lines.find((x) => lineKey(x) === n.at.slice(5))
-            const e = l ? ends(l) : null
-            if (!e) return null
-            const m = middle(e.x1, e.y1, e.x2, e.y2)
+            const g = l ? geom(l) : null
+            if (!g) return null
+            const m = g.advice
             return { ax: m.x, ay: m.y - 10, ah: 20 }
           }
           const b = boxes[n.at]

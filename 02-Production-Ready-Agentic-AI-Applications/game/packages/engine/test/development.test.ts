@@ -73,8 +73,11 @@ describe('a map: what set_map refuses', () => {
     expect(bad({ tiles: two, lines: L(['t1', 'rb-s-form']) })).toEqual(['bad_line_end'])
     expect(bad({ tiles: two, lines: L(['rb-s-mailbox', 't1']) })).toEqual(['source_locked'])
     expect(bad({ tiles: two, lines: L(['rb-s-form', 'rb-result']) })).toEqual(['source_to_result'])
-    expect(bad({ tiles: two, lines: L(['t2', 't1']) })).toEqual(['line_backward'])
-    expect(bad({ tiles: [T('t1', 'rb-w-rule', 1, 1), T('t2', 'rb-w-rule', 1, 2)], lines: L(['t1', 't2']) })).toEqual(['line_backward'])
+    // A line may run to an earlier column or inside one column. Only a loop is refused.
+    expect(bad({ tiles: two, lines: L(['t2', 't1']) })).toEqual([])
+    expect(bad({ tiles: [T('t1', 'rb-w-rule', 1, 1), T('t2', 'rb-w-rule', 1, 2)], lines: L(['t1', 't2']) })).toEqual([])
+    expect(bad({ tiles: two, lines: L(['t1', 't2'], ['t2', 't1']) })).toEqual(['line_loop'])
+    expect(bad({ tiles: two, lines: L(['t1', 't1']) })).toEqual(['line_loop'])
     expect(bad({ tiles: two, lines: L(['t1', 'rb-result'], ['t2', 'rb-result']) })).toEqual(['result_takes_one_line'])
     const many = Array.from({ length: 81 }, (_, i) => ({ from: 'rb-s-form', to: `t${i}` }))
     expect(bad({ tiles: [], lines: many })).toContain('too_many_lines')

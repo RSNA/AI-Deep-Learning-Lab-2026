@@ -181,7 +181,7 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
                   {v.rank !== null && <span className="vrank">{P2.rank(v.rank, v.of)}</span>}
                 </div>
                 <div className="vrun-b">
-                  <div className="vacc"><span className="num">{P2.pct(v.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
+                  <div className="vacc"><span className="num">{P2.acc1(v.accuracy)}</span><span className="face">{P2.accuracy}</span></div>
                   <div className="vrun-t">
                     {v.missed && (
                       <div className="vmiss">
@@ -328,9 +328,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       setSel({ kind: 'tile', id: r.id })
       setMode({ kind: 'idle' })
     } else if (mode.kind === 'move') {
-      const r = moveTile(map, mode.tile, col, row)
-      commit(r.map)
-      if (r.dropped) say(P2.dropped(r.dropped))
+      commit(moveTile(map, mode.tile, col, row))
       setMode({ kind: 'idle' })
     }
   }
@@ -536,7 +534,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
       onLine={(key) => { if (mode.kind === 'idle') setSel((s) => (s?.kind === 'line' && s.key === key ? null : { kind: 'line', key })) }}
       onPart={(tile, part) => { reset(); setSheet({ kind: 'part', tile, part }) }}
       onDropKind={(kind, col, row) => { if (!tileAt(map, col, row)) { const r = placeTile(map, kind, col, row); commit(r.map); setSel({ kind: 'tile', id: r.id }); setMode({ kind: 'idle' }) } }}
-      onDropTile={(id, col, row) => { const r = moveTile(map, id, col, row); commit(r.map); if (r.dropped) say(P2.dropped(r.dropped)) }}
+      onDropTile={(id, col, row) => commit(moveTile(map, id, col, row))}
       onDragLine={(from, to) => { join(from, to); setMode({ kind: 'idle' }) }}
       bodies={bodies} guide={guide.first?.nodes.length ? { nodes: guide.first.nodes, part: guide.first.part ?? null } : null}
       note={note} onNoteClose={() => setNote(null)}
@@ -671,7 +669,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   if (phone) {
     const counts: Record<Tab, string> = {
       map: `${map.tiles.length}`, actions: dv.actionsRunning.length ? `${dv.actionsRunning.length} running` : `${dv.actionsDone.length} done`,
-      toolbox: '', results: dv.validations.length ? P2.pct(dv.validations.at(-1)!.accuracy) : '–',
+      toolbox: '', results: dv.validations.length ? P2.acc1(dv.validations.at(-1)!.accuracy) : '–',
     }
     return (
       <PopLayer off>
@@ -706,7 +704,7 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   return (
     <PopLayer off={touring || sheet !== null}>
     <div className="p2">
-      <div className="p2-top">
+      <div className={`p2-top${content.rules.cols >= 5 ? ' dense' : ''}`}>
         <section className="colbox p2-actions" aria-label={P2.actions} data-tour="p2-actions">
           <div className="colhead sun"><h2>{P2.actions}</h2><span className="s">{dv.actionsDone.length} / {content.actions.length}</span></div>
           {/* Above the list, outside what scrolls: a notice that lands while the list is scrolled is still seen. */}

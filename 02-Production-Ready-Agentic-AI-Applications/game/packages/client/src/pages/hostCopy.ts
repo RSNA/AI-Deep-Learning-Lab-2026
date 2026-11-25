@@ -138,7 +138,7 @@ export const H = {
     state: { open: 'not started', running: 'running', done: 'done' } as Record<string, string>,
     validations: 'Their validations',
     noValidations: 'No validation yet.',
-    sends: 'sent at the end',
+    sends: 'the chosen map',
     showMap: 'Show this map',
     hideMap: 'Hide the map',
     key: 'The key',

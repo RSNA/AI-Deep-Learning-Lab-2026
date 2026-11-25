@@ -58,8 +58,9 @@
      maximums before its cells get any room. */
   grid-template-columns: minmax(100px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
   grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(60px, 1fr));
-  /* The gap between two columns holds a line with its head, so a short line still reads as an arrow. */
-  column-gap: 32px; row-gap: 6px; padding: 4px 14px 8px 8px;
+  /* The gap between two columns holds a line with its head, so a short line still reads as an arrow.
+     The gap between two rows holds the short line between two neighbours of one column. */
+  column-gap: 32px; row-gap: 10px; padding: 4px 14px 8px 8px;
 }
 .chdr { grid-row: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; align-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chdr:first-child { text-align: left; }
@@ -90,8 +91,9 @@
 .ccell.dropping { background: var(--sky-bg); border-color: var(--sky); }
 .ccell-plus { font-family: var(--face); font-size: 26px; line-height: 1; color: var(--good); }
 .ctile {
-  position: relative; z-index: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 2px;
-  padding: 0 4px 4px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
+  /* A name and three parts, each 15 high, fit a tile of 76: the height of a row of five on a laptop of 720. */
+  position: relative; z-index: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1px;
+  padding: 0 4px 2px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
 }
 .ctile .ct-head { display: flex; align-items: center; gap: 3px; margin: 0 -4px 1px; padding: 1px 4px; min-height: 19px; border-bottom: 2px solid var(--line); font-size: 13px; font-weight: 800; line-height: 1.15; color: var(--on); }
 .ctile.k-ai .ct-head { background: var(--sky); }
@@ -99,7 +101,7 @@
 .ctile.k-person .ct-head { background: var(--sun); }
 /* A little tighter, so that an eleven-letter name fits a tile at 1280 wide. */
 .ctile .ct-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.2px; }
-.ctile .ct-part { display: flex; align-items: center; gap: 3px; min-height: 17px; height: 17px; padding: 0 3px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 11.5px; letter-spacing: -0.01em; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ctile .ct-part { display: flex; align-items: center; gap: 3px; min-height: 15px; height: 15px; padding: 0 3px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 11.5px; letter-spacing: -0.01em; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
 .ctile .ct-part span { overflow: hidden; text-overflow: ellipsis; }
 .ctile .ct-part:hover { background: var(--sky-bg); }
 .ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
@@ -125,6 +127,20 @@
 .cport:hover, .cport:focus-visible { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); outline: none; }
 .cport.on { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); }
 .cport.ro { width: 10px; height: 10px; right: -7px; border-width: 2px; cursor: default; }
+/* The ports on the other three sides of a tile. They show while the tile is pointed at or
+   selected, small and mostly outside it, so that they cover none of its text. */
+.cport.s-l { right: auto; left: -9px; }
+.cport.s-t { right: auto; left: 50%; top: -9px; transform: translateX(-50%); }
+.cport.s-b { right: auto; left: 50%; top: auto; bottom: -9px; transform: translateX(-50%); }
+/* They reach no further into the tile than its outline, and have no wider area for a press: a
+   press on the name or on a part of the tile must never start a line. */
+.cport.more { width: 12px; height: 12px; border-width: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
+.cport.more::after { content: none; }
+.ctile:hover > .cport.more, .ctile.sel > .cport.more, .ctile:focus-visible > .cport.more { opacity: 1; pointer-events: auto; }
+.cport.more:hover { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
+.cgrid.joining .cport.more, .cgrid.placing .cport.more { opacity: 0; pointer-events: none; }
+.cport.ro.s-l { left: -6px; } .cport.ro.s-t { top: -6px; } .cport.ro.s-b { bottom: -6px; }
+.cport.ro.s-r { right: -7px; }
 .cresult-col { display: flex; align-items: center; min-width: 0; }
 .cresult {
   position: relative; z-index: 2; width: 100%; min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -157,7 +173,7 @@
 .cline-drag { fill: none; stroke-width: 3; stroke-dasharray: 7 5; }
 
 /* A small drawing: a reveal, a card on the projector, the host's view of a player. */
-.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 24px; row-gap: 4px; padding: 2px 10px 4px 4px; }
+.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 24px; row-gap: 7px; padding: 2px 10px 4px 4px; }
 .cgrid.compact .chdr { font-size: 9.5px; }
 .cgrid.compact .chdr.stage { font-size: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* A tile's name on a small map takes two lines before it is cut, and has no icon beside it. */
@@ -360,7 +376,7 @@
   .cgrid:not(.compact) .ct-head, .cgrid:not(.compact) .csource, .cgrid:not(.compact) .cresult { font-size: 15px; }
   .cgrid:not(.compact) .ct-part { font-size: 13.5px; height: 22px; min-height: 22px; }
   .cgrid:not(.compact) .ct-note, .cgrid:not(.compact) .ct-body { font-size: 13px; }
-  .cgrid:not(.compact) { column-gap: 44px; row-gap: 8px; }
+  .cgrid:not(.compact) { column-gap: 44px; row-gap: 14px; }
   .toolbox:not(.phone) .tb-l { font-size: 15px; }
   .toolbox:not(.phone) .tb-task, .toolbox:not(.phone) .tb-lock { font-size: 13px; }
   .tbgroup-t { font-size: 19px; }
@@ -414,7 +430,7 @@
 
 /* What stands in a tile that has no boxes of parts: a person's minutes, a tool's task. */
 .ctile .ct-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--muted); padding-top: 1px; }
-.ctile.k-person .ct-body { color: var(--ink); font-size: 12px; }
+.ctile.k-person .ct-body { color: var(--ink); font-size: 12px; line-height: 1.15; }
 .ctile .ct-body.over { color: var(--bad); }
 .cgrid.compact .ct-body { font-size: 9.5px; line-height: 1.2; -webkit-line-clamp: 2; padding-top: 0; }
 /* The mark of the next thing to do: the tile, the box, the result or the sources it is about.
@@ -499,3 +515,35 @@
 @media (min-width: 1280px) {
   .p2toast { left: 12px; right: auto; transform: none; top: 62px; bottom: auto; max-width: 246px; flex-wrap: wrap; gap: 6px 10px; }
 }
+
+/* The heads of the lines, in a layer over the tiles. */
+.cheads { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.chead { fill: none; stroke: none; }
+.chead.faded { opacity: 0.3; }
+
+/* A map of five columns or more (dense). On a laptop of 1280 the two side columns give the map
+   a little of their width, the gaps between its columns are narrower, and a tile shows its name
+   and its parts without their small pictures, so that a name of eleven letters and a part of
+   thirteen stand uncut. From 1440 wide there is room for the pictures again. */
+.p2-top.dense { --act-w: clamp(236px, 18.8vw, 300px); --tool-w: clamp(190px, 15.4vw, 260px); }
+.cgrid.dense:not(.compact) { column-gap: 22px; padding: 4px 12px 8px 6px; grid-template-columns: minmax(104px, 13.5%) repeat(var(--cols), minmax(0, 1fr)) minmax(62px, 8.5%); }
+.cgrid.dense:not(.compact) .ct-body { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }
+.cgrid.dense:not(.compact) .ctile.k-person .ct-body { font-size: 11.5px; }
+@media (max-width: 1439px) {
+  .cgrid.dense:not(.compact) .ct-head > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part { font-size: 11px; letter-spacing: -0.2px; }
+  .cgrid.dense:not(.compact) .ct-name { letter-spacing: -0.3px; }
+  /* A source of a five-column map is narrow: its name stands without the small picture (a locked
+     source keeps its lock), a little tighter, and a word is not broken to fit. */
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) { grid-template-columns: minmax(0, 1fr); }
+  .cgrid.dense:not(.compact) .csource .cs-name { font-size: 13.5px; letter-spacing: -0.3px; hyphens: manual; }
+}
+/* The small maps of the reveal and of the host: narrower gaps, so that five columns keep their names. */
+.cgrid.dense.compact { column-gap: 14px; }
+.p2maps .cgrid.dense { column-gap: 12px; grid-template-columns: minmax(76px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(58px, 10%); }
+.p2pmap .cgrid.dense { min-width: 900px; }
+/* A small map shows the task of a tool on up to four short lines, never cut in the middle of a sentence. */
+.cgrid.compact .ct-body { -webkit-line-clamp: 4; }
+.cgrid.dense:not(.compact) .ct-note { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }

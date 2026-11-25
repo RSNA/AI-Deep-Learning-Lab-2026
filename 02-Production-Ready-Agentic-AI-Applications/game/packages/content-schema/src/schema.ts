@@ -407,8 +407,9 @@ export const BuildFile = W({
     complexity: NonNeg.optional(),
     pool: Id.optional(),
     minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
-    // A tool that prepares its sources for the worker behind it: a gain per kind of effort.
-    prepares: z.record(Id, Unit).optional(),
+    // A tool that prepares its sources for the worker behind it: per kind of effort, the kind
+    // it becomes for that worker and its weight in that worker's load (1 when absent).
+    prepares: z.record(Id, S({ as: Id, load: Unit.optional() })).optional(),
     key: K({}).optional(),
   })).min(1),
   models: z.array(W({

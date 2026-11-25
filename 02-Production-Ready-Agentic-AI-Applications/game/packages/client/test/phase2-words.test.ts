@@ -22,7 +22,7 @@ describe('the minutes of the people', () => {
   })
   it('says what a rushed map did and what it would reach with the time', () => {
     expect(P2.rushedPool('Librarian', 24, 3)).toBe('Librarian: this map needs 24 min per patient and there are 3, so only 1 patient in 8 got a full look. The others passed without one.')
-    expect(P2.unhurried(0.706)).toBe('With the time it asks for, this map would be right for 71% of the patients.')
+    expect(P2.unhurried(0.706)).toBe('With the time it asks for, this map would be right for 70.6% of the patients.')
   })
   it('gives a tool that is plain software no tag', () => {
     expect(P2.kinds.fixed).toBe('')

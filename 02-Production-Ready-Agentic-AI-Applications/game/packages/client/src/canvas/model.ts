@@ -79,9 +79,33 @@ export function mapProblem(m: CanvasMap, v: Vocabulary, unlocked: ReadonlySet<st
     if (l.to === v.result.id) { if (src) return 'source to result'; intoResult++; continue }
     const b = tileOf(m, l.to)
     if (!b) return 'end'
-    if (a && !(a.col < b.col)) return 'backward'
   }
-  return intoResult > 1 ? 'result' : null
+  if (intoResult > 1) return 'result'
+  return hasLoop(m) ? 'loop' : null
+}
+
+/**
+ * Whether the tile `from` can be reached from the tile `to` along the lines between tiles: a
+ * line from `from` to `to` would then close a loop. A tile reaches itself.
+ */
+export function reaches(m: CanvasMap, to: string, from: string): boolean {
+  const tiles = new Set(m.tiles.map((t) => t.id))
+  const seen = new Set<string>()
+  const stack = [to]
+  while (stack.length) {
+    const n = stack.pop()!
+    if (n === from) return true
+    if (seen.has(n)) continue
+    seen.add(n)
+    for (const l of m.lines) if (l.from === n && tiles.has(l.to)) stack.push(l.to)
+  }
+  return false
+}
+
+/** Whether the lines between tiles form a loop. A line may run in any direction, a loop never. */
+export function hasLoop(m: CanvasMap): boolean {
+  const tiles = new Set(m.tiles.map((t) => t.id))
+  return m.lines.some((l) => tiles.has(l.from) && tiles.has(l.to) && reaches(m, l.to, l.from))
 }
 
 // ------------------------------------------------------------------------------------------
@@ -93,15 +117,9 @@ export function placeTile(m: CanvasMap, kind: string, col: number, row: number):
   return { map: { tiles: [...m.tiles, tile], lines: m.lines }, id }
 }
 
-/** Move a tile to an empty cell. Lines that would run backward are removed and counted. */
-export function moveTile(m: CanvasMap, id: string, col: number, row: number): { map: CanvasMap; dropped: number } {
-  const tiles = m.tiles.map((t) => (t.id === id ? { ...t, col, row } : t))
-  const next = { tiles, lines: m.lines }
-  const lines = m.lines.filter((l) => {
-    const a = tileOf(next, l.from), b = tileOf(next, l.to)
-    return !(a && b && !(a.col < b.col))
-  })
-  return { map: { tiles, lines }, dropped: m.lines.length - lines.length }
+/** Move a tile to an empty cell. Its lines go with it: a line may run in any direction. */
+export function moveTile(m: CanvasMap, id: string, col: number, row: number): CanvasMap {
+  return { tiles: m.tiles.map((t) => (t.id === id ? { ...t, col, row } : t)), lines: m.lines }
 }
 
 /** A removed tile takes its lines with it. */
@@ -135,12 +153,19 @@ export function setPart(m: CanvasMap, v: Vocabulary, id: string, part: 'model' |
   }
 }
 
-/** Where a line from this node may go: tiles further right, and the result from a tile. */
+/**
+ * Where a line from this node may go: from a source any tile, from a tile any other tile that
+ * does not already hand its work back to it (that would close a loop), and the result.
+ */
 export function targetsOf(m: CanvasMap, v: Vocabulary, from: string): Set<string> {
   const out = new Set<string>()
   const a = tileOf(m, from)
   if (!a && !isSource(v, from)) return out
-  for (const t of m.tiles) if (!a || t.col > a.col) if (!m.lines.some((l) => l.from === from && l.to === t.id)) out.add(t.id)
+  for (const t of m.tiles) {
+    if (t.id === from || m.lines.some((l) => l.from === from && l.to === t.id)) continue
+    if (a && reaches(m, t.id, from)) continue
+    out.add(t.id)
+  }
   if (a) out.add(v.result.id)
   return out
 }
