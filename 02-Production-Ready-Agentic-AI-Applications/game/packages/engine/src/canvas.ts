@@ -222,21 +222,27 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   }
   const accuracy = sum / total
   let unhurried: number | null = null
+  // The case to show is read from the map as it would work with the time: when people rush, the
+  // note says so, and the example names what the map lacks beyond the minutes.
+  let seenCase = perCase
+  let seenFacts = A.get(sh.signer)!
   if (Object.keys(rush).length) {
-    const calm = solve(sh, t, {}).D.get(sh.signer)!
+    const calm = solve(sh, t, {})
+    const calmCase = calm.D.get(sh.signer)!
     let s0 = 0
-    for (const k of t.cases) s0 += k.weight * calm[k.id]!
+    for (const k of t.cases) s0 += k.weight * calmCase[k.id]!
     unhurried = s0 / total
+    if (t.cases.some((k) => k.weight * (1 - calmCase[k.id]!) > 1e-12)) { seenCase = calmCase; seenFacts = calm.A.get(sh.signer)! }
   }
   const run = running(m, t)
 
   // The case to show: the largest loss that this player has not been shown, pack order on a tie.
   let missed: Missed | null = null
-  const loss = (k: (typeof t.cases)[number]) => k.weight * (1 - perCase[k.id]!)
+  const loss = (k: (typeof t.cases)[number]) => k.weight * (1 - seenCase[k.id]!)
   const ranked = [...t.cases].sort((x, y) => loss(y) - loss(x))
   if (ranked.length && loss(ranked[0]!) > 1e-12) {
     const pick = ranked.find((k) => !shownCases.includes(k.id) && loss(k) > 1e-12) ?? ranked[0]!
-    const a = A.get(sh.signer)!
+    const a = seenFacts
     const gone = pick.needs.filter((f) => a[f]! <= 0)
     if (gone.length) missed = { case: pick.id, reason: 'missing', fact: gone[0]! }
     else {
@@ -245,7 +251,7 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
         have *= a[f]!
         if (a[f]! < low) { low = a[f]!; lowF = f }
       }
-      const dec = have > 0 ? perCase[pick.id]! / have : 0
+      const dec = have > 0 ? seenCase[pick.id]! / have : 0
       missed = lowF !== null && low <= dec ? { case: pick.id, reason: 'weak', fact: lowF } : { case: pick.id, reason: 'decision', fact: null }
     }
   }

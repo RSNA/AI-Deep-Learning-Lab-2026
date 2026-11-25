@@ -114,10 +114,10 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
         onClick={() => { if (lock) { setTold(w.id); return } setTold(null); pop.hide(); onPick(on ? null : w.id) }}>
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
-          <span className="tb-l"><span className="tb-ln">{w.label}</span><span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
+          <span className="tb-l"><span className="tb-ln">{w.label}</span>{lock && !phone && <span className="tb-lk"><Icon name="lock" size={11} /></span>}<span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
           {w.task && <span className="tb-task">{w.task}</span>}
           {phone && details(w)}
-          {lock && lockLine(w)}
+          {lock && phone && lockLine(w)}
           {on && <span className="tb-on">{words.picked}</span>}
           {lock && told === w.id && words.lockedTold && <span className="tb-told" role="status">{words.lockedTold(lockedBy?.[w.id] ?? null)}</span>}
         </span>

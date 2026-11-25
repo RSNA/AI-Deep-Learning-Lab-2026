@@ -105,7 +105,7 @@
 .ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
 .ctile div.ct-part { cursor: default; }
 .ctile .ct-note { font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -11px; z-index: 4; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
+.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -16px; z-index: 4; pointer-events: none; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
 .ctile .ct-parts { font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctile.sel { outline: 3px solid var(--sky); outline-offset: 2px; }
 .ctile:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
@@ -314,7 +314,7 @@
 .vacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vacts .flag { margin-left: 0; font-size: 12px; padding: 4px 10px; }
 .icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
-.icards .stdcard { height: 340px; }
+.icards .stdcard { height: 420px; }
 .icards .card { cursor: default; }
 .h-g-learn { background: var(--sky); } .h-g-build { background: var(--go); } .h-g-buy { background: var(--sun); } .h-g-negotiate { background: var(--lav); }
 .p2toast { display: flex; align-items: center; gap: 12px; bottom: 24px; }
@@ -489,3 +489,12 @@
 .p2-top .colscroll::-webkit-scrollbar-track { background: var(--inset); border-left: 2px solid var(--soft); }
 .p2-top .colscroll::-webkit-scrollbar-thumb { background: var(--lav); border: 2px solid var(--line); }
 .cgrid.compact .csource.is-locked { grid-template-columns: auto minmax(0, 1fr); padding-right: 4px; }
+
+/* A locked row of the toolbox on a laptop: a small lock beside its name. Its card says what opens it. */
+.toolbox .tbrow .tb-lk { display: inline-flex; align-items: center; margin-left: 5px; color: var(--muted); }
+
+/* On a laptop with the three columns, a notice stands at the foot of the left column: it must
+   not cover the line beside Validate, which says what to do next. */
+@media (min-width: 1280px) {
+  .p2toast { left: 16px; right: auto; transform: none; bottom: 18px; max-width: 250px; flex-wrap: wrap; gap: 6px 10px; }
+}

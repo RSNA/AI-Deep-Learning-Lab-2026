@@ -870,7 +870,7 @@ length from `run_of_show` for the rest. When a play stage ends, the engine submi
 player has, computes every score of that phase, the leaderboard and the room statistics, and
 moves to the reveal.
 
-Host commands: `next`, `pause`, `resume`, `extend` (30 or 60 seconds, added to the current timed
+Host commands: `next`, `pause`, `resume`, `extend` (30, 60 or 300 seconds, added to the current timed
 stage, or to the current month in `maintaining.year`), `end_now`, `rename_player`,
 `remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
 not on the engine. The commands of the projector and the deck are in section 6.13. Only the
@@ -3096,6 +3096,41 @@ bars, the share the player's map solved and the share the reference map solves. 
 says that the map, the money and what was unlocked go into Phase 3. On a phone the parts stack in
 the same order.
 
+**After the second play check (version 1.6).** What a player met in play and what the screen
+does now.
+
+- *A card on hover.* A toolbox row, an action row, a chip of a shelf, a source and the result
+  each show a card when pointed at or focused: the full name, the description of the pack, the
+  cost line, what the item needs (a model and a place to run), where a model can run, and for a
+  locked item the action that opens it. A toolbox row itself shows the label and the `task`
+  line, and a locked row a small lock. On a phone, where nothing hovers, a row shows its details
+  in place and a tap on a source or the result opens the card as a sheet.
+- *Three columns from 1280 wide.* Below that the phase uses its four tabs, because three
+  columns cut names between 1024 and 1279.
+- *Words.* A placed thing is a tile, the kinds are operators and tools, and a source holds
+  patient data and evidence. The minutes of a pool read "Radiologist: needs 6 min per patient,
+  has 3", with the label of the pool as the pack gives it.
+- *Every validation stays.* The results list holds every validation, newest first and
+  numbered, each with its accuracy, one case the map got wrong as an example, its note, a
+  button that puts its map back on the canvas (undoable) and the choice of the map to send.
+- *A rushed result explains itself.* When people rushed, the result says how many minutes the
+  map asks of them and how many they have, the share of the cases that got a full look, and
+  from `unhurried` what the map would reach with the time. The line beside Validate says the
+  same before the validation.
+- *A tile with no line out* says so, and falls quiet the moment it hands on to any tile. What
+  the whole map still lacks stays beside Validate.
+- *The same map twice.* Validate on a map equal to one already validated asks first, because
+  the accuracy will be the same and a validation is spent.
+- *Clear map*, beside Undo and Redo, with a question, undoable.
+- *A word on money* once, after the fourth action a player starts, and one line in the tour.
+- *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
+  a longer text is cut with "Show more".
+- *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
+  result is waiting when the person who signs opens the case.
+- *Validate waits for the saved draft*, so a press right after an edit is not refused.
+- *A notice* (a validation is done, an insight has arrived) stands at the foot of the left
+  column on a laptop and above the tab bar on a phone, never over the line beside Validate.
+
 ### 10.6 Phase 3 screens (outline)
 
 - **Setup.** The player's own map from Phase 2, with the choice to take the reference map in its
@@ -3188,7 +3223,7 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Area | Holds |
 | --- | --- |
 | Session bar | Label, session code, mode, the name of the stage, the clock, players and connections per health system, a badge when the game speed is not 1×, who is in charge by name ("You are in charge", "Maya is in charge"), and for everyone else the button "Take charge". Every box and button in it is 36 px high |
-| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, End now. Five buttons of one height in four equal columns, Next in the go color. An ended session shows none of them |
+| Stage controls | Next (labelled with the stage it leads to), Pause or Resume, +30 s, +60 s, +5 min, End now. Buttons of one height that wrap on a narrow window, Next in the go color. An ended session shows none of them |
 | Schedule | The run of show against real time, and how far ahead or behind the session is. The stage `intro` is named "Intro slides" |
 | Players | A list that can be filtered by health system: character, name, system, connected, status, time since the last command, total, and the points per phase once two phases have opened. A click on the name opens the player beside the key (below). Per row, behind one menu button: look at this player, spotlight, rename, remove, rejoin code. The filter says "Everyone", then one chip per health system |
 | Projector | See below |

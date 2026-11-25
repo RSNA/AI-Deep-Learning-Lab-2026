@@ -13337,7 +13337,7 @@
       },
       "missed": {
        "case": "k3",
-       "fact": "fc",
+       "fact": "fd",
        "reason": "weak"
       },
       "note": "rushed",
@@ -13543,7 +13543,7 @@
       },
       "missed": {
        "case": "k3",
-       "fact": "fa",
+       "fact": "fc",
        "reason": "weak"
       },
       "note": "rushed",
@@ -14310,7 +14310,7 @@
       },
       "missed": {
        "case": "k3",
-       "fact": "fc",
+       "fact": "fd",
        "reason": "weak"
       },
       "note": "rushed",
