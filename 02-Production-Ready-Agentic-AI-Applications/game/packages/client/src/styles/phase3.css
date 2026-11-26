@@ -146,7 +146,9 @@
 .p3ref-t p { font-size: 15px; line-height: 1.45; margin: 2px 0 0; }
 .p3ref-map .cgrid { height: 330px; min-width: 620px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
 /* In the small map of the dialog a tile has room for its name and three short lines: each part stays on one line. */
-.p3ref-map .cgrid.compact .ct-mini { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; line-height: 1.12; font-size: 9px; }
+.p3ref-map .cgrid.compact .ct-mini { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; line-height: 1; font-size: 8.6px; }
+.p3ref-map .cgrid.compact .ctile { padding-bottom: 0; }
+.p3ref-map .cgrid.compact .ct-head { padding-top: 0; padding-bottom: 0; line-height: 1.15; }
 
 /* ---------------------------------------------------------------- reveal */
 .p3spent .kv { font-size: 13.5px; color: var(--muted); }
