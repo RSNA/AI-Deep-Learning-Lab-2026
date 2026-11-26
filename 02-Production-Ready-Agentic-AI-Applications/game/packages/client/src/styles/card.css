@@ -1,0 +1,69 @@
+/* The report card (engineering spec, section 10.7), on the screen and on paper. */
+.rcard { width: 100%; }
+.rc-body { gap: 14px; }
+.rc-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rc-who { min-width: 0; flex: 1 1 160px; }
+.rc-name { font-weight: 800; font-size: 20px; overflow-wrap: anywhere; }
+.rc-where { font-size: 14px; }
+.rc-total { margin-left: auto; text-align: right; }
+.rc-big { font-size: 44px; line-height: 1; }
+.rc-max { font-size: 0.5em; color: var(--muted); }
+.rc-rank { font-size: 14px; font-weight: 700; }
+.rc-rank b { font-size: 20px; font-weight: 400; }
+.rc-line { font-size: 14px; }
+.rc-phases { display: flex; flex-direction: column; gap: 10px; }
+.rc-phase { border: 3px solid var(--line); background: var(--inset); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.rc-phase-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rc-phase-head h3 { font-size: 16px; margin: 0; flex: 1 1 auto; min-width: 0; }
+.rc-band { font-size: 13px; }
+.rc-pts { font-size: 28px; line-height: 1; white-space: nowrap; margin-left: auto; }
+.rc-head .sub { color: var(--on); opacity: 0.7; }
+.rc-top3 { display: flex; flex-direction: column; gap: 4px; }
+.rc-facts .kv:last-child { border-bottom: 0; }
+.rc-facts .kv { font-size: 14px; }
+.rc-periods { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rc-periods th, .rc-periods td { text-align: right; padding: 2px 6px; border-bottom: 2px solid var(--soft); }
+.rc-periods th[scope='row'], .rc-periods thead th:first-child { text-align: left; }
+.rc-periods thead th { font-size: 12px; color: var(--muted); }
+.rc-periods td.num { font-size: 16px; }
+.rc-notes h3 { font-size: 14px; margin: 0 0 4px; }
+.rc-notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.rc-src { font-size: 12px; }
+.rc-closing { font-weight: 800; font-size: 16px; }
+.rc-foot { font-size: 11px; }
+.rc-linkrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-link { font-weight: 800; font-size: 16px; color: var(--ink); overflow-wrap: anywhere; }
+.rc-kept { display: flex; flex-direction: column; gap: 8px; }
+.rc-kept button { justify-content: flex-start; text-align: left; height: auto; min-height: 44px; padding: 6px 10px; }
+
+/* The copy for the printer: outside the application, never on a screen. */
+.printroot { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff !important; height: auto !important; }
+  #root { display: none !important; }
+  .printroot {
+    display: block;
+    /* Paper is light whatever the theme of the screen. */
+    --bg: #ffffff; --panel: #ffffff; --inset: #f4f5fb; --ink: #1d2140; --muted: #4a5068; --line: #2b2d4f;
+    --soft: #c9cdea; --shade: transparent; --sun: #ffd98a; --sun-bg: #fff0cf; --on: #1d2140;
+    color: var(--ink);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .rcard.paper { border: 3px solid var(--line); box-shadow: none; max-width: 180mm; margin: 0 auto; background: #fff; }
+  .rcard.paper .panel-head { border-bottom: 3px solid var(--line); }
+  .rcard.paper .rc-phase { break-inside: avoid; }
+  .rcard.paper .rc-notes { break-inside: avoid; }
+  .rcard.paper .chip { box-shadow: none; }
+  /* A card with three scored phases and the year of Phase 3 fits one page of A4 and of Letter. */
+  .rcard.paper { zoom: 0.86; }
+  .rcard.paper .rc-body { gap: 9px; padding: 10px 12px; }
+  .rcard.paper .rc-phases { gap: 7px; }
+  .rcard.paper .rc-phase { padding: 5px 9px; gap: 3px; }
+  .rcard.paper .rc-facts .kv { padding: 1px 0; font-size: 13px; }
+  .rcard.paper .rc-facts .kv .v { font-size: 16px; }
+  .rcard.paper .rc-periods th, .rcard.paper .rc-periods td { padding: 0 6px; }
+  .rcard.paper .rc-periods td.num { font-size: 15px; }
+  .rcard.paper .rc-notes ul { gap: 1px; font-size: 13px; }
+  .rcard.paper .rc-closing { font-size: 14px; }
+}

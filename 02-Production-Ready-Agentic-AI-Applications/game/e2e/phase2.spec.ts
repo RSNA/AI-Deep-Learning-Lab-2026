@@ -12,7 +12,7 @@ const PASS = 'e2e-passcode-0123'
 async function setup(page: Page, label: string, scale = 1) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
   const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
-  const base = new URL('http://127.0.0.1:3200')
+  const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
     ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token, build: 'bot', session: code, name: 'Test bot', console: 'bot' })))
@@ -169,7 +169,9 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
 
   // The reveal: the letter, the score, both maps, every case.
   await s.host('end_now')
-  await expect(page.getByText('The reference map')).toBeVisible()
+  // The demo pack has three reference maps: one tab each, the first shown.
+  await expect(page.locator('.p2maps .panel-head.go')).toContainText('Reference maps')
+  await expect(page.locator('.refseg button')).toHaveCount(3)
   await expect(page.locator('.p2maps .cgrid')).toHaveCount(2)
   await expect(page.locator('.rcase')).toHaveCount(5)
   await expect(page.locator('.score')).toContainText('Phase 2 points')

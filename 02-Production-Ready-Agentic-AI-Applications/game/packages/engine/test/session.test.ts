@@ -71,13 +71,12 @@ describe('session and stages', () => {
     expect(s.stage).toBe('planning.reveal')
   })
 
-  it('runs the setup and the year of Phase 3 on their own timers', () => {
+  it('runs the year of Phase 3 on its own timer, one round after the other', () => {
     const s = newSession()
-    toStage(s, 'maintaining.setup')
+    toStage(s, 'maintaining.year')
     const m = pack.game.phases.maintaining
-    advance(s, pack, s.stageEndsAtMs!)
     expect(s.stage).toBe('maintaining.year')
-    expect(s.stageEndsAtMs! - s.stageStartedMs).toBe(m.months * m.month_seconds * 1000)
+    expect(s.stageEndsAtMs! - s.stageStartedMs).toBe(m.rounds * m.round_seconds * 1000)
     advance(s, pack, s.stageEndsAtMs!)
     expect(s.stage).toBe('maintaining.reveal')
   })
@@ -242,10 +241,10 @@ describe('joining', () => {
   it('closes joining after open_until', () => {
     const s = newSession()
     toStage(s, 'maintaining.year')
-    const month = pack.game.phases.maintaining.month_seconds * 1000
-    const until = pack.game.join.late_join.open_until.month!
-    expect(join(s, 'x', 'Still In Time', s.stageStartedMs + (until - 1) * month + 10).ok).toBe(true)
-    const r = join(s, 'y', 'Too Late Now', s.stageStartedMs + until * month + 10)
+    const round = pack.game.phases.maintaining.round_seconds * 1000
+    const until = pack.game.join.late_join.open_until.round!
+    expect(join(s, 'x', 'Still In Time', s.stageStartedMs + (until - 1) * round + 10).ok).toBe(true)
+    const r = join(s, 'y', 'Too Late Now', s.stageStartedMs + until * round + 10)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toBe('join_closed')
   })

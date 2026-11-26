@@ -3,10 +3,10 @@
 // The scan fails if a protected string of the pack appears before its moment.
 // `npm run test:leak` runs it on the pack in CONTENT_DIR (with SYSTEMS if set).
 import { describe, expect, it } from 'vitest'
-import { loadPack, perPlayerTexts, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
+import { loadPack, maintainTexts, perPlayerTexts, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
 import { STAGES, type StageId } from '@lab02/protocol'
 import { deckSlides, shownScene, slidesMirrored } from '@lab02/engine'
-import { DEMO, attach, hostConn, hostToken, joinBot, playDevelopment, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
+import { DEMO, attach, hostConn, hostToken, joinBot, playDevelopment, playMaintaining, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
 import type { Room } from '../src/room.ts'
 
 /** Every text of a tile, with the interview lines apart (they may arrive one by one before the tile). */
@@ -69,10 +69,13 @@ function devForbiddenFor(room: Room, pack: Pack, playerId: string): string[] {
   if (!p) return []
   const t = perPlayerTexts(pack, p.system)
   const st = p.development
+  const mt = p.maintaining
   const revealed = room.state.closedPhases.includes('development')
   const allowed = new Set<string>()
   const b = pack.systems[p.system]?.build
-  for (const v of st?.validations ?? []) {
+  // In Phase 3 a case and a note also come with a validation of the year and with a report.
+  const shown = [...(st?.validations ?? []), ...(mt?.validations ?? []), ...(mt?.reports ?? [])]
+  for (const v of shown) {
     if (v.missed) {
       const k = b?.cases.find((x) => x.id === v.missed!.case)
       if (k) { allowed.add(k.public.title); allowed.add(k.public.text) }
@@ -84,12 +87,55 @@ function devForbiddenFor(room: Room, pack: Pack, playerId: string): string[] {
     if (v.note && t.notes[v.note]) allowed.add(t.notes[v.note]!)
   }
   if (revealed) for (const k of b?.cases ?? []) { allowed.add(k.public.title); allowed.add(k.public.text) }
-  for (const d of st?.actionsDone ?? []) for (const x of t.insights[d.id] ?? []) allowed.add(x)
+  for (const d of [...(st?.actionsDone ?? []), ...(mt?.actionsDone ?? [])]) for (const x of t.insights[d.id] ?? []) allowed.add(x)
   const out: string[] = []
   for (const list of [...Object.values(t.cases), ...Object.values(t.facts), Object.values(t.notes), ...Object.values(t.insights)]) {
     for (const x of list) if (x.length >= 12 && !allowed.has(x)) out.push(x)
   }
   return out
+}
+
+/**
+ * Phase 3 texts that must not have reached this player yet: a news item before its round, the
+ * symptom of an event that never acted on them, its cause without the lens it asks for, its
+ * alarm before it was said, and the sentence of an incident that was not the worst part of one
+ * of their reports. The sentences of a report belong to Phase 3 as a whole.
+ */
+function maintainForbiddenFor(room: Room, pack: Pack, playerId: string): string[] {
+  const p = room.state.players[playerId]
+  if (!p) return []
+  const t = maintainTexts(pack, p.system)
+  const m = pack.systems[p.system]?.maintain
+  const st = p.maintaining
+  if (!m) return []
+  const allowed = new Set<string>()
+  for (const [id, n] of Object.entries(t.news)) if (st && n.round <= st.roundsOpened && p.inbox.some((x) => x.id === `news:${id}`)) n.texts.forEach((x) => allowed.add(x))
+  for (const r of st?.reports ?? []) {
+    const held = (lens: string) => (m.lenses[lens as keyof typeof m.lenses] ?? []).some((a) => st!.actionsDone.some((d) => d.id === a && d.done < r.period))
+    const worst = r.worstPart === null ? undefined : r.components[r.worstPart]
+    for (const id of new Set([r.worstEvent, worst?.event ?? null])) {
+      const e = id ? t.events[id] : undefined
+      if (e?.symptom) allowed.add(e.symptom)
+    }
+    const cause = r.worstEvent ? t.events[r.worstEvent]?.cause : null
+    if (cause && held(cause.lens)) allowed.add(cause.text)
+    if (worst && worst.event === null) {
+      const inc = m.incidents
+      const text = worst.part === 'worker' ? inc.workers[worst.id ?? ''] ?? inc.default_worker
+        : worst.part === 'source' ? inc.sources[worst.id ?? '']
+          : worst.part === 'compute' ? inc.compute[worst.id ?? '']
+            : worst.part === 'handoff' ? inc.handoff : worst.part === 'new_map' ? inc.new_map : undefined
+      if (text) allowed.add(text)
+    }
+  }
+  for (const [id, e] of Object.entries(t.events)) if (e.alarm && p.inbox.some((x) => x.id === `news:alarm:${id}`)) allowed.add(e.alarm)
+  if (st) t.report.forEach((x) => allowed.add(x))
+  const all = [
+    ...Object.values(t.news).flatMap((n) => n.texts),
+    ...Object.values(t.events).flatMap((e) => [e.symptom, e.cause?.text, e.alarm]).filter((x): x is string => typeof x === 'string'),
+    ...t.incidents, ...t.report,
+  ]
+  return all.filter((x) => !allowed.has(x))
 }
 
 const usePrivate = process.env.LEAK_PACK === '1'
@@ -121,6 +167,8 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       let tilesSeen = 0
       let devSeen = 0
       const devLeaks: string[] = []
+      let yearSeen = 0
+      const yearLeaks: string[] = []
       const token = await hostToken(srv.url)
       const host = hostConn(srv.ws, token, code)
       await until(() => host.status === 'open')
@@ -140,9 +188,14 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           for (const x of devForbiddenFor(room, loaded.pack, b.playerId)) {
             if (text.includes(JSON.stringify(x).slice(1, -1))) { devLeaks.push(`a Phase 2 text reached ${b.playerId} during ${room.state.stage} before it was theirs: ${x.slice(0, 24)}`); break }
           }
+          if (text.includes('"maintaining":{') || text.includes('"phase":"maintaining"')) yearSeen++
+          for (const x of maintainForbiddenFor(room, loaded.pack, b.playerId)) {
+            if (text.includes(JSON.stringify(x).slice(1, -1))) { yearLeaks.push(`a Phase 3 text reached ${b.playerId} during ${room.state.stage} before it was theirs: ${x.slice(0, 24)}`); break }
+          }
         })
         playPlanning(b, srv.url, i + 7)
         playDevelopment(b, srv.url)
+        playMaintaining(b, srv.url, i % 2 === 0)
         bots.push(b)
       }
       const scrLink = await fetch(`${srv.url}/api/host/screen-link`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ code }) })
@@ -187,9 +240,16 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           await new Promise((r) => setTimeout(r, 300))
           expect((await host.command('screen_scene', { scene: 'auto' })).ok).toBe(true)
         }
-        // Phases 1 and 2 run on their own clock, so the bots earn their tiles, actions and
-        // validations. Phase 3 is a stub.
-        if (before !== 'planning.play' && before !== 'development.play' && (room.state.stageEndsAtMs === null || before.endsWith('.play') || before.startsWith('maintaining.'))) await step(srv.app, host, code)
+        // The three phases run on their own clock, so the bots earn their tiles, actions,
+        // validations and reports.
+        // A bot that played Phase 2 at this speed is at the limit of commands a connection may
+        // send in five seconds. The year starts when that window has passed, and runs a little
+        // slower, so that a bot has the time to take a map and to act on a report.
+        if (before === 'break.development') {
+          await new Promise((r) => setTimeout(r, 5200))
+          await host.command('set_scale', { scale: 20 })
+        }
+        if (room.state.stageEndsAtMs === null) await step(srv.app, host, code)
         await until(() => room.state.stage !== before, 40_000, `leaving ${before}`)
       }
       clearInterval(watchSlides)
@@ -247,10 +307,22 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         // The bots validated, so cases and notes did reach their own players.
         expect(Object.values(room.state.players).some((p) => (p.development?.validations.length ?? 0) > 0)).toBe(true)
       }
+      expect(yearLeaks).toEqual([])
+      if (loaded.pack.phasesAvailable.maintaining) {
+        expect(yearSeen).toBeGreaterThan(0)
+        // The bots ran the year: every one holds every report, and some took a reference map.
+        const year = Object.values(room.state.players).map((p) => p.maintaining)
+        expect(year.every((m) => m && m.reports.length === loaded.pack.systems[loaded.pack.systemIds[0]!]!.maintain!.periods.length)).toBe(true)
+        expect(year.some((m) => (m?.adopted.length ?? 0) > 0)).toBe(true)
+      }
+      // No event, risk or patch of the year reaches anyone at any time, and no lesson before the reveal.
+      const fields3 = ['"repaired_by"', '"patches"', '"risks"', '"needs":', '"coach"', '"components"', '"worstEvent"', '"validityLoss"', '"reliabilityLoss"', '"perCase"']
+      const early3 = records.filter((r) => idx(r.stage) < idx('maintaining.reveal') && idx(r.stage) > idx('development.reveal'))
+      expect(fields3.filter((f) => early3.some((r) => r.text.includes(f)))).toEqual([])
       expect(leaks).toEqual([])
     } finally {
       await srv.app.close()
       srv.cleanup()
     }
-  }, 120_000)
+  }, 180_000)
 })

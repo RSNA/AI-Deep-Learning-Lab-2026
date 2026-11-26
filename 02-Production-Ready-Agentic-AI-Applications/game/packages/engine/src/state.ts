@@ -69,6 +69,105 @@ export type DevelopmentState = {
   result: DevelopmentResult | null
 }
 
+/** An action that finished. `started` and `done`: the reports the player held then (0 for an action of Phase 2). */
+export type MaintainingAction = { id: string; atMs: GameMs; started: number; done: number }
+
+/** One map of the list of Phase 3: a validation of Phase 2 or 3, or a reference map that was taken. */
+export type MaintainingValidation = {
+  id: string
+  atMs: GameMs
+  map: CanvasMap
+  accuracy: number
+  unhurried: number | null
+  missed: Missed | null
+  note: NoteId | null
+  running: Running
+  origin: 'phase2' | 'phase3' | 'reference'
+  /** The id of the reference map it is, or null. */
+  reference: string | null
+  /** Scored on the cases of the period in progress (the lens `fresh_test_set`), not on the test set. */
+  fresh: boolean
+  /** The reliability the map would have had if deployed then (the lens `dry_run`), or null. */
+  reliability: number | null
+}
+
+/** One part of a deployed map that can fail in a period, with its risk (section 6.7). */
+export type RiskEntry = {
+  part: 'worker' | 'source' | 'handoff' | 'compute' | 'new_map' | 'event'
+  id: string | null
+  tile?: string
+  line?: [string, string]
+  risk: number
+  /** The event that adds this risk, or null for the part's own. */
+  event: string | null
+}
+
+/** What an event that acted in a period cost the player. */
+export type EventLoss = { id: string; validityLoss: number; reliabilityLoss: number; costLoss: number; fine: number; impact: number; hit: boolean }
+
+/** The scoring of one period for one deployed map, or for no map (section 6.7). */
+export type PeriodScore = {
+  noMap: boolean
+  validity: number
+  test: number
+  reliability: number
+  interruptions: number
+  off: number
+  poolTiles: number
+  hurry: number
+  value: number
+  runCost: number
+  fine: number
+  components: RiskEntry[]
+  worstPart: number | null
+  events: EventLoss[]
+  worstEvent: string | null
+  perCase: Record<string, number>
+  missed: Missed | null
+  note: NoteId | null
+}
+
+/** The report of one period, as stored. `paid`: the money of actions and reference maps up to then. */
+export type MaintainingReport = PeriodScore & {
+  period: number
+  atMs: GameMs
+  /** The validation that ran, or null for no map. */
+  map: string | null
+  paid: number
+  /** Everything spent up to and with this report, and the score of the year after it. */
+  spent: number
+  score: number
+}
+
+export type MaintainingResult = { raw: number; score: number; mean: number; spent: number }
+
+export type MaintainingState = {
+  money: number
+  /** The money of the actions of Phase 2, of Phase 3, and of what the reference maps taken needed. */
+  paidPhase2: number
+  paidActions: number
+  paidAdoption: number
+  /** Every action that finished, those of Phase 2 first (`started` and `done` at 0). */
+  actionsDone: MaintainingAction[]
+  actionsRunning: { id: string; startedAtMs: GameMs; completesAtMs: GameMs; started: number }[]
+  /** The draft. */
+  map: CanvasMap
+  validating: { id: string; startedAtMs: GameMs; completesAtMs: GameMs; map: CanvasMap } | null
+  validations: MaintainingValidation[]
+  shownCases: string[]
+  shownNotes: string[]
+  /** The validation that runs in the period in progress, or null for no map. */
+  deployed: string | null
+  /** Ids of the reference maps taken. */
+  adopted: string[]
+  reports: MaintainingReport[]
+  /** When the deployed map was last changed by the player in this phase, or null. */
+  deployedAtMs: GameMs | null
+  /** The rounds whose grants and news this player has: 1 up to this number. */
+  roundsOpened: number
+  result: MaintainingResult | null
+}
+
 export type PlayerState = {
   id: PlayerId
   name: string
@@ -87,7 +186,7 @@ export type PlayerState = {
   results: Record<PhaseId, PhaseResult | null>
   planning: PlanningState | null
   development: DevelopmentState | null
-  maintaining: null
+  maintaining: MaintainingState | null
   inbox: InboxItem[]
   /** Dialogue lines that have fired for this player (each fires once). */
   said: string[]
@@ -158,9 +257,12 @@ export type MomentRef =
   | { type: 'letter'; phase: PhaseId }
   | { type: 'insight'; action: string }
   | { type: 'validated'; id: string }
+  | { type: 'report'; period: number }
+  | { type: 'news'; id: string }
+  | { type: 'announcement'; from: string; text: string }
 
 /** One line of the room's activity for the projector. `text` is public wording from the pack. */
-export type FeedEntry = { kind: 'started' | 'finished' | 'sent' | 'validated'; text: string | null; atMs: GameMs }
+export type FeedEntry = { kind: 'started' | 'finished' | 'sent' | 'validated' | 'deployed'; text: string | null; atMs: GameMs }
 /** What the projector may say about one practice during play: counts and what runs, and in Phase 2 its map. */
 export type PlayerCard = { now: string[]; facts: { label: string; value: string }[]; map?: CanvasMap | null }
 

@@ -11,7 +11,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { loadPack, type Pack } from '@lab02/content-schema'
 import { canPickSystem, joinOpen, project } from '@lab02/engine'
 import {
-  CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, normalizeCode,
+  CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, ReportCard, ResultBody, normalizeCode,
   type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
 import { CreateSessionBody, HostCmdEnvelope, HostDeck, type SessionSummary } from '@lab02/protocol/host'
@@ -155,6 +155,33 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: room.code }
   })
 
+  // A player's report card, during the game once a phase is scored and for as long as the
+  // session is kept (section 7.2). The session is named by its code or its label, the practice
+  // by its rejoin code. A wrong session and a wrong code get the same answer.
+  const resultLimit = minuteLimiter(60, config.wallNow)
+  fastify.post('/api/result', async (req, reply) => {
+    const body = ResultBody.safeParse(req.body)
+    if (!body.success) return bad(reply, 400, 'bad_message')
+    if (!resultLimit()) return bad(reply, 429, 'rate_limited')
+    const rejoin = normalizeCode(body.data.rejoinCode)
+    for (const row of db.sessionsNamed(normalizeCode(body.data.session), body.data.session)) {
+      const auth = rejoin ? db.authByRejoin(row.code, rejoin) : undefined
+      if (!auth?.player_id) continue
+      const room = manager.get(row.code)
+      // A session in memory answers from its state, so a card is never older than the game.
+      const stored = room ? null : db.result(row.code, auth.player_id)
+      let card: unknown = room ? room.reportCard(auth.player_id) : null
+      if (stored) { try { card = JSON.parse(stored) } catch { card = null } }
+      const checked = ReportCard.safeParse(card)
+      if (card && !checked.success) log.error('report card refused by its schema', { code: row.code, issue: checked.error.issues[0]?.path.join('.') })
+      if (checked.success) {
+        reply.header('cache-control', 'no-store')
+        return { card: checked.data }
+      }
+    }
+    return bad(reply, 404, 'not_found')
+  })
+
   const bearer = (req: FastifyRequest) => {
     const h = req.headers.authorization
     return h && h.startsWith('Bearer ') ? h.slice(7).trim() : null
@@ -170,8 +197,9 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const p = room.state.players[row.player_id]
     if (!p || p.removed) return bad(reply, 403, 'removed')
     if (!room.state.opened.includes(phase)) return bad(reply, 403, 'not_open')
-    if (phase === 'maintaining') return bad(reply, 404, 'not_available')
-    const content = phase === 'planning' ? project.planningContent(room.state, pack, row.player_id) : project.developmentContent(room.state, pack, row.player_id)
+    const content = phase === 'planning' ? project.planningContent(room.state, pack, row.player_id)
+      : phase === 'development' ? project.developmentContent(room.state, pack, row.player_id)
+        : project.maintainingContent(room.state, pack, row.player_id)
     const checked = PhaseContent.safeParse(content)
     if (!checked.success) {
       log.error('content refused by its schema', { phase, issue: checked.error.issues[0]?.path.join('.') })
@@ -365,7 +393,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (room) return reply.redirect(`/j/${room.code}`)
     return sendIndex(reply)
   })
-  for (const route of ['/j/:code', '/play', '/host', '/host/manual', '/screen', '/rejoin']) fastify.get(route, async (_req, reply) => sendIndex(reply))
+  for (const route of ['/j/:code', '/play', '/host', '/host/manual', '/screen', '/rejoin', '/result', '/result/:code']) fastify.get(route, async (_req, reply) => sendIndex(reply))
 
   // The key page keeps its own scripts, so it gets a looser policy than the game.
   fastify.addHook('onSend', async (_req, reply, payload) => {

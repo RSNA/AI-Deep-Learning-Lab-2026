@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Browser tests on the demo pack (engineering spec, section 12.6). Mac only.
-const PORT = 3200
+// Another port by `E2E_PORT`, so that two checkouts can run their browser tests at the same time.
+const PORT = Number(process.env.E2E_PORT ?? 3200)
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,

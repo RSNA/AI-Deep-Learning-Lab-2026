@@ -87,7 +87,11 @@ function Leaderboard({ v }: { v: ScreenView }) {
       </div>
       {v.activity && (
         <div style={{ fontSize: 26, fontWeight: 800 }} className="muted">
-          {`${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} insights found · ${v.activity.sent} assessment${v.activity.sent === 1 ? '' : 's'} sent`}
+          {v.stage === 'maintaining.year'
+            ? `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} action${v.activity.insights === 1 ? '' : 's'} done · ${v.activity.sent} deployed a map`
+            : v.stage === 'development.play'
+              ? `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} action${v.activity.insights === 1 ? '' : 's'} done · ${v.activity.sent} validated a map`
+              : `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} insights found · ${v.activity.sent} assessment${v.activity.sent === 1 ? '' : 's'} sent`}
         </div>
       )}
       {/* The health systems against each other. One health system is one ranking, the one above. */}
@@ -101,8 +105,8 @@ function Leaderboard({ v }: { v: ScreenView }) {
   )
 }
 
-const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment', validated: 'validated a map' } as const
-const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)', validated: 'var(--sky)' } as const
+const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment', validated: 'validated a map', deployed: 'deployed a map' } as const
+const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)', validated: 'var(--sky)', deployed: 'var(--go)' } as const
 
 /** The room at work: what practices just started, finished or sent. Never what they learned. */
 function Feed({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
@@ -111,10 +115,13 @@ function Feed({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
   const a = v.activity
   // Phase 2 counts actions done and practices that validated a map (section 6.13).
   const dev = v.stage === 'development.play'
+  // Phase 3 counts the actions of the year and the practices that put a map in service (section 6.13).
+  const year = v.stage === 'maintaining.year'
   const stats = a ? [
     { n: `${a.acted} of ${a.players}`, l: a.players === 1 ? 'practice at work' : 'practices at work' },
-    dev ? { n: String(a.insights), l: a.insights === 1 ? 'action done' : 'actions done' } : { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
-    dev ? { n: String(a.sent), l: a.sent === 1 ? 'practice validated a map' : 'practices validated a map' } : { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
+    dev || year ? { n: String(a.insights), l: a.insights === 1 ? 'action done' : 'actions done' } : { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
+    year ? { n: String(a.sent), l: a.sent === 1 ? 'practice deployed a map' : 'practices deployed a map' }
+      : dev ? { n: String(a.sent), l: a.sent === 1 ? 'practice validated a map' : 'practices validated a map' } : { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
   ] : []
   return (
     <div style={{ flexGrow: 1, minHeight: 0, padding: '24px 32px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1fr)', gap: 24 }}>
@@ -201,7 +208,7 @@ function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
             <div className="muted" style={{ fontSize: 20, fontWeight: 800 }}>Working on now</div>
             {c.now.length
               ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 26, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
-              : <div style={{ fontSize: 26, fontWeight: 700 }}>Building the map</div>}
+              : <div style={{ fontSize: 26, fontWeight: 700 }}>{v.stage === 'maintaining.year' ? 'Keeping the system running' : 'Building the map'}</div>}
           </div>
           {c.facts.map((f) => (
             <div key={f.label} className="panel" style={{ borderWidth: 4, padding: '8px 18px', boxShadow: '6px 6px 0 var(--shade)' }}>

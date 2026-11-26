@@ -18,9 +18,14 @@ const num = (x: number) => (Number.isInteger(x) ? String(x) : x.toLocaleString('
  * The reasons Validate cannot act now, in the order a player would fix them: a validation that
  * runs, none left, then the map from its first tile to the minutes of its people.
  */
-export function guideOf(dv: DevelopmentView, c: DevelopmentContent, map: CanvasMap, nameOf: (id: string) => string): Guide {
+export function guideOf(
+  dv: Pick<DevelopmentView, 'validating' | 'validationsLeft' | 'unlocked' | 'ready' | 'flags' | 'rushed'>,
+  c: Pick<DevelopmentContent, 'sources' | 'result' | 'rules'>, map: CanvasMap, nameOf: (id: string) => string,
+  /** What to say when no validation is left: the phase knows what still counts then. */
+  noneLeft: string = P2.why.noneLeft,
+): Guide {
   if (dv.validating) return { first: { text: P2.why.running, nodes: [] }, others: 0, ready: false, warn: null }
-  if (dv.validationsLeft <= 0) return { first: { text: P2.why.noneLeft, nodes: [] }, others: 0, ready: false, warn: null }
+  if (dv.validationsLeft <= 0) return { first: { text: noneLeft, nodes: [] }, others: 0, ready: false, warn: null }
   const out: GuideItem[] = []
   const open = new Set(dv.unlocked)
   const sources = c.sources.filter((s) => open.has(s.id)).map((s) => s.id)

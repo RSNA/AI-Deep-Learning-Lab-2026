@@ -143,7 +143,6 @@ export const STAGE_TITLE: Record<StageId, string> = {
   'development.play': 'Phase 2',
   'development.reveal': 'Phase 2 results',
   'break.development': 'Break',
-  'maintaining.setup': 'Phase 3 setup',
   'maintaining.year': 'Phase 3',
   'maintaining.reveal': 'Phase 3 results',
   'break.maintaining': 'Break',

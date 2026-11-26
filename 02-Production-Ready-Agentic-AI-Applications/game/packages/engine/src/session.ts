@@ -30,8 +30,7 @@ export function stageLengthMs(pack: Pack, stage: StageId): number | null {
   switch (stage) {
     case 'planning.play': return ph.planning.play_seconds * 1000
     case 'development.play': return ph.development.play_seconds * 1000
-    case 'maintaining.setup': return ph.maintaining.setup_seconds * 1000
-    case 'maintaining.year': return ph.maintaining.months * ph.maintaining.month_seconds * 1000
+    case 'maintaining.year': return ph.maintaining.rounds * ph.maintaining.round_seconds * 1000
     default: return null
   }
 }
@@ -41,7 +40,7 @@ export const SEGMENT_OF_STAGE: Partial<Record<StageId, string>> = {
   'lobby': 'join', 'intro': 'intro_slides',
   'planning.play': 'planning', 'planning.reveal': 'planning', 'break.planning': 'help_slides_1',
   'development.play': 'development', 'development.reveal': 'development', 'break.development': 'help_slides_2',
-  'maintaining.setup': 'maintaining', 'maintaining.year': 'maintaining', 'maintaining.reveal': 'maintaining',
+  'maintaining.year': 'maintaining', 'maintaining.reveal': 'maintaining',
   'break.maintaining': 'help_slides_3', 'reflection': 'reflection', 'winners': 'winners',
 }
 
@@ -57,16 +56,20 @@ export function guideLengthMs(pack: Pack, stage: StageId): number | null {
 }
 
 const FIRST_STAGE: Record<PhaseId, StageId> = {
-  planning: 'planning.play', development: 'development.play', maintaining: 'maintaining.setup',
+  planning: 'planning.play', development: 'development.play', maintaining: 'maintaining.year',
 }
 const CLOSING_STAGE: Record<PhaseId, StageId> = {
   planning: 'planning.reveal', development: 'development.reveal', maintaining: 'maintaining.reveal',
 }
 
-export function currentMonth(s: SessionState, pack: Pack, now: GameMs): number | null {
-  if (s.stage !== 'maintaining.year') return null
-  const L = pack.game.phases.maintaining.month_seconds * 1000
-  return Math.min(pack.game.phases.maintaining.months, Math.floor((now - s.stageStartedMs) / L) + 1)
+/** The round of Phase 3 in progress, 1 to `rounds`, or null outside its play stage (section 6.7). */
+export function currentRound(s: SessionState, pack: Pack, now: GameMs): number | null {
+  if (s.stage !== 'maintaining.year' || s.stageEndsAtMs === null) return null
+  const mt = pack.game.phases.maintaining
+  // The end of round r is the stage end minus the rounds after it, so an extension by the host
+  // lengthens the round in progress.
+  const left = Math.max(0, s.stageEndsAtMs - now)
+  return Math.max(1, Math.min(mt.rounds, mt.rounds - Math.ceil(left / (mt.round_seconds * 1000)) + 1))
 }
 
 export function joinOpen(s: SessionState, pack: Pack, now: GameMs): boolean {
@@ -75,12 +78,10 @@ export function joinOpen(s: SessionState, pack: Pack, now: GameMs): boolean {
   const first = STAGES.indexOf(FIRST_STAGE[until.phase])
   const i = STAGES.indexOf(s.stage)
   if (i < first) return true
-  if (until.phase === 'maintaining') {
-    if (s.stage === 'maintaining.setup') return true
-    if (s.stage === 'maintaining.year') return until.month === undefined || (currentMonth(s, pack, now) ?? 0) <= until.month
-    return false
+  if (until.phase === 'maintaining' && s.stage === 'maintaining.year') {
+    return until.round === undefined || (currentRound(s, pack, now) ?? 0) <= until.round
   }
-  return s.stage === FIRST_STAGE[until.phase]
+  return s.stage === FIRST_STAGE[until.phase] && until.phase !== 'maintaining'
 }
 
 // ------------------------------------------------------------------------------------------
@@ -227,6 +228,8 @@ function openPhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): Eng
  */
 function emptyBoard(pack: Pack, p: PlayerState, phase: PhaseId): boolean {
   if (phase === 'development') return !p.development?.result?.validation
+  // Phase 3: no map of this player ran in any period of the year.
+  if (phase === 'maintaining') return !p.maintaining || p.maintaining.reports.every((r) => r.map === null)
   if (phase !== 'planning') return false
   const below = pack.game.phases.planning.submission?.letter_empty_below
   return below !== undefined && Object.keys(p.planning?.picks ?? {}).length < below

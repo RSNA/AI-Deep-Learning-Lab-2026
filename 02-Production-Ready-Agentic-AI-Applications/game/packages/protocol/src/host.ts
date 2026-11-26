@@ -2,7 +2,7 @@
 // receive these.
 import { z } from 'zod'
 import { AvatarId, ErrorCode, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
-import { Board, CanvasLegend, CanvasMap, Clock, Running, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
+import { Board, CanvasLegend, CanvasMap, Clock, MaintainingSpent, Running, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Int = z.number().int()
@@ -155,6 +155,38 @@ export const HostInspect = S({
       extra: z.array(z.string()),                           // kinds on this map that the reference map does not use
       guide: z.array(S({ id: z.string(), best: Text, wrong: Text })),   // for the kinds named above
     }),
+  }).nullable(),
+  // Phase 3 (section 10.8): the year so far as numbers, the map that runs, and beside them the
+  // key: what acts on this player, the reference maps, and a few lines for a host who helps.
+  maintaining: S({
+    status: z.enum(['playing', 'closed']),
+    money: z.number(), developers: S({ total: Int, free: Int }),
+    legend: CanvasLegend,
+    pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
+    // `times`: how often it finished in Phase 3 (a repeat action may be more than once).
+    actions: z.array(S({ id: z.string(), title: Text, group: z.string(), state: z.enum(['open', 'running', 'done']), times: Int })),
+    map: CanvasMap,                           // the draft
+    ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),
+    validations: z.array(S({ id: z.string(), atMs: z.number(), accuracy: z.number(), map: CanvasMap, origin: z.enum(['phase2', 'phase3', 'reference']), label: Text.nullable() })),
+    deployed: z.string().nullable(),
+    round: S({ index: Int, of: Int }),
+    reports: z.array(S({
+      period: Int, short: Text, map: z.string().nullable(),
+      validity: z.number(), test: z.number(), reliability: z.number(), interruptions: Int,
+      value: z.number(), off: z.number(), runCost: z.number(), fine: z.number(), score: z.number(),
+      worstPart: Text.nullable(),             // the label of the part that failed most
+      // Every event that acted on the player in the period, with what it cost.
+      events: z.array(S({ id: z.string(), title: Text, validityLoss: z.number(), reliabilityLoss: z.number() })),
+    })),
+    spent: MaintainingSpent,
+    score: z.number(),
+    key: S({
+      references: z.array(S({ id: z.string(), label: Text, map: CanvasMap, accuracy: z.number() })),
+      // For the kinds on the map that runs and for what Phase 3 adds: the best use and the wrong choices.
+      guide: z.array(S({ id: z.string(), best: Text, wrong: Text })),
+    }),
+    // What holds this player back, what to say, and what is good. A few lines each, for a host.
+    glimpse: S({ holds: z.array(Text), say: z.array(Text), good: z.array(Text) }),
   }).nullable(),
 })
 export type HostInspect = z.infer<typeof HostInspect>

@@ -8,6 +8,12 @@ export type PastGame = {
   rank: number | null; of: number | null; scored: boolean
 }
 
+/**
+ * A game whose report card this browser can ask for again (section 7.7): the session and the
+ * rejoin code of the practice, which is what the server asks for. Newest first, ten at most.
+ */
+export type KeptResult = { session: string; label: string; name: string; rejoinCode: string }
+
 function read<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(key)
@@ -28,6 +34,16 @@ export const store = {
   setPlayer: (a: PlayerAuth | null) => write('lab02.player', a),
   last: () => read<PastGame>('lab02.last'),
   setLast: (g: PastGame | null) => write('lab02.last', g),
+  results: (): KeptResult[] => {
+    const list = read<KeptResult[]>('lab02.results')
+    return Array.isArray(list) ? list.filter((r) => r && typeof r.session === 'string' && typeof r.rejoinCode === 'string') : []
+  },
+  /** Put a game first in the list. The same game is kept once. */
+  keepResult: (r: KeptResult) => {
+    const rest = store.results().filter((x) => x.session !== r.session)
+    const next = [r, ...rest].slice(0, 10)
+    if (JSON.stringify(next) !== JSON.stringify(store.results())) write('lab02.results', next)
+  },
   host: () => read<{ token: string; name?: string }>('lab02.host'),
   setHost: (a: { token: string; name?: string } | null) => write('lab02.host', a),
   screen: () => read<{ token: string }>('lab02.screen'),

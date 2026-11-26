@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { GameConnection, playerApi, type CanvasMap, type ConnStatus, type DevelopmentContent, type DevelopmentView, type PlanningContent } from '@lab02/protocol'
+import { GameConnection, playerApi, type CanvasMap, type ConnStatus, type DevelopmentContent, type DevelopmentView, type MaintainingContent, type MaintainingView, type PlanningContent } from '@lab02/protocol'
 import { createApp, type App } from '../src/index.ts'
 
 export const DEMO = fileURLToPath(new URL('../../../content-demo', import.meta.url))
@@ -179,6 +179,65 @@ export function playDevelopment(bot: Bot, base: string): () => void {
       }
     }
     if (dv.ready.ok && !dv.validating && dv.validationsLeft > 0) void bot.conn.command('development.validate', {})
+  }
+  bot.conn.on('view', act)
+  bot.conn.on('welcome', act)
+  return act
+}
+
+/**
+ * A bot that plays Phase 3 the way a player could: every other bot takes the first reference
+ * map, each starts a few actions of the year that it can afford, validates its draft once when
+ * it is ready, and deploys the newest map of its list.
+ */
+export function playMaintaining(bot: Bot, base: string, takeReference: boolean): () => void {
+  let content: MaintainingContent | null = null
+  let fetching = false
+  let last: unknown = null
+  let adopted = false
+  let validated = false
+  let deployed = ''
+  const asked = new Set<string>()
+  const act = (msg?: unknown) => {
+    const fromMsg = (msg as { view?: unknown } | undefined)?.view
+    if (fromMsg) last = fromMsg
+    const v = (last ?? bot.view) as { stage?: string; maintaining?: MaintainingView | null } | null
+    const mv = v?.maintaining
+    if (!v || v.stage !== 'maintaining.year' || !mv) return
+    if (!content) {
+      if (fetching) return
+      fetching = true
+      void playerApi(base).content(bot.token, 'maintaining').then((r) => { fetching = false; if (r.ok && r.data.phase === 'maintaining') { content = r.data; act() } })
+      return
+    }
+    if (takeReference && !adopted && content.references[0]) {
+      adopted = true
+      // A bot that just played Phase 2 at high speed may still be over the rate limit: ask again.
+      void bot.conn.command('maintaining.adopt', { id: content.references[0].id }).then((r) => {
+        if (!r.ok && r.error === 'rate_limited') { adopted = false; setTimeout(act, 1500) }
+      })
+    }
+    // The actions of the year first (the last groups of the list), a few of them, each once.
+    let money = mv.money, free = mv.developers.free
+    const groups = content.rules.actionGroups.map((g) => g.id).reverse()
+    const list = [...content.actions].sort((x, y) => groups.indexOf(x.group) - groups.indexOf(y.group))
+    const busy = new Set([...mv.actionsDone, ...mv.actionsRunning].map((a) => a.id))
+    for (const a of list) {
+      if (asked.size >= 5) break
+      if (busy.has(a.id) || asked.has(a.id) || a.money > money || a.developers > free || a.requires.some((r) => !mv.actionsDone.some((d) => d.id === r))) continue
+      money -= a.money; free -= a.developers
+      asked.add(a.id)
+      void bot.conn.command('maintaining.act', { id: a.id })
+    }
+    if (!validated && mv.ready.ok && !mv.validating && mv.validationsLeft > 0) {
+      validated = true
+      void bot.conn.command('maintaining.validate', {})
+    }
+    const newest = mv.validations.at(-1)
+    if (newest && newest.id !== mv.deployed && deployed !== newest.id) {
+      deployed = newest.id
+      void bot.conn.command('maintaining.deploy', { id: newest.id })
+    }
   }
   bot.conn.on('view', act)
   bot.conn.on('welcome', act)

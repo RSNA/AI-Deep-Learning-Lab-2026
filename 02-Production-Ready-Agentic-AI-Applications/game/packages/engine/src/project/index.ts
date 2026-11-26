@@ -1,11 +1,11 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import { copyLine, fromPackMap, mapShape, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
+import { fromPackMap, mapShape, overPools, phase3Build, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack } from '@lab02/content-schema'
 import type {
-  Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
-  LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ReadyDetail, Running, ScreenView, SessionInfo,
-  SlideView, Standing, StageId, SystemPublic, SystemRef, Tile,
+  Board, BoardColumn, BoardRow, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
+  LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo,
+  SlideView, Standing, StageId, SystemPublic, SystemRef,
 } from '@lab02/protocol'
 import type { HostDeck, HostInspect, HostPlayerRow, HostView } from '@lab02/protocol/host'
 import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage } from '@lab02/protocol'
@@ -13,10 +13,15 @@ import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
 import { developersFree, submitted, unlockedOf } from '../phases/development.ts'
-import { bestReaders, evaluate, running as runningOf, type Evaluation, type Running as EngineRunning } from '../canvas.ts'
+import { bestReaders, evaluate, running as runningOf, type Evaluation } from '../canvas.ts'
+import { actionView, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
+import { maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
 import { deckSlides } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
 import type { DevelopmentState, GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
+import { reportCard, reportCardShown } from './reportCard.ts'
+
+export { reportCard, reportCardShown } from './reportCard.ts'
 
 // ------------------------------------------------------------------------------------------
 // Session, system, ladder, art
@@ -114,37 +119,6 @@ export function clockView(s: SessionState, pack: Pack, clk: { gameMs: GameMs; ru
 // ------------------------------------------------------------------------------------------
 // Phase 1
 // ------------------------------------------------------------------------------------------
-export function tileView(t: PackTile): Tile {
-  switch (t.type) {
-    case 'stat': {
-      const d = t.data
-      const data: Extract<Tile, { type: 'stat' }>['data'] = { value: d.value, label: d.label }
-      if (d.unit !== undefined) data.unit = d.unit
-      if (d.comparison !== undefined) data.comparison = d.comparison
-      return { type: 'stat', headline: t.headline, body: t.body, data }
-    }
-    case 'chart': {
-      const d = t.data
-      const data: Extract<Tile, { type: 'chart' }>['data'] = {
-        kind: d.kind, xLabel: d.x_label, yLabel: d.y_label,
-        series: d.series.map((sr) => ({ name: sr.name, points: sr.points.map(([x, y]) => [x, y] as [string | number, number]) })),
-      }
-      if (d.note !== undefined) data.note = d.note
-      return { type: 'chart', headline: t.headline, body: t.body, data }
-    }
-    case 'quote':
-      return { type: 'quote', headline: t.headline, body: t.body, data: { speaker: t.data.speaker, lines: t.data.text.split('\n') } }
-    case 'audit': {
-      const d = t.data
-      const data: Extract<Tile, { type: 'audit' }>['data'] = {
-        sampleSize: d.sample_size, findings: d.findings.map((f) => ({ label: f.label, count: f.count })),
-      }
-      if (d.note !== undefined) data.note = d.note
-      return { type: 'audit', headline: t.headline, body: t.body, data }
-    }
-  }
-}
-
 export function planningContent(s: SessionState, pack: Pack, playerId: PlayerId): PlanningContent {
   const p = s.players[playerId]!
   const sp = pack.systems[p.system]!
@@ -220,106 +194,18 @@ function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView
 // ------------------------------------------------------------------------------------------
 // Phase 2: the canvas
 // ------------------------------------------------------------------------------------------
-/** A map in the form of the protocol. Field by field, like everything that leaves the server. */
-export function mapView(m: PackCanvasMap): CanvasMap {
-  return {
-    tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runsOn: t.runsOn, prompt: t.prompt })),
-    lines: m.lines.map(copyLine),
-  }
-}
-
-/** The grid and the public names of what can stand on it, to draw a map read-only. */
-export function canvasLegend(b: BuildFile): CanvasLegend {
-  return {
-    cols: b.grid.cols, rows: b.grid.rows, columns: columnsView(b),
-    sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, icon: x.public.icon, privateData: x.private_data })),
-    result: { id: b.result.id, label: b.result.public.label },
-    workers: b.workers.map((x) => ({ id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, icon: x.public.icon, task: x.public.task ?? null })),
-    models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short })),
-    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, protectsPrivateData: x.protects_private_data })),
-    prompts: b.prompts.map((x) => ({ id: x.id, label: x.public.short ?? x.public.label })),
-  }
-}
-
-function columnsView(b: BuildFile): { label: string; hint: string }[] | null {
-  return b.grid.columns ? b.grid.columns.map((c) => ({ label: c.label, hint: c.hint })) : null
-}
-
 export function developmentContent(s: SessionState, pack: Pack, playerId: PlayerId): DevelopmentContent {
   const p = s.players[playerId]!
   const sp = pack.systems[p.system]!
   const b = sp.build!
-  const rules = pack.game.phases.development
-  const brief = sp.story?.briefs?.development
-  const problem = sp.problems?.find((x) => x.id === b.problem)
   return {
     phase: 'development',
-    brief: brief ? { from: brief.from, title: brief.title, text: brief.text } : null,
-    problem: { id: b.problem, title: problem?.public.title ?? '', description: problem?.public.description ?? '' },
-    rules: {
-      cols: b.grid.cols, rows: b.grid.rows, money: b.budget.money, developers: b.budget.developers,
-      columns: columnsView(b),
-      validations: b.validate.runs, validateSeconds: b.validate.seconds, showRunning: rules.show_running ?? true,
-      moneyUnit: rules.money_unit ?? null,
-      pools: b.pools.map((x) => ({ id: x.id, label: x.public.label, max: x.max })),
-      actionGroups: (rules.action_groups ?? []).map((g) => ({ id: g.id, label: g.label })),
-      toolboxGroups: b.toolbox_groups.map((g) => ({ id: g.id, label: g.label })),
-    },
-    sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, icon: x.public.icon, privateData: x.private_data })),
-    result: { id: b.result.id, label: b.result.public.label, description: b.result.public.description },
-    workers: b.workers.map((x) => ({
-      id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, description: x.public.description, icon: x.public.icon,
-      task: x.public.task ?? null, group: x.group ?? null,
-      costLine: x.public.cost_line ?? null, needsModel: x.needs_model,
-      models: Object.keys(x.by_model ?? {}),
-      pool: x.pool ?? null,
-      // `per_line` stays here: its keys are the efforts, which say which source asks for what.
-      minutes: x.minutes ? { decide: x.minutes.decide, check: x.minutes.check } : null,
-    })),
-    models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, runsOn: [...x.runs_on] })),
-    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, protectsPrivateData: x.protects_private_data })),
-    prompts: b.prompts.map((x) => ({
-      id: x.id, label: x.public.label, short: x.public.short ?? null, description: x.public.description,
-      sample: x.public.samples ? null : x.public.sample ?? null,
-      samples: (x.public.samples ?? []).map((y) => ({ label: y.label, text: y.text })),
-    })),
-    actions: b.actions.map((x) => ({
-      id: x.id, group: x.group, title: x.public.title, teaser: x.public.teaser,
-      money: x.money, developers: x.developers, seconds: x.seconds,
-      requires: [...x.requires], unlocks: [...x.unlocks], storyTime: x.story_time ?? null,
-    })),
+    ...canvasContent(pack, sp, b, {
+      brief: sp.story?.briefs?.development, validations: b.validate.runs, validateSeconds: b.validate.seconds,
+      actionGroups: pack.game.phases.development.action_groups ?? [],
+    }),
+    actions: b.actions.map(actionView),
   }
-}
-
-function runningView(r: EngineRunning): Running {
-  const minutes: Record<string, number> = {}
-  for (const [k, v] of Object.entries(r.minutes)) minutes[k] = v
-  return { money: r.money, minutes, complexity: r.complexity }
-}
-
-/** The words of a missed case: its public text and why the map missed it. */
-function missedView(b: BuildFile, m: { case: string; reason: 'missing' | 'weak' | 'decision'; fact: string | null } | null) {
-  if (!m) return null
-  const k = b.cases.find((x) => x.id === m.case)
-  if (!k) return null
-  const f = m.fact ? b.facts.find((x) => x.id === m.fact) : undefined
-  const why = m.reason === 'missing' ? f?.miss.missing : m.reason === 'weak' ? f?.miss.weak : k.decision_miss
-  return { title: k.public.title, text: k.public.text, why: why ?? k.decision_miss }
-}
-
-/** A reason the draft cannot be validated, field by field (the index of a required entry stays here). */
-function detailView(d: ReturnType<typeof readyDetails>[number]): ReadyDetail {
-  switch (d.reason) {
-    case 'tile_incomplete': return { reason: d.reason, tile: d.tile, missing: [...d.missing] }
-    case 'required_missing': return { reason: d.reason, workers: [...d.workers], text: d.text }
-    case 'too_many_minutes': return { reason: d.reason, pool: d.pool, used: d.used, max: d.max, tiles: [...d.tiles] }
-    default: return { reason: d.reason }
-  }
-}
-
-/** The tiles that need a model and lack a model or a place to run. */
-function incompleteTiles(b: BuildFile, m: PackCanvasMap): string[] {
-  return m.tiles.filter((t) => b.workers.find((w) => w.id === t.kind)?.needs_model && (t.model === null || t.runsOn === null)).map((t) => t.id)
 }
 
 function developmentView(s: SessionState, pack: Pack, p: PlayerState): DevelopmentView | null {
@@ -343,6 +229,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
       accuracy: st.result.accuracy, raw: st.result.raw,
       cases: b.cases.map((k) => ({ title: k.public.title, text: k.public.text, solved: st.result!.perCase[k.id] ?? 0, reference: refEval.perCase[k.id] ?? 0 })),
       reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: refEval.accuracy },
+      references: referenceViews(b, b),
     }
   }
   const sub = submitted(st)
@@ -398,13 +285,19 @@ export function moment(s: SessionState, pack: Pack, playerId: PlayerId, ref: Mom
       return { kind: 'insight', action: ref.action }
     case 'validated':
       return { kind: 'validated', id: ref.id }
+    case 'report':
+      return { kind: 'report', period: ref.period }
+    case 'news':
+      return { kind: 'news', id: ref.id }
+    case 'announcement':
+      return { kind: 'announcement', from: ref.from, text: ref.text }
   }
 }
 
 // ------------------------------------------------------------------------------------------
 // The player view
 // ------------------------------------------------------------------------------------------
-export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejoinCode: string): PlayerView {
+export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejoinCode: string, playedAtMs: number | null = null): PlayerView {
   const p = s.players[playerId]!
   const pts = (ph: PhaseId) => {
     const r = p.results[ph]
@@ -421,13 +314,13 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
     },
     planning: planningView(s, pack, p),
     development: developmentView(s, pack, p),
-    maintaining: null,
+    maintaining: maintainingView(s, pack, p),
     inbox: p.inbox.map((m) => {
       const item: PlayerView['inbox'][number] = { id: m.id, kind: m.kind, from: m.from, text: m.text, atMs: m.atMs }
       if (m.title !== undefined) item.title = m.title
       return item
     }),
-    reportCard: null,
+    reportCard: reportCardShown(s) ? reportCard(s, pack, playerId, rejoinCode, playedAtMs) : null,
     slide: slidesMirrored(s, pack) ? slideView(s, pack, s.screen.slide) : null,
   }
 }
@@ -658,6 +551,12 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       acted: active.filter((p) => p.acted.development).length,
       insights: active.reduce((n, p) => n + (p.development?.actionsDone.length ?? 0), 0),
       sent: active.filter((p) => (p.development?.validations.length ?? 0) > 0).length,
+    } : s.stage === 'maintaining.year' ? {
+      // Phase 3: practices at work, actions of the year that finished, practices that changed what runs.
+      players: active.length,
+      acted: active.filter((p) => p.acted.maintaining).length,
+      insights: active.reduce((n, p) => n + (p.maintaining?.actionsDone.filter((d) => d.started > 0).length ?? 0), 0),
+      sent: active.filter((p) => p.maintaining?.deployedAtMs !== null && p.maintaining?.deployedAtMs !== undefined).length,
     } : null,
     winners,
     ...followViews(s, pack, active, scene),
@@ -715,7 +614,7 @@ function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: 
       })
   }
   // The maps of the cards are drawn with the public names of their health system.
-  const legends = cards.some((c) => c.map) ? s.systems.filter((id) => pack.systems[id]?.build).map((id) => ({ system: id, legend: canvasLegend(pack.systems[id]!.build!) })) : []
+  const legends = cards.some((c) => c.map) ? s.systems.filter((id) => pack.systems[id]?.build).map((id) => ({ system: id, legend: canvasLegend(playing === 'maintaining' ? phase3Build(pack.systems[id]!.build!, pack.systems[id]!.maintain) : pack.systems[id]!.build!) })) : []
   return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards, legends }
 }
 
@@ -762,7 +661,7 @@ export type HostExtras = {
   screens: number
 }
 
-function playerStatus(s: SessionState, p: PlayerState): string {
+function playerStatus(s: SessionState, pack: Pack, p: PlayerState): string {
   if (p.removed) return 'Removed'
   const ph = phaseOfStage(s.stage)
   if (!ph) return s.stage === 'lobby' ? 'In the lobby' : 'Watching the big screen'
@@ -784,7 +683,7 @@ function playerStatus(s: SessionState, p: PlayerState): string {
     if (st.validating) parts.push('validating')
     return parts.join(' · ')
   }
-  return 'Running the year'
+  return maintainingStatus(pack, p)
 }
 
 /**
@@ -834,6 +733,7 @@ export function hostInspect(s: SessionState, pack: Pack, playerId: PlayerId, con
     },
     planning,
     development: developmentInspect(s, pack, p),
+    maintaining: maintainingInspect(s, pack, p),
   }
 }
 
@@ -942,7 +842,7 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
   const players: HostPlayerRow[] = active.map((p) => ({
     id: p.id, name: p.name, avatar: p.avatar, system: p.system,
     connected: x.connected(p.id), removed: p.removed,
-    status: playerStatus(s, p),
+    status: playerStatus(s, pack, p),
     points: {
       planning: p.results.planning?.points ?? null, development: p.results.development?.points ?? null,
       maintaining: p.results.maintaining?.points ?? null, total: overallPoints(s, p),
@@ -996,3 +896,5 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
 }
 
 export { PHASES }
+export { canvasLegend, mapView, tileView } from './canvas.ts'
+export { maintainingContent } from './maintaining.ts'

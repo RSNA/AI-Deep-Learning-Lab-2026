@@ -67,8 +67,11 @@ phases. Each is played by everyone at once against a shared timer and is worth u
    joined by lines. Actions cost money, developers and time, and unlock more items or bring an
    insight. A validation returns the accuracy of the map, one case it missed and sometimes a
    note. The accuracy of the submitted map is the whole score of the phase.
-3. **Maintaining.** A simulated year runs on a shared clock. The player funds monitors, answers
-   events and may change the system. The score is the health of the system over the year.
+3. **Maintaining.** Phase 2 played on, over a year in periods. One validated map is deployed.
+   Every round ends with a report on the next period: how many results were right, how often
+   the system ran at all, and what it cost. Events change the year. The player repairs, looks
+   closer, builds and validates other maps, and deploys the one to run next. The score is the
+   mean of the periods less everything spent.
 
 State resets between Phases 1 and 2. From Phase 2 into Phase 3 a player keeps the submitted map,
 the money left and what was unlocked. A live leaderboard runs throughout.
@@ -200,7 +203,6 @@ The server reads one pack from the folder in `CONTENT_DIR`. The default is `cont
 
 ```
 game.yaml                 global rules and numbers
-monitors.yaml             Phase 3 monitors
 characters.yaml           the cast
 systems/<id>-<slug>/
   system.yaml             premise, practice profile, calibration anchors
@@ -304,9 +306,8 @@ type Game = {
     practice_name: { min_chars: number; max_chars: number; unique_per_session: true;
                      filter_profanity: boolean; host_can_rename: boolean; host_can_remove: boolean }
     reconnect: 'token'
-    late_join: { open_until: { phase: PhaseId; month?: number }; missed_phase_points: 0;
-                 mid_phase: 'full_budget_remaining_clock';
-                 maintaining_after_setup: 'inherit_do_nothing' }
+    late_join: { open_until: { phase: PhaseId; round?: number }; missed_phase_points: 0;
+                 mid_phase: 'full_budget_remaining_clock' }   // round: the last round of Phase 3 to join in
   }
   clock: { time_scale_default: number; warnings_seconds_left: number[]; idle_seconds?: number;
            auto_submit_at_zero: true; pause_freezes: 'all' }
@@ -390,9 +391,10 @@ type DevelopmentRules = {
 }
 type MaintainingRules = {
   label: Text; reveal_seconds: number
-  setup_seconds: number; months: number; month_seconds: number; event_response_seconds: number
-  credits: number; actions_per_month: number
-  live_leaderboard: { label: Text }
+  rounds: number; round_seconds: number           // the play time is rounds × round_seconds
+  play_seconds?: number                           // when given, it must equal that product
+  action_groups?: { id: string; label: Text }[]   // shown after the groups of development
+  live_leaderboard: { metric?: 'year_score_so_far'; label: Text }
 }
 ```
 
@@ -410,19 +412,6 @@ that a player ever reads. The `id` is for letters, the report card and the code.
 `story_time` says what the play time stands for in the story, for example that an investigation
 of bandwidth 2 stands for a week. The client shows these strings next to the waits. They never affect
 a score.
-
-**`monitors.yaml`**
-
-```ts
-type Monitors = { monitors: Monitor[] }
-type Monitor = {
-  id: string
-  public: { label: Text; description: Text; icon: string }
-  credits: number
-  upkeep?: Partial<Record<Metric, number>>     // meter deltas, applied once when funded
-  key?: object
-}
-```
 
 **`characters.yaml`**
 
@@ -642,43 +631,91 @@ The map rules that `set_map` applies live in `packages/content-schema/src/canvas
 loader can check the reference map with them. The scoring is `evaluate` in
 `packages/engine/src/canvas.ts`.
 
-**`maintain.yaml`**
+**`maintain.yaml`**: Phase 3 on the canvas (section 6.7). One file per health system, beside
+`build.yaml`. Every number, every event and every `key` stays on the server.
 
 ```ts
 type Maintain = {
-  start: Record<Metric, number>
-  monitors?: Record<MonitorId, { public: { local_note: Text } }>
-  actions: Action[]
-  events: GameEvent[]
+  periods: { id: string; label: Text; short: Text }[]     // rounds + 1, in order
+  grants?: { round: number; money: number }[]             // round 1 is the start of the phase
+  validate: { runs: number; seconds: number }             // the validations of Phase 3, a count of its own
+  baseline: { public: { label: Text }; map: PackMap }     // a practice with no deployed map
+  score: { cost_per_point: number; pool: PoolId; extra_look?: number; rushed?: number }
+  reliability: {
+    workers?: Record<WorkerId, Unit>; default_worker?: Unit   // the risk of every placed tile
+    sources?: Record<SourceId, Unit>                          // of every line from a source
+    handoff?: Unit                                            // of every line between two tiles
+    compute?: Record<ComputeId, Unit>                         // of every place in use, once
+    connectors?: Record<WorkerId, Unit>   // a line into a tile of this kind carries this share of its risk
+    new_map?: { risk: Unit; spared_by?: ActionId[] }          // a map that did not run in the period before
+    hardening?: { action: ActionId; workers?: WorkerId[]; factor: number }[]
+    interruption?: number                 // the share of a period that one interruption stands for (0.025)
+  }
+  lenses?: Partial<Record<Lens, ActionId[]>>                  // actions that make reports and validations say more
+  workers?: Worker[]                      // tools that exist from Phase 3 on. As in build.yaml
+  line_rules?: LineRule[]
+  actions?: (Action & { repeat?: boolean; run?: number })[]   // run: money a month once it finished
+  world?: Patch[]                         // hold in every period: the cases of a real year against the test set
+  events?: YearEvent[]
+  news?: { id: string; round: number; kind: 'letter' | 'announcement'
+           from: CharacterId; title?: Text; text: Text }[]
+  alarm_from?: CharacterId                // who says the alarm of an event
+  incidents?: { workers?: Record<WorkerId, Text>; default_worker?: Text; sources?: Record<SourceId, Text>
+                handoff?: Text; compute?: Record<ComputeId, Text>; new_map?: Text }
+  report: {
+    validity: { min: number; text: Text }[]        // the first band whose min is reached, highest first
+    reliability: { min: number; text: Text }[]
+    gap?: Text; gap_points?: number                // when the validity lies this far under the test set (2)
+    radiologists?: { content: Text; extra_look: Text; rushed: Text }   // what the people of `score.pool` say
+    steady?: Text; no_map?: Text
+  }
+  key?: { guide?: Record<WorkerId | ActionId, { best: Text; wrong: Text }>; strategy?: Text }
 }
-type Action = {
-  id: ActionId; kind: 'look' | 'change'
-  public: { label: Text; text: Text }
-  credits: number; once?: boolean                 // default true
-  months?: { from?: number; to?: number }
-  reveals?: EventId[]; effects?: Partial<Record<Metric, number>>
-  disarms?: EventId[]; arms?: EventId[]
-  key?: { verdict?: 'good' | 'depends' | 'poor'; rationale?: Text }
+type Lens = 'fresh_test_set' | 'dry_run' | 'incident_log' | 'case_mix' | 'drift_alarm'
+type YearEvent = {
+  id: EventId
+  from: number; to?: number               // the periods it acts in. `to` defaults to the last
+  needs?: { workers?: WorkerId[]; sources?: SourceId[]; compute?: ComputeId[]
+            flag?: 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray' | 'rushed' }
+  patches?: Patch[]                       // validity and prices while it acts
+  risks?: { sources?: SourceId[]; line?: Unit; behind_connector?: Unit
+            workers?: WorkerId[]; tile?: Unit; all?: Unit }[]
+  fine?: number                           // money counted as spent in every period it acts
+  repaired_by?: ActionId[]
+  symptom?: Text                          // what a report says when this is the worst change
+  cause?: { lens: Lens; text: Text }      // what the report adds for a player who holds that lens
+  alarm?: Text                            // said at once when an action of that lens finishes while it acts
+  reveal?: { title: Text; text: Text }    // the lesson, at the reveal
+  key?: { teaches?: Text; coach?: { holds: Text; say: Text } }   // coach: for the host's view of a player
 }
-type GameEvent = {
-  id: EventId; archetype: string
-  requires_trigger?: boolean
-  onset: { month: number } | { after_trigger: number }
-  detect: { loud?: boolean; monitors?: MonitorId[]; late_after_months?: number | null }
-  drift?: Partial<Record<Metric, number>>         // per month while it runs
-  public: { early: { title: Text; text: Text }; late: { title: Text; text: Text } }
-  default_option: OptionId
-  options: {
-    id: OptionId; public: { label: Text; text: Text }
-    available?: 'both' | 'early' | 'late'; requires_monitor?: MonitorId | null
-    effects?: Partial<Record<Metric, number>>
-    stops_drift?: boolean; restore?: number       // 0 to 1
-    arms?: EventId[]; disarms?: EventId[]; grants_monitor?: MonitorId | null
-    key?: { verdict?: 'best' | 'acceptable' | 'poor'; rationale?: Text }
-  }[]
-  key?: { teaches?: Text }
-}
+type Patch =
+  | { op: 'weights'; cases: Record<CaseId, number> }
+  | { op: 'fetch_as'; effort: Effort; as: Effort; factor: number }
+  | { op: 'worker'; worker: WorkerId; fetch?: Record<Effort | '*', number>
+      decide?: Record<'plain' | 'hard' | '*', number>; catch?: number }
+  | { op: 'knows'; fact: FactId; factor: number; workers: WorkerId[] }
+  | { op: 'gives'; source: SourceId; fact: FactId; factor: number; unless_through?: WorkerId }
+  | { op: 'compute'; compute: ComputeId; run_fixed?: number; price_factor?: number }
+  | { op: 'model'; model: ModelId; run: number }
 ```
+
+And in `build.yaml`, `key.references` lists every reference map: `{ id, public: { label,
+summary }, map, needs_actions }`. They are shown at the reveal of Phase 2 and offered in Phase 3,
+and the first is the map of `key.reference`. Without the list, `key.reference` is the only one.
+
+The loader checks of a `maintain.yaml`, beside the shape (`checkMaintain` in
+`packages/content-schema/src/maintain.ts`). It has `rounds` + 1 periods. Every id resolves: the
+pool of `score`, every worker, source, place and action that `reliability`, `lenses`, a patch,
+an event or the guide names, every character of a news item and of `alarm_from`. A grant, a
+news item and an event lie inside the rounds and the periods. The map of `baseline` and every
+reference map are accepted and ready on the board of Phase 3. A worker or an action that Phase 3
+adds carries the prefix of its health system, is not in `build.yaml` already, and its group is
+one of the groups of development or of `phases.maintaining.action_groups`. A new worker has a
+`fetch` number for every kind of effort. The bands of the report reach down to 0 and are listed
+from the highest down. An event with an alarm needs `alarm_from` and a cause. Warnings: an
+event that changes nothing or has no symptom or no reveal text, a cause whose lens no action
+holds, a repair by an action that cannot be done again, a part that can fail and has no
+incident sentence, and a missing sentence of the report.
 
 **`story.yaml`**. Nothing in this file affects a score.
 
@@ -686,11 +723,12 @@ type GameEvent = {
 type Story = {
   briefs?: Partial<Record<PhaseId, { from: CharacterId; title: Text; text: Text
                                      opening?: { hit: Text; missed: Text } }>>   // Phase 2 only
-  letters?: Partial<Record<'planning_reveal' | 'development_reveal' | 'annual_review',
+  letters?: Partial<Record<'planning_reveal' | 'development_reveal' | 'maintaining_reveal',
             { from: CharacterId; always: Text; variants: Record<BandId, Text> }>>
   dialogue?: { id: string; speaker: CharacterId; text: Text
                trigger: { phase: PhaseId; on: string } }[]
-     // on: start | idle | insight:<id> | run_result | trace:<case id> | event:<id> | month:<n> | reveal
+     // on: start | idle | insight:<id> | run_result | trace:<case id> | month:<n> | reveal
+     // month:<n> fires in Phase 3 with the report of period n
      // insight:<id> names an investigation in Phase 1 and an action in Phase 2. run_result fires
      // when a validation lands, trace:<case id> when that case is shown as missed
   banter?: { id: string
@@ -719,6 +757,9 @@ with the health system at join, so a pack keeps anything that bears on a score o
 private checker enforces that for the private pack.
 
 **`teaching/deck.yaml`** and **`teaching/report-card.yaml`**
+
+The facts a line of the report card may name under `when` are listed in section 6.12. The demo
+pack has a report card file.
 
 ```ts
 type Deck = { sections: DeckSection[] }
@@ -801,8 +842,7 @@ is written from scratch for the purpose.
   difficulties, every note, both traps; every dialogue trigger of Phases 1 and 2, letters with
   all bands and the `empty` line, band labels, banter, click lines and a `look` on every person,
   one extra in each system, a deck with a section for every slide stage, a slide with a live
-  statistic, a slide with notes and a placeholder slide. Phase 3 and the report card come with
-  Step 9.
+  statistic, a slide with notes and a placeholder slide. The report card comes with Step 9.
 - **Phase 1 rules.** Its `game.yaml` has the four classes, a `class_mix` that adds up to its 6
   problems and uses every class (2, 2, 1 and 1), a `capacity` on every class that equals its
   share, and `test` and `rehearsal` in `join.choose_system_in_modes`.
@@ -814,6 +854,17 @@ is written from scratch for the purpose.
   beside a free model, Pine. The reference map of each system is one large agent with the goal
   prompt on the four good sources, checked by a person, at 96 percent. Random ready maps with the
   starting items average 11 percent.
+- **Phase 3.** Written from scratch in the same setting: the year after each system went live,
+  in six periods and five rounds of 30 seconds. Riverbend has every kind of patch and of risk:
+  the partners change their mail (a source reads worse until its parser is reworked), the shared
+  catalog is upgraded (direct lines break, lines through a records gateway hold), the card
+  reader drifts on a new batch of cards (silent, with an alarm for whoever monitors), rented
+  GPUs get dearer, the courier changes its timetable format (spared behind the gateway), an
+  audit fines a map that sends patron data through the public API, and the partners rewrite the
+  terms that a retired cataloguer knew by heart. It adds two tools, eleven actions (five lenses,
+  three that may be done again), six news items and three reference maps. Lakeshore has a
+  smaller year with a silent model update. Both have a baseline map, incident and report
+  sentences, and a line of coaching for a host on most events.
 - **Growth.** The pack grows with the build: the global files and Phase 1 in Step 3, the deck,
   the banter, the click lines and the extras in Step 5, Phase 2 in Step 7, Phase 3 and the
   report card in Step 9.
@@ -862,15 +913,14 @@ time scale speeds everything up without any rule changing.
 lobby → intro
 → planning.play → planning.reveal → break.planning
 → development.play → development.reveal → break.development
-→ maintaining.setup → maintaining.year → maintaining.reveal → break.maintaining
+→ maintaining.year → maintaining.reveal → break.maintaining
 → reflection → winners → closed
 ```
 
 | Stage | Length | Ends |
 | --- | --- | --- |
 | `planning.play`, `development.play` | `play_seconds` of that phase | By itself at zero, or on `end_now` |
-| `maintaining.setup` | `setup_seconds` | By itself |
-| `maintaining.year` | `months` × `month_seconds` | By itself |
+| `maintaining.year` | `rounds` × `round_seconds` | By itself at zero, or on `end_now` |
 | Every other stage | Untimed for the engine | On the host command `next` |
 
 The untimed stages show a guide countdown to the host: `reveal_seconds` for a reveal, and the
@@ -879,7 +929,7 @@ player has, computes every score of that phase, the leaderboard and the room sta
 moves to the reveal.
 
 Host commands: `next`, `pause`, `resume`, `extend` (30, 60 or 300 seconds, added to the current timed
-stage, or to the current month in `maintaining.year`), `end_now`, `rename_player`,
+stage; in `maintaining.year` this lengthens the round in progress, section 6.7), `end_now`, `rename_player`,
 `remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
 not on the engine. The commands of the projector and the deck are in section 6.13. Only the
 controlling host console may send a command that changes the session (section 7.10).
@@ -907,7 +957,7 @@ is part of every player view (section 8.4), so that a browser knows that what it
 run before is stale.
 
 Three words about stages are used below. A *play stage* is `planning.play`,
-`development.play`, `maintaining.setup` or `maintaining.year`. A *slide stage* is a stage that
+`development.play` or `maintaining.year`. A *slide stage* is a stage that
 the run of show gives to the presenter: `intro`, `break.planning`, `break.development`,
 `break.maintaining` and `reflection`. A section of the deck names one of these five ids. The
 interface names `intro` "Intro slides" and never "Starting soon".
@@ -945,8 +995,10 @@ interface names `intro` "Intro slides" and never "Starting soon".
   enters a score.
 - Joining stays open until `join.late_join.open_until`. A player who joins during a play stage
   gets the full budget of that phase and the time that is left. A phase that ended before the
-  player joined scores 0. A player who joins during the year takes over a practice that did
-  nothing in the earlier months (section 6.7), with the whole credit pool.
+  player joined scores 0. In Phase 3 `open_until.round` names the last round in which a
+  player may still join. A player who joins during the year holds, for every period that ended
+  before, the report of a practice with no map (section 6.7), and has the budget of the build
+  file and the grants so far.
 
 ### 6.5 Phase 1: Planning
 
@@ -1344,70 +1396,172 @@ their own.
 
 ### 6.7 Phase 3: Maintaining
 
-Every player runs the map they submitted in Phase 2, or, if they choose so at the start, the
-reference map of their health system (section 6.6). The canvas and its scoring are designed again
-in Step 8: until then the rules below are those of version 1.1, and the engine of Phase 3 is a
-stub that opens and closes. The four meters start at `maintain.start`. Each player's year is
-separate state on a shared clock.
+Phase 3 is Phase 2 played on. The board, the map, the actions and the validations work as in
+section 6.6, on the **build file of Phase 3**: `build.yaml` with the `workers`, `line_rules` and
+`actions` that `maintain.yaml` adds (`phase3Build`). The scoring of a map is `evaluate`,
+unchanged. What is new is time: a year in periods, one map that is deployed, a report on every
+period, and events that change the tables `evaluate` reads and the risk of the parts.
 
-**Setup.** For `setup_seconds` the player may fund any monitors the credit pool affords.
+**The year.** `maintain.yaml` lists `rounds + 1` periods. The map a player chose in Phase 2 has
+been running since the first. The phase has one play stage, `maintaining.year`, of `rounds`
+rounds of `round_seconds`. Report 1 is made when the stage opens. A *round* is the time to act
+before the next report: when round `r` ends, report `r + 1` is made. The last report is made
+when the stage closes.
 
-**The year.** Month `m` runs from `S + (m − 1) × L` to `S + m × L`, where `S` is the start of
-the stage and `L` is `month_seconds`.
+- The end of round `r` is `stage end − (rounds − r) × round_seconds`. An extension by the host
+  therefore lengthens the round in progress and moves every later boundary with it. A boundary
+  that has passed never moves. A pause freezes everything.
+- `k`, the *reports held*, is the number of reports a player has (1 to `rounds` during play).
+  The period in progress is `k + 1`.
+- Every action records `started` and `done`: the reports held when it started and when it
+  finished. An action of Phase 2 has both at 0. An action **counts for report `p`** when
+  `done < p`.
+- A report is made from the map that is deployed and the actions that have finished at that
+  moment. Timers on the same instant run in this order: actions, the validation, the end of the
+  round. So what finishes at the very moment a round ends still counts.
+- When the stage closes, actions that run end with their full effect and a validation that runs
+  ends with its result, and then every report that is left is made, from the same state. (A
+  host who ends the stage early gets all of them at once.)
 
-1. *Month start: drift.* Every event that is armed, has started and has not been stopped adds
-   its `drift` to the meters. Meters stay within 0 to 100. The engine records what was really
-   applied, per event and per month.
-2. *Month start: reveals.* An event that has started and is not yet revealed is revealed now in
-   mode `early` when it is loud, or the practice funds one of its monitors, or a one-time check
-   found it. It is revealed in mode `late` when `late_after_months` have passed since its onset.
-   Reveals are decided once, on the state at the start of the month. A monitor that is funded or
-   granted during a month reveals what it watches from the next month.
-3. *During the month.* A revealed event can be answered for `event_response_seconds`. An answer
-   applies when it arrives. The player may also take `actions_per_month` action in each month.
-   An action applies when it arrives.
-4. *At a deadline.* An event that was not answered takes its `default_option`.
-5. *Month end.* The health of the month is the four-metric score of the true meters.
+**What a player carries from Phase 2.** Every validation stays in the list, the chosen one is
+deployed, the draft is the draft, and the money that was left, the actions done and what they
+unlocked carry over. The account then takes the grants of `maintain.yaml`: a grant of round `r`
+lands when that round starts (round 1 with the stage). A player with no Phase 2 state starts
+with the budget of the build file, no map and nothing unlocked. The number of validations is
+that of `maintain.yaml`, a fresh count.
 
-Timers that fall on the same instant run in this order: deadlines, month end, month start. The
-response window may be longer than a month. An answer or a default that lands in a later month
-uses that month for everything below, and the drift of that month has already been applied.
+**The list of maps and the deployed map.** The list holds the validations of Phase 2, the
+validations of Phase 3 and the reference maps a player took. One of them is *deployed*: it is
+the map that runs in the period in progress. A player may deploy any map of the list, or no
+map, at any moment of a round.
 
-**An option** acts at once: `effects` are added to the meters, `restore` gives back that share
-of the harm this event has done so far, `stops_drift` ends its drift, `arms` sets the onset of
-each listed event to this month plus its `after_trigger`, `disarms` cancels listed events that
-have not started, and `grants_monitor` funds a monitor and applies its upkeep. An option is
-available when its `available` field allows the reveal mode and the practice funds its
-`requires_monitor`.
-
-**Actions**
+**Commands.** All refuse `wrong_stage` outside `maintaining.year`.
 
 | Command | Accepted when | Effect |
 | --- | --- | --- |
-| `maintaining.fund {monitorId}` | Setup, or no action taken yet this month. Not funded. Credits suffice | Pays the credits. The upkeep applies now. The monitor watches from the next month, or from month 1 when funded in setup |
-| `maintaining.act {actionId}` | No action taken yet this month. Credits suffice. Inside its `months` window. Not taken before when `once` | Pays the credits. `effects` move the meters for the rest of the year. `reveals` marks each listed event that is running and not revealed, so that it is revealed at the next month start in mode `early`. `disarms` and `arms` work as for an option |
-| `maintaining.answer {eventId, optionId}` | The event is revealed, not answered, inside its window, and the option is available | Applies the option |
+| `maintaining.set_map {map}` | As `development.set_map`, on the build file of Phase 3 and what is unlocked | Replaces the draft. Refuses `invalid_map`, or `line_refused` with the line and the rule's words |
+| `maintaining.act {id}` | The action exists (`unknown_action`). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the money is there (`not_enough_money`) and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
+| `maintaining.validate {}` | No validation runs (`validation_running`), one is left of the count of `maintain.yaml` (`no_validations_left`), the draft is ready (`not_ready`) | After `validate.seconds` the copy of the draft joins the list with its result (below) |
+| `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once. Their price is not taken from the account: it is added to the money spent. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
+| `maintaining.deploy {id or null}` | `id` is a map of the list (`unknown_validation`), or null | That map, or no map, runs from now on |
 
-**What the player sees.** The meters in the view leave out the drift of events that are not
-revealed. When an event is revealed, its drift appears for every month since its onset, and the
-running score drops at once. For month `k`, a seen meter is the true meter at the end of month
-`k` minus the drift that events still unrevealed now had applied up to month `k`.
+**A validation in Phase 3** is scored on the tables of the build file of Phase 3, the test set,
+as in Phase 2. With the lens `fresh_test_set` it is scored on the tables of the period in
+progress (below), and marked `fresh`. With the lens `dry_run` it also carries the reliability
+the map would have in that period if it were deployed now, as a map that has not run before.
 
-**A practice that does nothing** funds no monitor, takes no action and answers no event, so
-every default applies at its deadline. This is the zero anchor of the phase and the history of
-a late joiner.
+**The tables of a period.** For a player, a period `p` and a deployed map `m`:
 
-**Scoring.** `raw = 10 × mean of the monthly health values`, always on the true meters.
+1. An event is *in its window* when `from ≤ p ≤ to`.
+2. It is *repaired* when the player holds an action of `repaired_by` with `started ≥ from` and
+   `done < p`. A repair fixes what has broken: one that started before the player had seen the
+   report of the event's first period repairs nothing.
+3. It *touches the map* when it has no `needs`, or `m` has a placed tile of one of
+   `needs.workers`, a line from one of `needs.sources`, a tile that runs at one of
+   `needs.compute`, or raises `needs.flag` (a flag of `evaluate` on the build file of Phase 3).
+4. It *acts* when 1 and 3 hold and 2 does not.
 
-**Live column.** The points that the seen meters would give so far.
+The tables are a copy of the build file of Phase 3 with, in order, the patches of `world` and
+the patches of every acting event, in file order.
 
-**Reveal.** Each player receives the true history, each event with its onset, how and when it
-was revealed, the option taken and its verdict, the events that never surfaced, the points and
-the letter.
+| `op` | What it does |
+| --- | --- |
+| `weights` | Sets the weight of each listed kind of case |
+| `fetch_as` | For every worker and each of its models, `fetch[effort] = fetch[as] × factor` |
+| `worker` | Multiplies numbers of one worker and each of its models: `fetch` by kind of effort, `decide` by difficulty (`*` is every key), and `catch` |
+| `knows` | Multiplies what the listed workers know of a fact |
+| `gives` | Multiplies what a source gives of a fact. Skipped when the source has a line in `m` and every line from it enters a tile of the kind `unless_through` |
+| `compute` | Multiplies `run_fixed` and `price_factor` of a place |
+| `model` | Multiplies the `run` of a model |
+
+`validity = evaluate(m, tables).accuracy`, and `test = evaluate(m, build file of Phase 3).accuracy`.
+The failed case and the note of a report are those of `evaluate` on the tables, with the
+player's own lists of what Phase 3 has shown them.
+
+**Reliability.** A list of risks, each between 0 and 1. An entry with no risk is left out.
+
+- Every placed tile, live or stray: `reliability.workers[kind]` or `default_worker`, times the
+  `factor` of every `hardening` whose action counts and that lists the kind (or lists none).
+  One more entry for every acting event risk that names the kind (`tile`).
+- Every line from a source into a tile whose worker is not a person:
+  `reliability.sources[source]`, times `connectors[kind of the tile]` when the tile is a
+  connector. One more entry for every acting event risk that names the source: `line`, times
+  the connector's share behind a connector, or times `behind_connector` when the risk gives
+  one. A line into a person carries no risk: a person reads a source with their own eyes.
+- Every line between two tiles: `handoff`.
+- Every place in use (a tile with a model and a place): `compute[place]`, once.
+- `new_map.risk`, when `p ≥ 2`, the deployed map is not the one that ran in period `p − 1`, and
+  no action of `spared_by` counts. A map is told by its id in the list, and no map is an id of
+  its own.
+- The `all` of every acting event risk.
+
+`reliability` is the product of `1 − risk` over the list. The *part that failed most* is the
+entry with the largest risk, the first in the order above on a tie. `interruptions =
+round((1 − reliability) ÷ interruption)`, and at least 1 when the reliability is under 1.
+
+**What an event cost.** For every acting event the scoring keeps what the period would have
+been without it: `validity_loss` (the validity on the tables without its patches, minus the
+validity), `reliability_loss` (the product without its entries, minus the product), `cost_loss`
+(twice the difference in money a month) and its fine. Its *impact* is `validity_loss ×
+reliability + reliability_loss × validity`. It was a *hit* when the impact is above 0.005, or
+it cost money (a running cost or a fine): a loss too small to show in a report is not one. The
+*worst change* of the period is the acting event with the largest impact, when that is above
+0.005.
+
+**The people who check.** `tiles` is the number of placed tiles whose worker is of `score.pool`,
+and `hurry` the rush factor of that pool on the tables (1 when it does not rush). `off =
+extra_look × max(0, tiles − 1) + rushed × (1 − hurry)`.
+
+**Value, cost and the score of the year.**
+
+```
+value(p)    = 100 × validity × reliability − off
+run_cost(p) = 2 × evaluate(m, tables).run_month + 2 × the `run` of every action of Phase 3 that counts
+spent(p)    = run_cost(p) + the fines of the events acting in p
+score       = mean of value(p) − (money paid + sum of spent(p)) ÷ cost_per_point
+raw         = max(0, 10 × score)
+```
+
+`money paid` is the money of every action of Phase 2 and Phase 3 and of what the reference maps
+taken needed. Running costs are never taken from the account: they only count here. The live
+value of the phase is the same over the reports held so far, with the money paid up to now,
+rounded to one decimal and never below 0.
+
+**No deployed map.** The report is scored on `baseline.map` with the tables of the period:
+`reliability = 1`, no part of the people, no running cost, no fine. This is also the report of
+every period that ended before a late player joined.
+
+**News and alarms.** A news item of `maintain.yaml` goes to the inbox of every player of the
+health system when its round starts. When an action of a lens finishes while an event whose
+`cause` asks for that lens was a hit in the player's last report, the event's `alarm` goes to
+the inbox at once, from `alarm_from`, once per event.
+
+**A report, as a player reads it.** The numbers above, the sentence of the validity band and of
+the reliability band, the gap sentence when the validity lies more than `gap_points` under the
+test set, what the people who check say, one failed case, at most one note, the part that
+failed most with one sentence (the symptom of the event that added that risk, or else the
+incident sentence of the part), and the symptom of the worst change. The cause of the worst
+change is added only when the player held the lens it asks for when the report was made. With
+the lens `incident_log` a report lists every part with the share of the cases it lost, and with
+`case_mix` the share solved of every kind of case. The rank of a report is among the practices
+that hold the report of the same period, by the score of the year after it.
+
+**Scoring.** `close` returns `raw`. The anchors of `system.yaml` turn it into points (section
+6.8): `zero` is 0, `floor` the raw score of a practice with no map all year, `ceiling` the best
+year found.
+
+**The reveal.** The parts of the score, every event that has a `reveal` text with the periods in
+which it was a hit for this player, the year of each reference map left alone (the map, the
+actions it needs and nothing else) and of a practice with no map, and the letter
+(`letters.maintaining_reveal`, with the variant `empty` for a player whose map never ran).
+
+**The reference scorer.** `tools/maintain_scoring.py` of the private folder is the executable
+definition of the scoring of a period, a validation and a year. The engine's
+`packages/engine/src/maintain.ts` must match it within 1e-9 (section 12.2).
 
 ### 6.8 Scores, points and bands
 
-**The four-metric score** serves a month in Phase 3 (until version 1.2 also a design in Phase 2). `V`, `R`, `C` and
+**The four-metric score** is kept for a pack that wants it (until version 1.2 a design in Phase 2, until version 1.3 a month of Phase 3). No phase uses it now. `V`, `R`, `C` and
 `X` are the validity, reliability, cost and complexity scores, and `w` the weights from
 `game.yaml`.
 
@@ -1461,8 +1615,8 @@ ranking.
 - Final rankings follow `leaderboards.tie_breaks`. A live column breaks ties by who reached the
   value first. The keys are `total_points`, `points`, `planning_points`, `development_points`,
   `maintaining_points`, `earlier_join`, `earlier_submit`, `fewer_validations` (Phase 2, with
-  `fewer_pilot_runs` as its old name), `higher_final_month_health` and `fewer_credits_spent`. The last one ties everyone in Phase 1,
-  which spends no credits. Join order breaks any tie that remains.
+  `fewer_pilot_runs` as its old name) and `higher_last_period_value` (Phase 3: the value of the
+  last period of the year). Join order breaks any tie that remains.
 - A player's view carries their own rank overall, in their system and in the current phase,
   and the top three. The big screen carries the top `big_screen_rows` of each column.
 - Every row carries the practice's name, avatar and health system.
@@ -1491,21 +1645,59 @@ on the slide. The others show nothing. Step 11 fixes their exact shapes.
   start of the phase and stays as the first evidence card (section 10.4).
 - **Letters** arrive with a reveal. A letter is the `always` text and one variant. The variant
   is the one of the player's band, except that the planning reveal uses `empty` for a board
-  with fewer problems sorted than `letter_empty_below` (section 6.5).
+  with fewer problems sorted than `letter_empty_below` (section 6.5), the development reveal for
+  a player who never validated, and the maintaining reveal for a player whose map never ran.
 - **Banter and click lines** are played by the browser from what it received at join (section
   10.3). The engine does not know them, and no command or timer depends on them.
 - **Dialogue.** The engine fires a line when its trigger occurs for a player, once per player.
   `idle` fires when the player has sent no command for `clock.idle_seconds` (45 when absent).
 - **Announcements** go to one health system at their time, or with their offer.
+- **News** of Phase 3 (`news` of `maintain.yaml`) goes to the inbox when its round starts, and
+  an alarm when its lens action finishes (section 6.7).
 - Story text reaches a player only when it fires. It never changes a score.
 
 ### 6.12 Report card
 
-At `winners` each player gets a card: the points and band of each phase, the lines of
-`report-card.yaml` whose conditions hold for that player, the closing text for the band of the
-mean of the three phases, and the links. The engine computes a flat record of facts per player,
-and a line's `when` is a set of fact values that must all match. Step 9 builds the card and the
-facts that the scoring already produces. Step 11 fixes the full list of facts.
+Every practice has a report card: one record, complete in itself, that says how the practice
+did. `project.reportCard` builds it from the phases that are scored (`packages/engine/src/
+project/reportCard.ts`, schema `ReportCard` in `packages/protocol/src/report.ts`).
+
+- **What it holds.** The session (code, label, title, the day it was opened), the practice
+  (name, character, health system, rejoin code), the total of the scored phases and the
+  overall rank, the rank inside the health system when the session has more than one, and for
+  each phase its points, the label of its band, its rank in the phase and a few facts.
+  Phase 1: the problems in their true class, whether the agent project was found, the
+  investigations run. Phase 2: the accuracy of the chosen map, the accuracy of the reference
+  map, the validations used. Phase 3: the score of the year, the money spent, the periods in
+  which a map ran, and for every period its validity, its reliability and its score. A phase
+  that was not scored for the practice shows no points and no facts. `final` is true when every
+  phase is scored. Until then the card is the result so far.
+- **Nothing of a key.** A card holds what the reveals already sent to that player and nothing
+  more: no class of a problem, no rationale, no map, no gist of a source. The papers behind the
+  game stand under "Read more" by their public names (`public_source_labels`).
+- **Lines of the pack.** When the pack has `teaching/report-card.yaml`, a line of it is on the
+  card when every fact under its `when` has that value for the player, with the public name of
+  the paper of its `source`. The closing text is the one for the band of the mean of the three
+  phases, on a final card. The facts are listed below (`REPORT_FACTS` in `content-schema`), and
+  the loader refuses a `when` that names another fact, gives a value of the wrong kind, or
+  names a band the pack does not have. A pack without the file has cards without lines.
+- **When a player sees it.** The player view carries `reportCard` at `winners` and in `closed`,
+  never before. The route of section 7.2 answers once the first phase is scored.
+- **A practice that was removed** has no card.
+
+| Fact | Kind | True or counted when |
+| --- | --- | --- |
+| `final` | boolean | every phase is scored |
+| `overall_band` | band | the band of the mean of the three phases. `none` before the end |
+| `planning_band`, `development_band`, `maintaining_band` | band | the band of that phase. `none` when it was not scored |
+| `flagship_found` | boolean | Phase 1: the agent project stood in the agentic class |
+| `planning_exact` | number | Phase 1: problems in their true class |
+| `investigations_started` | number | Phase 1 |
+| `map_validated` | boolean | Phase 2: a map was validated |
+| `map_beats_reference` | boolean | Phase 2: the chosen map scored at least what the reference map scores |
+| `validations_used` | number | Phase 2 |
+| `ran_a_map` | boolean | Phase 3: a map ran in the last period of the year |
+| `map_all_year` | boolean | Phase 3: a map ran in every period |
 
 ### 6.13 The projector and the deck
 
@@ -1562,7 +1754,7 @@ scene has no programme. The pure function `programmeSlot` in the client does the
 **What the projector may say during play.** The room reads the projector while it is still
 deciding, so nothing on it may help a neighbour.
 
-- A line of the activity list names the practice, a verb (`started`, `finished`, `sent`) and
+- A line of the activity list names the practice, a verb (`started`, `finished`, `sent`, `validated`, `deployed`) and
   the public title of the investigation, "Count room bookings". It never carries a
   tile, a headline, a problem or a class.
 - A practice card carries the titles of what runs now and counts: insights found, problems
@@ -1575,6 +1767,11 @@ deciding, so nothing on it may help a neighbour.
   map, drawn with the public names of its health system (`ScreenView.legends`), what runs now, the
   best accuracy so far, the validations used and the actions done. The room sees one map at a
   time, which is part of a room game.
+- **Phase 3.** A line of the activity list names an action of the year that started or
+  finished, or says that a practice validated or deployed a map (the kind `deployed`). The
+  counts are practices at work, actions of the year done, and practices that changed what runs.
+  A practice card shows the map that runs, the reports so far, the last period in two numbers
+  and the score of the year so far. The legend of Phase 3 holds the tools the year adds.
 - The server marks the screen for a new view whenever a player's state changes in a play stage,
   and sends at most one view a second.
 
@@ -1665,6 +1862,7 @@ session and closing.
 | `GET /api/open?after=<code>` | Anyone | `{session}`: the code, label and title of the newest session that is not closed, or null. With `after`, only a session created later than that one counts. A browser whose game has ended asks with its own code, so it is led to the next game and never to an older session that was left open |
 | `POST /api/join` `{code, name, avatar?, system?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name. `system` is honored only where section 6.4 allows a pick, is ignored elsewhere, and gives 400 `unknown_system` for an id the session does not hold |
 | `POST /api/rejoin` `{code, rejoinCode}` | Anyone | Returns a new token for that player, in any stage of an open session. The old token stops working |
+| `POST /api/result` `{session, rejoinCode}` | Anyone | `{card}`: the report card of a practice (section 6.12). `session` is the code of the session or its label, without regard to case, and `rejoinCode` the rejoin code of the practice. A session in memory answers from its state once a phase is scored. A session that is closed and no longer in memory, or one the server cannot resume, answers from the `result` table. 404 `not_found` for a wrong session, a wrong code, a removed practice and a session with no scored phase, always the same answer. At most 60 lookups a minute for the whole server, then 429 `rate_limited`. Never cached |
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
@@ -1672,7 +1870,7 @@ session and closing.
 | `GET /api/host/sessions` | Host | Lists sessions, open and closed, each with `closed` and, for a session the server cannot resume, the reason. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
 | `POST /api/host/session/:code/end` `{name?}` | Host | Ends an open test or rehearsal session from the list of sessions, without a console that holds control: the engine's `close`, logged as a host command and as the event `ended_from_list` with the host's name. Answers 409 `wrong_stage` for a session that has ended and 409 `event_session` for an event session, which is ended from its own console by the host in charge |
 | `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session that is still open |
-| `GET /api/host/export/:code` | Host | Results, commands and timing as JSON or CSV |
+| `GET /api/host/export/:code` | Host | `what`: `results`, `cards`, `commands` or `timing`, as JSON or CSV. `results` has one row per practice with the raw score, the points, the band and the rank of each phase. `cards` has what each report card shows. A closed session that is no longer in memory answers both from its kept cards |
 | `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log. Typing `/screen` without it shows one line that says to open the big screen from the host console |
 | `POST /api/host/key-ticket` | Host | A ticket valid for 5 minutes. The host token is enough: the console opens the key with one press (section 10.8). The ticket exists because the key opens in a window of its own, which cannot send the token |
 | `GET /api/host/deck/:code` | Host | Every slide of the deck as a `SlideView`, with its notes, its placeholder mark and the id of its section, for a host who looks through the deck alone (section 10.8). Never cached. A player token and a screen token are refused |
@@ -1731,17 +1929,22 @@ SQLite, one file under `DATA_DIR`, WAL mode.
 | `snapshot` | Session state as JSON, with the sequence number and game time it reflects |
 | `auth` | Hashes of player and host tokens, the rejoin code of each player in readable form, the role and player each belongs to |
 | `event_log` | What the engine announced, with game and wall time. Feeds the export and the timing report. Never used to rebuild state |
+| `result` | The report card of every practice of a session, as JSON (section 6.12). Written at every stage change once a phase is scored, and when a practice is renamed or removed after that. Emptied when the game starts again |
 
 - A command is written in the same turn in which it is applied.
 - A snapshot is written every 10 seconds when anything changed, at every stage change, and at
   shutdown. The newest five are kept, plus the one of each stage change.
 - Tokens are stored as SHA-256 hashes. A snapshot holds no token.
+- **Results outlive the game.** A closed session keeps every row, its cards included, until a
+  host deletes it (`DELETE /api/host/session/:code`), which is the only thing that removes
+  them. A card is complete in itself, so it can be read after a restart, when the closed
+  session is no longer loaded, and after the content has changed.
 
 ### 7.6 Recovery
 
-An ended session is not loaded at start. Its rows stay in the database for the downloads and
-the list of the host console, and a browser that still holds one of its tokens is told that the
-game is gone (section 7.7).
+An ended session is not loaded at start. Its rows stay in the database for the downloads, the
+list of the host console and the report cards of its players (`POST /api/result`), and a
+browser that still holds one of its tokens is told that the game is gone (section 7.7).
 
 For each open session at start:
 
@@ -1757,7 +1960,7 @@ the recovered state equals the state before the stop, up to the last second of c
 ### 7.7 Reconnect
 
 **A player never loses a practice by closing a browser.** The server holds everything a
-practice has and has done: running investigations, tiles, picks, the design on the board, runs, months and
+practice has and has done: running investigations, tiles, picks, the design on the board, runs, reports and
 points. The browser holds only the token and the theme. Coming back, by any of the ways below,
 returns the player to the stage the room is in, with all of it.
 
@@ -1796,6 +1999,13 @@ returns the player to the stage the room is in, with all of it.
   phase and the rank. It holds no answer. The page of a game that is gone shows this record,
   and the join page of another game shows it as "Your last game in this browser" and starts
   with that name and character filled in.
+- **A result to come back to.** Once a card has been on its screen, the browser keeps the
+  session, its label, the name of the practice and its rejoin code (`lab02.results`, the
+  newest ten games). `/result/<session code>` shows that card again, in that browser with no
+  question, days later and after later games. In another browser the same link asks for the
+  rejoin code, and `/result` asks for the session (its code or its name) and the rejoin code.
+  A rejoin code belongs to one session, so the result of an earlier game stays reachable
+  after later games were played (section 10.7).
 - The client reconnects by itself, waiting 0.5 seconds at first and up to 5 seconds, with
   jitter. A banner says "Reconnecting". After `welcome` the client holds the full current view.
 - Every command carries a `cid`. The server remembers the last 50 per player and answers a
@@ -1919,7 +2129,7 @@ Server to client:
 | `view` | When the player's state changed | The whole `PlayerView` |
 | `clock` | Every 5 seconds and on change | `gameMs`, `running`, `scale`, `stage`, `stageEndsAtMs`, `guideEndsAtMs` |
 | `standing` | On each leaderboard beat | The player's ranks and the top three per column |
-| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `tile`, `insight` (an action of Phase 2 ended with one), `validated` (a validation has its result), `letter`, and in Step 9 `event` and `month`. The engine announces a moment by reference and the projection builds it |
+| `moment` | When something should be animated | `kind` and its data: `interview_line`, `dialogue` (with the line's id), `announcement`, `tile`, `insight` (an action of Phase 2 ended with one), `validated` (a validation has its result), `letter`, and in Phase 3 `report` (the report of a period has arrived, with its number) and `news` (a letter, a memo or an alarm is in the inbox, by its id there). The engine announces a moment by reference and the projection builds it |
 | `reload` | The client's build is not the server's | none. The client reloads the page |
 | `superseded` | The token connected elsewhere | none |
 
@@ -2050,15 +2260,25 @@ type CanvasLegend = { cols: number; rows: number
                       workers: { id; kind; label; short; icon }[]; models: { id; label; short }[]
                       compute: { id; label; short; protectsPrivateData }[]; prompts: { id; label }[] }
 
-type MaintainingContent = {
-  brief: ...
-  rules: { credits: number; months: number; monthSeconds: number; setupSeconds: number
-           eventResponseSeconds: number; actionsPerMonth: number }
-  monitors: { id: MonitorId; label: Text; description: Text; icon: string; credits: number
-              localNote?: Text }[]
-  actions: { id: ActionId; kind: 'look' | 'change'; label: Text; text: Text; credits: number
-             once: boolean; months?: { from?: number; to?: number } }[]
-  reference: { map: CanvasMap; summary: Text }       // the reference map a player may take (Step 8)
+/** A reference map as a player may see it: at the reveal of Phase 2 and in Phase 3. */
+type ReferenceMap = { id: string; label: Text; summary: Text; map: CanvasMap; accuracy: number }
+
+/**
+ * Phase 3: everything DevelopmentContent holds, for the build file of Phase 3 (the tools and
+ * actions it adds are in the lists, the groups of actions are those of both phases, and
+ * `rules.validations` and `validateSeconds` are those of maintain.yaml), and the year.
+ */
+type MaintainingContent = Omit<DevelopmentContent, 'phase' | 'actions'> & {
+  phase: 'maintaining'
+  actions: (DevelopmentContent['actions'][number] & {
+    repeat: boolean                               // it may be done again after it finished
+    upkeep: number                                // money a month once it finished
+  })[]
+  year: { periods: { id: string; label: Text; short: Text }[]     // rounds + 1
+          rounds: number; roundSeconds: number
+          baselineLabel: Text                     // what a practice with no deployed map is called
+          costPerPoint: number }                  // money that takes one point off the score of the year
+  references: ReferenceMap[]
 }
 ```
 
@@ -2078,7 +2298,7 @@ type PlayerView = {
   inbox: { id: string; kind: 'brief' | 'letter' | 'announcement'; from: CharacterId
            title?: Text; text: Text; atMs: GameMs }[]
   slide: SlideView | null                       // set while the host mirrors the slides (6.13)
-  reportCard: ReportCardView | null             // at winners
+  reportCard: ReportCard | null                 // at winners and in closed (section 6.12)
 }
 type PhasePoints = { points: number
                      band: Text | null }        // the label of the band, null when it has none
@@ -2128,7 +2348,7 @@ the anchors are estimates. The reveal no longer carries `raw`. The screen adds t
 itself and names the sum "Board score" (section 10.4). A bot that wants the raw score adds them
 the same way.
 
-`DevelopmentView` is complete since Step 7. `MaintainingView` is an outline that Step 8 completes.
+`DevelopmentView` is complete since Step 7, `MaintainingView` since Step 9.
 
 ```ts
 type DevelopmentView = {
@@ -2157,7 +2377,8 @@ type DevelopmentView = {
   submitId: string | null                               // what would be submitted now, or was
   reveal: { accuracy: number; raw: number
             cases: { title: Text; text: Text; solved: number; reference: number }[]
-            reference: { map: CanvasMap; summary: Text; accuracy: number } } | null
+            reference: { map: CanvasMap; summary: Text; accuracy: number }   // the first of `references`
+            references: ReferenceMap[] } | null            // every reference map of the pack
 }
 ```
 
@@ -2165,18 +2386,52 @@ type DevelopmentView = {
 model and lack a model or a compute. A validation's `running` is null in the same case.
 
 ```ts
+// Phase 3. Shares run 0 to 1, values and scores 0 to 100.
+type MaintainingSpent = { phase2: number; actions: number; adoption: number; running: number
+                          fines: number; total: number }
+type MaintainingReport = {
+  period: number; label: Text; short: Text; atMs: GameMs
+  map: string | null                              // the validation that ran. Null: no map ran
+  validity: number; test: number; reliability: number; interruptions: number
+  value: number; off: number; runCost: number; fine: number
+  spent: number; score: number                    // everything spent, and the score of the year, after this report
+  rank: number | null; of: number                 // among the practices that hold this report
+  sentences: { validity: Text | null; reliability: Text | null; gap: Text | null
+               people: Text | null; steady: Text | null; noMap: Text | null }
+  missed: { title: Text; text: Text; why: Text } | null
+  note: Text | null
+  worstPart: { label: Text; text: Text } | null   // the part that failed most, and what happened
+  worstChange: { symptom: Text; cause: Text | null } | null   // the cause only with its lens
+  parts: { label: Text; share: number }[] | null  // with the lens incidentLog
+  kinds: { title: Text; solved: number }[] | null // with the lens caseMix
+}
 type MaintainingView = {
-  part: 'setup' | 'year' | 'closed'
-  month: number; monthEndsAtMs: GameMs | null
-  creditsLeft: number; actionTakenThisMonth: boolean
-  funded: { id: MonitorId; watchingFromMonth: number }[]
-  meters: Record<Metric, number>                // as seen
-  history: { month: number; meters: Record<Metric, number>; health: number }[]   // as seen
-  events: { id: EventId; mode: 'early' | 'late'; title: Text; text: Text; revealedMonth: number
-            deadlineMs: GameMs; options: { id: OptionId; label: Text; text: Text }[]
-            answer: { option: OptionId; month: number; byDefault: boolean } | null }[]
-  actionsTaken: { id: string; month: number }[]
-  reveal: {...} | null
+  // The draft, the actions and the validations, as in DevelopmentView:
+  money; developers; unlocked; actionsRunning; insights; map; ready; lineAdvice; tileMinutes
+  rushed; flags; running; validationsLeft; validating
+  actionsDone: { id: ActionId; atMs: GameMs; phase: 'development' | 'maintaining' }[]   // a repeat action once per time
+  validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
+                 unhurried: number | null; missed: ... | null; note: Text | null; running: ... | null
+                 origin: 'phase2' | 'phase3' | 'reference'
+                 label: Text | null; reference: string | null   // of a reference map
+                 fresh: boolean                    // scored on the cases of the period in progress
+                 reliability: number | null }[]    // with the lens dryRun
+  deployed: string | null                          // the map that runs now. Null: no map
+  round: { index: number; of: number; endsAtMs: GameMs | null }
+  seen: number                                     // the reports held
+  reports: MaintainingReport[]
+  adopted: string[]                                // ids of the reference maps taken
+  lenses: { freshTestSet: boolean; dryRun: boolean; incidentLog: boolean; caseMix: boolean
+            driftAlarm: boolean }
+  spent: MaintainingSpent
+  score: number                                    // the score of the year so far
+  reveal: { score: number; raw: number; mean: number; values: number[]
+            spent: MaintainingSpent; costPerPoint: number
+            events: { id: EventId; title: Text; text: Text; from: number
+                      acted: boolean; periods: number[] }[]
+            references: { id: string; label: Text; values: number[]; validity: number[]
+                          reliability: number[]; mean: number; spent: number; score: number }[]
+            baseline: { label: Text; values: number[]; score: number } } | null
 }
 ```
 
@@ -2258,6 +2513,25 @@ Phase 2 adds its part (Step 7):
            running: { money; minutes; complexity }
            reference: { map: CanvasMap; summary: Text; accuracy: number } }
   } | null
+  // Phase 3: the year so far as numbers, the map that runs, and beside them the key.
+  maintaining: {
+    status: 'playing' | 'closed'
+    money: number; developers: { total: number; free: number }
+    legend: CanvasLegend; pools: { id; label; max }[]         // of the build file of Phase 3
+    actions: { id; title; group; state: 'open' | 'running' | 'done'; times: number }[]   // times: finished in Phase 3
+    map: CanvasMap; ready: { ok: boolean; reasons: string[] } // the draft
+    validations: { id; atMs; accuracy; map; origin; label }[]
+    deployed: string | null
+    round: { index: number; of: number }
+    reports: { period; short; map: string | null; validity; test; reliability; interruptions
+               value; off; runCost; fine; score
+               worstPart: Text | null                         // the label of the part that failed most
+               events: { id; title; validityLoss; reliabilityLoss }[] }[]   // every event that was a hit
+    spent: MaintainingSpent; score: number
+    key: { references: { id; label; map; accuracy }[]
+           guide: { id; best: Text; wrong: Text }[] }         // what Phase 3 adds, and the kinds on the map that runs
+    glimpse: { holds: Text[]; say: Text[]; good: Text[] }     // a few lines for a host who helps
+  } | null
 ```
 
 It carries the key in every stage, so that a host can help a player who is stuck and can answer
@@ -2313,23 +2587,25 @@ the notes of a slide. A screen socket sends nothing but `hello`.
 | The insight of an action | When that action ends, to that player |
 | The accuracy of a validation, its rank, what the map takes to run, the `public` of one missed case with the text of why, and one note | In the player's own validation result |
 | Every case with its `public` and the share solved by the submitted map and by the reference map, the reference map with its accuracy and `public_summary` | At the Phase 2 reveal |
-| `maintain.start`. Monitor `public` and `credits`. Action `public`, `credits`, `once`, `months` | When Phase 3 opens |
-| Event `public.early` or `public.late`, option `public` of the available options | When the event is revealed to that player |
-| Meters and history as seen | Every month and on every change |
-| True history, option `key.verdict` and `rationale`, event `key.teaches`, events never revealed | At the Phase 3 reveal |
+| What Phase 2 sends about the canvas, for the build file of Phase 3 (the tools and actions that `maintain.yaml` adds, with `repeat` and `run`). The periods, the rounds and their seconds, the validations of Phase 3, the label of the baseline, `cost_per_point`, and every reference map as the reveal of Phase 2 showed it | When Phase 3 opens |
+| A news item of `maintain.yaml` | When its round starts, to every player of the health system |
+| A report: the numbers of the period, the sentences of its bands, one failed case, one note, the part that failed most with its incident sentence, the `symptom` of the worst change. The `cause` of that change only for a player who held its lens then. The parts and the kinds of case only with their lenses | With each report, to that player |
+| The `alarm` of an event | When an action of its lens finishes while the event was a hit in the player's last report |
+| The `reveal` text of every event with the periods it was a hit for this player, the year of each reference map left alone and of no map, the parts of the score | At the Phase 3 reveal |
 | Briefs, letters, dialogue, announcements | When they fire |
 | A slide of the deck: title, bullets, image, live statistic, section title | While it is the current slide and the slides are up. To the big screen always, to players only when mirrored, and to host consoles together with the next slide |
 | The notes of a slide | To host consoles only, with the slide |
-| Report card lines and source labels | At winners, the player's own |
+| The report card (section 6.12): points, bands, ranks, facts, the lines of the pack that apply with the public names of their papers | In the player view at `winners` and in `closed`. From `POST /api/result` once a phase is scored, to whoever holds the rejoin code of the practice |
 
 Never sent to a player or the big screen before the Phase 2 reveal: the facts, what a source
 gives, its effort, its trust and its `distracts`, every number of quality, load, calls and price,
 the numbers of a prompt, `handoff.keep`, the cases with their weights, needs and difficulty, the
 share solved of a case, the flags `overloaded`, `distracting` and `prompt`, the reference map,
 the traps and every `key`. A case reaches a player one at a time, as the missed case of their own
-validation. Never sent at all: monitor `upkeep`, event `drift`,
-`detect`, `onset` before the reveal, option and action `effects`, `reveals`, `arms`, `disarms`,
-`calibration`, source gists, the notes of a slide, a slide that is not the current one, and
+validation. Never sent at all: the events of a year as such (their periods, `needs`,
+`patches`, `risks`, `fine`, `repaired_by`), every number of `reliability`, `world`, `grants`
+before they land, `lenses`, the parts of a report and what an event cost in it (unless a lens
+shows the parts), `calibration`, source gists, the notes of a slide, a slide that is not the current one, and
 every `key` field not listed above. A player's client receives `extra` on each person because
 the scene places extras differently. No screen shows it.
 
@@ -2342,6 +2618,15 @@ of every case from the reveal on. No field of the scoring (`weight`, `needs`, `d
 `gives`, `effort`, `distracts`, `keep`, `fetch`, `catch`, `by_model`, `perCase`, `solved`,
 `overloaded`, `distracting`, `summary`, `reference`) reaches a player or the big screen before the
 Phase 2 reveal. The ids of the canvas are public: every map names them.
+
+The leak scan knows the year (Step 9). The bots play Phase 3: every other one takes a reference
+map, each starts actions, validates and deploys. A news item may reach a player only once its
+round has started for them, the symptom of an event only when the event was the worst change or
+added the largest risk in one of their reports, its cause only when they held its lens for that
+report, its alarm only when it was said, and an incident sentence only for the part that failed
+most in one of their reports. No field of the year's scoring (`repaired_by`, `patches`, `risks`,
+`needs`, `coach`, `components`, `worstEvent`, `validityLoss`, `reliabilityLoss`) reaches a
+player or the big screen, and the lesson of an event not before the Phase 3 reveal.
 
 The leak scan of Step 3 checks moments per session stage. A tile is sent to its own player only,
 so Step 5 added a check per player that no text of a tile reaches anyone before their
@@ -3128,7 +3413,9 @@ and the reference map side by side, read-only and drawn small with their parts, 
 accuracy, and the reference map's summary. On a small map a tile's name takes up to two lines
 and no icon, so a name of eleven letters fits. Then every kind of case with its title and text and two
 bars, the share the player's map solved and the share the reference map solves. A closing line
-says that the map, the money and what was unlocked go into Phase 3. On a phone the parts stack in
+says that the map, the money and what was unlocked go into Phase 3. A pack with several
+reference maps shows them one at a time, each under a tab with its label and its accuracy, and
+the cases are held against the first. On a phone the parts stack in
 the same order.
 
 **After the second play check (version 1.6).** What a player met in play and what the screen
@@ -3221,30 +3508,86 @@ does now.
   projector the winners stand in one panel. The chart `flagship_by_system` is titled "Found the
   agent project". Two health systems or more work as before.
 
-### 10.6 Phase 3 screens (outline)
+### 10.6 Phase 3 screens
 
-- **Setup.** The player's own map from Phase 2, with the choice to take the reference map in its
-  place, the monitors as cards with their credits, the credit pool and a countdown.
-- **The year.** The four meters with their numbers, the month on a twelve-step track, the
-  credit pool, the funded monitors, and the two shelves of actions (look and change). One
-  action a month, and the shelves say when it is used. Months are short, and every month
-  brings every player news to read or a choice to make. The pack is checked for that.
-- **Events.** A card per revealed event with its text, its options and the time left. A late
-  reveal looks different from an early one and sets off the alarm in the scene. Answered events
-  fold into a log.
-- **History.** The health of each month as a small chart. A reveal that rewrites earlier months
-  shows the change.
-- **Reveal.** The letter, the seen year against the true year, each event with how it was found
-  and the verdict on the option taken, and what never surfaced.
+Phase 3 is Phase 2 played on, so its screen is the board of section 10.5 with what a year in
+service adds. The board (the map, the toolbox, the shelves, the action list, the tabs of a
+phone, the tour, the sheets of a tile) is one component, `phase2/Board.tsx`, which takes the
+phase, the part of that phase's view it reads, and the panels of the phase. Phase 2 and Phase 3
+pass their own panels and words. Nothing of the board is copied.
 
-Step 8 completes this section when the Phase 3 content exists.
+- **The timer.** The top bar counts down to the next report, not to the end of the stage:
+  "01:42", and beside it "Phase 3 · Round 2 of 5" over "until the report on March and April".
+  The end of the round is the end of the stage less the rounds still to come (section 6.7), read
+  from the clock, so an extension by the host moves it at once and a pause stops it. Under
+  1280 px the same line stands above the tabs. After the last report it says that the year is
+  over. The money and the developers stand beside it as in Phase 2.
+- **The opening.** In this order, each waiting for the one before: the opening letter, the
+  report on the first period as a card over the board, the reference maps (once, while the
+  player has taken none), and the tour. A report that arrives later opens by itself in the same
+  way, and waits while the letter or the tour is in front. What was opened is kept in the
+  browser, so a refresh opens nothing twice.
+- **A report** shows what the server sent for that period and works nothing out: validity and
+  reliability out of 100 and the score of the two months, each in a box of its own color. Under
+  the validity stands what the same map scored on the test set and how far the validity lies
+  under it. Under the reliability the number of interruptions. Then the map that ran, the
+  sentences of the pack, the worst change as a symptom (its cause only when the view carries
+  it, and otherwise one line that some actions make reports say more), the part that failed
+  most, one failed case, what the people who check say with the points they take off, a note,
+  the tables of the lenses when the view carries them (every part that failed, every kind of
+  case), and the money: what the two months cost, a fine, the money spent so far, the score of
+  the year so far and the rank.
+- **The year.** One cell across both columns under the map, above the list of maps and the
+  letters: on the left the chart (six slots, one for each period, with validity, reliability and
+  the score of every period that has a report, the test-set accuracy of that period's map as a
+  dashed mark, an axis that starts a ten under the lowest number and never above 50) and under
+  it the year in numbers, one row for each report. On the right the reports, one at a time,
+  with a step back and forward. A press on a slot of the chart or on a row shows that report. A
+  new report is the one shown. Under the year in numbers stands the money: the score of the year
+  so far, the money spent so far with its parts (`spent`), and the rule that `costPerPoint` of
+  money takes one point off. On a phone the year is a tab of its own.
+- **One line between the map and its footer** says which map runs now and gives the three
+  numbers of the last report. A press on the numbers opens that report.
+- **Your maps.** Every map of the list, the newest first: the validations of Phase 2 and of
+  Phase 3, each numbered within its phase, and the reference maps taken, by their label. A row
+  has the accuracy, what it was scored on (the test set, or this year's cases), the reliability
+  it would have when the view carries one, and two controls of one size: Deploy (or the words
+  "Running now" in its place) and "Restore this map" (or "On your canvas now"). The newest
+  validation of Phase 3 also shows its failed case and its note. A line above the list says that
+  what is deployed when the timer reaches zero runs for the next two months. "Run no map" asks
+  first. A refused deployment says why in its row.
+- **Reference maps.** A sheet with one tab for each reference map of the pack: its label, its
+  accuracy on the test set, its summary and its drawing, and "Take this map" (`maintaining.adopt`),
+  which closes the sheet. A map that was taken says so. The sheet says that taking one costs no
+  validation, that what it needs and the player has not bought counts as money spent without
+  being taken from the account, and that a player can go back to their own map at any time. It
+  is reachable from the list of maps for the whole phase.
+- **Actions.** The groups of Phase 2 and those Phase 3 adds, in the order of the content. An
+  action done in Phase 2 shows as done. An action with `repeat` that has finished can be started
+  again: its button says so, and a quiet word under its title says how often it was done. An
+  action with `upkeep` says what it costs a month from the period after it finished.
+- **Letters and memos.** Everything that arrives in the inbox during the year stays as a card
+  under "Letters and insights", the newest first, before the opening letter. Its arrival is said
+  in a toast with "Show", and money that arrives is said in a toast of its own. Nothing covers
+  the board.
+- **The reveal.** The annual review beside the score: the mean of the six periods, the money
+  spent with its parts and the rate at which it takes points off, the score of the year, the
+  points and the band. Then the year (the chart and every report, read-only), the player's year
+  beside each reference map left alone and beside a practice with no system (one row each, six
+  periods and the year), and every event of the year with its lesson and the periods in which
+  it acted on this player, or the words that it did not touch their system.
+- **Later.** The menu offers "Look at your Phase 3 result" in every later stage, and so does
+  the page of an ended game.
 
 ### 10.7 Standings, winners and the report card
 
 - **Standings sheet.** Opened from the rank in the top bar. The player's rank overall, in their
   health system and in the current phase, the top three of each column, and the ranking of the
   health systems. It says in words which rank the top bar shows.
-- **Winners.** The player's final rank and points per phase.
+- **Winners.** One panel titled "Thank you for playing" with the best three of the room, the
+  player's own row marked, under "The winners" (or "Standings so far" while a phase is still
+  to be scored). Under it the player's report card. Before any phase is scored there is no
+  card, and the panel shows the rank and the points per phase.
 - **A scored phase, again.** Once Phase 1 is scored and the stage shows something else (any
   stage after its break), the menu has "Look at your Phase 1 result". It opens the reveal of
   section 10.4, with the corrected assessment and the reasons, under a strip with "Back to the
@@ -3257,7 +3600,8 @@ Step 8 completes this section when the Phase 3 content exists.
   brings it back. The browser keeps the record of its last game (section 7.7), so nothing it
   remembers is lost.
 - **A game that has ended** (the `closed` stage). The page is titled "This game has ended" and
-  says that nothing more can be changed. It keeps the rank and the points per phase, and a
+  says that nothing more can be changed and that the report card stays. It keeps the best three
+  and the report card with its link (or, when no phase was scored, the rank and the points), and a
   button "Look at your Phase 1 result" opens the reveal of section 10.4 again, with a way back.
   Under it one line says that a button to join appears when the host opens a new game, and
   that button, "Join the new game" with the label of the new session, takes its place as soon
@@ -3265,13 +3609,40 @@ Step 8 completes this section when the Phase 3 content exists.
   go of the practice at once and leads to the game that is open now, or to the page that asks
   for a session code when none is. The record of the ended game stays in the browser and shows
   under the join form. When the game is gone from the server, the page shows the record the
-  browser kept instead, the same button, and a link to type another session code.
+  browser kept instead, a link "See your report card" to the result page, the same button, and
+  a link to type another session code.
 - **A phase or the game that starts again.** A bar under the top bar says "The host started
   Phase 1 again. Your work in this phase is cleared. Points from earlier phases are kept." or
   "The host started the game again. Everyone is back in the lobby and all points are cleared."
   (section 7.7).
-- **Report card.** The points and the label of the band per phase, the lines that apply with
-  their source labels, the closing text and the links.
+- **Report card** (section 6.12). A panel "Your report card", or "Your result so far" while a
+  phase is still to be scored. The head of the card has the character, the name of the
+  practice, its health system, the label of the session and the day, and on the right the
+  total "1022 / 3000" and "Overall rank #2 of 7" (with more than one health system also the
+  rank inside its own). Then one box per phase: its name, the label of the band as a chip, the
+  points, the rank in the phase and the facts, each on a line. Phase 3 adds a small table, one
+  row per period with its validity, its reliability and its score. A phase that was not scored
+  says so. Then the lines of the pack under the title of their section, each with the public
+  name of its paper, the closing text, and "Read more" with the papers and the links.
+- **Keeping the card.** Under the card a panel "Come back to this card" shows the address
+  `<host>/result/<session code>` as a link with "Copy the link", one line that says the link
+  shows the card at once in this browser and asks for the rejoin code elsewhere (the code is
+  written out), and "Save as PDF" with the line "Opens the print window of your browser.
+  Choose "Save as PDF" as the printer.".
+- **On paper.** While a card is on the screen a second copy of it lives outside the
+  application root, hidden. The print stylesheet hides the application and shows that copy
+  alone, in light colours whatever the theme, without shadows, on one page of A4 or Letter. It
+  ends with the address of the card and the rejoin code. So the button, and the print command
+  of the browser, print the card and nothing else.
+- **The result page** (`/result` and `/result/<session code>`, section 7.7). Titled "Your
+  result". In a browser that kept the game it shows the card at once, with the same panel to
+  keep it. Otherwise a form: "Session code or name" (filled in from the link) and "Your rejoin
+  code", each with a line of help, and "Show my result", which stays disabled until both are
+  long enough. A lookup that finds nothing says "No result was found for that session and
+  that code. Check both and try again. A result exists once the first phase of a game is
+  scored.", too many lookups "Too many tries from here just now. Wait a minute and try
+  again.". Other games this browser kept stand under "Your games in this browser", one button
+  each. "Look up another result" opens the form again and "Go to the game" leads to `/`.
 
 ### 10.8 Host console
 
@@ -3467,6 +3838,7 @@ section in the deck shows the leaderboard or a title card in place of the slides
 | Button | The line under it |
 | --- | --- |
 | Results table (CSV) | "One row per player with the points of each phase. Keep this after the event." |
+| Report cards (CSV) | "What each player sees on their report card: points, band and rank of each phase, and its facts." |
 | Timing table (CSV) | "When each stage started and ended against the schedule, and how fast players acted." |
 | Full activity log (JSON) | "Everything players and hosts did, for replay and for finding a fault." |
 
@@ -3523,6 +3895,17 @@ after it, and says at the top that only hosts see it. Its actions are "Spotlight
 screen", for the host in charge, and Close. Each later phase adds a tab, which opens first once
 that phase has begun.
 
+**The Phase 3 tab** opens the same way, for a host who helps a player in the middle of a year.
+On top, chips: the status, the round, the score of the year so far, the money, the free
+developers and the money spent. Then the block "To help this player" with three short lists that
+the server writes (`HostInspect.maintaining.glimpse`): what holds them back, what is worth
+saying, what is good. Under the lists stand the names of the tools and actions that the pack
+has a guide for (`key.guide`), each a button that shows its best use and the wrong choices. Then
+the map that runs beside their draft (two tabs), and their year as a table, one row for each
+report: the period, the map that ran, validity, test set, reliability, interruptions, the
+score, the part that failed most, and every event that acted on them with what it cost. Folded
+under it: their maps and their actions, and the reference maps of the pack with their drawings.
+
 **The Phase 2 tab** is built for a host who helps a player, so it opens with the few lines that
 matter and folds the rest. On top, chips: the status, the money, the free developers, and the
 chosen map with its accuracy. Then the coaching block, "To help this player", from
@@ -3554,6 +3937,17 @@ folds close the tab. The first holds every validation as a chip that opens its m
 that run or are done, and the share of every case the draft solves, with its weight. The second
 holds the reference map with its accuracy and its summary. Nothing of `coach` and nothing of
 `key.guide` is in any player view or screen view, and a test holds that.
+
+**Phase 3 in the view of a player.** The tab of Phase 3 opens with the same kind of block, from
+`HostInspect.maintaining.glimpse`: what holds this player back, what to say, and what is good,
+a few lines each. The engine writes them from the last report (no map runs, an event that was
+a hit and has a line of `key.coach` in the pack, a map that stops often, people who are asked
+twice, validations that still run on the test set) and from what the player did (lenses held,
+repairs made). Under it the year as a table of the reports with the events that were a hit in
+each, the map that runs drawn read-only, the list of maps, the actions, the money spent by
+part, the reference maps, and the guide of `key.guide` for what Phase 3 adds and for the kinds
+on the map that runs. Nothing of `glimpse`, of `key.coach` and of the events is in any player
+view or screen view, and a test holds that.
 
 **The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
 its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status
@@ -3772,7 +4166,7 @@ change.
 | `npm run check` | Type check, lint, unit and integration tests on the demo pack | Mac, before every merge |
 | `npm run e2e` | Playwright on the demo pack, at laptop and phone size | Mac |
 | `npm run check:content` | The loader on `CONTENT_DIR` | Mac |
-| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer, and with `CANVAS_SCORER` set to the canvas scorer also 300 random ready maps per health system | Mac, with the private pack |
+| `npm run test:parity` | Engine against the reference scorer on `CONTENT_DIR`, with `SCORER` set to the path of the scorer, with `CANVAS_SCORER` set to the canvas scorer also 300 random ready maps per health system, and with `MAINTAIN_SCORER` set to the scorer of Phase 3 also the periods, validations and years of every named map of the key | Mac, with the private pack |
 | `npm run test:leak` | The leak scan on `CONTENT_DIR` | Mac, with the private pack |
 | `npm run check:no-private` | Scans the repository for text of the private pack | Mac, before every merge |
 | `npm run simulate` | Headless games with scripted strategies | Mac |
@@ -3783,6 +4177,14 @@ repository. The checks run on the Mac before each merge.
 
 ### 12.2 Engine
 
+- **The report card** (`packages/engine/test/report-card.test.ts`). The player view carries no
+  card before `winners` and one at `winners` and in `closed`, which passes its schema. A card
+  holds the points, the band and the rank of each phase, the facts of Phase 1, and the papers by
+  their public names. A line of the pack is on it when its conditions hold, with the public name
+  of its paper, and no rationale of a problem and no gist of a source is anywhere in it. A game
+  with one scored phase gives a card that is not final, with no closing. A removed practice has
+  none. The loader tests refuse a report card file with an unknown fact, a value of the wrong
+  kind and an unknown band.
 - **Parity of the canvas.** `packages/engine/test/vectors/canvas.json` is written by
   `tools/canvas_scoring.py --vectors` of the private folder on its neutral toy packs, and never
   edited by hand. The file holds a first block (`build`, `cases`) and further blocks under `more`,
@@ -3806,10 +4208,26 @@ repository. The checks run on the Mac before each merge.
   design that is not buildable, with a `kind`, and there the engine matches the kind and the
   two developer counts. `test:parity` does the same on the pack in
   `CONTENT_DIR` with random reports, designs and years, by sending requests to the scorer.
-- **The year in real time.** The reference plays a year in whole months, in this order inside a
-  month: answers to the events revealed that month in file order, late answers in file order,
-  the action. The engine matches it when commands arrive in that order. Other orders have their
-  own tests.
+- **Parity of Phase 3.** `packages/engine/test/vectors/maintain.json` is written by
+  `tools/maintain_scoring.py --vectors` of the private folder on its toy pack and toy year, and
+  never edited by hand. For every vector the engine returns the same answer within 1e-9
+  (`maintain-parity.test.ts`): a period for a deployed map or for no map (validity, test,
+  reliability, interruptions, the people's part, value, running cost, fine, every risk entry in
+  order, the part that failed most, what every acting event cost, the worst change, the share of
+  every case, the failed case and the note), a validation with and without the lenses, and a
+  year. The toy year has every kind of patch and of risk. `test:parity` does the same on the
+  pack in `CONTENT_DIR` for the reference maps, the traps and the examples of each key that are
+  ready, with four sets of actions, by sending requests to the scorer.
+- **Phase 3 rules** (`maintaining.test.ts`). What a player carries from Phase 2 and the first
+  report. A report at every round boundary and the last one with the stage, a grant at the
+  start of its round, an extension, a stage ended early, path independence, an action that
+  finishes at the very moment a round ends. Every refusal of the five commands, a repeat
+  action, the count of validations, a validation with the lenses, a reference map taken (its
+  price, its items, its deployment, no action paid twice), deploying a map and no map. A silent
+  event as a symptom, its cause only with the lens, an alarm said at once, a repair that
+  started too early, the parts and the kinds of case with their lenses, the audit. The score of
+  the year, the live column, the reveal, the letter of a player whose map never ran. A late
+  player. The host's view with its lines of help, and the projector.
 - **Path independence.** For random states and command lists, one `advance` to the end equals
   many small ones.
 - **Rules.** Each command has a test for every refusal in its table. Late joining, pause and extend, tie-breaks, rounding half up, missing anchors.
@@ -3924,6 +4342,14 @@ repository. The checks run on the Mac before each merge.
   newest open session, with `after` only one created later, and null when there is none. An
   ended session refuses a player command and a join. After a restart of the server a socket
   with a token of the ended session gets the status `ended`.
+- **A result to come back to** (`packages/server/test/result.test.ts`). The card on the view
+  at `winners` equals the one `POST /api/result` returns by the code of the session in any
+  case and by its label. A wrong code and a wrong session get the same 404. No card before a
+  phase is scored, and the result so far after the first. The card comes back after the
+  session is closed and after a restart from the database, the code of a later session opens
+  nothing of an earlier one, the downloads of the closed session hold the cards, and deleting
+  the session removes them. A rename and a removal reach the kept cards, a game that starts
+  again has none, and the sixty-first lookup of a minute is refused.
 - **Error sentences.** A unit test of the client walks every name of `ErrorCode` and every
   name an HTTP route can answer with, and fails when the copy file has no sentence for one. A
   browser test triggers a refusal on the join page, on the new session form and on the Phase 1
@@ -3990,6 +4416,15 @@ For the Phase 2 screen (`e2e/phase2.spec.ts`):
 - On a phone: four tabs, a worker placed by taps from the Toolbox tab, lines drawn by taps, the
   grid scrolling inside itself, and the host's view of the player with the draft, the key and the
   reference map.
+
+For the end of the game (`e2e/result.spec.ts`, laptop and phone): no card before the winners;
+at the winners the card with every phase, the facts, the papers, "Save as PDF" and the link;
+under print media the application is hidden and the copy for the printer shows with no
+button; the card after a reload and after the host has ended the session; `/result/<code>` and
+`/result` in the same browser with no question; in a second browser the form with the session
+filled in, a refusal in plain words for a wrong code, the card with the right one, and the
+game kept from then on; in a third the lookup by the name of the session. No page scrolls
+sideways and none shows an error name.
 
 For the guidance of the screen (`e2e/guide.spec.ts`, and `packages/client/test/guide.test.ts`
 for the order of the reasons and the sentence of every refusal):
@@ -4219,9 +4654,9 @@ Done when Phases 1 and 2 of the private pack play in a row on a laptop and a pho
 
 **Step 9. Phase 3 and the whole game**
 
-The maintaining rules of section 6.7, the parity vectors for years, the screens of section 10.6
-as completed in Step 8, the annual review, the winners screen, the report card, the room
-statistics on the slides that name one, and `scripts/simulate`. The demo pack gains its
+The maintaining rules of section 6.7, the parity vectors of a period, a validation and a year,
+the screens of section 10.6, the reveal of the year, the winners screen, the report card, the
+room statistics on the slides that name one, and `scripts/simulate`. The demo pack gains its
 Phase 3 files and its report card, and its anchors are measured.
 
 Done when one full game of the private pack plays from join to winners.

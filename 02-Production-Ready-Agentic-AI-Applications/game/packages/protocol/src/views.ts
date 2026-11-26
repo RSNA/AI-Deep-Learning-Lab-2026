@@ -2,6 +2,7 @@
 // Every schema is strict: an unknown field stops the message before it is sent.
 import { z } from 'zod'
 import { AvatarId, Method, Mode, PhaseId, ProgrammeShow, SceneId, StageId, Theme } from './ids.ts'
+import { ReportCard } from './report.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 export const Text = z.string()
@@ -138,8 +139,13 @@ export const Running = S({ money: z.number(), minutes: z.record(z.string(), z.nu
 export type Running = z.infer<typeof Running>
 
 const Part = { id: z.string(), label: Text, short: Text, description: Text, costLine: Text.nullable() }
-export const DevelopmentContent = S({
-  phase: z.literal('development'),
+const CanvasAction = {
+  id: z.string(), group: z.string(), title: Text, teaser: Text,
+  money: z.number(), developers: Int, seconds: z.number(),
+  requires: z.array(z.string()), unlocks: z.array(z.string()), storyTime: Text.nullable(),
+}
+/** What Phases 2 and 3 both send about the board: the rules, and the public part of everything on it. */
+const CanvasContent = {
   brief: Brief,
   problem: S({ id: z.string(), title: Text, description: Text }),
   rules: S({
@@ -168,16 +174,39 @@ export const DevelopmentContent = S({
   compute: z.array(S({ ...Part, protectsPrivateData: z.boolean() })),
   // The first is the default. A card shows `samples`, each under its label, or else `sample`.
   prompts: z.array(S({ id: z.string(), label: Text, short: Text.nullable(), description: Text, sample: Text.nullable(), samples: z.array(S({ label: Text, text: Text })) })),
-  actions: z.array(S({
-    id: z.string(), group: z.string(), title: Text, teaser: Text,
-    money: z.number(), developers: Int, seconds: z.number(),
-    requires: z.array(z.string()), unlocks: z.array(z.string()), storyTime: Text.nullable(),
-  })),
+}
+export const DevelopmentContent = S({
+  phase: z.literal('development'),
+  ...CanvasContent,
+  actions: z.array(S(CanvasAction)),
 })
 export type DevelopmentContent = z.infer<typeof DevelopmentContent>
 
-/** Phase 3 content is added by its build step. */
-export const PhaseContent = z.discriminatedUnion('phase', [PlanningContent, DevelopmentContent])
+/** A reference map of the pack, as a player may see it: at the reveal of Phase 2 and in Phase 3. */
+export const ReferenceMap = S({ id: z.string(), label: Text, summary: Text, map: CanvasMap, accuracy: z.number() })
+export type ReferenceMap = z.infer<typeof ReferenceMap>
+
+/**
+ * Phase 3 (section 6.7): the board of Phase 2 with what Phase 3 adds (tools, actions, groups of
+ * actions), the year in periods and rounds, and the reference maps a player may take.
+ */
+export const MaintainingContent = S({
+  phase: z.literal('maintaining'),
+  ...CanvasContent,                   // `rules.validations` and `validateSeconds` are those of Phase 3
+  // `repeat`: the action may be done again after it finished. `upkeep`: money a month from the
+  // period after it finished, counted in the money spent.
+  actions: z.array(S({ ...CanvasAction, repeat: z.boolean(), upkeep: z.number() })),
+  year: S({
+    periods: z.array(S({ id: z.string(), label: Text, short: Text })),   // rounds + 1, in order
+    rounds: Int, roundSeconds: z.number(),
+    baselineLabel: Text,              // what a practice with no deployed map is called
+    costPerPoint: z.number(),         // money that takes one point off the score of the year
+  }),
+  references: z.array(ReferenceMap),
+})
+export type MaintainingContent = z.infer<typeof MaintainingContent>
+
+export const PhaseContent = z.discriminatedUnion('phase', [PlanningContent, DevelopmentContent, MaintainingContent])
 export type PhaseContent = z.infer<typeof PhaseContent>
 
 // ------------------------------------------------------------------------------------------
@@ -279,10 +308,118 @@ export const DevelopmentView = S({
   reveal: S({
     accuracy: z.number(), raw: z.number(),
     cases: z.array(S({ title: Text, text: Text, solved: z.number(), reference: z.number() })),
-    reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),
+    reference: S({ map: CanvasMap, summary: Text, accuracy: z.number() }),   // the first of `references`
+    references: z.array(ReferenceMap),             // every reference map of the pack, the first is `reference`
   }).nullable(),
 })
 export type DevelopmentView = z.infer<typeof DevelopmentView>
+
+// ------------------------------------------------------------------------------------------
+// Phase 3: the year (section 6.7). Shares run 0 to 1, values and scores 0 to 100.
+// ------------------------------------------------------------------------------------------
+/** Money spent so far, by part: everything counts in the score of the year. */
+export const MaintainingSpent = S({
+  phase2: z.number(),               // the actions of Phase 2
+  actions: z.number(),              // the actions of Phase 3
+  adoption: z.number(),             // the price of what the reference maps taken needed
+  running: z.number(),              // the running cost of the periods reported
+  fines: z.number(),
+  total: z.number(),
+})
+export type MaintainingSpent = z.infer<typeof MaintainingSpent>
+
+/** The report of one period of two months, for the player whose map ran. */
+export const MaintainingReport = S({
+  period: Int,                      // 1 is the first period
+  label: Text, short: Text,
+  atMs: Ms,
+  map: z.string().nullable(),       // the validation that ran. Null: no map ran
+  validity: z.number(),             // on the patients of the period
+  test: z.number(),                 // the accuracy of the same map on the test set
+  reliability: z.number(),
+  interruptions: Int,
+  value: z.number(),                // the score of the period
+  off: z.number(),                  // points the people's part took off
+  runCost: z.number(), fine: z.number(),
+  spent: z.number(),                // everything spent up to this report
+  score: z.number(),                // the score of the year after this report
+  rank: Int.nullable(), of: Int,    // among the practices that hold this report
+  // One sentence each, from the pack. Null when it does not apply.
+  sentences: S({
+    validity: Text.nullable(), reliability: Text.nullable(),
+    gap: Text.nullable(),           // the validity lies well under the test set
+    people: Text.nullable(),        // what the people who check say
+    steady: Text.nullable(),        // nothing changed for the worse
+    noMap: Text.nullable(),         // no map ran
+  }),
+  missed: Missed.nullable(),        // one failed case
+  note: Text.nullable(),
+  worstPart: S({ label: Text, text: Text }).nullable(),      // the part that failed most, and what happened
+  // The worst change of the period, as a symptom. The cause only with the lens it asks for.
+  worstChange: S({ symptom: Text, cause: Text.nullable() }).nullable(),
+  // With the lens `incidentLog`: every part that failed, grouped by what it is, with the share of
+  // the cases it lost. Null without the lens.
+  parts: z.array(S({ label: Text, share: z.number() })).nullable(),
+  // With the lens `caseMix`: the share solved of every kind of case. Null without the lens.
+  kinds: z.array(S({ title: Text, solved: z.number() })).nullable(),
+})
+export type MaintainingReport = z.infer<typeof MaintainingReport>
+
+export const MaintainingView = S({
+  // The draft, the actions and the validations, as in Phase 2.
+  money: z.number(),
+  developers: S({ total: Int, free: Int }),
+  unlocked: z.array(z.string()),
+  // Every action that finished, those of Phase 2 too (`phase` tells them apart). A `repeat`
+  // action is listed once for every time it finished.
+  actionsDone: z.array(S({ id: z.string(), atMs: Ms, phase: z.enum(['development', 'maintaining']) })),
+  actionsRunning: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms })),
+  insights: z.array(S({ action: z.string(), tile: Tile })),
+  map: CanvasMap,
+  ready: S({ ok: z.boolean(), reasons: z.array(z.string()), details: z.array(ReadyDetail) }),
+  lineAdvice: z.array(S({ from: z.string(), to: z.string(), text: Text })),
+  tileMinutes: z.record(z.string(), z.number()),
+  rushed: z.array(S({ pool: z.string(), used: z.number(), max: z.number(), tiles: z.array(z.string()) })),
+  flags: S({ stray: z.array(z.string()), incomplete: z.array(z.string()), privateData: z.array(z.string()) }),
+  running: Running.nullable(),
+  validationsLeft: Int,
+  validating: S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms }).nullable(),
+  // The list of maps: the validations of Phase 2, those of Phase 3, and the reference maps taken.
+  validations: z.array(S({
+    id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
+    unhurried: z.number().nullable(),
+    missed: Missed.nullable(),
+    note: Text.nullable(),
+    running: Running.nullable(),
+    origin: z.enum(['phase2', 'phase3', 'reference']),
+    label: Text.nullable(),         // the label of a reference map
+    reference: z.string().nullable(),   // the id of the reference map it is
+    fresh: z.boolean(),             // scored on the cases of the period in progress, not on the test set
+    reliability: z.number().nullable(),   // what the map would have if deployed then. Null without the lens
+  })),
+  deployed: z.string().nullable(),  // the map that runs in the period in progress. Null: no map
+  // The round in progress, 1 to `of`, and when it ends. After the last report `endsAtMs` is null.
+  round: S({ index: Int, of: Int, endsAtMs: Ms.nullable() }),
+  seen: Int,                        // the reports held
+  reports: z.array(MaintainingReport),
+  adopted: z.array(z.string()),     // ids of the reference maps taken
+  lenses: S({ freshTestSet: z.boolean(), dryRun: z.boolean(), incidentLog: z.boolean(), caseMix: z.boolean(), driftAlarm: z.boolean() }),
+  spent: MaintainingSpent,
+  score: z.number(),                // the score of the year so far
+  reveal: S({
+    score: z.number(), raw: z.number(),
+    mean: z.number(),               // the mean of the values of the periods
+    values: z.array(z.number()),
+    spent: MaintainingSpent,
+    costPerPoint: z.number(),
+    // Every event of the year: what it was, and the periods in which it acted on this player.
+    events: z.array(S({ id: z.string(), title: Text, text: Text, from: Int, acted: z.boolean(), periods: z.array(Int) })),
+    // The year of each reference map left alone, and of a practice with no map.
+    references: z.array(S({ id: z.string(), label: Text, values: z.array(z.number()), validity: z.array(z.number()), reliability: z.array(z.number()), mean: z.number(), spent: z.number(), score: z.number() })),
+    baseline: S({ label: Text, values: z.array(z.number()), score: z.number() }),
+  }).nullable(),
+})
+export type MaintainingView = z.infer<typeof MaintainingView>
 
 export const InboxItem = S({
   id: z.string(), kind: z.enum(['brief', 'letter', 'announcement']), from: z.string(),
@@ -301,9 +438,9 @@ export const PlayerView = S({
   }),
   planning: PlanningView.nullable(),
   development: DevelopmentView.nullable(),
-  maintaining: z.null(),            // Step 9 defines MaintainingView
+  maintaining: MaintainingView.nullable(),
   inbox: z.array(InboxItem),
-  reportCard: z.null(),             // Step 9 defines the report card
+  reportCard: ReportCard.nullable(),   // at `winners` and after the session is closed (report.ts)
   slide: SlideView.nullable(),      // the slide the host mirrors to every player, outside play
 })
 export type PlayerView = z.infer<typeof PlayerView>
@@ -390,7 +527,7 @@ export const ScreenView = S({
   programme: z.array(S({ show: ProgrammeShow, seconds: Int })).nullable(),
   // What the room just did, newest first. A line names the practice and the source of an
   // insight (a person, a data pull), never what was learned and never a class.
-  feed: z.array(S({ name: Text, avatar: AvatarId, system: z.string(), kind: z.enum(['started', 'finished', 'sent', 'validated']), text: Text.nullable(), atMs: Ms })),
+  feed: z.array(S({ name: Text, avatar: AvatarId, system: z.string(), kind: z.enum(['started', 'finished', 'sent', 'validated', 'deployed']), text: Text.nullable(), atMs: Ms })),
   // One phase, the health systems side by side: the phase the host picked, or the running one.
   phaseBoard: S({
     phase: PhaseId, state: z.enum(['empty', 'live', 'final']), label: Text, of: Int.optional(),

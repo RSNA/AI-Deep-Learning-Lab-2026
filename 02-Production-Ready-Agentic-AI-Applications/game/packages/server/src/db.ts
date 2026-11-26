@@ -54,6 +54,10 @@ export class Storage {
         game_ms INTEGER NOT NULL, wall_ms INTEGER NOT NULL, data TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS event_code ON event_log (code, id);
+      CREATE TABLE IF NOT EXISTS result (
+        code TEXT NOT NULL, player_id TEXT NOT NULL, card TEXT NOT NULL, updated INTEGER NOT NULL,
+        PRIMARY KEY (code, player_id)
+      );
     `)
   }
 
@@ -78,8 +82,34 @@ export class Storage {
   /** Remove a session and everything stored for it. */
   deleteSession(code: string): void {
     this.transaction(() => {
-      for (const t of ['command', 'snapshot', 'event_log', 'clock', 'auth', 'session']) this.db.prepare(`DELETE FROM ${t} WHERE code = ?`).run(code)
+      for (const t of ['command', 'snapshot', 'event_log', 'clock', 'auth', 'result', 'session']) this.db.prepare(`DELETE FROM ${t} WHERE code = ?`).run(code)
     })
+  }
+
+  /**
+   * The sessions a player may mean by what they typed: the one with that code, and every one
+   * with that label (letter case and outer spaces aside), newest first.
+   */
+  sessionsNamed(code: string, label: string): SessionRow[] {
+    return this.db.prepare('SELECT * FROM session WHERE code = ? OR trim(label) = trim(?) COLLATE NOCASE ORDER BY created DESC')
+      .all(code, label) as unknown as SessionRow[]
+  }
+
+  // Results (section 7.5): the report card of every practice, kept after the session is closed ---
+  /** Replace the stored cards of a session by `cards` (player id to JSON). An empty set clears them. */
+  writeResults(code: string, cards: Map<string, string>, wall: number): void {
+    this.transaction(() => {
+      this.db.prepare('DELETE FROM result WHERE code = ?').run(code)
+      const ins = this.db.prepare('INSERT INTO result (code, player_id, card, updated) VALUES (?, ?, ?, ?)')
+      for (const [id, card] of cards) ins.run(code, id, card, wall)
+    })
+  }
+  result(code: string, playerId: string): string | undefined {
+    const r = this.db.prepare('SELECT card FROM result WHERE code = ? AND player_id = ?').get(code, playerId) as { card: string } | undefined
+    return r?.card
+  }
+  results(code: string): { player_id: string; card: string }[] {
+    return this.db.prepare('SELECT player_id, card FROM result WHERE code = ? ORDER BY rowid').all(code) as unknown as { player_id: string; card: string }[]
   }
 
   // Clock ----------------------------------------------------------------------------------

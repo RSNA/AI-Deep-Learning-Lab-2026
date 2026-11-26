@@ -73,7 +73,7 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
     // ended, so that a player can look at a result again.
     const asked = new Set<string>()
     const fetchContent = (view: PlayerView) => {
-      for (const phase of ['planning', 'development'] as const) {
+      for (const phase of ['planning', 'development', 'maintaining'] as const) {
         if (view[phase] === null || get().content[phase] || asked.has(`${phase}:${view.run}`)) continue
         asked.add(`${phase}:${view.run}`)
         void api.content(token, phase).then((r) => {

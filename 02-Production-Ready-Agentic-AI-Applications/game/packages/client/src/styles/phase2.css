@@ -345,7 +345,9 @@
 .p2toast .btn { min-height: 32px; }
 
 /* ---------------------------------------------------------------- phone */
-.p2-phone { flex: 1; min-height: 0; display: flex; flex-direction: column; height: calc(100dvh - var(--top-h)); }
+/* As tall as the screen under the top bar, never as tall as its content: the tabs stay at the
+   bottom and each tab scrolls inside. (A flex basis of 0 would have let the content set the height.) */
+.p2-phone { flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column; height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); }
 .p2-phone-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; background: var(--panel); }
 .p2pmap { display: flex; flex-direction: column; min-height: 0; }
 .p2pmap .purse, .p2pcol .purse { padding: 8px 10px; background: var(--inset); border-bottom: 2px solid var(--soft); gap: 12px; }
@@ -630,3 +632,17 @@
 .cgrid.compact.six .csource .cs-name { font-size: 9.5px; }
 .p2maps .cgrid.six { height: 440px; min-width: 560px; }
 .insp-map .cgrid.six { height: 410px; }
+
+/* An action that may be done again (Phase 3), a memo among the letters, a fifth tab on a phone,
+   and one cell across both columns under the map. */
+.arow .atag { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--good); padding: 0 2px 2px; }
+.ibtn.start.again { font-size: 15px; white-space: normal; line-height: 1; }
+.h-memo { background: var(--sky); }
+.ptabs.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.ptabs.five .tl { font-size: 18px; }
+.p2-below.with-above .p2-above { grid-column: 1 / -1; min-width: 0; }
+/* The reveal of a pack with several reference maps: one tab for each. */
+.refseg { flex-wrap: wrap; }
+.refseg button { flex: 1 1 0; min-width: 120px; }
+/* Under 1280 px a notice with a button takes the width of the screen, so that its words stay on one or two lines. */
+@media (max-width: 1279px) { .p2toast { left: 12px; right: 12px; transform: none; justify-content: space-between; max-width: none; } }

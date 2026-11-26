@@ -12,7 +12,7 @@ const PASS = 'e2e-passcode-0123'
 async function setup(page: Page, label: string) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
   const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
-  const base = new URL('http://127.0.0.1:3200')   // the e2e server of playwright.config.ts
+  const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)   // the e2e server of playwright.config.ts
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
     ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', token, build: 'bot', session: code, name: 'Test bot', console: 'bot' })))
