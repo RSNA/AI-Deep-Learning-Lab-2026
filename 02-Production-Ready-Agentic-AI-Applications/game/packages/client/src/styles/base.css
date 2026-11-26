@@ -315,6 +315,8 @@ input.field.bad { border-color: var(--bad); }
 .hint.bad { color: var(--bad); font-weight: 700; }
 .srow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 56px; border-bottom: 2px solid var(--soft); padding: 6px 0; }
 .sinfo { display: flex; flex-direction: column; min-width: 0; }
+.sbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.snote { padding: 8px 12px; margin-bottom: 6px; background: var(--sun-bg); border: 2px solid var(--line); font-weight: 700; font-size: 14px; }
 .viewonly { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 16px; background: var(--sun-bg); border-bottom: 3px solid var(--line); font-weight: 800; }
 .watchers { padding: 4px 20px; font-size: 14px; color: var(--muted); font-weight: 700; }
 .console { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
@@ -473,6 +475,10 @@ input.field.bad { border-color: var(--bad); }
 .restartbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px;
   background: var(--sun); color: var(--on); border-bottom: 3px solid var(--line); font-weight: 800; font-size: 15px; }
 .newgame { border-color: var(--good); }
+.newgame .newerbtn { align-self: flex-start; white-space: normal; }
+.restartbar.newer { flex-wrap: wrap; }
+.restartbar.newer > span:first-child { flex: 1 1 220px; min-width: 0; }
+.newer-acts { display: flex; gap: 8px; flex-shrink: 0; }
 
 /* One row of controls, one size (section 10.1). In the player's top bar the countdown, the rank
    and the menu button are one block high, large enough for a thumb. */

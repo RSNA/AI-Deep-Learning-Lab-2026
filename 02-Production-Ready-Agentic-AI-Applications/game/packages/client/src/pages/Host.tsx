@@ -155,6 +155,9 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
   const [showClosed, setShowClosed] = useState(false)
   const [deleting, setDeleting] = useState<Summary | null>(null)
   const [delErr, setDelErr] = useState<string | null>(null)
+  const [ending, setEnding] = useState<Summary | null>(null)
+  const [endErr, setEndErr] = useState<string | null>(null)
+  const [endBusy, setEndBusy] = useState(false)
   const [dlErr, setDlErr] = useState<Record<string, string>>({})
   const load = useCallback(async () => {
     const r = await hostFetch<{ sessions: Summary[]; pack: PackInfo }>(token, '/api/host/sessions')
@@ -168,6 +171,22 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
   const codeBad = code.trim() !== '' && !CODE_RULE.test(code.trim())
   const openList = list.filter((s) => !s.closed)
   const closedList = list.filter((s) => s.closed)
+  // Ending a session from this list, and deleting it in the same step if the host asks for that.
+  const endSession = async (s: Summary, remove: boolean) => {
+    if (endBusy) return
+    setEndBusy(true)
+    setEndErr(null)
+    const ended = await hostFetch<{ ok: true }>(token, `/api/host/session/${s.code}/end`, { name: store.host()?.name ?? '' })
+    // A session that ended in the meantime is where the host wants it: go on to the delete.
+    if (!ended.ok && !(remove && ended.error === 'wrong_stage')) { setEndBusy(false); setEndErr(plainError(ended.error)); void load(); return }
+    if (remove) {
+      const gone = await hostFetch<{ ok: true }>(token, `/api/host/session/${s.code}`, undefined, 'DELETE')
+      if (!gone.ok) { setEndBusy(false); setEndErr(plainError(gone.error)); void load(); return }
+    } else setShowClosed(true)
+    setEndBusy(false)
+    setEnding(null)
+    void load()
+  }
   const phases = pack ? (['planning', 'development', 'maintaining'] as const).filter((p) => pack.phasesAvailable[p]).map((p) => `Phase ${PHASE_NUMBER[p]}`) : []
   const row = (s: Summary) => (
     <div key={s.code} className="srow">
@@ -183,7 +202,12 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
           </span>
         )}
       </span>
-      {!s.closed && <button className="btn small" onClick={() => open(s.code)}>{H.open}</button>}
+      {!s.closed && (
+        <span className="sbtns">
+          <button className="btn small" onClick={() => open(s.code)}>{H.open}</button>
+          <button className="btn small text danger" onClick={() => { setEndErr(null); setEnding(s) }}>{H.end}</button>
+        </span>
+      )}
       {s.closed && <button className="btn small text danger" onClick={() => { setDelErr(null); setDeleting(s) }}>{H.delete}</button>}
     </div>
   )
@@ -253,6 +277,7 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
         <div className="panel-head sky">{H.sessions}</div>
         <div className="panel-body" style={{ gap: 0 }}>
           {openList.length === 0 && <div className="muted">{H.noOpen}</div>}
+          {openList.length > 1 && <div className="snote" role="status">{H.severalOpen(openList.length, openList[0]!.label, openList[0]!.code)}</div>}
           {openList.map(row)}
           {closedList.length > 0 && (
             <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start', marginTop: 10 }} aria-expanded={showClosed} onClick={() => setShowClosed(!showClosed)}>
@@ -275,6 +300,30 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
             }}>{H.deleteNow}</button>
             <button className="btn" onClick={() => setDeleting(null)}>{H.cancel}</button>
           </div>
+        </Sheet>
+      )}
+      {ending && (
+        <Sheet title={H.endTitle(ending.code)} head="sun" onClose={() => setEnding(null)}>
+          {ending.mode === 'event' ? (
+            <>
+              <p>{H.endEventWhy(ending.label)}</p>
+              <div className="sheet-actions">
+                <button className="btn" autoFocus onClick={() => { setEnding(null); open(ending.code) }}>{H.openConsole}</button>
+                <button className="btn" onClick={() => setEnding(null)}>{H.cancel}</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{H.endFromList(ending.label, STAGE_TITLE[ending.stage], ending.players)}</p>
+              <p className="hint">{H.endOrDelete}</p>
+              {endErr && <div className="err" role="alert">{endErr}</div>}
+              <div className="sheet-actions">
+                <button className="btn danger" disabled={endBusy} onClick={() => void endSession(ending, false)}>{H.endKeep}</button>
+                <button className="btn danger" disabled={endBusy} onClick={() => void endSession(ending, true)}>{H.endDelete}</button>
+                <button className="btn" onClick={() => setEnding(null)}>{H.cancel}</button>
+              </div>
+            </>
+          )}
         </Sheet>
       )}
     </main>

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import WebSocket from 'ws'
 import { afterEach, describe, expect, it } from 'vitest'
-import { GameConnection, STAGES } from '@lab02/protocol'
+import { GameConnection, STAGES, playerApi } from '@lab02/protocol'
 import { needsReload } from '../src/index.ts'
 import { attach, hostConn, hostToken, joinBot, playPlanning, sleep, startServer, step, until, type Bot } from './helpers.ts'
 
@@ -645,5 +645,41 @@ describe('host consoles', () => {
     expect(srv.app.db.session('KEEP1')).toBeUndefined()
     expect(srv.app.manager.get('KEEP1')).toBeUndefined()
     expect(await (await del('KEEP1')).json()).toEqual({ error: 'unknown_session' })
+  })
+
+  it('ends an open session from the list of sessions, so that it can be deleted, and names the newer game', async () => {
+    const srv = await server()
+    cleanups.push(srv.cleanup)
+    const token = await hostToken(srv.url)
+    const auth = { 'content-type': 'application/json', authorization: `Bearer ${token}` }
+    const make = async (code: string) => (await fetch(`${srv.url}/api/host/session`, { method: 'POST', headers: auth, body: JSON.stringify({ label: code, mode: 'rehearsal', code }) })).json()
+    const end = (c: string, headers: Record<string, string> = auth) => fetch(`${srv.url}/api/host/session/${c}/end`, { method: 'POST', headers, body: JSON.stringify({ name: 'Host One' }) })
+    await make('OLD1')
+    await sleep(5)
+    await make('NEW1')
+
+    // A player of the older game, which is still open, is told of the newer one. The mode is public.
+    const api = playerApi(srv.url)
+    const info = await api.session('OLD1')
+    expect(info.ok && info.data.mode).toBe('rehearsal')
+    const newer = await api.open('OLD1')
+    expect(newer.ok && newer.data.session?.code).toBe('NEW1')
+    const none = await api.open('NEW1')
+    expect(none.ok && none.data.session).toBeNull()
+
+    expect((await end('OLD1', { 'content-type': 'application/json' })).status).toBe(401)
+    expect(await (await end('NOPE1')).json()).toEqual({ error: 'unknown_session' })
+    const joined = await api.join({ code: 'OLD1', name: 'Practice One' })
+    expect(joined.ok).toBe(true)
+    expect((await end('OLD1')).status).toBe(200)
+    expect(srv.app.manager.get('OLD1')!.state.stage).toBe('closed')
+    expect(srv.app.db.session('OLD1')!.closed).not.toBeNull()
+    // Ended is ended: a second time is refused, and nobody joins any more.
+    expect(await (await end('OLD1')).json()).toEqual({ error: 'wrong_stage' })
+    expect((await api.join({ code: 'OLD1', name: 'Practice Two' })).ok).toBe(false)
+    // The other session was not touched, and the ended one can now be deleted.
+    expect(srv.app.manager.get('NEW1')!.state.stage).toBe('lobby')
+    expect((await fetch(`${srv.url}/api/host/session/OLD1`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } })).status).toBe(200)
+    expect(srv.app.db.session('OLD1')).toBeUndefined()
   })
 })

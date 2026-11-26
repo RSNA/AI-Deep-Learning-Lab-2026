@@ -49,7 +49,19 @@ export const H = {
   noOpen: 'No session is open.',
   closedWord: 'Closed',
   open: 'Open',
+  end: 'End',
   delete: 'Delete',
+  severalOpen: (n: number, label: string, code: string) =>
+    `${n} sessions are open. A player who opens the plain link of the game lands in the newest one, "${label}" (${code}). End the ones you no longer need.`,
+  endTitle: (code: string) => `End session ${code}`,
+  endFromList: (label: string, stage: string, n: number) =>
+    `"${label}" is open (${stage}), with ${players(n)}. Ending it closes the game for everyone in it. Nobody can join or play it again.`,
+  endOrDelete: 'Keep the results and they stay under "Show closed sessions" with the downloads. Delete and the session goes for good, with its players, their results and the logs.',
+  endKeep: 'End, keep the results',
+  endDelete: 'End and delete for good',
+  endEventWhy: (label: string) =>
+    `"${label}" is an event session. It is ended from its own console, by the host in charge, who types the session code. Open it to end it.`,
+  openConsole: 'Open its console',
   showClosed: (n: number) => `Show closed sessions (${n})`,
   hideClosed: 'Hide closed sessions',
   deleteTitle: (code: string) => `Delete session ${code}`,

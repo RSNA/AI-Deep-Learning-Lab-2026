@@ -1652,6 +1652,7 @@ session and closing.
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
 | `POST /api/host/session` `{label, mode, code?}` | Host | Creates a session. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates |
 | `GET /api/host/sessions` | Host | Lists sessions, open and closed, each with `closed` and, for a session the server cannot resume, the reason. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
+| `POST /api/host/session/:code/end` `{name?}` | Host | Ends an open test or rehearsal session from the list of sessions, without a console that holds control: the engine's `close`, logged as a host command and as the event `ended_from_list` with the host's name. Answers 409 `wrong_stage` for a session that has ended and 409 `event_session` for an event session, which is ended from its own console by the host in charge |
 | `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session that is still open |
 | `GET /api/host/export/:code` | Host | Results, commands and timing as JSON or CSV |
 | `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log. Typing `/screen` without it shows one line that says to open the big screen from the host console |
@@ -1769,7 +1770,10 @@ returns the player to the stage the room is in, with all of it.
   page shows the `closed` stage (section 10.7). After a restart of the server the socket is
   refused with 4004 and the page says that the game is no longer on the server. Both pages ask
   `GET /api/open?after=<own code>` every 8 seconds and show a button to join the next game as
-  soon as the host has opened one. The browser keeps a small record of its last game in local
+  soon as the host has opened one. In a test or a rehearsal, the page of a game that is still
+  open asks the same question outside the play stages, and the join page of such a game asks it
+  too: both lead to the newer game with one button, and the player's practice stays in the older
+  one. An event session never asks, so no player leaves the event by a slip. The browser keeps a small record of its last game in local
   storage: the session, the practice's name, character and health system, the points of each
   phase and the rank. It holds no answer. The page of a game that is gone shows this record,
   and the join page of another game shows it as "Your last game in this browser" and starts

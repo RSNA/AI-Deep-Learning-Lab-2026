@@ -103,7 +103,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
     const rule = pack.game.join.practice_name
     return {
-      code: s.code, label: s.label, title: pack.game.game.title, stage: s.stage,
+      code: s.code, label: s.label, title: pack.game.game.title, mode: s.mode, stage: s.stage,
       joinOpen: joinOpen(s, pack, room.now()),
       systems: project.systemRefs(s, pack).map((r) => ({ ...r, players: active.filter((p) => p.system === r.id).length })),
       nameRule: { min: rule.min_chars, max: rule.max_chars },
@@ -268,6 +268,15 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const r = manager.create(body.data.label, body.data.mode, body.data.code)
     if (!r.ok) return bad(reply, 409, r.error)
     return { code: r.room.code }
+  })
+
+  fastify.post<{ Params: { code: string } }>('/api/host/session/:code/end', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const by = (req.body as { name?: unknown } | null)?.name
+    const r = manager.end(normalizeCode(req.params.code), typeof by === 'string' ? by.slice(0, 80) : '')
+    if (r === 'unknown_session') return bad(reply, 404, r)
+    if (r !== 'ok') return bad(reply, 409, r)
+    return { ok: true }
   })
 
   fastify.delete<{ Params: { code: string } }>('/api/host/session/:code', async (req, reply) => {

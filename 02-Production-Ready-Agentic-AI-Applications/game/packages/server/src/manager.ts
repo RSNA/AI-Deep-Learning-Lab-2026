@@ -43,6 +43,20 @@ export class Manager {
     }
   }
 
+  /**
+   * End an open session from the list of sessions. An event session is refused: it is ended
+   * from its own console, by the host in charge, who types its code.
+   */
+  end(code: string, by: string): 'ok' | 'unknown_session' | 'wrong_stage' | 'event_session' {
+    const room = this.rooms.get(code)
+    if (!room) return this.deps.db.session(code) ? 'wrong_stage' : 'unknown_session'
+    if (room.state.closed) return 'wrong_stage'
+    if (room.state.mode === 'event') return 'event_session'
+    const r = room.end(by)
+    if (r === 'ok') this.deps.log.info('session ended from the list', { code })
+    return r
+  }
+
   /** Delete a closed or broken session for good. An open session is refused. */
   remove(code: string): 'ok' | 'unknown_session' | 'session_open' {
     const row = this.deps.db.session(code)
