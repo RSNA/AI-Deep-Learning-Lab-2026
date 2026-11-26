@@ -7,7 +7,7 @@ export const STAGES = [
   'lobby', 'intro',
   'planning.play', 'planning.reveal', 'break.planning',
   'development.play', 'development.reveal', 'break.development',
-  'maintaining.setup', 'maintaining.year', 'maintaining.reveal', 'break.maintaining',
+  'maintaining.year', 'maintaining.reveal', 'break.maintaining',
   'reflection', 'winners', 'closed',
 ] as const
 export const StageId = z.enum(STAGES)
@@ -63,7 +63,7 @@ export const ProgrammeShow = z.enum(PROGRAMME_SHOWS)
 export type ProgrammeShow = z.infer<typeof ProgrammeShow>
 
 /** Stages in which a phase is being played. Slides never reach a player's screen then. */
-export const PLAY_STAGES: readonly StageId[] = ['planning.play', 'development.play', 'maintaining.setup', 'maintaining.year']
+export const PLAY_STAGES: readonly StageId[] = ['planning.play', 'development.play', 'maintaining.year']
 
 /** The phase a stage belongs to, if any. */
 export function phaseOfStage(stage: StageId): PhaseId | null {

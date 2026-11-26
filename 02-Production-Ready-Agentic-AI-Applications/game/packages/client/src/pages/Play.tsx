@@ -10,6 +10,8 @@ import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
 import { NewGame, PastGameCard, useOpenGame } from '../components/after.tsx'
+import { ReportCardPanel } from '../card/ReportCard.tsx'
+import { CARD } from '../card/copy.ts'
 import { useTour } from '../components/Tour.tsx'
 import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
@@ -17,7 +19,9 @@ import { TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
 import { Development, P2_TABS_BELOW, Purse } from '../phase2/Phase2.tsx'
 import { P2 } from '../phase2/copy.ts'
-import type { DevelopmentContent } from '@lab02/protocol'
+import { Maintaining, RoundTimer } from '../phase3/Phase3.tsx'
+import { P3 } from '../phase3/copy.ts'
+import type { DevelopmentContent, MaintainingContent } from '@lab02/protocol'
 
 function useWakeLock() {
   useEffect(() => {
@@ -65,20 +69,27 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const phase = phaseOfStage(view.stage)
   const tabsP2 = useNarrow(P2_TABS_BELOW)
   const devPlay = view.stage === 'development.play' && !narrow && !tabsP2
-  const title = phase ? (devPlay ? `Phase ${PHASE_NUMBER[phase]}` : `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}`) : STAGE_TITLE[view.stage]
+  // Phase 3 counts down to the next report, not to the end of the stage (section 10.6).
+  const mntContent = usePlayer((s) => s.content.maintaining) as MaintainingContent | undefined
+  const year = view.stage === 'maintaining.year' && view.maintaining && mntContent ? { mv: view.maintaining, content: mntContent } : null
+  const yearPlay = !!year && !narrow && !tabsP2
+  const title = phase ? (devPlay || yearPlay ? `Phase ${PHASE_NUMBER[phase]}` : `Phase ${PHASE_NUMBER[phase]} · ${w.session.phaseLabels[phase]}${view.stage.endsWith('.reveal') ? ` · ${COPY.resultsWord}` : ''}`) : STAGE_TITLE[view.stage]
   const phaseRank = standing?.ranks.phase ?? null
   const rank = phaseRank ?? standing?.ranks.overall ?? null
   const timed = clock?.clock.stageEndsAtMs !== null && clock?.clock.stageEndsAtMs !== undefined
   // Phase 2 spends money, developers and validations: they stand in the top bar (section 10.5).
   const devContent = usePlayer((s) => s.content.development) as DevelopmentContent | undefined
-  const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} bar /> : null
+  const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} bar />
+    : yearPlay && year ? <Purse dv={year.mv} content={year.content} bar /> : null
+  // A phone shows the round in a line above its tabs, so its top bar keeps the plain countdown off.
+  const timer = year ? (yearPlay ? <RoundTimer mv={year.mv} content={year.content} variant="bar" /> : null) : timed ? <Countdown clock={clock} /> : null
   const rankBtn = (
     <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
       {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
     </button>
   )
   return (
-    <header className={`topbar${devPlay ? ' wide-mid' : ''}`} style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto auto', padding: '6px 10px' } : undefined}>
+    <header className={`topbar${devPlay || yearPlay ? ' wide-mid' : ''}${yearPlay ? ' year' : ''}`} style={narrow ? { gridTemplateColumns: 'minmax(0,1fr) auto auto', padding: '6px 10px' } : undefined}>
       <div className="who">
         <Avatar id={view.me.avatar} size={32} />
         <span className="name">{view.me.name}</span>
@@ -86,11 +97,11 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
       </div>
       {!narrow ? (
         <div className="mid">
-          <span className="phase">{title}</span>
-          {timed && <Countdown clock={clock} />}
+          {!yearPlay && <span className="phase">{title}</span>}
+          {timer}
           {purse}
         </div>
-      ) : <div className="mid">{timed && <Countdown clock={clock} />}</div>}
+      ) : <div className="mid">{timer}</div>}
       <div className="right">
         {rankBtn}
         {!narrow && <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />}
@@ -101,7 +112,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave, onTour, onHelp }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onLeave: () => void; onTour: (() => void) | null; onHelp: (() => void) | null }) {
+function MenuSheet({ onClose, onBrief, onResult, onResult2, onResult3, onLeave, onTour, onHelp }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onResult3: (() => void) | null; onLeave: () => void; onTour: (() => void) | null; onHelp: (() => void) | null }) {
   const view = usePlayer((s) => s.view)!
   const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
@@ -114,11 +125,12 @@ function MenuSheet({ onClose, onBrief, onResult, onResult2, onLeave, onTour, onH
           {onHelp && <button type="button" className="btn small text" onClick={onHelp}><span>{COPY.help}</span><span className="muted">{COPY.helpLine}</span></button>}
         </div>
       )}
-      {(brief || onResult || onResult2) && (
+      {(brief || onResult || onResult2 || onResult3) && (
         <div className="menulist">
           {brief && <button type="button" className="btn small text" onClick={onBrief}><span>{COPY.letterAgain}</span><span className="muted">{brief.title}</span></button>}
           {onResult && <button type="button" className="btn small text" onClick={onResult}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</span><span className="muted">{COPY.lookAgainLine}</span></button>}
           {onResult2 && <button type="button" className="btn small text" onClick={onResult2}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.development}`)}</span><span className="muted">{COPY.lookAgainLine2}</span></button>}
+          {onResult3 && <button type="button" className="btn small text" onClick={onResult3}><span>{COPY.lookAgain(`Phase ${PHASE_NUMBER.maintaining}`)}</span><span className="muted">{P3.lookAgainLine3}</span></button>}
         </div>
       )}
       <div className="eyebrow">{COPY.rejoinCode}</div>
@@ -416,6 +428,13 @@ function PointsTable() {
   )
 }
 
+type Look = 'planning' | 'development' | 'maintaining' | null
+
+/** The result of a scored phase, opened again. */
+function Looked({ w, look }: { w: Welcome; look: Look }) {
+  return look === 'planning' ? <Planning w={w} /> : look === 'development' ? <Development w={w} /> : <Maintaining w={w} />
+}
+
 /**
  * The winners, and the page of a game the host has ended (section 10.7). An ended game takes no
  * more commands. Its page keeps the player's result, lets them look at a scored phase again and
@@ -424,15 +443,20 @@ function PointsTable() {
 function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: string) => void; onLeave: () => void }) {
   const st = usePlayer((s) => s.standing)
   const view = usePlayer((s) => s.view)!
-  const [look, setLook] = useState<'planning' | 'development' | null>(null)
+  const [look, setLook] = useState<Look>(null)
   const ended = view.stage === 'closed'
+  // A game that ended before any phase was scored has nothing to put on a card.
+  const card = view.reportCard && view.reportCard.phases.some((ph) => ph.scored) ? view.reportCard : null
+  // The best three of the room (section 10.7), the player's own row marked.
+  const top = st?.board.columns.overall.rows ?? []
   const canLook = ended && !!view.planning?.reveal
   const canLook2 = ended && !!view.development?.reveal
-  if ((look === 'planning' && canLook) || (look === 'development' && canLook2)) {
+  const canLook3 = ended && !!view.maintaining?.reveal
+  if ((look === 'planning' && canLook) || (look === 'development' && canLook2) || (look === 'maintaining' && canLook3)) {
     return (
       <>
         <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToFinal}</button></div>
-        {look === 'planning' ? <Planning w={w} /> : <Development w={w} />}
+        <Looked w={w} look={look} />
       </>
     )
   }
@@ -441,13 +465,23 @@ function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: stri
       <section className="panel">
         <div className="panel-head sun">{ended ? COPY.closed : COPY.finalTitle}</div>
         <div className="panel-body">
-          {ended && <p style={{ fontSize: 16 }}>{COPY.closedLine}</p>}
-          <div className="num" style={{ fontSize: 48 }}>{st?.ranks.overall ? `#${st.ranks.overall}` : '–'} <span className="muted" style={{ fontSize: 24 }}>of {st?.ranks.of ?? '–'}</span></div>
-          <PointsTable />
+          {ended && <p style={{ fontSize: 16 }}>{card ? CARD.endedLine : COPY.closedLine}</p>}
+          {/* Without a card (no phase was scored) the rank and the points stand here. With one, the card holds them. */}
+          {!card && <div className="num" style={{ fontSize: 48 }}>{st?.ranks.overall ? `#${st.ranks.overall}` : '–'} <span className="muted" style={{ fontSize: 24 }}>of {st?.ranks.of ?? '–'}</span></div>}
+          {!card && <PointsTable />}
+          {top.length > 0 && (
+            <div className="rc-top3" aria-label={card?.final ? CARD.winners : CARD.standings}>
+              <div className="eyebrow">{card?.final ? CARD.winners : CARD.standings}</div>
+              <BoardRows rows={top} systems={w.session.systems} />
+            </div>
+          )}
           {canLook && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook('planning')}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.planning}`)}</button>}
           {canLook2 && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook('development')}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.development}`)}</button>}
+          {canLook3 && <button type="button" className="btn small text" style={{ alignSelf: 'flex-start' }} onClick={() => setLook('maintaining')}>{COPY.lookAgain(`Phase ${PHASE_NUMBER.maintaining}`)}</button>}
         </div>
       </section>
+      {/* The report card, with the way to save it and to come back to it (section 10.7). */}
+      {card && <ReportCardPanel card={card} />}
       {ended && <NewGame after={w.session.code} onJoin={onNewGame} />}
       {ended && (
         <div className="leaverow">
@@ -473,6 +507,7 @@ function Gone({ session, go }: { session: string; go: (path: string) => void }) 
           <p className="muted" style={{ fontSize: 16 }}>{mine ? COPY.goneLine : COPY.goneNoResult}</p>
         </div>
         {mine && <PastGameCard game={mine} />}
+        {mine?.scored && <a className="linkbtn" style={{ alignSelf: 'flex-start' }} href={`/result/${session}`}>{CARD.goneLink}</a>}
         <NewGame after={session} onJoin={(code) => leave(`/j/${code}`)} />
         <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => leave('/')}>{COPY.otherCode}</button>
       </main>
@@ -533,6 +568,7 @@ function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: st
   const phase = phaseOfStage(st)
   if ((st === 'planning.play' || st === 'planning.reveal' || st === 'break.planning') && view.planning) return <Planning key={view.run} w={w} onSlides={onSlides} />
   if ((st === 'development.play' || st === 'development.reveal' || st === 'break.development') && view.development) return <Development key={view.run} w={w} onSlides={onSlides} />
+  if ((st === 'maintaining.year' || st === 'maintaining.reveal' || st === 'break.maintaining') && view.maintaining) return <Maintaining key={view.run} w={w} onSlides={onSlides} />
   if (st.endsWith('.reveal')) return <Results w={w} phase={phase} note={COPY.lookAtScreen} />
   if (st.startsWith('break.')) return <Results w={w} phase={st.split('.')[1] as PhaseId} note={COPY.lookAtScreen} />
   if (st === 'reflection') return <Results w={w} phase={null} note={COPY.lookAtScreen} />
@@ -568,7 +604,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const [menu, setMenu] = useState(false)
   const [standings, setStandings] = useState(false)
   const [brief, setBrief] = useState(false)
-  const [look, setLook] = useState<'planning' | 'development' | null>(null)
+  const [look, setLook] = useState<Look>(null)
   const [leaving, setLeaving] = useState(false)
   const [leaveTo, setLeaveTo] = useState<string | null>(null)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
@@ -627,9 +663,11 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const canLook = !!view.planning?.reveal && !onResult
   const onResult2 = ['development.play', 'development.reveal', 'break.development', 'closed'].includes(view.stage)
   const canLook2 = !!view.development?.reveal && !onResult2
-  const looking = ((look === 'planning' && canLook) || (look === 'development' && canLook2)) && !view.slide
+  const onResult3 = ['maintaining.year', 'maintaining.reveal', 'break.maintaining', 'closed'].includes(view.stage)
+  const canLook3 = !!view.maintaining?.reveal && !onResult3
+  const looking = ((look === 'planning' && canLook) || (look === 'development' && canLook2) || (look === 'maintaining' && canLook3)) && !view.slide
   // The tour and the help panel of the phase in play (section 10.1), at any time of the phase.
-  const inPlay: PhaseId | null = looking || view.slide ? null : view.stage === 'planning.play' ? 'planning' : view.stage === 'development.play' ? 'development' : null
+  const inPlay: PhaseId | null = looking || view.slide ? null : view.stage === 'planning.play' ? 'planning' : view.stage === 'development.play' ? 'development' : view.stage === 'maintaining.year' ? 'maintaining' : null
   return (
     <div className={fill ? 'page fill' : 'page'}>
       <TopBar w={welcome} onMenu={() => setMenu(true)} onStandings={() => setStandings(true)} />
@@ -645,7 +683,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       {looking ? (
         <>
           <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToGame}</button></div>
-          {look === 'planning' ? <Planning w={welcome} /> : <Development w={welcome} />}
+          <Looked w={welcome} look={look} />
         </>
       ) : <StageBody w={welcome} onNewGame={(code) => { stop(); go(`/j/${code}`) }} onLeave={() => void startFresh()} />}
       {!codeSeen && (
@@ -662,13 +700,14 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       )}
       {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook('planning') } : null}
         onResult2={canLook2 ? () => { setMenu(false); setLook('development') } : null}
+        onResult3={canLook3 ? () => { setMenu(false); setLook('maintaining') } : null}
         onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else { setLeaveTo(null); setLeaving(true) } }}
         onTour={inPlay ? () => { setMenu(false); useTour.getState().start(inPlay) } : null}
         onHelp={inPlay ? () => { setMenu(false); useTour.getState().showHelp(inPlay) } : null} />}
       {brief && (() => {
         const last = [...view.inbox].reverse().find((m) => m.kind === 'brief')
         const phase = last?.id.split(':')[0] ?? 'planning'
-        return <BriefSheet w={welcome} onClose={() => setBrief(false)} again phase={phase} words={phase === 'development' ? { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays } : undefined} />
+        return <BriefSheet w={welcome} onClose={() => setBrief(false)} again phase={phase} words={phase === 'development' ? { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays } : phase === 'maintaining' ? { started: P3.phaseStarted, start: P3.briefStart, stays: P3.letterStays } : undefined} />
       })()}
       {leaving && (
         <Sheet title={leaveTo ? COPY.newerGameTitle : COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>

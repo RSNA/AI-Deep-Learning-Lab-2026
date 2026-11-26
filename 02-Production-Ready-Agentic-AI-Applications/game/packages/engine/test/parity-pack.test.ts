@@ -116,3 +116,80 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
     expect(compared).toBeGreaterThan(0)
   }, 120_000)
 })
+
+/**
+ * Phase 3 on CONTENT_DIR (section 12.2): the reference maps, the traps and the examples of each
+ * build file that are ready, in every period of the year with several sets of actions, each
+ * scored by the engine and by the reference scorer of Phase 3 (MAINTAIN_SCORER, the path of
+ * tools/maintain_scoring.py), called once with `--score` per health system. A pack whose health
+ * systems have no maintain.yaml yet is skipped.
+ */
+describe.runIf(on && !!process.env.MAINTAIN_SCORER)('Phase 3 parity on CONTENT_DIR', () => {
+  it('the engine scores periods, validations and years as the reference does', async () => {
+    const { fromPackMap, mapErrors, phase3Build, readyReasons, referenceMaps } = await import('@lab02/content-schema')
+    const { period, validation, year } = await import('../src/maintain.ts')
+    const { expectPeriod } = await import('./maintain-expect.ts')
+    type PeriodExpect = import('./maintain-expect.ts').PeriodExpect
+    type ValidationExpect = import('./maintain-expect.ts').ValidationExpect
+    type YearExpect = import('./maintain-expect.ts').YearExpect
+    const { join } = await import('node:path')
+    const loaded = loadPack(process.env.CONTENT_DIR!)
+    if (!loaded.ok) throw new Error(loaded.errors[0]!.message)
+    const pack = loaded.pack
+    const near = (a: number, b: number) => Math.abs(a - b) < 1e-9
+    const toPack = (m: CanvasMap) => ({ tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runs_on: t.runsOn, prompt: t.prompt })), lines: m.lines.map((l) => ({ from: l.from, to: l.to })) })
+    let compared = 0
+    for (const id of pack.systemIds) {
+      const sp = pack.systems[id]!
+      const b = sp.build, mt = sp.maintain
+      if (!b || !mt) continue
+      const b3 = phase3Build(b, mt)
+      const last = mt.periods.length
+      // Every named map of the key that is accepted and ready on the board of Phase 3.
+      const key = b.key as unknown as { examples?: { id: string; map: Parameters<typeof fromPackMap>[0] }[] }
+      const named: { name: string; map: CanvasMap }[] = [
+        ...referenceMaps(b).map((r) => ({ name: `reference ${r.id}`, map: r.map })),
+        ...(b.key.traps ?? []).map((t) => ({ name: `trap ${t.id}`, map: fromPackMap(t.map) })),
+        ...(key.examples ?? []).map((e) => ({ name: `example ${e.id}`, map: fromPackMap(e.map) })),
+      ].filter((x) => !mapErrors(x.map, b3, null).length && !readyReasons(x.map, b3).length)
+      // Sets of actions: none, everything of Phase 3 done in the first round, everything done in
+      // the middle of the year, and every repair started right after its event began.
+      const all = (k: number) => mt.actions.map((a) => ({ id: a.id, started: k, done: k }))
+      const repairs = mt.events.flatMap((e) => e.repaired_by.map((a) => ({ id: a, started: e.from, done: e.from })))
+      const sets = [{ name: 'none', actions: [] as { id: string; started: number; done: number }[] }, { name: 'all early', actions: all(1) }, { name: 'all in the middle', actions: all(3) }, { name: 'repairs', actions: repairs }]
+      type Req = { kind: 'period' | 'validation' | 'year'; label: string; run: () => unknown; body: Record<string, unknown> }
+      const reqs: Req[] = []
+      for (const x of named) for (const set of sets) {
+        for (let p = 1; p <= last; p++) for (const newMap of p === 2 ? [false, true] : [false]) {
+          reqs.push({ kind: 'period', label: `${x.name}, period ${p}, ${set.name}`, body: { kind: 'period', period: p, map: toPack(x.map), actions: set.actions, new_map: newMap }, run: () => period(b3, mt, p, x.map, set.actions, newMap) })
+        }
+        for (const seen of [1, 3, last - 1]) reqs.push({ kind: 'validation', label: `${x.name}, validation at ${seen}, ${set.name}`, body: { kind: 'validation', seen, map: toPack(x.map), actions: set.actions, new_map: true }, run: () => validation(b3, mt, seen, x.map, set.actions, true) })
+        const plan = Array.from({ length: last }, () => ({ map: x.map, actions: set.actions, newMap: false }))
+        reqs.push({ kind: 'year', label: `${x.name}, a year, ${set.name}`, body: { kind: 'year', paid: 40, periods: plan.map((y) => ({ map: toPack(y.map), actions: y.actions, new_map: false })) }, run: () => year(b3, mt, plan, 40) })
+      }
+      for (let p = 1; p <= last; p++) reqs.push({ kind: 'period', label: `no map, period ${p}`, body: { kind: 'period', period: p, map: null, actions: [] }, run: () => period(b3, mt, p, null, []) })
+      const out = execFileSync('python3', [process.env.MAINTAIN_SCORER!, '--score', join(process.env.CONTENT_DIR!, sp.folder, 'build.yaml'), join(process.env.CONTENT_DIR!, sp.folder, 'maintain.yaml')], { input: JSON.stringify(reqs.map((r) => r.body)), maxBuffer: 256 * 1024 * 1024 })
+      const ref = JSON.parse(out.toString()) as unknown[]
+      expect(ref.length).toBe(reqs.length)
+      reqs.forEach((r, i) => {
+        if (r.kind === 'period') expectPeriod(r.run() as ReturnType<typeof period>, ref[i] as PeriodExpect, near)
+        else if (r.kind === 'validation') {
+          const got = r.run() as ReturnType<typeof validation>, want = ref[i] as ValidationExpect
+          expect(near(got.accuracy, want.accuracy), r.label).toBe(true)
+          expect(got.fresh, r.label).toBe(want.fresh)
+          if (want.reliability === null) expect(got.reliability).toBeNull()
+          else expect(near(got.reliability!, want.reliability), r.label).toBe(true)
+          expect(got.missed).toEqual(want.missed)
+          expect(near(got.running.money, want.run_month), r.label).toBe(true)
+        } else {
+          const got = r.run() as ReturnType<typeof year>, want = ref[i] as YearExpect
+          for (const k of ['mean', 'spent', 'score', 'raw'] as const) expect(near(got[k], want[k]), `${r.label}: ${k}`).toBe(true)
+          got.values.forEach((v, n) => expect(near(v, want.values[n]!), r.label).toBe(true))
+        }
+        compared++
+      })
+    }
+    // Nothing to compare is fine while the pack has no year yet. With one, every request was held.
+    if (pack.systemIds.some((id) => pack.systems[id]!.maintain)) expect(compared).toBeGreaterThan(0)
+  }, 300_000)
+})

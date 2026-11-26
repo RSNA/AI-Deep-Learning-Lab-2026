@@ -66,14 +66,9 @@ export const SEGMENTS = [
 /** Tie-break keys the engine implements (section 6.9). */
 export const TIE_KEYS = [
   'total_points', 'planning_points', 'development_points', 'maintaining_points', 'points',
-  'earlier_join', 'earlier_submit', 'fewer_validations', 'fewer_pilot_runs', 'higher_final_month_health',
-  'fewer_credits_spent',
+  'earlier_join', 'earlier_submit', 'fewer_validations', 'fewer_pilot_runs', 'higher_last_period_value',
 ] as const
 const TieKey = z.enum(TIE_KEYS)
-
-const MetricDeltas = S({
-  validity: Num.optional(), reliability: Num.optional(), cost: Num.optional(), complexity: Num.optional(),
-})
 
 // ------------------------------------------------------------------------------------------
 // game.yaml
@@ -148,15 +143,18 @@ const DevelopmentRules = W({
 })
 export type DevelopmentRules = z.infer<typeof DevelopmentRules>
 
+// Phase 3 (spec, section 5.5): the year in rounds. A round is the time to act before the report
+// of the next period, and the play time of the phase is `rounds` times `round_seconds`.
 const MaintainingRules = W({
   label: Text, reveal_seconds: NonNeg,
-  setup_seconds: PosInt, months: PosInt, month_seconds: PosInt, event_response_seconds: PosInt,
-  credits: Int.min(0), actions_per_month: Int.min(0),
-  live_leaderboard: W({ label: Text, metric: Later }),
-  slot_seconds: Later, play_seconds: Later, teaches: Later, action_kinds: Later,
-  actions_per_system: Later, monitors_locked_after_setup: Later, events_per_system: Later,
-  max_events_revealed_per_month: Later, scoring: Later,
+  rounds: PosInt, round_seconds: PosInt,
+  play_seconds: PosInt.optional(),                // when given, rounds times round_seconds
+  // The groups of actions that Phase 3 adds, shown after the groups of development.
+  action_groups: z.array(W({ id: Id, label: Text })).default([]),
+  live_leaderboard: W({ label: Text, metric: z.string().optional() }),   // year_score_so_far
+  slot_seconds: Later, teaches: Later, scoring: Later,
 })
+export type MaintainingRules = z.infer<typeof MaintainingRules>
 
 export const GameFile = W({
   version: Num,
@@ -177,10 +175,10 @@ export const GameFile = W({
     }),
     reconnect: z.literal('token'),
     late_join: W({
-      open_until: W({ phase: PhaseId, month: PosInt.optional() }),
+      // `round`: in Phase 3, the last round in which a new player may still join.
+      open_until: W({ phase: PhaseId, round: PosInt.optional() }),
       missed_phase_points: z.literal(0),
       mid_phase: z.literal('full_budget_remaining_clock'),
-      maintaining_after_setup: z.literal('inherit_do_nothing'),
     }),
   }),
   clock: W({
@@ -235,19 +233,8 @@ export const GameFile = W({
 export type GameFile = z.infer<typeof GameFile>
 
 // ------------------------------------------------------------------------------------------
-// monitors.yaml, characters.yaml
+// characters.yaml
 // ------------------------------------------------------------------------------------------
-export const MonitorsFile = W({
-  monitors: z.array(W({
-    id: Id,
-    public: S({ label: Text, description: Text, icon: z.string() }),
-    credits: Int.min(0),
-    upkeep: MetricDeltas.optional(),
-    key: K({}).optional(),
-  })),
-})
-export type MonitorsFile = z.infer<typeof MonitorsFile>
-
 /** How a person's pixel character looks: free words, read by the client's sprite builder (11.4). */
 export const HAIR_STYLES = ['short', 'long', 'bald', 'covered'] as const
 export const Look = W({ hair: Text, hair_style: z.enum(HAIR_STYLES), skin: Text, top: Text, detail: Text.optional() })
@@ -361,6 +348,42 @@ export const WORKER_KINDS = ['ai', 'fixed', 'person'] as const
 
 const PartPublic = S({ label: Text, short: Text, description: Text, cost_line: Text.optional() })
 
+/** A kind of tile of the toolbox. Phase 3 may add more of them (`workers` of maintain.yaml). */
+const Worker = W({
+  id: Id,
+  kind: z.enum(WORKER_KINDS),
+  group: Id.optional(),
+  public: S({ label: Text, short: Text, task: Text.optional(), description: Text, icon: z.string(), cost_line: Text.optional() }),
+  needs_model: z.boolean(),
+  by_model: z.record(z.string(), Quality).optional(),
+  quality: Quality.optional(),
+  load: S({ free: Int.min(0), factor: Unit }).optional(),
+  calls: NonNeg.optional(),
+  run: NonNeg.optional(),
+  complexity: NonNeg.optional(),
+  pool: Id.optional(),
+  minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
+  // A tool that prepares its sources for the worker behind it: per kind of effort, the kind
+  // it becomes for that worker and its weight in that worker's load (1 when absent).
+  prepares: z.record(Id, S({ as: Id, load: Unit.optional() })).optional(),
+  key: K({}).optional(),
+})
+/** An action of the list. Phase 3 adds two fields to it (`repeat`, `run`). */
+const ActionShape = {
+  id: Id,
+  group: Id,
+  public: S({ title: Text, teaser: Text }),
+  money: NonNeg,
+  developers: Int.min(0),
+  seconds: PosInt,
+  requires: z.array(Id).default([]),
+  unlocks: z.array(Id).default([]),
+  insight: Tile.nullable().optional(),
+  story_time: Text.optional(),
+  key: K({}).optional(),
+}
+const LineRule = S({ from: Id, to: Id, refuse: z.boolean(), text: Text })
+
 export const BuildFile = W({
   problem: Id,
   // `columns` names the stage of the work each column stands for. Names only: no rule ties a
@@ -395,25 +418,7 @@ export const BuildFile = W({
     key: K({}).optional(),
   })).min(1),
   result: W({ id: Id, public: S({ label: Text, description: Text }) }),
-  workers: z.array(W({
-    id: Id,
-    kind: z.enum(WORKER_KINDS),
-    group: Id.optional(),
-    public: S({ label: Text, short: Text, task: Text.optional(), description: Text, icon: z.string(), cost_line: Text.optional() }),
-    needs_model: z.boolean(),
-    by_model: z.record(z.string(), Quality).optional(),
-    quality: Quality.optional(),
-    load: S({ free: Int.min(0), factor: Unit }).optional(),
-    calls: NonNeg.optional(),
-    run: NonNeg.optional(),
-    complexity: NonNeg.optional(),
-    pool: Id.optional(),
-    minutes: S({ decide: NonNeg, check: NonNeg, per_line: z.record(Id, NonNeg) }).optional(),
-    // A tool that prepares its sources for the worker behind it: per kind of effort, the kind
-    // it becomes for that worker and its weight in that worker's load (1 when absent).
-    prepares: z.record(Id, S({ as: Id, load: Unit.optional() })).optional(),
-    key: K({}).optional(),
-  })).min(1),
+  workers: z.array(Worker).min(1),
   models: z.array(W({
     id: Id, public: PartPublic,
     run: NonNeg.optional(),
@@ -437,19 +442,7 @@ export const BuildFile = W({
     by_worker: z.record(z.string(), S({ fetch: Num.positive().optional(), decide: Num.positive().optional() })).optional(),
     key: K({}).optional(),
   })).default([]),
-  actions: z.array(W({
-    id: Id,
-    group: Id,
-    public: S({ title: Text, teaser: Text }),
-    money: NonNeg,
-    developers: Int.min(0),
-    seconds: PosInt,
-    requires: z.array(Id).default([]),
-    unlocks: z.array(Id).default([]),
-    insight: Tile.nullable().optional(),
-    story_time: Text.optional(),
-    key: K({}).optional(),
-  })).default([]),
+  actions: z.array(W(ActionShape)).default([]),
   cases: z.array(W({
     id: Id,
     weight: Num.positive(),
@@ -463,7 +456,7 @@ export const BuildFile = W({
   // Lines the practice cannot draw (`refuse: true`) or should think twice about. `from` is a
   // source or a kind of worker, `to` a kind of worker. The text reaches a player only when a line
   // of theirs matches. Never in the static content.
-  line_rules: z.array(S({ from: Id, to: Id, refuse: z.boolean(), text: Text })).default([]),
+  line_rules: z.array(LineRule).default([]),
   // Kinds of worker a map must have on a path to the result before it can be validated. The
   // text is said to the player while the entry fails.
   required: z.array(S({ workers: z.array(Id).min(1), text: Text })).default([]),
@@ -474,6 +467,11 @@ export const BuildFile = W({
       public_summary: Text,
       rationale: Text.optional(),
     }),
+    // Every reference map: shown at the reveal of Phase 2 and offered in Phase 3. The first is
+    // the map of `reference`. Without the list, `reference` is the only one.
+    references: z.array(K({
+      id: Id, public: S({ label: Text, summary: Text }), map: PackMap, needs_actions: z.array(Id).default([]),
+    })).optional(),
     traps: z.array(K({ id: Id, kind: z.enum(['overbuilt', 'underbuilt', 'shortcut']), map: PackMap })).optional(),
     // For every kind of worker: the best way to use it and the wrong choices. A host sees it
     // beside a player's map. Never sent to a player.
@@ -483,43 +481,100 @@ export const BuildFile = W({
 export type BuildFile = z.infer<typeof BuildFile>
 
 // ------------------------------------------------------------------------------------------
-// maintain.yaml
+// maintain.yaml: Phase 3 on the canvas (spec, sections 5.5 and 6.7). A year in periods, events
+// that change the tables of the scoring and the risks of the parts, and what Phase 3 adds to the
+// board. Every number, every event and every `key` stays on the server.
 // ------------------------------------------------------------------------------------------
-const EventOption = S({
-  id: Id,
-  public: S({ label: Text, text: Text }),
-  available: z.enum(['both', 'early', 'late']).optional(),
-  requires_monitor: Id.nullable().optional(),
-  effects: MetricDeltas.optional(),
-  stops_drift: z.boolean().optional(),
-  restore: Num.min(0).max(1).optional(),
-  arms: z.array(Id).optional(), disarms: z.array(Id).optional(),
-  grants_monitor: Id.nullable().optional(),
-  key: K({ verdict: z.enum(['best', 'acceptable', 'poor']).optional(), rationale: Text.optional() }).optional(),
+export const LENSES = ['fresh_test_set', 'dry_run', 'incident_log', 'case_mix', 'drift_alarm'] as const
+export type LensId = (typeof LENSES)[number]
+export const MAP_FLAGS = ['private_data', 'overloaded', 'distracting', 'prompt', 'stray', 'rushed'] as const
+
+/** A change to the tables of the scoring while it holds (section 6.7, "The tables of a period"). */
+export const Patch = z.discriminatedUnion('op', [
+  S({ op: z.literal('weights'), cases: z.record(Id, NonNeg) }),
+  S({ op: z.literal('fetch_as'), effort: Effort, as: Effort, factor: NonNeg }),
+  // The keys of `fetch` are kinds of effort and of `decide` the two difficulties. "*" is every key.
+  S({ op: z.literal('worker'), worker: Id, fetch: z.record(z.string(), NonNeg).optional(), decide: z.record(z.string(), NonNeg).optional(), catch: NonNeg.optional() }),
+  S({ op: z.literal('knows'), fact: Id, factor: NonNeg, workers: z.array(Id).min(1) }),
+  S({ op: z.literal('gives'), source: Id, fact: Id, factor: NonNeg, unless_through: Id.optional() }),
+  S({ op: z.literal('compute'), compute: Id, run_fixed: NonNeg.optional(), price_factor: NonNeg.optional() }),
+  S({ op: z.literal('model'), model: Id, run: NonNeg }),
+])
+export type Patch = z.infer<typeof Patch>
+
+/** A risk an event adds while it acts: to lines from sources, to tiles of kinds, or to the whole system. */
+const EventRisk = S({
+  // `behind_connector`: the share of `line` that a line into a connector tile takes, in place
+  // of the connector's own share. With 0 the event leaves such a line alone.
+  sources: z.array(Id).optional(), line: Unit.optional(), behind_connector: Unit.optional(),
+  workers: z.array(Id).optional(), tile: Unit.optional(),
+  all: Unit.optional(),
 })
+const Bands = z.array(S({ min: Num, text: Text })).min(1)
+
 export const MaintainFile = W({
-  start: S({ validity: Num, reliability: Num, cost: Num, complexity: Num }),
-  monitors: z.record(z.string(), W({ public: S({ local_note: Text }) })).optional(),
-  actions: z.array(W({
-    id: Id, kind: z.enum(['look', 'change']),
-    public: S({ label: Text, text: Text }),
-    credits: Int.min(0), once: z.boolean().optional(),
-    months: S({ from: PosInt.optional(), to: PosInt.optional() }).optional(),
-    reveals: z.array(Id).optional(), effects: MetricDeltas.optional(),
-    disarms: z.array(Id).optional(), arms: z.array(Id).optional(),
-    key: K({ verdict: z.enum(['good', 'depends', 'poor']).optional(), rationale: Text.optional() }).optional(),
-  })),
-  events: z.array(S({
-    id: Id, archetype: z.string(),
-    requires_trigger: z.boolean().optional(),
-    onset: z.union([S({ month: PosInt }), S({ after_trigger: Int.min(0) })]),
-    detect: S({ loud: z.boolean().optional(), monitors: z.array(Id).optional(), late_after_months: Int.min(0).nullable().optional() }),
-    drift: MetricDeltas.optional(),
-    public: S({ early: S({ title: Text, text: Text }), late: S({ title: Text, text: Text }) }),
-    default_option: Id,
-    options: z.array(EventOption).min(1),
-    key: K({ teaches: Text.optional() }).optional(),
-  })),
+  periods: z.array(S({ id: Id, label: Text, short: Text })).min(2),
+  grants: z.array(S({ round: PosInt, money: NonNeg })).default([]),
+  validate: S({ runs: Int.min(0), seconds: PosInt }),
+  baseline: W({ public: S({ label: Text }), map: PackMap }),
+  score: S({ cost_per_point: Num.positive(), pool: Id, extra_look: NonNeg.default(0), rushed: NonNeg.default(0) }),
+  reliability: S({
+    workers: z.record(Id, Unit).default({}),
+    default_worker: Unit.default(0),
+    sources: z.record(Id, Unit).default({}),
+    handoff: Unit.default(0),
+    compute: z.record(Id, Unit).default({}),
+    connectors: z.record(Id, Unit).default({}),
+    new_map: S({ risk: Unit, spared_by: z.array(Id).default([]) }).optional(),
+    hardening: z.array(S({ action: Id, workers: z.array(Id).optional(), factor: NonNeg })).default([]),
+    interruption: Num.positive().default(0.025),
+  }),
+  lenses: z.partialRecord(z.enum(LENSES), z.array(Id)).default({}),
+  workers: z.array(Worker).default([]),
+  line_rules: z.array(LineRule).default([]),
+  actions: z.array(W({ ...ActionShape, repeat: z.boolean().optional(), run: NonNeg.optional() })).default([]),
+  world: z.array(Patch).default([]),
+  events: z.array(W({
+    id: Id,
+    from: PosInt, to: PosInt.optional(),
+    needs: S({
+      workers: z.array(Id).optional(), sources: z.array(Id).optional(), compute: z.array(Id).optional(),
+      flag: z.enum(MAP_FLAGS).optional(),
+    }).optional(),
+    patches: z.array(Patch).default([]),
+    risks: z.array(EventRisk).default([]),
+    fine: NonNeg.optional(),
+    repaired_by: z.array(Id).default([]),
+    symptom: Text.optional(),
+    cause: S({ lens: z.enum(LENSES), text: Text }).optional(),
+    alarm: Text.optional(),
+    reveal: S({ title: Text, text: Text }).optional(),
+    // `coach`: for the host's view of a player on whose map the event acts.
+    key: K({ teaches: Text.optional(), coach: K({ holds: Text, say: Text }).optional() }).optional(),
+  })).default([]),
+  news: z.array(W({
+    id: Id, round: PosInt, kind: z.enum(['letter', 'announcement']),
+    from: Id, title: Text.optional(), text: Text,
+  })).default([]),
+  alarm_from: Id.optional(),
+  incidents: S({
+    workers: z.record(Id, Text).default({}), default_worker: Text.optional(),
+    sources: z.record(Id, Text).default({}), handoff: Text.optional(),
+    compute: z.record(Id, Text).default({}), new_map: Text.optional(),
+  }).default({ workers: {}, sources: {}, compute: {} }),
+  report: W({
+    validity: Bands, reliability: Bands,
+    gap: Text.optional(), gap_points: Num.optional(),
+    // What the people of `score.pool` say: when the map asks them once and in time, when it
+    // asks them more than once, and when it asks more minutes than they have.
+    radiologists: S({ content: Text, extra_look: Text, rushed: Text }).optional(),
+    steady: Text.optional(),
+    no_map: Text.optional(),
+  }),
+  key: K({
+    guide: z.record(Id, K({ best: Text, wrong: Text })).optional(),
+    strategy: Text.optional(),
+  }).optional(),
 })
 export type MaintainFile = z.infer<typeof MaintainFile>
 
@@ -536,7 +591,7 @@ export const StoryFile = W({
     maintaining: W({ from: Id, title: Text, text: Text }).optional(),
   }).optional(),
   letters: W({
-    planning_reveal: Letter.optional(), development_reveal: Letter.optional(), annual_review: Letter.optional(),
+    planning_reveal: Letter.optional(), development_reveal: Letter.optional(), maintaining_reveal: Letter.optional(),
   }).optional(),
   dialogue: z.array(W({
     id: Id, speaker: Id, text: Text,

@@ -149,6 +149,9 @@ export type ActionRow = {
   state: 'ready' | 'running' | 'done' | 'blocked'
   blocked?: string                      // why it cannot start
   left?: number; share?: number         // seconds left and the share done, while it runs
+  again?: string                        // the label of Start, for an action that was done and may be done again
+  tag?: string                          // a quiet word under the title: how often it was done
+  upkeep?: string | null                // what it costs a month once it is done
 }
 
 export function ActionList({ groups, rows, onStart, refused, popOf, notice, words }: {
@@ -185,7 +188,7 @@ export function ActionList({ groups, rows, onStart, refused, popOf, notice, word
                     <span className="meta">{words.cost(a.money, a.developers, a.seconds)}<span className="amark" aria-hidden="true">{isOpen ? '▾' : '▸'}</span></span>
                   </button>
                   <div className="iact">
-                    {a.state === 'ready' && <button type="button" className="ibtn start" onClick={() => onStart(a.id)}>{words.start}</button>}
+                    {a.state === 'ready' && <button type="button" className={`ibtn start${a.again ? ' again' : ''}`} onClick={() => onStart(a.id)}>{a.again ?? words.start}</button>}
                     {a.state === 'done' && <div className="ibtn done">✓ {words.done}</div>}
                     {a.state === 'running' && (
                       <div className="ibtn run" role="status">
@@ -199,10 +202,12 @@ export function ActionList({ groups, rows, onStart, refused, popOf, notice, word
                   {isOpen && (
                     <div className="amore">
                       <span className="tz">{a.teaser}</span>
+                      {a.upkeep && <span className="meta">{a.upkeep}</span>}
                       {a.storyTime && <span className="meta">{words.story(a.storyTime)}</span>}
                       {a.opens.length > 0 && <span className="meta opens">{words.opens(a.opens.join(', '))}</span>}
                     </div>
                   )}
+                  {a.tag && <div className="atag">{a.tag}</div>}
                   {a.state === 'blocked' && a.blocked && <div className="ablock">{a.blocked}</div>}
                   {refused?.id === a.id && <div className="err irefused" role="alert">{refused.text}</div>}
                 </div>

@@ -115,6 +115,9 @@ const cases: [string, string, (t: string) => string, RegExp][] = [
   ['a worker without a group when the toolbox has groups', `${RB}/build.yaml`, (t) => t.replace('    group: operators\n    public:\n      label: Agent', '    public:\n      label: Agent'), /workers\[0\]\.group.*needs a group/],
   ['column names that do not match the columns', `${RB}/build.yaml`, (t) => t.replace('    - {label: Check and send, hint: A last look before the patron gets the answer.}\n', ''), /grid\.columns.*3 column names for 4 columns/],
   ['a prompt without a sample', `${RB}/build.yaml`, (t) => t.replace('      sample: A single sentence', '      note_only: A single sentence').replace('      sample: Find the book in this request at a partner library and arrange the loan.\n', ''), /prompts\[0\]\.public.*needs sample or samples/],
+  ['a report card line about a fact that does not exist', 'teaching/report-card.yaml', (t) => t.replace('when: {map_validated: false}', 'when: {map_tested: false}'), /sections\[1\]\.lines\[0\]\.when\.map_tested.*unknown fact "map_tested"/],
+  ['a report card fact with a value of the wrong kind', 'teaching/report-card.yaml', (t) => t.replace('when: {map_validated: false}', 'when: {map_validated: "no"}'), /sections\[1\]\.lines\[0\]\.when\.map_validated.*is a boolean/],
+  ['a report card band that does not exist', 'teaching/report-card.yaml', (t) => t.replace('planning_band: rough}', 'planning_band: shaky}').replace('  rough: A first season', '  wobbly: A first season'), /when\.planning_band.*"shaky" is not a score band[\s\S]*closing\.wobbly.*not a score band/],
   ['two items with one id', `${RB}/build.yaml`, (t) => t.replace('  - id: rb-c-owned', '  - id: rb-c-rented'), /compute\[3\]\.id.*used twice/],
 ]
 

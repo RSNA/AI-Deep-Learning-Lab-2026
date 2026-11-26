@@ -68,6 +68,8 @@ export class Room {
   private lastClockSend = 0
   private lastHostSend = 0
   private lastScreenSend = 0
+  /** The wall time the session was opened: the date on a report card. */
+  private readonly playedAt: number | null
 
   private constructor(private readonly deps: Deps, state: SessionState, clock: ClockState, seq: number) {
     this.code = state.code
@@ -75,6 +77,7 @@ export class Room {
     this.clock = clock
     this.seq = seq
     this.rejoinCodes = deps.db.rejoinCodes(state.code)
+    this.playedAt = deps.db.session(state.code)?.created ?? null
     this.lastSnapshotWall = deps.config.wallNow()
     for (const e of deps.db.events(state.code, 'stage')) {
       const st = (JSON.parse(e.data) as { stage: StageId }).stage
@@ -179,6 +182,7 @@ export class Room {
     for (const id of dirty) this.sendView(id)
     let stageChanged = false
     let beat = false
+    let cardsChanged = false
     const wall = this.deps.config.wallNow()
     for (const ev of out.events) {
       switch (ev.kind) {
@@ -192,11 +196,15 @@ export class Room {
           beat = true
           break
         case 'joined':
+          this.screenDirty = true
+          break
         case 'renamed':
           this.screenDirty = true
+          cardsChanged = true
           break
         case 'removed': {
           this.screenDirty = true
+          cardsChanged = true
           const sock = this.players.get(ev.playerId)
           if (sock) {
             this.players.delete(ev.playerId)
@@ -223,6 +231,7 @@ export class Room {
     }
     if (stageChanged) {
       this.snapshot(true)
+      this.storeResults()
       this.broadcastClock()
       this.screenDirty = true
       for (const id of this.players.keys()) this.sendStanding(id)
@@ -231,6 +240,8 @@ export class Room {
       for (const id of this.players.keys()) this.sendStanding(id)
       this.screenDirty = true
     }
+    // A practice that was renamed or removed after a phase was scored: the kept cards follow.
+    if (cardsChanged && !stageChanged && this.state.closedPhases.length) this.storeResults()
   }
 
   // ----------------------------------------------------------------------------------------
@@ -273,7 +284,28 @@ export class Room {
   }
 
   playerView(id: PlayerId) {
-    return project.playerView(this.state, this.deps.pack, id, this.rejoinCodes.get(id) ?? '')
+    return project.playerView(this.state, this.deps.pack, id, this.rejoinCodes.get(id) ?? '', this.playedAt)
+  }
+
+  /** The report card of a practice from the phases scored so far. Null before any, and for a removed practice. */
+  reportCard(id: PlayerId) {
+    if (!this.state.closedPhases.length) return null
+    return project.reportCard(this.state, this.deps.pack, id, this.rejoinCodes.get(id) ?? '', this.playedAt)
+  }
+
+  /**
+   * Keep every practice's report card in the database (section 7.5), at each stage change once
+   * a phase is scored. The cards outlive the session in memory: a closed session is not loaded
+   * after a restart, and one on older content cannot be opened again, yet a player who comes
+   * back gets their result. A game that starts again has no results, so its cards go.
+   */
+  storeResults(): void {
+    const cards = new Map<string, string>()
+    for (const id of this.state.order) {
+      const card = this.reportCard(id)
+      if (card) cards.set(id, JSON.stringify(card))
+    }
+    this.deps.db.writeResults(this.code, cards, this.deps.config.wallNow())
   }
 
   private sendView(id: PlayerId): void {

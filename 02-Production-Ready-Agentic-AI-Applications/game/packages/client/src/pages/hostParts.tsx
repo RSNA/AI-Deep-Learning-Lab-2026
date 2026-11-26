@@ -217,11 +217,133 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
   )
 }
 
+/**
+ * A player's Phase 3 for a host who wants to help: first the glimpse (what holds them back, what
+ * to say, what is good), with the guide of a tool or an action on a press, then the map that
+ * runs beside their draft, their year report by report with what acted on them, and the key.
+ */
+function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> }) {
+  const [which, setWhich] = useState<'runs' | 'draft'>('runs')
+  const [guideOf, setGuideOf] = useState<string | null>(null)
+  const [shown, setShown] = useState<string | null>(null)
+  const [refAt, setRefAt] = useState<string | null>(null)
+  const M = H.mnt
+  // What a map of their list is called, as on the player's screen.
+  const names = new Map<string, string>()
+  let two = 0, three = 0
+  for (const v of m.validations) names.set(v.id, v.origin === 'reference' ? M.mapName.reference(v.label ?? '') : v.origin === 'phase2' ? M.mapName.phase2(++two) : M.mapName.phase3(++three))
+  const nameOf = (id: string) => m.legend.workers.find((w) => w.id === id)?.label ?? m.actions.find((a) => a.id === id)?.title ?? id
+  const runs = m.validations.find((v) => v.id === m.deployed) ?? null
+  const guide = m.key.guide.find((g) => g.id === guideOf)
+  const v = m.validations.find((x) => x.id === shown)
+  const ref = m.key.references.find((x) => x.id === refAt)
+  const out1 = (x: number) => (Math.round(1000 * x) / 10).toFixed(1)
+  const col = (title: string, lines: string[]) => (
+    <div>
+      <div className="eyebrow">{title}</div>
+      {lines.length ? <ul>{lines.map((x, i) => <li key={i}>{x}</li>)}</ul> : <div className="muted">{M.nothing}</div>}
+    </div>
+  )
+  return (
+    <div className="inspect">
+      <div className="inspect-top">
+        <span className={`chip ${m.status === 'playing' ? 'sun' : 'good'}`}>{M[m.status]}</span>
+        <span className="chip">{M.round(m.round.index, m.round.of)}</span>
+        <span className="chip">{M.score(m.score)}</span>
+        <span className="chip">{H.dev.money(m.money)}</span>
+        <span className="chip">{H.dev.devs(m.developers.free, m.developers.total)}</span>
+        <span className="chip">{M.spent(m.spent.total)}</span>
+      </div>
+      <section className="coach" aria-label={M.title}>
+        <div className="coach-head"><b>{M.title}</b></div>
+        <div className="coach-cols">
+          {col(M.holds, m.glimpse.holds)}
+          {col(M.say, m.glimpse.say)}
+          {col(M.good, m.glimpse.good)}
+        </div>
+        {m.key.guide.length > 0 && (
+          <div className="hint">{M.guideLine}{m.key.guide.map((g, i) => (
+            <span key={g.id}>{i ? ', ' : ''}<button type="button" className={`coach-name${guideOf === g.id ? ' on' : ''}`} aria-expanded={guideOf === g.id} onClick={() => setGuideOf(guideOf === g.id ? null : g.id)}>{nameOf(g.id)}</button></span>
+          ))}</div>
+        )}
+        {guide && (
+          <div className="coach-guide" role="note">
+            <b>{nameOf(guide.id)}</b>
+            <p><span className="eyebrow">{M.bestUse}</span> {guide.best}</p>
+            <p><span className="eyebrow">{M.wrong}</span> {guide.wrong}</p>
+          </div>
+        )}
+      </section>
+      <div className="seg coach-maps" role="tablist">
+        <button role="tab" aria-selected={which === 'runs'} aria-pressed={which === 'runs'} onClick={() => setWhich('runs')}>{M.mapRuns}{runs ? ` · ${names.get(runs.id)} · ${out1(runs.accuracy)}%` : ''}</button>
+        <button role="tab" aria-selected={which === 'draft'} aria-pressed={which === 'draft'} onClick={() => setWhich('draft')}>{M.mapDraft}</button>
+      </div>
+      {which === 'runs'
+        ? runs ? <div className="gridscroll insp-map"><Grid v={m.legend} map={runs.map} compact words={gridWords} label={M.mapRuns} /></div> : <div className="muted">{M.noMapRuns}</div>
+        : <div className="gridscroll insp-map"><Grid v={m.legend} map={m.map} compact words={gridWords} label={M.mapDraft} /></div>}
+      {which === 'draft' && !m.ready.ok && <div className="hint">{H.dev.notReady(m.ready.reasons.map((r) => reasonText(r, m.pools)).join(' '))}</div>}
+      <div className="eyebrow">{M.reports}</div>
+      {m.reports.length ? (
+        <div className="gridscroll">
+          <table className="insp-year">
+            <thead><tr>{Object.values(M.cols).map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
+            <tbody>
+              {m.reports.map((r) => (
+                <tr key={r.period}>
+                  <td>{r.short}</td>
+                  <td>{r.map ? names.get(r.map) ?? r.map : M.noMap}</td>
+                  <td className="num">{out1(r.validity)}</td>
+                  <td className="num">{r.map ? out1(r.test) : '–'}</td>
+                  <td className="num">{out1(r.reliability)}</td>
+                  <td className="num">{r.interruptions}</td>
+                  <td className="num">{(Math.round(10 * r.value) / 10).toFixed(1)}</td>
+                  <td className="ev">{r.worstPart ?? '–'}</td>
+                  <td className="ev">{r.events.length ? r.events.map((e) => M.event(e.title, e.validityLoss, e.reliabilityLoss)).join('; ') : '–'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <div className="muted">{M.noReports}</div>}
+      <details className="inspect-done">
+        <summary>{M.more}</summary>
+        <div className="insp-two">
+          <div>
+            <div className="eyebrow">{M.maps}</div>
+            <div className="insp-vals">
+              {m.validations.map((x) => (
+                <button key={x.id} type="button" className={`hchip${shown === x.id ? ' on' : ''}${m.deployed === x.id ? ' send' : ''}`} onClick={() => setShown(shown === x.id ? null : x.id)}>
+                  {names.get(x.id)} · {out1(x.accuracy)}%{m.deployed === x.id ? ` · ${M.runs}` : ''}
+                </button>
+              ))}
+              {!m.validations.length && <span className="muted">{H.dev.noValidations}</span>}
+            </div>
+            {v && <div className="gridscroll insp-map"><Grid v={m.legend} map={v.map} compact words={gridWords} /></div>}
+          </div>
+          <div>
+            <div className="eyebrow">{M.actions}</div>
+            <div className="insp-acts">{m.actions.filter((a) => a.state !== 'open' || a.times > 0).map((a) => <span key={a.id} className={`chip ${a.state === 'running' ? 'sun' : 'good'}`}>{a.title} · {a.state === 'running' ? H.dev.state.running : H.dev.state.done}{M.times(a.times)}</span>)}{m.actions.every((a) => a.state === 'open' && a.times === 0) && <span className="muted">–</span>}</div>
+          </div>
+        </div>
+      </details>
+      {m.key.references.length > 0 && (
+        <details className="inspect-done">
+          <summary>{M.references}</summary>
+          <div className="insp-vals">
+            {m.key.references.map((x) => <button key={x.id} type="button" className={`hchip${refAt === x.id ? ' on' : ''}`} onClick={() => setRefAt(refAt === x.id ? null : x.id)}>{x.label} · {out1(x.accuracy)}%</button>)}
+          </div>
+          {ref && <div className="gridscroll insp-map"><Grid v={m.legend} map={ref.map} compact words={gridWords} /></div>}
+        </details>
+      )}
+    </div>
+  )
+}
+
 /** One player as a host sees them. The phases that have something to show are tabs. */
 export function Inspector({ view, systems }: { view: HostInspect; systems: SystemRef[] }) {
   const sys = systems.find((s) => s.id === view.system)
-  const tabs = (['planning', 'development'] as const).filter((ph) => view[ph] !== null)
-  const [tab, setTab] = useState<'planning' | 'development'>(() => tabs.at(-1) ?? 'planning')
+  const tabs = (['planning', 'development', 'maintaining'] as const).filter((ph) => view[ph] !== null)
+  const [tab, setTab] = useState<'planning' | 'development' | 'maintaining'>(() => tabs.at(-1) ?? 'planning')
   return (
     <div className="inspector">
       <div className="inspect-who">
@@ -241,7 +363,8 @@ export function Inspector({ view, systems }: { view: HostInspect; systems: Syste
           {tabs.map((t) => <button key={t} role="tab" aria-selected={tab === t} aria-pressed={tab === t} onClick={() => setTab(t)}>{H.phaseTab(PHASE_NUMBER[t])}</button>)}
         </div>
       )}
-      {tab === 'development' && view.development ? <DevelopmentInspect d={view.development} />
+      {tab === 'maintaining' && view.maintaining ? <MaintainingInspect m={view.maintaining} />
+        : tab === 'development' && view.development ? <DevelopmentInspect d={view.development} />
         : view.planning ? <PlanningInspect p={view.planning} /> : <div className="muted">{H.notStarted}</div>}
     </div>
   )

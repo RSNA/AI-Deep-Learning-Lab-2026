@@ -1,5 +1,14 @@
 # Demo story text. Nothing here affects a score.
 briefs:
+  maintaining:
+    from: demo-priya
+    title: The system is live. Now keep it running
+    text: >-
+      Your system for the partner requests went live in January. Every **two months** I send you a report on
+      how it did: how many answers were **right**, and how often the system **ran at all**. A
+      real year is not the test set. Deploy the map you trust, repair what breaks, and watch
+      what it costs. You may also take one of the network's reference maps and switch back
+      whenever you like. *Whatever runs when the timer ends is what the next report is about.*
   development:
     from: demo-priya
     title: Build the partner requests system
@@ -22,6 +31,17 @@ briefs:
       project. *Count before you believe.*
 
 letters:
+  maintaining_reveal:
+    from: demo-priya
+    always: >-
+      The year is over. A system is judged by the year it runs, and less by the day it was
+      tested. What held up was simple, sat behind few connections, and was looked after.
+    variants:
+      empty: No system of yours ran this year, so the branch worked as it always did.
+      rough: Your system cost more than it gave this year. Look at what broke and stayed broken.
+      steady: Your system held on through most of the year. Two repairs came late.
+      strong: A steady year. You repaired what broke and kept the costs in hand.
+      outstanding: This is how a system should be run. Few parts, watched closely, repaired at once.
   development_reveal:
     from: demo-priya
     always: >-

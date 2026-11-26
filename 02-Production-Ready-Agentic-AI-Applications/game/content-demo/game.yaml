@@ -19,10 +19,9 @@ join:
     host_can_remove: true
   reconnect: token
   late_join:
-    open_until: {phase: maintaining, month: 3}
+    open_until: {phase: maintaining, round: 2}
     missed_phase_points: 0
     mid_phase: full_budget_remaining_clock
-    maintaining_after_setup: inherit_do_nothing
 
 clock:
   time_scale_default: 1
@@ -51,7 +50,7 @@ story_time:
     span: four months
   maintaining:
     span: one year
-    tick_stands_for: one month
+    tick_stands_for: two months
 
 ladder:
   - rung: 1
@@ -172,13 +171,13 @@ phases:
   maintaining:
     label: Maintaining
     reveal_seconds: 30
-    setup_seconds: 20
-    months: 6
-    month_seconds: 15
-    event_response_seconds: 20
-    credits: 6
-    actions_per_month: 1
-    live_leaderboard: {label: Service this year}
+    rounds: 5
+    round_seconds: 30
+    play_seconds: 150
+    action_groups:
+      - {id: watch, label: Watch}
+      - {id: maintain, label: Maintain}
+    live_leaderboard: {label: Score of the year so far, metric: year_score_so_far}
 
 leaderboards:
   columns: [overall, planning, development, maintaining]
@@ -188,7 +187,7 @@ leaderboards:
     overall: [total_points, maintaining_points, development_points, planning_points, earlier_join]
     planning: [points, earlier_submit]
     development: [points, fewer_validations, earlier_submit]
-    maintaining: [points, higher_final_month_health, earlier_join]
+    maintaining: [points, higher_last_period_value, earlier_join]
   winners: {overall_top: 3, per_system_top: 1, top_system: 1}
   # What "Follow the game" shows on the projector while a phase is played: a loop of views.
   projector:

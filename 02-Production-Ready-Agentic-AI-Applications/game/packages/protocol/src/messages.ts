@@ -16,6 +16,12 @@ export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('development.act'), payload: S({ id: z.string().max(80) }) }),
   S({ type: z.literal('development.validate'), payload: S({}) }),
   S({ type: z.literal('development.choose'), payload: S({ id: z.string().max(16).nullable() }) }),
+  // Phase 3 (section 6.7): the same board, a reference map taken into the list, and the map that runs.
+  S({ type: z.literal('maintaining.set_map'), payload: S({ map: CanvasMap }) }),
+  S({ type: z.literal('maintaining.act'), payload: S({ id: z.string().max(80) }) }),
+  S({ type: z.literal('maintaining.validate'), payload: S({}) }),
+  S({ type: z.literal('maintaining.adopt'), payload: S({ id: z.string().max(80) }) }),
+  S({ type: z.literal('maintaining.deploy'), payload: S({ id: z.string().max(16).nullable() }) }),
 ])
 export type PlayerCommand = z.infer<typeof PlayerCommand>
 export type PlayerCommandType = PlayerCommand['type']
@@ -91,6 +97,8 @@ export const Moment = z.discriminatedUnion('kind', [
   S({ kind: z.literal('dialogue'), id: z.string(), speaker: z.string(), text: Text }),
   S({ kind: z.literal('announcement'), from: z.string(), text: Text }),
   S({ kind: z.literal('letter'), phase: PhaseId }),
+  S({ kind: z.literal('report'), period: z.number().int() }),   // Phase 3: the report of a period has arrived
+  S({ kind: z.literal('news'), id: z.string() }),              // Phase 3: a letter or a memo is in the inbox, by its id there
   S({ kind: z.literal('stage'), stage: z.string() }),
 ])
 export type Moment = z.infer<typeof Moment>

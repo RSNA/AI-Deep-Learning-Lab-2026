@@ -1,6 +1,7 @@
 // HTTP shapes of the player API (engineering spec, section 7.2) and small helpers to call it.
 import { z } from 'zod'
 import { AvatarId, Mode, StageId } from './ids.ts'
+import { ResultReply, type ResultBody } from './report.ts'
 import { PhaseContent, SystemRef, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
@@ -59,6 +60,8 @@ export function playerApi(base: string, fetchImpl: typeof fetch = fetch) {
     open: (after?: string) => call(fetchImpl, `${base}/api/open${after ? `?after=${encodeURIComponent(after)}` : ''}`, {}, OpenSession),
     join: (body: JoinBody) => call(fetchImpl, `${base}/api/join`, json(body), JoinResult),
     rejoin: (body: RejoinBody) => call(fetchImpl, `${base}/api/rejoin`, json(body), JoinResult),
+    /** The report card of a practice, by the session (its code or its label) and the rejoin code. */
+    result: (body: ResultBody) => call(fetchImpl, `${base}/api/result`, json(body), ResultReply),
     content: (token: string, phase: string) =>
       call(fetchImpl, `${base}/api/content/${phase}`, { headers: { authorization: `Bearer ${token}` } }, PhaseContent),
   }

@@ -1,4 +1,4 @@
-// The draft map of one player (engineering spec, section 10.5): the browser keeps it with an undo
+// The draft map of one player, in Phase 2 or Phase 3 (engineering spec, section 10.5): the browser keeps it with an undo
 // and redo history of its own, and sends `set_map` after every change, never a map it knows to be
 // invalid. Whenever nothing local waits to be saved, the server's draft wins: after a reload, a
 // reconnect or a refusal.
@@ -22,11 +22,12 @@ function save(key: string, h: History): void {
 export type MapDraft = ReturnType<typeof useMap>
 
 /** `onRefused` hears of a line that a rule of the pack refuses, with its words; the map goes back as it was. */
-export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boolean, onRefused?: (d: AckData) => void) {
+export function useMap(phase: 'development' | 'maintaining', v: Vocabulary, unlocked: ReadonlySet<string>, locked: boolean, onRefused?: (d: AckData) => void) {
   const view = usePlayer((s) => s.view)!
   const send = usePlayer((s) => s.send)
-  const server = view.development!.map
-  const key = `lab02.map.${view.me.id}.${view.run}`
+  const server = (view[phase] as { map: CanvasMap } | null)!.map
+  // Phase 2 keeps the key it always had. Phase 3 has a history of its own.
+  const key = phase === 'development' ? `lab02.map.${view.me.id}.${view.run}` : `lab02.map.${phase}.${view.me.id}.${view.run}`
   const [h, setH] = useState<History>(() => {
     const kept = load(key)
     return kept && sameMap(kept.map, server) ? kept : { map: server, past: kept?.past ?? [], future: [] }
@@ -65,10 +66,10 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
     const mine = ++seq.current
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      void send('development.set_map', { map }).then((r) => {
+      void send(`${phase}.set_map`, { map }).then((r) => {
         if (mine !== seq.current) return
         pending.current = false
-        const now = usePlayer.getState().view?.development?.map
+        const now = (usePlayer.getState().view?.[phase] as { map: CanvasMap } | null | undefined)?.map
         if (!r.ok) {
           // A line that a rule refuses is said at its place, not in the bar.
           const d = r.error === 'line_refused' ? (r.data as AckData | undefined) : undefined
@@ -92,7 +93,7 @@ export function useMap(v: Vocabulary, unlocked: ReadonlySet<string>, locked: boo
         release()
       })
     }, 200)
-  }, [send])
+  }, [send, phase])
   pushRef.current = push
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); release() }, [])

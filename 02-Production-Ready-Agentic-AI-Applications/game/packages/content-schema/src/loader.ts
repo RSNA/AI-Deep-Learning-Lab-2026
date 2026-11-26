@@ -5,11 +5,13 @@ import { join, relative } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { z } from 'zod'
 import {
-  BuildFile, CharactersFile, DeckFile, GameFile, InsightsFile, MaintainFile, MonitorsFile,
+  BuildFile, CharactersFile, DeckFile, GameFile, InsightsFile, MaintainFile,
   PHASES, ProblemsFile, ReportCardFile, StoryFile, SystemFile, setCollectWarnings,
   type PhaseId,
 } from './schema.ts'
+import { reportCardProblems } from './report-card.ts'
 import { checkBuild } from './build-check.ts'
+import { checkMaintain, checkReferences } from './maintain.ts'
 
 export type Issue = { file: string; path: string; message: string }
 
@@ -28,7 +30,6 @@ export type Pack = {
   readonly dir: string
   readonly hash: string
   readonly game: GameFile
-  readonly monitors: MonitorsFile | null
   readonly characters: CharactersFile
   /** Health systems in play, in the order of `game.health_systems`. */
   readonly systemIds: readonly string[]
@@ -145,7 +146,6 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 
   const game = validate(ctx, 'game.yaml', GameFile, readYaml(ctx, 'game.yaml', true))
   const characters = validate(ctx, 'characters.yaml', CharactersFile, readYaml(ctx, 'characters.yaml', true))
-  const monitors = validate(ctx, 'monitors.yaml', MonitorsFile, readYaml(ctx, 'monitors.yaml', false))
   const deck = validate(ctx, 'teaching/deck.yaml', DeckFile, readYaml(ctx, 'teaching/deck.yaml', false))
   const reportCard = validate(ctx, 'teaching/report-card.yaml', ReportCardFile, readYaml(ctx, 'teaching/report-card.yaml', false))
 
@@ -191,7 +191,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   }
 
   if (ctx.errors.length === 0 && characters) {
-    checkReferences(ctx, game, characters, monitors, systems, systemIds, deck, reportCard, listFiles(join(dir, 'art')))
+    checkPack(ctx, game, characters, systems, systemIds, deck, reportCard, listFiles(join(dir, 'art')))
     checkCounts(ctx, game, systems)
   }
   if (ctx.errors.length > 0 || !characters) return { ok: false, errors: ctx.errors, warnings: ctx.warnings }
@@ -200,7 +200,8 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
   const phasesAvailable: Record<PhaseId, boolean> = {
     planning: all((s) => s.problems && s.insights),
     development: game.phases.development.board === 'canvas' && all((s) => s.build),
-    maintaining: !!monitors && all((s) => s.maintain),
+    // Phase 3 is Phase 2 played on: it needs the canvas and the year of every health system.
+    maintaining: game.phases.development.board === 'canvas' && all((s) => s.build && s.maintain),
   }
   const provisional = systemIds.some((id) =>
     PHASES.some((p) => {
@@ -209,7 +210,7 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
     }))
 
   const pack: Pack = {
-    dir, hash: contentHash(ctx.raw), game, monitors, characters,
+    dir, hash: contentHash(ctx.raw), game, characters,
     systemIds, systems, deck, reportCard, phasesAvailable,
     artFiles: listFiles(join(dir, 'art')), provisional,
   }
@@ -222,9 +223,9 @@ export function loadPack(dir: string, opts: LoadOptions = {}): LoadResult {
 /** The stages a deck section may open at: the slide stages of section 6.13. */
 const DECK_STAGES = ['intro', 'break.planning', 'break.development', 'break.maintaining', 'reflection'] as const
 
-function checkReferences(
+function checkPack(
   ctx: Ctx, game: GameFile, characters: CharactersFile,
-  monitors: MonitorsFile | null, systems: Record<string, SystemPack>, systemIds: string[],
+  systems: Record<string, SystemPack>, systemIds: string[],
   deck: DeckFile | null, reportCard: ReportCardFile | null, artFiles: string[],
 ) {
   const err = (file: string, path: string, message: string) => ctx.errors.push({ file, path, message })
@@ -257,9 +258,6 @@ function checkReferences(
     if (c.look === undefined) warn('characters.yaml', `[${i}].look`, 'no look: the sprite falls back to one made from the id')
   })
   const charOk = (id: string, sys: string) => charIds.has(id) && (charIds.get(id) === 'all' || charIds.get(id) === sys)
-
-  const monitorIds = new Set((monitors?.monitors ?? []).map((m) => m.id))
-  monitors?.monitors.forEach((m, i) => unique(m.id, 'monitors.yaml', `monitors[${i}].id`))
 
   for (const sid of systemIds) {
     const sp = systems[sid]
@@ -313,11 +311,31 @@ function checkReferences(
       checkBuild(sp.build, { problemIds, groups, insightTileOk: (speaker) => charOk(speaker, sid) },
         (path, message) => err(f('build'), path, message), (path, message) => warn(f('build'), path, message))
     }
-    if (sp.maintain) checkMaintain(ctx, f('maintain'), sp.maintain, monitorIds, prefixed)
+    if (sp.build) checkReferences(sp.build, sp.maintain, (path, message) => err(f('build'), path, message))
+    if (sp.maintain) {
+      if (!sp.build) warn(f('maintain'), '', 'Phase 3 plays on the board of Phase 2, and this health system has no build.yaml: Phase 3 cannot open')
+      else {
+        const groups = [...(game.phases.development.action_groups ?? []), ...game.phases.maintaining.action_groups].map((g) => g.id)
+        checkMaintain(sp.maintain, sp.build, { rounds: game.phases.maintaining.rounds, groups, characterOk: (id) => charOk(id, sid), prefix: `${sid}-` },
+          (path, message) => err(f('maintain'), path, message), (path, message) => warn(f('maintain'), path, message))
+        for (const x of [...sp.maintain.workers, ...sp.maintain.actions, ...sp.maintain.events, ...sp.maintain.news]) unique(x.id, f('maintain'), x.id)
+        const m = sp.maintain
+        m.workers.forEach((w, i) => { words(w.public.description, 'worker_description', f('maintain'), `workers[${i}].public.description`) })
+        m.actions.forEach((a, i) => { words(a.public.title, 'action_title', f('maintain'), `actions[${i}].public.title`); words(a.public.teaser, 'action_teaser', f('maintain'), `actions[${i}].public.teaser`) })
+        m.events.forEach((e, i) => {
+          if (e.symptom !== undefined) words(e.symptom, 'report_line', f('maintain'), `events[${i}].symptom`)
+          if (e.cause) words(e.cause.text, 'report_line', f('maintain'), `events[${i}].cause.text`)
+          if (e.alarm !== undefined) words(e.alarm, 'event_text', f('maintain'), `events[${i}].alarm`)
+          if (e.reveal) words(e.reveal.text, 'event_text', f('maintain'), `events[${i}].reveal.text`)
+        })
+        m.news.forEach((n, i) => words(n.text, 'news_text', f('maintain'), `news[${i}].text`))
+      }
+    }
     if (sp.story) {
       const st = sp.story
       const insightIds = new Set((sp.insights ?? []).map((x) => x.id))
       const eventIds = new Set((sp.maintain?.events ?? []).map((x) => x.id))
+      if (st.briefs?.maintaining) words(st.briefs.maintaining.text, 'phase_brief_maintaining', f('story'), 'briefs.maintaining.text')
       const caseIds = new Set((sp.build?.cases ?? []).map((x) => x.id))
       const actionIds = new Set((sp.build?.actions ?? []).map((x) => x.id))
       for (const [phase, b] of Object.entries((st.briefs ?? {}) as Record<string, { from: string } | undefined>)) if (b && !charOk(b.from, sid)) err(f('story'), `briefs.${phase}.from`, `unknown character "${b.from}"`)
@@ -388,6 +406,7 @@ function checkReferences(
     })
   })
   reportCard?.sections.forEach((s, i) => unique(s.id, 'teaching/report-card.yaml', `sections[${i}].id`))
+  if (reportCard) for (const x of reportCardProblems(reportCard, game.scoring.score_bands.map((b) => b.id))) err('teaching/report-card.yaml', x.path, x.message)
 
   // Every `source` list names ids of the source registry.
   const walkSources = (file: string, x: unknown, path: string) => {
@@ -404,31 +423,6 @@ function checkReferences(
   for (const paper of new Set(Object.values(game.sources).map((s) => s.paper))) {
     if (!(paper in game.public_source_labels)) err('game.yaml', 'public_source_labels', `no label for paper "${paper}"`)
   }
-}
-
-function checkMaintain(
-  ctx: Ctx, file: string, m: MaintainFile, monitorIds: Set<string>,
-  prefixed: (id: string, file: string, path: string) => void,
-) {
-  const err = (path: string, message: string) => ctx.errors.push({ file, path, message })
-  const eventIds = new Set(m.events.map((e) => e.id))
-  const evRefs = (ids: string[] | undefined, path: string) => ids?.forEach((id) => { if (!eventIds.has(id)) err(path, `unknown event "${id}"`) })
-  const mon = (id: string | null | undefined, path: string) => { if (id && !monitorIds.has(id)) err(path, `unknown monitor "${id}"`) }
-  for (const id of Object.keys(m.monitors ?? {})) mon(id, `monitors.${id}`)
-  m.actions.forEach((a, i) => {
-    prefixed(a.id, file, `actions[${i}].id`)
-    evRefs(a.reveals, `actions[${i}].reveals`); evRefs(a.arms, `actions[${i}].arms`); evRefs(a.disarms, `actions[${i}].disarms`)
-  })
-  m.events.forEach((e, i) => {
-    prefixed(e.id, file, `events[${i}].id`)
-    e.detect.monitors?.forEach((id, j) => mon(id, `events[${i}].detect.monitors[${j}]`))
-    if (!e.options.some((o) => o.id === e.default_option)) err(`events[${i}].default_option`, `"${e.default_option}" is not one of the options`)
-    e.options.forEach((o, j) => {
-      mon(o.requires_monitor, `events[${i}].options[${j}].requires_monitor`)
-      mon(o.grants_monitor, `events[${i}].options[${j}].grants_monitor`)
-      evRefs(o.arms, `events[${i}].options[${j}].arms`); evRefs(o.disarms, `events[${i}].options[${j}].disarms`)
-    })
-  })
 }
 
 // ------------------------------------------------------------------------------------------
@@ -455,7 +449,12 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
   }
   if (next - 1 < game.scoring.normalization.max_points) err('game.yaml', 'scoring.score_bands', `bands stop at ${next - 1}`)
   const until = game.join.late_join.open_until
-  if (until.month !== undefined && until.phase !== 'maintaining') err('game.yaml', 'join.late_join.open_until.month', 'a month applies only to maintaining')
+  if (until.round !== undefined && until.phase !== 'maintaining') err('game.yaml', 'join.late_join.open_until.round', 'a round applies only to maintaining')
+  const mt = game.phases.maintaining
+  if (until.round !== undefined && until.round > mt.rounds) err('game.yaml', 'join.late_join.open_until.round', `round ${until.round} is after the last round, ${mt.rounds}`)
+  if (mt.play_seconds !== undefined && mt.play_seconds !== mt.rounds * mt.round_seconds) err('game.yaml', 'phases.maintaining.play_seconds', `must be rounds times round_seconds, ${mt.rounds * mt.round_seconds}`)
+  if (mt.live_leaderboard.metric !== undefined && mt.live_leaderboard.metric !== 'year_score_so_far') err('game.yaml', 'phases.maintaining.live_leaderboard.metric', 'must be "year_score_so_far"')
+  mt.action_groups.forEach((g, i) => { if ((game.phases.development.action_groups ?? []).some((x) => x.id === g.id) || mt.action_groups.findIndex((x) => x.id === g.id) !== i) err('game.yaml', `phases.maintaining.action_groups[${i}].id`, `group "${g.id}" is listed twice`) })
   const dev = game.phases.development
   if (dev.board === 'canvas') {
     // A setting with one implemented value is validated to hold it (section 5.4).

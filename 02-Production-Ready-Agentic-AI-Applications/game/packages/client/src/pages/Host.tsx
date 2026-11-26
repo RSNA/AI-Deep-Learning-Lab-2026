@@ -135,7 +135,7 @@ function Downloads({ token, code, onError }: { token: string; code: string; onEr
   }
   return (
     <>
-      {([['results', 'csv', H.dlResults, H.dlResultsLine], ['timing', 'csv', H.dlTiming, H.dlTimingLine], ['commands', 'json', H.dlCommands, H.dlCommandsLine]] as const).map(([what, fmt, l, line]) => (
+      {([['results', 'csv', H.dlResults, H.dlResultsLine], ['cards', 'csv', H.dlCards, H.dlCardsLine], ['timing', 'csv', H.dlTiming, H.dlTimingLine], ['commands', 'json', H.dlCommands, H.dlCommandsLine]] as const).map(([what, fmt, l, line]) => (
         <div key={what} className="ctl">
           <button className="btn small text" onClick={() => exportFile(what, fmt)}>{l}</button>
           <div className="hint">{line}</div>

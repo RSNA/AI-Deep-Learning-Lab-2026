@@ -5,8 +5,8 @@ import type { PhaseId } from '@lab02/protocol'
 import { bandOf } from './scoring.ts'
 import type { EngineEvent, GameMs, PlayerState } from './state.ts'
 
-const LETTER_OF: Record<PhaseId, 'planning_reveal' | 'development_reveal' | 'annual_review'> = {
-  planning: 'planning_reveal', development: 'development_reveal', maintaining: 'annual_review',
+const LETTER_OF: Record<PhaseId, 'planning_reveal' | 'development_reveal' | 'maintaining_reveal'> = {
+  planning: 'planning_reveal', development: 'development_reveal', maintaining: 'maintaining_reveal',
 }
 
 /** Fire every dialogue line of the player's system for this phase and trigger, once each. */

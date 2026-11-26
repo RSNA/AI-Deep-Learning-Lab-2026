@@ -1,6 +1,7 @@
 // The Phase 2 reveal (engineering spec, section 10.5). The letter and the score in one row, the
-// player's map and the reference map side by side, read-only, and every kind of case with the
-// share each map solved. On a phone the same parts stack in that order.
+// player's map and the reference maps side by side, read-only (a pack may show several: the
+// player steps through them), and every kind of case with the share each map solved. On a phone the same parts stack in that order.
+import { useState } from 'react'
 import type { DevelopmentContent, DevelopmentView, Welcome } from '@lab02/protocol'
 import { Grid } from '../canvas/Grid.tsx'
 import { Portrait } from '../components/ui.tsx'
@@ -21,6 +22,10 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
   const sent = dv.validations.find((x) => x.id === dv.submitId)
   const raw = Math.round(rv.raw)
   const none = { stray: [], incomplete: [], privateData: [] }
+  // Every reference map of the pack. The first is the one the cases below are held against.
+  const refs = rv.references.length ? rv.references : [{ id: 'reference', label: P2.referenceMap, ...rv.reference }]
+  const [at, setAt] = useState(0)
+  const ref = refs[Math.min(at, refs.length - 1)]!
   return (
     <main className="reveal p2rev">
       <div className="reveal-notice">{P2.timeUp}{inBreak ? ` ${P1.lookAtScreen}` : ''}{onSlides && <button type="button" className="btn small" onClick={onSlides}>{P1.backToSlides}</button>}</div>
@@ -61,10 +66,18 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
           </div>
         </section>
         <section className="panel">
-          <div className="panel-head go"><span>{P2.referenceMap}</span><span className="sub">{P2.acc1(rv.reference.accuracy)}</span></div>
+          <div className="panel-head go"><span>{refs.length > 1 ? P2.referenceMaps : P2.referenceMap}</span><span className="sub">{P2.acc1(ref.accuracy)}</span></div>
           <div className="panel-body">
-            <div className="gridscroll"><Grid v={v} map={rv.reference.map} flags={none} compact words={gridWords} label={P2.referenceMap} /></div>
-            <p className="refsum">{rv.reference.summary}</p>
+            {refs.length > 1 && (
+              <>
+                <div className="seg refseg" role="tablist" aria-label={P2.referenceMaps}>
+                  {refs.map((x, i) => <button key={x.id} type="button" role="tab" aria-selected={i === at} aria-pressed={i === at} onClick={() => setAt(i)}>{x.label} · {P2.acc1(x.accuracy)}</button>)}
+                </div>
+                <p className="hint">{P2.referenceMapsLine}</p>
+              </>
+            )}
+            <div className="gridscroll"><Grid v={v} map={ref.map} flags={none} compact words={gridWords} label={refs.length > 1 ? ref.label : P2.referenceMap} /></div>
+            <p className="refsum">{ref.summary}</p>
           </div>
         </section>
       </div>
@@ -72,7 +85,7 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
         <div className="panel-head lav"><span>{P2.cases}</span></div>
         <div className="panel-body">
           <div className="rcases">
-            <div className="rc-head"><span /><span>{P2.yours}</span><span>{P2.reference}</span></div>
+            <div className="rc-head"><span /><span>{P2.yours}</span><span>{refs.length > 1 ? refs[0]!.label : P2.reference}</span></div>
             {rv.cases.map((c) => (
               <div key={c.title} className="rcase">
                 <div><div className="rc-t">{c.title}</div><div className="rc-x">{c.text}</div></div>

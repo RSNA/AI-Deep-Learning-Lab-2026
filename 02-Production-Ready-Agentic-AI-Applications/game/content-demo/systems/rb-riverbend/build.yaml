@@ -424,6 +424,62 @@ key:
       catalog, the partner mailbox and the courier site, and leaves the forum alone. A librarian
       checks its answer before it goes out. It runs on the private link, so patron data stays safe.
     rationale: The partner mailbox holds the terms, a goal with limits helps the worker that decides, and a person who checks beats one who does everything.
+  # Every reference map: shown at the reveal of Phase 2 and offered in Phase 3. The first is the
+  # map above. They score alike on the test set and part ways over the year.
+  references:
+    - id: lean
+      public:
+        label: Map A
+        summary: One large agent reads the form, the catalog, the partner mailbox and the courier site. A librarian checks its answer.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-agent, col: 2, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t2, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: rb-s-mailbox, to: t1}
+          - {from: rb-s-courier, to: t1}
+          - {from: t1, to: t2}
+          - {from: t2, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+    - id: clerk
+      public:
+        label: Map B
+        summary: A desk clerk looks up the form and the catalog. One large agent reads the mailbox and the courier site and decides. A librarian checks.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-clerk, col: 1, row: 1}
+          - {id: t2, kind: rb-w-agent, col: 2, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t3, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: t1, to: t2}
+          - {from: rb-s-mailbox, to: t2}
+          - {from: rb-s-courier, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+    - id: pair
+      public:
+        label: Map C
+        summary: A small agent gathers from all four sources. A large agent decides from what it is handed and the form. A librarian checks.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-agent, col: 1, row: 2, model: rb-m-small, runs_on: rb-c-private, prompt: rb-p-steps}
+          - {id: t2, kind: rb-w-agent, col: 3, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t3, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: rb-s-mailbox, to: t1}
+          - {from: rb-s-courier, to: t1}
+          - {from: t1, to: t2}
+          - {from: rb-s-form, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
   traps:
     - id: rb-trap-chain
       kind: overbuilt
