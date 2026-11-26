@@ -38,6 +38,10 @@ To make a session, fill the fields and press **Create**.
 | Rehearsal | A practice run with people | 1× unless you change it | Yes | Yes |
 | Event | The real session | Always 1× | No, the game assigns them | No |
 
+When the content has one health system, nobody picks and nothing is assigned: every player is
+in it. The console then shows one ranking for the room, with no filter and no leaderboard by
+health system, and the projector shows no strip of health systems.
+
 **"Event" is crossed out** while the page says "Scores are not calibrated yet". Until the
 scoring is calibrated the game opens test and rehearsal sessions only.
 

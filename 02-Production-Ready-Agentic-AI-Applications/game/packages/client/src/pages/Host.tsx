@@ -256,7 +256,7 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
           <div className="fieldbox">
             <span className="lbl" id="mode-l">{H.modeLabel}</span>
             <ModeControl mode={mode} setMode={setMode} provisional={!!pack?.provisional} />
-            <div className="hint">{H.modeLine[mode]} {(pack?.pickModes ?? []).includes(mode) ? H.pickYes : H.pickNo}</div>
+            <div className="hint">{H.modeLine[mode]}{(pack?.systems.length ?? 2) > 1 ? ` ${(pack?.pickModes ?? []).includes(mode) ? H.pickYes : H.pickNo}` : ''}</div>
             {pack?.provisional && <div id="mode-why" className="hint bad">{H.eventWhy}</div>}
           </div>
           <div className="fieldbox">
@@ -379,7 +379,7 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
   const scenes: { id: SceneId; label: string; line: string; off: string | null; onClick?: () => void }[] = [
     { id: 'auto', label: H.follow, line: sc.rotates ? H.followRotates : H.followLine, off: null },
     { id: 'lobby', label: H.lobby, line: H.lobbyLine, off: null },
-    { id: 'play', label: H.leaderboard, line: H.leaderboardLine, off: sc.available.play ? null : H.leaderboardOff },
+    { id: 'play', label: H.leaderboard, line: hv.session.systems.length > 1 ? H.leaderboardLine : H.leaderboardLineOne, off: sc.available.play ? null : H.leaderboardOff },
     { id: 'feed', label: H.activity, line: H.activityLine, off: playing ? null : H.activityOff },
     { id: 'slides', label: H.slides, line: H.slidesLine, off: sc.available.slides ? null : H.slidesOff, onClick: showSlides },
     { id: 'winners', label: H.winners, line: H.winnersLine, off: sc.available.winners ? null : H.winnersOff },
@@ -493,8 +493,9 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
                         void cmd('screen_filter', { system: kind === 'sys' ? id! : null, phase: kind === 'phase' ? id! : null }, 'scene')
                       }}>
                       <option value="">{H.boardEveryone}</option>
-                      {hv.session.systems.map((s) => <option key={s.id} value={`sys:${s.id}`}>{H.boardSystem(s.name)}</option>)}
-                      {PHASES.filter((ph) => hv.phasesAvailable[ph]).map((ph) => <option key={ph} value={`phase:${ph}`}>{H.boardPhase(PHASE_NUMBER[ph])}</option>)}
+                      {/* One health system: its ranking is the ranking of everyone, and a phase has one column. */}
+                      {hv.session.systems.length > 1 && hv.session.systems.map((s) => <option key={s.id} value={`sys:${s.id}`}>{H.boardSystem(s.name)}</option>)}
+                      {PHASES.filter((ph) => hv.phasesAvailable[ph]).map((ph) => <option key={ph} value={`phase:${ph}`}>{hv.session.systems.length > 1 ? H.boardPhase(PHASE_NUMBER[ph]) : H.boardPhaseOne(PHASE_NUMBER[ph])}</option>)}
                     </select>
                   )}
                 </div>
@@ -768,7 +769,8 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
                   <span>{H.players}</span>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button className="chip" style={{ background: filter === null ? '#1d2140' : '#fff', color: filter === null ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(null)}>{H.everyone} {hv.counts.total}</button>
-                    {systems.map((s) => {
+                    {/* The filter by health system, when there is more than one. */}
+                    {systems.length > 1 && systems.map((s) => {
                       const n = hv.counts.bySystem.find((x) => x.id === s.id)?.players ?? 0
                       return <button key={s.id} className="chip" title={s.name} aria-label={`${s.name} ${n}`} style={{ background: filter === s.id ? '#1d2140' : '#fff', color: filter === s.id ? '#fff' : '#1d2140', borderColor: '#1d2140', cursor: 'pointer' }} onClick={() => setFilter(s.id)}><SystemShape index={s.index} size={10} />{n}</button>
                     })}

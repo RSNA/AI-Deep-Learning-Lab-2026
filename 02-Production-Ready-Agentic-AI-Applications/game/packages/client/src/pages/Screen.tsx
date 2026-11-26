@@ -90,10 +90,13 @@ function Leaderboard({ v }: { v: ScreenView }) {
           {`${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} insights found · ${v.activity.sent} assessment${v.activity.sent === 1 ? '' : 's'} sent`}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
-        <div><div className="face" style={{ fontSize: 32 }}>Health systems</div><div className="muted" style={{ fontSize: 17 }}>{COPY.systemsSub}</div></div>
-        <SystemsStrip systems={v.session.systems} standings={v.board.systems} big />
-      </div>
+      {/* The health systems against each other. One health system is one ranking, the one above. */}
+      {v.session.systems.length > 1 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
+          <div><div className="face" style={{ fontSize: 32 }}>Health systems</div><div className="muted" style={{ fontSize: 17 }}>{COPY.systemsSub}</div></div>
+          <SystemsStrip systems={v.session.systems} standings={v.board.systems} big />
+        </div>
+      )}
     </div>
   )
 }
@@ -374,8 +377,10 @@ function Podium({ rows, v }: { rows: ScreenView['board']['columns']['overall']['
 function Winners({ v }: { v: ScreenView }) {
   const w = v.winners
   if (!w) return <TitleCard v={v} text={v.stage === 'closed' ? 'This session has ended.' : 'The winners appear once Phase 1 is scored.'} />
+  // One health system: the best of it is the best of the room, which the panel on the left shows.
+  const one = v.session.systems.length < 2
   return (
-    <div style={{ flexGrow: 1, padding: '28px 48px', display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 40, minHeight: 0 }}>
+    <div style={{ flexGrow: 1, padding: '28px 48px', display: 'grid', gridTemplateColumns: one ? 'minmax(0, 1100px)' : '1.3fr 1fr', justifyContent: 'center', gap: 40, minHeight: 0 }}>
       <div className="panel" style={{ borderWidth: 4 }}>
         <div className="panel-head sun" style={{ fontSize: 40, borderBottomWidth: 4 }}>{w.final ? 'The winners' : v.stage === 'closed' ? 'This session has ended · the standings' : 'Standings so far'}</div>
         {w.final
@@ -383,26 +388,28 @@ function Winners({ v }: { v: ScreenView }) {
           : <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}><BoardRows rows={w.overall} systems={v.session.systems} big /></div>}
         {!w.final && <div className="muted" style={{ padding: '10px 20px', fontSize: 22, fontWeight: 700 }}>{v.stage === 'closed' ? 'The session ended before every phase was scored. These totals count the phases that were scored.' : 'Not every phase is scored yet. These are the totals so far.'}</div>}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div className="panel" style={{ borderWidth: 4 }}>
-          <div className="panel-head sky" style={{ fontSize: 32, borderBottomWidth: 4 }}>{w.final ? 'Best of each health system' : 'Leading each health system'}</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {w.perSystem.map((p) => {
-              const ref = v.session.systems.find((x) => x.id === p.system)
-              return (
-                <div key={p.system} className="lb-row" style={{ gridTemplateColumns: '20px minmax(0,1fr) 48px minmax(0,1.3fr) auto', minHeight: 64, fontSize: 22 }}>
-                  <SystemShape index={ref?.index ?? 0} size={18} />
-                  <span className="nm">{ref?.name}</span>
-                  {p.row ? <Avatar id={p.row.avatar} size={44} /> : <span />}
-                  <span className="nm">{p.row?.name ?? '–'}</span>
-                  <span className="val" style={{ fontSize: 32 }}>{p.row ? Math.round(p.row.value) : ''}</span>
-                </div>
-              )
-            })}
+      {!one && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div className="panel" style={{ borderWidth: 4 }}>
+            <div className="panel-head sky" style={{ fontSize: 32, borderBottomWidth: 4 }}>{w.final ? 'Best of each health system' : 'Leading each health system'}</div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {w.perSystem.map((p) => {
+                const ref = v.session.systems.find((x) => x.id === p.system)
+                return (
+                  <div key={p.system} className="lb-row" style={{ gridTemplateColumns: '20px minmax(0,1fr) 48px minmax(0,1.3fr) auto', minHeight: 64, fontSize: 22 }}>
+                    <SystemShape index={ref?.index ?? 0} size={18} />
+                    <span className="nm">{ref?.name}</span>
+                    {p.row ? <Avatar id={p.row.avatar} size={44} /> : <span />}
+                    <span className="nm">{p.row?.name ?? '–'}</span>
+                    <span className="val" style={{ fontSize: 32 }}>{p.row ? Math.round(p.row.value) : ''}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
+          <SystemsStrip systems={v.session.systems} standings={w.topSystems} big />
         </div>
-        <SystemsStrip systems={v.session.systems} standings={w.topSystems} big />
-      </div>
+      )}
     </div>
   )
 }

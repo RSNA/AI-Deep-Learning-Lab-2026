@@ -136,7 +136,8 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
               {err && errorAt(err) === 'name' && <div id="name-err" className="err" role="alert">{errorText(err, rule)}</div>}
               {err === 'name_taken' && <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('rejoin'); setErr(null) }}>{COPY.rejoinLink}</button>}
             </div>
-            {info?.pickSystem && (
+            {/* A game of one health system has nothing to pick. */}
+            {info?.pickSystem && info.pickSystem.length > 1 && (
               <fieldset className="syspick" style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <legend className="lbl" style={{ marginBottom: 6, fontWeight: 800, padding: 0 }}>{COPY.pickSystem}</legend>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

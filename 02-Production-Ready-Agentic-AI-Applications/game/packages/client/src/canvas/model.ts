@@ -2,7 +2,7 @@
 // checks the browser can make before it sends a map, so that it never sends one it knows to be
 // invalid. The server judges every map again. These components do not know which phase shows
 // them: they take the vocabulary and the state as inputs (section 6.6, what goes into Phase 3).
-import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile } from '@lab02/protocol'
+import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile, LineSide } from '@lab02/protocol'
 
 /** What a canvas can show and edit: the legend, plus what the browser needs to judge an edit. */
 export type Vocabulary = Omit<CanvasLegend, 'workers' | 'models'> & {
@@ -129,11 +129,26 @@ export function removeTile(m: CanvasMap, id: string): CanvasMap {
 
 export const lineKey = (l: CanvasLine) => `${l.from}>${l.to}`
 
-/** Add a line. A second line into the result replaces the first. */
-export function addLine(m: CanvasMap, from: string, to: string, resultId: string): CanvasMap {
+/**
+ * Add a line. A second line into the result replaces the first. `sides` are the sides of its
+ * two tiles that the player picked: a side counts only at an end that is a tile.
+ */
+export function addLine(m: CanvasMap, from: string, to: string, resultId: string, sides?: { from?: LineSide; to?: LineSide }): CanvasMap {
   if (m.lines.some((l) => l.from === from && l.to === to)) return m
   const keep = to === resultId ? m.lines.filter((l) => l.to !== resultId) : m.lines
-  return { tiles: m.tiles, lines: [...keep, { from, to }] }
+  const line: CanvasLine = { from, to }
+  if (sides?.from && tileOf(m, from)) line.fromSide = sides.from
+  if (sides?.to && tileOf(m, to)) line.toSide = sides.to
+  return { tiles: m.tiles, lines: [...keep, line] }
+}
+
+/** Move one end of a line to another side of its tile. The same map when that end is no tile or already there. */
+export function setLineSide(m: CanvasMap, key: string, end: 'from' | 'to', side: LineSide): CanvasMap {
+  const l = m.lines.find((x) => lineKey(x) === key)
+  if (!l || !tileOf(m, end === 'from' ? l.from : l.to)) return m
+  const field = end === 'from' ? 'fromSide' : 'toSide'
+  if (l[field] === side) return m
+  return { tiles: m.tiles, lines: m.lines.map((x) => (x === l ? { ...x, [field]: side } : x)) }
 }
 
 export function removeLine(m: CanvasMap, key: string): CanvasMap {

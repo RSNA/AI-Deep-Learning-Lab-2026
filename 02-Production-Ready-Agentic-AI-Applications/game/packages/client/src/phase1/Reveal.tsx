@@ -116,7 +116,7 @@ export function Reveal({ w, content, pv, inBreak, onSlides }: { w: Welcome; cont
                 {pts.band && <span className="chip sun">{pts.band}</span>}
               </div>
             )}
-            {pts && pts.points !== board && <div className="hint">{P1.oneScale}</div>}
+            {pts && pts.points !== board && <div className="hint">{w.session.systems.length > 1 ? P1.oneScale : P1.oneScaleOne}</div>}
           </div>
         </section>
       </div>

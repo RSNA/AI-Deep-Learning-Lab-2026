@@ -4,7 +4,7 @@ This document says how the Lab 02 game is built. It covers the architecture, the
 format, the game rules as the engine runs them, the server, the player API, the screens, the art,
 the tests, the deployment and the order of the build.
 
-**Status.** Version 1.7. Phase 2 is now played on a canvas (Step 7, section 16): the player
+**Status.** Version 1.8. Phase 2 is now played on a canvas (Step 7, section 16): the player
 builds a map on a grid and validates it, and the slot board of version 1.1 is gone. Version 1.4
 added what the screen says to guide the player: a tour of each phase, a help panel, the reason
 beside Validate, a sentence for every refusal, and the pack's `line_rules` and `required`.
@@ -16,7 +16,9 @@ source for the worker behind it (`prepares`), and a validation of a map whose pe
 says what the map would reach with the time (`unhurried`). Version 1.7 frees the lines: a line
 between two tiles may run in any direction and only a loop is refused, tiles are scored in the
 order of the handoffs, and a tool that prepares turns a source into another kind of effort for
-the worker behind it. The
+the worker behind it. Version 1.8 lets a line leave and enter a tile on any of its four sides,
+scores tools that stand in a row, sizes the cells of the grid to their tiles, and runs a session
+of one health system without a ranking of health systems. The
 foundation, Phase 1 and Phase 2 are specified in full. Phase 3 is specified as far as its content
 format fixes it, and its screens are outlined. Section 16 lists what later steps add.
 
@@ -605,7 +607,9 @@ type Quality = { fetch: Record<Effort, number>; decide: { plain: number; hard: n
                  knows?: Record<FactId, number> }   // what the worker holds of a fact without a line
 type PackMap = { tiles: { id: string; kind: WorkerId; col: number; row: number
                           model?: ModelId | null; runs_on?: ComputeId | null; prompt?: PromptId | null }[]
-                 lines: { from: string; to: string }[] }
+                 lines: { from: string; to: string
+                          from_side?: Side; to_side?: Side }[] }   // optional: where the line is drawn, never a score
+type Side = 'top' | 'right' | 'bottom' | 'left'
 ```
 
 The items that can be placed, chosen or unlocked (sources, workers, models, computes, prompts)
@@ -1076,7 +1080,12 @@ it is precise and hurts when it is long.
 A map, as the engine and the protocol hold it:
 
 ```ts
-type CanvasMap = { tiles: Tile[]; lines: { from: string; to: string }[] }
+type CanvasMap = { tiles: Tile[]; lines: Line[] }
+// `fromSide` and `toSide`: the side of its tile where the player attached that end of the line.
+// They change how the line is drawn and never a score. An end without one takes the side that
+// faces the other tile. A source and the result have one place for a line and take no side
+// (`bad_line_end` otherwise, as for a value that is not one of the four).
+type Line = { from: string; to: string; fromSide?: Side; toSide?: Side }
 type Tile = { id: string                     // made by the client, ^t[0-9a-z]{1,8}$
               kind: WorkerId; col: number; row: number
               model: ModelId | null; runsOn: ComputeId | null; prompt: PromptId | null }
@@ -1261,6 +1270,15 @@ as the sum of the weights of the sources it prepares (1 when it prepares none), 
 only connects hides nothing from the worker behind it, and a tool that cuts a text down may
 count for half. A person behind `u` pays `per_line` of the kind `as` for each such source. A
 tool whose `as` is the same kind of effort is a plain connector.
+
+*Tools in a row.* A tool that prepares may hand to another tool that prepares. A source that
+reaches `u` through such a tile goes on through `u`: it gains one more candidate (`as`, `load`)
+when `u` names its kind of effort, and passes unchanged when `u` does not. The candidates stand
+in the order of the row, from the source to the reader. The tile behind the row takes one of
+them for each source: the kind it fetches best, among equals the one with the lighter load,
+among equals the first of the row. A person pays `per_line` of that kind. So a second tool on
+the same source earns nothing and loses nothing in accuracy, and every tile and line of the
+row still counts toward the complexity of the map (section 6.6, what the map takes to run).
 
 *The order.* Tiles are scored in the order of the handoffs: a tile comes after every tile that
 hands to it, and among tiles free to come next the one nearer the top left comes first (column,
@@ -3167,6 +3185,41 @@ does now.
   the reveal says that the chosen map counts.
 - *Accuracy with one decimal* in the validation list and at the reveal, because the maps of a
   real pack differ by less than a point at the top.
+
+**Version 1.8, after the third play check** (one health system, a larger grid, lines on any dot).
+
+- *A line on any of the four dots.* A tile has a dot on each side: the one on the right is
+  always there, the others show while the tile is pointed at or selected, while a line looks
+  for its end (on every tile that can take it), and on the two tiles at the ends of the
+  selected line. A press on a dot starts a line that leaves on that side (`fromSide`). While a
+  line looks for its end, a press on a dot of a target ends it on that side (`toSide`), and a
+  press on the tile itself, the Join button or the keyboard leaves the side open. A drag from
+  a dot that is dropped on a dot does both. With a line selected, a press on a dot of either
+  end tile moves that end there, one step of undo each, and the line stays selected. An end
+  without a side is drawn on the side that faces the other tile, as before. A line whose sides
+  do not face each other reaches further out before it bends. The sides are part of the map
+  that is saved and of every map that is drawn (the list of validations, the host's view, the
+  reveal, the reference map). They change no score, and two maps that differ only in sides are
+  the same map for "the same map twice".
+- *Smaller cells, a larger grid.* The size of the grid comes from the pack. A cell stretches
+  with the window up to a cap (`--cell-w`, `--cell-h`), and past the cap the grid stands in
+  the middle of its panel, so a tile is mostly filled on a small laptop and on a large monitor.
+  The three parts of an AI tile share the height of the tile. The type and the cap grow a step
+  at 1600 and at 2200 wide. A map of six columns (class `six`) fits a laptop of 1280 by 720
+  with six rows: a cell is about 86 by 64, the gaps are 14 and 8, a tile has a thinner frame,
+  and a name of eleven letters and a part of thirteen stand uncut. Seven columns do not fit
+  that laptop: a cell would be about 73 wide, and the names and the parts would be cut. A small
+  drawing of a six-column map (reveal, host, a card) sets every name and part on one line.
+- *Tools in a row* are drawn and scored (section 6.6). The pack decides with `line_rules`
+  which lines it still refuses.
+- *A word on money* counts the actions that cost money. Things to read that are free do not
+  bring it.
+- *One health system.* A session of one health system keeps the name of the system in the top
+  bar, in the letters and in the host's lists. It shows no choice of health system on the join
+  page, no rank "in your health system", no strip that ranks the health systems (player,
+  host, projector), no filter and no leaderboard by health system in the console, and on the
+  projector the winners stand in one panel. The chart `flagship_by_system` is titled "Found the
+  agent project". Two health systems or more work as before.
 
 ### 10.6 Phase 3 screens (outline)
 

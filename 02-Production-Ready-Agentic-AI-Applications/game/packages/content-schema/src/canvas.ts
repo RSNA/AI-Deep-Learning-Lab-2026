@@ -8,7 +8,18 @@ export type CanvasTile = {
   id: string; kind: string; col: number; row: number
   model: string | null; runsOn: string | null; prompt: string | null
 }
-export type CanvasLine = { from: string; to: string }
+/** The four sides of a tile. A line may name the side it leaves and the side it enters. */
+export const SIDES = ['top', 'right', 'bottom', 'left'] as const
+export type Side = (typeof SIDES)[number]
+/**
+ * A line. `fromSide` and `toSide` are where the player attached it: they change how the line is
+ * drawn and never a score. Without them the line joins the sides that face each other.
+ */
+export type CanvasLine = { from: string; to: string; fromSide?: Side; toSide?: Side }
+/** A copy of a line that keeps its sides and nothing else. */
+export function copyLine(l: CanvasLine): CanvasLine {
+  return { from: l.from, to: l.to, ...(l.fromSide ? { fromSide: l.fromSide } : {}), ...(l.toSide ? { toSide: l.toSide } : {}) }
+}
 export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[] }
 
 // `knows` is what a worker holds of a fact without a line to any source (a person who knows the
@@ -88,10 +99,10 @@ export function defaultPrompt(t: CanvasTables): string | null {
 }
 
 /** A map of a pack file (`runs_on`) in the form of the engine (`runsOn`). */
-export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string }[] }): CanvasMap {
+export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string; from_side?: Side; to_side?: Side }[] }): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model ?? null, runsOn: t.runs_on ?? null, prompt: t.prompt ?? null })),
-    lines: m.lines.map((l) => ({ from: l.from, to: l.to })),
+    lines: m.lines.map((l) => copyLine({ from: l.from, to: l.to, fromSide: l.from_side, toSide: l.to_side })),
   }
 }
 
@@ -164,6 +175,9 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
   if (m.lines.length > MAX_LINES) errs.add('too_many_lines')
   for (const ln of m.lines) {
     const a = ln.from, b = ln.to
+    // A side is one of the four, on a tile. A source and the result have one place for a line.
+    const sideOk = (x: unknown) => x === undefined || (SIDES as readonly unknown[]).includes(x)
+    if (!sideOk(ln.fromSide) || !sideOk(ln.toSide) || (ln.fromSide !== undefined && sources.has(a)) || (ln.toSide !== undefined && b === t.result.id)) errs.add('bad_line_end')
     const key = `${a}\u0000${b}`
     if (seen.has(key)) { errs.add('line_twice'); continue }
     seen.add(key)
@@ -259,23 +273,57 @@ export function mapShape(m: CanvasMap, t: CanvasTables): MapShape {
   return { tiles, srcIn, wrkIn, signer, live, order }
 }
 
+/** What a tool makes of a source for the worker behind it: the kind of effort it becomes and its weight in that worker's load. */
+export type Prepared = { effort: string; load: number }
+
 /**
- * The sources that tile `u` prepares for the worker behind it: each with the kind of effort it
- * becomes (`effort`) and its weight in the load of that worker. They are the sources with a line
- * into `u` whose effort its worker names in `prepares`. Empty for a tile of any other worker.
+ * The sources that tile `u` prepares for the worker behind it, each with its candidates: the
+ * kind of effort it becomes and its weight in the load of that worker. They are the sources with
+ * a line into `u` whose effort its worker names in `prepares`. Empty for a tile of any other
+ * worker.
+ *
+ * Tools may stand in a row. A source that reaches `u` through another tile that prepares goes on
+ * through `u`, with one more candidate when `u` names its effort and unchanged when it does not.
+ * The candidates stand in the order of the row, from the source to the reader, and the reader
+ * takes one of them (`pickPrepared`). So a second tool on the same source earns nothing and
+ * loses nothing. `wrkIn` are the tiles with a line into each tile.
  */
 export function preparedBy(
   u: string, tiles: ReadonlyMap<string, CanvasTile>, srcIn: ReadonlyMap<string, readonly string[]>,
+  wrkIn: ReadonlyMap<string, readonly string[]>,
   sources: ReadonlyMap<string, CanvasTables['sources'][number]>, workers: ReadonlyMap<string, CanvasTables['workers'][number]>,
-): { source: string; effort: string; load: number }[] {
-  const prep = workers.get(tiles.get(u)!.kind)?.prepares
-  if (!prep) return []
-  const out: { source: string; effort: string; load: number }[] = []
+  path: ReadonlySet<string> = new Set(),
+): { source: string; candidates: Prepared[] }[] {
+  const prep = workers.get(tiles.get(u)?.kind ?? '')?.prepares
+  // `path` only guards a draft whose lines form a loop: an accepted map has none.
+  if (!prep || path.has(u)) return []
+  const out: { source: string; candidates: Prepared[] }[] = []
   for (const s of srcIn.get(u) ?? []) {
     const p = prep[sources.get(s)!.effort]
-    if (p !== undefined) out.push({ source: s, effort: p.as, load: p.load ?? 1 })
+    if (p !== undefined) out.push({ source: s, candidates: [{ effort: p.as, load: p.load ?? 1 }] })
+  }
+  const next = new Set(path).add(u)
+  for (const v of wrkIn.get(u) ?? []) {
+    for (const got of preparedBy(v, tiles, srcIn, wrkIn, sources, workers, next)) {
+      const p = prep[sources.get(got.source)!.effort]
+      out.push({ source: got.source, candidates: p === undefined ? got.candidates : [...got.candidates, { effort: p.as, load: p.load ?? 1 }] })
+    }
   }
   return out
+}
+
+/**
+ * The candidate a reader takes of a source behind a row of tools: the kind it fetches best,
+ * among equals the lighter one, among equals the first of the row. `fetch` are the reader's own
+ * numbers by kind of effort.
+ */
+export function pickPrepared(candidates: readonly Prepared[], fetch: Readonly<Record<string, number>>): Prepared {
+  let best = candidates[0]!
+  for (const c of candidates.slice(1)) {
+    const x = fetch[c.effort] ?? 0, y = fetch[best.effort] ?? 0
+    if (x > y + 1e-12 || (Math.abs(x - y) <= 1e-12 && c.load < best.load - 1e-12)) best = c
+  }
+  return best
 }
 
 /** Minutes per case that a map asks of each pool of people. Every placed person counts. */
@@ -298,7 +346,7 @@ export function peopleMinutes(m: CanvasMap, t: CanvasTables): Record<string, num
     let used = wrkIn.get(n)!.length ? mn.check : mn.decide
     for (const s of srcIn.get(n)!) used += mn.per_line[sources.get(s)!.effort] ?? 0
     // What a tile that prepares hands a person is still hers to read.
-    for (const u of wrkIn.get(n)!) for (const p of preparedBy(u, tiles, srcIn, sources, workers)) used += mn.per_line[p.effort] ?? 0
+    for (const u of wrkIn.get(n)!) for (const p of preparedBy(u, tiles, srcIn, wrkIn, sources, workers)) used += mn.per_line[pickPrepared(p.candidates, w.quality?.fetch ?? {}).effort] ?? 0
     const pool = w.pool!
     out[pool] = (out[pool] ?? 0) + used
   }
@@ -395,7 +443,12 @@ export function tileMinutes(m: CanvasMap, t: CanvasTables): Record<string, numbe
   const workers = new Map(t.workers.map((w) => [w.id, w]))
   const tiles = new Map(m.tiles.map((x) => [x.id, x]))
   const srcIn = new Map<string, string[]>([...tiles.keys()].map((id) => [id, []]))
-  for (const l of m.lines) if (sources.has(l.from) && tiles.has(l.to)) srcIn.get(l.to)!.push(l.from)
+  const wrkIn = new Map<string, string[]>([...tiles.keys()].map((id) => [id, []]))
+  for (const l of m.lines) {
+    if (!tiles.has(l.to)) continue
+    if (sources.has(l.from)) srcIn.get(l.to)!.push(l.from)
+    else if (tiles.has(l.from)) wrkIn.get(l.to)!.push(l.from)
+  }
   const out: Record<string, number> = {}
   for (const tile of m.tiles) {
     const mn = workers.get(tile.kind)?.minutes
@@ -405,7 +458,7 @@ export function tileMinutes(m: CanvasMap, t: CanvasTables): Record<string, numbe
     for (const l of into) {
       const s = sources.get(l.from)
       if (s) used += mn.per_line[s.effort] ?? 0
-      else if (tiles.has(l.from)) for (const p of preparedBy(l.from, tiles, srcIn, sources, workers)) used += mn.per_line[p.effort] ?? 0
+      else if (tiles.has(l.from)) for (const p of preparedBy(l.from, tiles, srcIn, wrkIn, sources, workers)) used += mn.per_line[pickPrepared(p.candidates, workers.get(tile.kind)?.quality?.fetch ?? {}).effort] ?? 0
     }
     out[tile.id] = used
   }

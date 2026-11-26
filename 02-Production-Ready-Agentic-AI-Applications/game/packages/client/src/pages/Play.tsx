@@ -151,7 +151,8 @@ function StandingsSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
     <Sheet title={COPY.standings} onClose={onClose} wide>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {cell(COPY.rankOverall, r.overall, r.of)}
-        {cell(`${COPY.rankSystem}`, r.system, r.ofSystem)}
+        {/* In a game of one health system this is the rank in the room, which stands beside it already. */}
+        {w.session.systems.length > 1 && cell(`${COPY.rankSystem}`, r.system, r.ofSystem)}
         {cell(COPY.rankPhase, r.phase, r.of)}
       </div>
       <div className="hint">{sysName}</div>
@@ -176,6 +177,8 @@ function StandingsSheet({ w, onClose }: { w: Welcome; onClose: () => void }) {
 }
 
 export function SystemsStrip({ systems, standings, big = false }: { systems: SystemRef[]; standings: { id: string; rank: number; score: number }[]; big?: boolean }) {
+  // The health systems against each other. A game of one health system has no such ranking: the room is one ranking.
+  if (systems.length < 2) return null
   const max = Math.max(1, ...standings.map((s) => s.score))
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${big ? 300 : 200}px, 1fr))`, gap: big ? 24 : 10 }}>

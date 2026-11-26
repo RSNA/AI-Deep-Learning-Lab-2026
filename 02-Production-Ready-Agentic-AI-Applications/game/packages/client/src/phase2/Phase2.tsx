@@ -4,9 +4,9 @@
 // reveal. The canvas, the shelves, the toolbox and the action list come from ../canvas and know
 // nothing of this phase.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasMap, DevelopmentContent, DevelopmentView, Welcome } from '@lab02/protocol'
+import type { CanvasMap, DevelopmentContent, DevelopmentView, LineSide, Welcome } from '@lab02/protocol'
 import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setLineSide, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
 import { PopLayer, type PopInfo } from '../canvas/Pop.tsx'
 import { ClampCard } from '../components/Clamp.tsx'
@@ -286,10 +286,11 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const warning = useWarnings(P2.warn)
   const now = clock ? gameNow(clock) : 0
   const touring = useTour((t) => t.open !== null)
-  // The word on money, once, when the fourth action has been started.
+  // The word on money, once, when the fourth action that costs money has been started. Things
+  // to read or to watch that cost nothing do not count: they spend no budget.
   const spendFlag = `spend-told-${view.me.id}-${view.run}`
   const [spendSeen, setSpendSeen] = useState(() => store.flag(spendFlag))
-  const started = dv.actionsDone.length + dv.actionsRunning.length
+  const started = [...dv.actionsDone, ...dv.actionsRunning].filter((x) => (content.actions.find((a) => a.id === x.id)?.money ?? 0) > 0).length
 
   const say = (text: string) => { setMsg(text); setTimeout(() => setMsg((m) => (m === text ? null : m)), 5000) }
   const reset = useCallback(() => { setMode({ kind: 'idle' }); setSel(null) }, [])
@@ -333,18 +334,19 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     }
   }
   // A line that cannot be drawn says why at its place, and the player may pick another target.
-  const join = (from: string, to: string) => {
+  // `sides` are the dots the player pressed: where the line leaves its tile and where it enters.
+  const join = (from: string, to: string, sides?: { from?: LineSide; to?: LineSide }) => {
     const no = lineRefusal(map, v, from, to, nodeLabel, unlocked, lockedBy)
     if (no) { refuse(no.at, no.text); return }
     if (!targetsOf(map, v, from).has(to)) return
     const replaced = to === v.result.id && map.lines.some((l) => l.to === v.result.id)
-    commit(addLine(map, from, to, v.result.id))
+    commit(addLine(map, from, to, v.result.id, sides))
     if (replaced) say(P2.replaced)
     setMode({ kind: 'idle' })
   }
-  const onNode = (id: string) => {
+  const onNode = (id: string, side?: LineSide) => {
     const src = content.sources.find((x) => x.id === id)
-    if (mode.kind === 'join') { if (id === mode.from) { setMode({ kind: 'idle' }); setNote(null) } else join(mode.from, id); return }
+    if (mode.kind === 'join') { if (id === mode.from) { setMode({ kind: 'idle' }); setNote(null) } else join(mode.from, id, { from: mode.side, to: side }); return }
     // A locked source says which action opens it.
     if (src) { if (!unlocked.has(id)) refuse(id, P2.refuse.locked(src.label, lockedBy[id] ?? null)); return }
     // A cell that is taken says so, where the player clicked.
@@ -353,11 +355,15 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
     setNote(null)
     setSel({ kind: 'tile', id })
   }
-  const onPort = (id: string) => {
+  // A press on a dot starts a line that leaves on that side. The button "Draw a line" of the bar
+  // gives no side, and the line then takes the side that faces its other tile.
+  const onPort = (id: string, side?: LineSide) => {
     setSel(null)
     setNote(null)
-    setMode((m) => (m.kind === 'join' && m.from === id ? { kind: 'idle' } : { kind: 'join', from: id }))
+    setMode((m) => (m.kind === 'join' && m.from === id && m.side === side ? { kind: 'idle' } : { kind: 'join', from: id, ...(side ? { side } : {}) }))
   }
+  // A dot of an end tile of the selected line moves that end there. The line stays selected.
+  const onMoveEnd = (key: string, end: 'from' | 'to', side: LineSide) => commit(setLineSide(map, key, end, side))
   const remove = () => {
     if (sel?.kind === 'tile') commit(removeTile(map, sel.id))
     else if (sel?.kind === 'line') commit(removeLine(map, sel.key))
@@ -530,12 +536,12 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
         if (it) setSheet({ kind: 'item', item: { id: it.id, label: it.label, description: it.description }, more: nodeMore(id), state: !!src })
       }}
       unlocked={unlocked} lockedBy={lockedBy} mode={mode} selection={sel} targets={targets} label={P2.map}
-      onCell={onCell} onNode={onNode} onPort={onPort}
+      onCell={onCell} onNode={onNode} onPort={onPort} onMoveEnd={onMoveEnd}
       onLine={(key) => { if (mode.kind === 'idle') setSel((s) => (s?.kind === 'line' && s.key === key ? null : { kind: 'line', key })) }}
       onPart={(tile, part) => { reset(); setSheet({ kind: 'part', tile, part }) }}
       onDropKind={(kind, col, row) => { if (!tileAt(map, col, row)) { const r = placeTile(map, kind, col, row); commit(r.map); setSel({ kind: 'tile', id: r.id }); setMode({ kind: 'idle' }) } }}
       onDropTile={(id, col, row) => commit(moveTile(map, id, col, row))}
-      onDragLine={(from, to) => { join(from, to); setMode({ kind: 'idle' }) }}
+      onDragLine={(from, to, sides) => { join(from, to, sides); setMode({ kind: 'idle' }) }}
       bodies={bodies} guide={guide.first?.nodes.length ? { nodes: guide.first.nodes, part: guide.first.part ?? null } : null}
       note={note} onNoteClose={() => setNote(null)}
       advice={new Set(advice.keys())} onAdvice={(k) => setNote({ at: `line:${k}`, text: advice.get(k) ?? '', tone: 'advice' })}

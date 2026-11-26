@@ -3,7 +3,7 @@
 // tile that moves keeps its lines.
 import { describe, expect, it } from 'vitest'
 import type { CanvasMap } from '@lab02/protocol'
-import { hasLoop, mapProblem, moveTile, reaches, targetsOf, type Vocabulary } from '../src/canvas/model.ts'
+import { addLine, hasLoop, lineKey, mapProblem, moveTile, reaches, sameLayout, setLineSide, targetsOf, type Vocabulary } from '../src/canvas/model.ts'
 
 const v = {
   cols: 5, rows: 5,
@@ -43,5 +43,29 @@ describe('lines in any direction', () => {
     expect(moved.lines).toEqual(m.lines)
     expect(moved.tiles.find((t) => t.id === 't3')).toMatchObject({ col: 5, row: 5 })
     expect(moveTile(m, 't1', 1, 1).lines).toHaveLength(2)
+  })
+})
+
+describe('a line on the dot the player picked', () => {
+  it('keeps the side it leaves and the side it enters, at an end that is a tile', () => {
+    const m = addLine({ tiles, lines: [] }, 't1', 't2', 'res', { from: 'top', to: 'left' })
+    expect(m.lines).toEqual([{ from: 't1', to: 't2', fromSide: 'top', toSide: 'left' }])
+    // A source has one dot and the result one place: a side given for them is dropped.
+    expect(addLine({ tiles, lines: [] }, 's1', 't1', 'res', { from: 'bottom', to: 'top' }).lines).toEqual([{ from: 's1', to: 't1', toSide: 'top' }])
+    expect(addLine({ tiles, lines: [] }, 't1', 'res', 'res', { from: 'bottom', to: 'top' }).lines).toEqual([{ from: 't1', to: 'res', fromSide: 'bottom' }])
+    // Without a pick the line carries no side and joins the sides that face each other.
+    expect(addLine({ tiles, lines: [] }, 't1', 't2', 'res').lines).toEqual([{ from: 't1', to: 't2' }])
+  })
+  it('moves one end to another side and leaves the rest of the map alone', () => {
+    const m: CanvasMap = { tiles, lines: [{ from: 's1', to: 't1' }, { from: 't1', to: 't2', fromSide: 'right' }] }
+    const key = lineKey(m.lines[1]!)
+    const moved = setLineSide(setLineSide(m, key, 'to', 'bottom'), key, 'from', 'left')
+    expect(moved.lines).toEqual([{ from: 's1', to: 't1' }, { from: 't1', to: 't2', fromSide: 'left', toSide: 'bottom' }])
+    expect(mapProblem(moved, v, open)).toBeNull()
+    // The same side again changes nothing, and the end of a line at a source cannot move.
+    expect(setLineSide(moved, key, 'from', 'left')).toBe(moved)
+    expect(setLineSide(m, lineKey(m.lines[0]!), 'from', 'top')).toBe(m)
+    // A side changes how a line is drawn, not which map it is: the same map is not validated twice for it.
+    expect(sameLayout(m, moved)).toBe(true)
   })
 })
