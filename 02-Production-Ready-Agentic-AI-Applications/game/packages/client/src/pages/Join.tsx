@@ -7,7 +7,7 @@ import { api } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
 import { Avatar, SystemShape, ThemeButton } from '../components/ui.tsx'
-import { NewGame, PastGameCard } from '../components/after.tsx'
+import { NewGame, NewerGame, PastGameCard } from '../components/after.tsx'
 
 export function TownStrip({ height = 208, children }: { height?: number; children?: React.ReactNode }) {
   const theme = useTheme()
@@ -106,6 +106,7 @@ export function JoinPage({ code: rawCode, go }: { code: string; go: (path: strin
         {loadErr && <div className="err" role="alert">{loadErr}</div>}
         {over && <div className="err" role="alert">{COPY.gameEndedJoin}</div>}
         {(over || loadErr) && <NewGame after={code} onJoin={(c) => go(`/j/${c}`)} />}
+        <NewerGame after={code} on={!!info && !over && info.mode !== 'event'} onJoin={(c) => go(`/j/${c}`)} />
         {(over || loadErr) && last && last.scored && last.session === code && <PastGameCard game={last} title={COPY.lastGame} />}
 
         {mode === 'join' && !loadErr && !over && (

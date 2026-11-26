@@ -624,6 +624,30 @@ export class Room {
     }
   }
 
+  /**
+   * End the session from the list of sessions, for a host who has not opened its console
+   * (section 7.2). It is the engine's `close`, logged as a host command with the host's name.
+   */
+  end(by: string): 'ok' | 'wrong_stage' {
+    const { pack, db, config } = this.deps
+    const now = this.now()
+    this.handle(advance(this.state, pack, now))
+    const payload = { confirm: this.code }
+    const res = apply(this.state, pack, { actor: 'host', type: 'close', payload }, now)
+    if (!res.ok) return 'wrong_stage'
+    const wall = config.wallNow()
+    this.seq = db.insertCommand({
+      code: this.code, actor: 'host', player_id: null, cid: `list-${wall}`, game_ms: now, wall_ms: wall,
+      type: 'close', payload: JSON.stringify(payload), result: JSON.stringify({ ok: true }),
+    })
+    db.logEvent(this.code, 'ended_from_list', now, wall, { by })
+    this.handle(res)
+    this.broadcastClock()
+    this.sendHostViews()
+    if (this.screenDirty) this.sendScreenViews()
+    return 'ok'
+  }
+
   /** Close the sockets of this room (shutdown). */
   closeAll(code: number = 1001): void {
     for (const s of [...this.players.values(), ...this.hosts, ...this.screens]) s.close(code, 'server shutting down')

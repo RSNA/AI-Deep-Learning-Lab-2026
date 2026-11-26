@@ -1,7 +1,7 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { COLUMNS, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
+import { COLUMNS, PLAY_STAGES, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
 import { api } from '../lib/net.ts'
 import { usePlayer, forgetPlayer } from '../lib/player.ts'
@@ -9,7 +9,7 @@ import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
-import { NewGame, PastGameCard } from '../components/after.tsx'
+import { NewGame, PastGameCard, useOpenGame } from '../components/after.tsx'
 import { useTour } from '../components/Tour.tsx'
 import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
@@ -536,6 +536,26 @@ function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: st
   return <PhaseStub w={w} phase={phase!} />
 }
 
+/**
+ * A practice run (a test or a rehearsal) that is still open while the host has opened a newer
+ * one: a strip that leads over to it. Never in an event, and never while a phase is in play.
+ */
+function NewerBar({ code, on, onLeave }: { code: string; on: boolean; onLeave: (to: string) => void }) {
+  const open = useOpenGame(code, on)
+  // A player who wants to stay closes the strip. It comes back when the host opens another game.
+  const [stay, setStay] = useState<string | null>(null)
+  if (!open || stay === open.code) return null
+  return (
+    <div className="restartbar newer" role="status">
+      <span>{COPY.newerGameBar(open.label)}</span>
+      <span className="newer-acts">
+        <button type="button" className="btn small" onClick={() => onLeave(open.code)}>{COPY.newerGameGo}</button>
+        <button type="button" className="btn small" onClick={() => setStay(open.code)} aria-label={COPY.newerGameStay} title={COPY.newerGameStay}>✕</button>
+      </span>
+    </div>
+  )
+}
+
 // ------------------------------------------------------------------------------------------
 // The page
 // ------------------------------------------------------------------------------------------
@@ -547,6 +567,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const [brief, setBrief] = useState(false)
   const [look, setLook] = useState<'planning' | 'development' | null>(null)
   const [leaving, setLeaving] = useState(false)
+  const [leaveTo, setLeaveTo] = useState<string | null>(null)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
   useWakeLock()
 
@@ -589,10 +610,10 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   // Starting fresh in this browser (section 10.7): the browser lets go of this practice and
   // keeps what it remembers of the game. It leads to the game that takes players now: the
   // same one while it is open, else the newest open one, else the page that asks for a code.
-  const startFresh = async () => {
+  const startFresh = async (newer?: string | null) => {
     const here = view.stage === 'closed' ? null : auth.session
-    const open = here ? null : await api.open()
-    const to = here ?? (open?.ok ? open.data.session?.code ?? null : null)
+    const open = here || newer ? null : await api.open()
+    const to = newer ?? here ?? (open?.ok ? open.data.session?.code ?? null : null)
     forgetPlayer()
     stop()
     go(to ? `/j/${to}` : '/')
@@ -616,6 +637,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button type="button" className="btn small" onClick={clearRestarted} aria-label={COPY.close}>✕</button>
         </div>
       )}
+      <NewerBar code={auth.session} on={welcome.session.mode !== 'event' && view.stage !== 'closed' && !PLAY_STAGES.includes(view.stage)}
+        onLeave={(to) => { setLeaveTo(to); setLeaving(true) }} />
       {looking ? (
         <>
           <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToGame}</button></div>
@@ -636,7 +659,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       )}
       {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook('planning') } : null}
         onResult2={canLook2 ? () => { setMenu(false); setLook('development') } : null}
-        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else setLeaving(true) }}
+        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else { setLeaveTo(null); setLeaving(true) } }}
         onTour={inPlay ? () => { setMenu(false); useTour.getState().start(inPlay) } : null}
         onHelp={inPlay ? () => { setMenu(false); useTour.getState().showHelp(inPlay) } : null} />}
       {brief && (() => {
@@ -645,14 +668,14 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
         return <BriefSheet w={welcome} onClose={() => setBrief(false)} again phase={phase} words={phase === 'development' ? { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays } : undefined} />
       })()}
       {leaving && (
-        <Sheet title={COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
-          <p>{COPY.newPlayerText(view.me.name)}</p>
+        <Sheet title={leaveTo ? COPY.newerGameTitle : COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
+          <p>{leaveTo ? COPY.newerGameText(view.me.name) : COPY.newPlayerText(view.me.name)}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span className="codebox" style={{ fontSize: 32 }}>{view.me.rejoinCode}</span>
             <span className="hint" style={{ maxWidth: 300 }}>{COPY.newPlayerCode}</span>
           </div>
           <div className="sheet-actions">
-            <button type="button" className="btn sun" onClick={() => void startFresh()}>{COPY.newPlayerGo}</button>
+            <button type="button" className="btn sun" onClick={() => void startFresh(leaveTo)}>{leaveTo ? COPY.newerGameGo : COPY.newPlayerGo}</button>
             <button type="button" className="btn" onClick={() => setLeaving(false)}>{COPY.stay}</button>
           </div>
         </Sheet>

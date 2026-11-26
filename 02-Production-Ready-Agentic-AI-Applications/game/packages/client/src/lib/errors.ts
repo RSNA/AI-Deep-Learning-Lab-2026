@@ -53,6 +53,7 @@ const HTTP: Record<string, string> = {
   code_taken: 'Another session already uses that link name. Pick another one.',
   provisional_anchors: 'Scores are not calibrated yet, so an event session cannot be opened. Use rehearsal or test.',
   no_answer_key: 'This server has no answer key file.',
+  event_session: 'An event session is ended from its own console, by the host in charge. Open it first.',
   internal: 'Something went wrong on the server. Try again, and tell the host if it happens twice.',
 }
 

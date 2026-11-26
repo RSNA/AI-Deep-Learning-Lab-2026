@@ -1,12 +1,12 @@
 // HTTP shapes of the player API (engineering spec, section 7.2) and small helpers to call it.
 import { z } from 'zod'
-import { AvatarId, StageId } from './ids.ts'
+import { AvatarId, Mode, StageId } from './ids.ts'
 import { PhaseContent, SystemRef, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 
 export const SessionPublic = S({
-  code: z.string(), label: Text, title: Text.nullable(), stage: StageId, joinOpen: z.boolean(),
+  code: z.string(), label: Text, title: Text.nullable(), mode: Mode, stage: StageId, joinOpen: z.boolean(),
   systems: z.array(S({ ...SystemRef.shape, players: z.number().int() })),
   nameRule: S({ min: z.number().int(), max: z.number().int() }),
   /** The health systems a player may pick from, in a session whose mode allows it. Otherwise null. */

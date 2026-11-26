@@ -45,8 +45,18 @@ scoring is calibrated the game opens test and rehearsal sessions only.
 it. It matters when two sessions are open at once, and an event session asks you to type it
 before it resets or ends.
 
-The list under the form shows the open sessions. Closed ones are behind "Show closed sessions",
-each with its downloads and a **Delete** button.
+The list under the form shows the open sessions, each with **Open** and **End**. End asks
+whether to keep the results (the session moves under "Show closed sessions") or to delete the
+session for good in the same step. So an old test or rehearsal session is removed from this
+page without opening it. An event session is the exception: it is ended from its own console,
+by the host in charge, who types the session code. Closed sessions are behind "Show closed
+sessions", each with its downloads and a **Delete** button.
+
+When more than one session is open, a note above the list says so and names the newest one. A
+player who opens the plain link of the game lands in the newest open session. In a test or a
+rehearsal, a player who is still in an older open session sees "The host has opened a newer
+game" at the lobby, a reveal or a break, with a button that leads there. An event session
+never shows this.
 
 ## 3. Who is in charge
 
@@ -254,7 +264,8 @@ Each says what will be lost and asks you to confirm.
 ## 10. Ending a session and downloads
 
 **End the session** closes it for everyone. In an event session you type the session code
-first. Players keep a page with their rank and points and can look at their results again.
+first. A test or rehearsal session can also be ended from the list on the first page (section
+2), without opening it. Players keep a page with their rank and points and can look at their results again.
 When you open a new session, a button "Join the new game" appears on their page by itself.
 
 | Download | What is in it |
