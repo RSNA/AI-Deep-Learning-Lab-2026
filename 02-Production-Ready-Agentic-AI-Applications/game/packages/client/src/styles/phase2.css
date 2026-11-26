@@ -139,6 +139,14 @@
 .ctile:hover > .cport.more, .ctile.sel > .cport.more, .ctile:focus-visible > .cport.more { opacity: 1; pointer-events: auto; }
 .cport.more:hover { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
 .cgrid.joining .cport.more, .cgrid.placing .cport.more { opacity: 0; pointer-events: none; }
+/* While a line looks for its end, every tile that can take it shows its four dots: the line
+   enters on the dot that is pressed. The dot the line starts from stays in view too. */
+.cgrid.joining .ctile.lit > .cport.more, .cgrid.joining .cport.more.on { opacity: 1; pointer-events: auto; }
+.cgrid.joining .ctile.lit > .cport { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--go); }
+.cport.more.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 5px var(--sky); }
+/* The two tiles at the ends of the selected line show their four dots: a press moves that end. */
+.ctile.ends > .cport.more { opacity: 1; pointer-events: auto; }
+.ctile.ends > .cport { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
 .cport.ro.s-l { left: -6px; } .cport.ro.s-t { top: -6px; } .cport.ro.s-b { bottom: -6px; }
 .cport.ro.s-r { right: -7px; }
 .cresult-col { display: flex; align-items: center; min-width: 0; }
@@ -564,3 +572,61 @@
 .coach-maps button { white-space: nowrap; font-size: 15px; min-height: 40px; padding: 6px 14px; }
 .coach-maps button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 900px) { .coach-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------------- smaller cells, a larger grid
+   (Play check 3). A cell is as large as an AI tile needs and no larger: it stretches with the
+   window up to a cap, and past the cap the grid stands in the middle of its panel. So a tile is
+   mostly filled on a small laptop and on a large monitor alike. The parts of an AI tile share
+   the height of the tile, so a taller cell gives them air and no empty band below them. The type
+   grows a step on a large window (1600 and 2200 wide), and the cap with it. */
+.p2-map .cgrid:not(.compact) {
+  --cell-w: 150px; --cell-h: 88px;
+  grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(50px, var(--cell-h)));
+  justify-content: center; align-content: center;
+}
+.p2-map .cgrid:not(.compact):not(.dense) { grid-template-columns: minmax(100px, min(14%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(70px, min(10%, 120px)); }
+.p2-map .cgrid.dense:not(.compact) { grid-template-columns: minmax(104px, min(13.5%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(62px, min(8.5%, 120px)); }
+.p2-map .cgrid:not(.compact) .ct-part { flex: 1 1 13px; height: auto; min-height: 12px; max-height: 24px; }
+.p2-map .cgrid:not(.compact) .csources { justify-content: center; }
+/* Six columns or more. On a laptop of 1280 by 720 a cell is about 85 by 65: the gaps are
+   narrower, a tile has a thinner frame, and its name and parts are set a little smaller, so that
+   a name of eleven letters and a part of thirteen stand uncut. */
+.p2-map .cgrid.six:not(.compact) { column-gap: 14px; row-gap: 8px; padding: 4px 10px 6px 6px; grid-template-columns: minmax(100px, min(13%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(60px, min(8%, 120px)); }
+@media (max-width: 1599px) {
+  .p2-map .cgrid.six:not(.compact) .ctile { border-width: 2px; padding: 0 3px 1px; box-shadow: 2px 2px 0 var(--shade); gap: 0; }
+  .p2-map .cgrid.six:not(.compact) .ct-head { font-size: 12px; min-height: 16px; margin: 0 -3px; padding: 0 3px; border-bottom-width: 1px; }
+  .p2-map .cgrid.six:not(.compact) .ct-part { font-size: 10.5px; padding: 0 2px; letter-spacing: -0.25px; }
+  .p2-map .cgrid.six:not(.compact) .ct-body, .p2-map .cgrid.six:not(.compact) .ct-note { font-size: 10.5px; line-height: 1.14; -webkit-line-clamp: 3; }
+  .p2-map .cgrid.six:not(.compact) .ctile.k-person .ct-body { font-size: 10.5px; }
+  .p2-map .cgrid.six:not(.compact) .csource .cs-name { font-size: 12.5px; }
+  .p2-map .cgrid.six:not(.compact) .csources { gap: 4px; }
+}
+@media (min-width: 1600px) and (min-height: 900px) {
+  .p2-map .cgrid:not(.compact) { --cell-w: 190px; --cell-h: 100px; }
+  .p2-map .cgrid:not(.compact) .ct-part { height: auto; min-height: 16px; max-height: 27px; }
+  .p2-map .cgrid:not(.compact) .ct-body, .p2-map .cgrid:not(.compact) .ct-note, .p2-map .cgrid:not(.compact) .ctile.k-person .ct-body { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 4; }
+}
+@media (min-width: 2200px) and (min-height: 1200px) {
+  .p2-map .cgrid:not(.compact) { --cell-w: 250px; --cell-h: 138px; column-gap: 48px; row-gap: 16px; }
+  .p2-map .cgrid:not(.compact) .ct-head, .p2-map .cgrid:not(.compact) .csource, .p2-map .cgrid:not(.compact) .cresult { font-size: 18px; }
+  .p2-map .cgrid:not(.compact) .ct-head { min-height: 26px; }
+  .p2-map .cgrid:not(.compact) .ct-part { font-size: 16px; max-height: 36px; }
+  .p2-map .cgrid:not(.compact) .ct-note, .p2-map .cgrid:not(.compact) .ct-body, .p2-map .cgrid:not(.compact) .ctile.k-person .ct-body { font-size: 17.5px; }
+}
+/* The note under an AI tile without a line out stands over a tile of the last row: under it there is no room. */
+.ctile.lastrow .ct-badge { bottom: auto; top: -21px; }
+/* While a line looks for its end, the dots of the tiles that can take it are a little smaller, so that the dots of two neighbours do not meet. */
+.cgrid.joining .ctile.lit > .cport.more { width: 10px; height: 10px; }
+/* A phone scrolls the map sideways. Six rows stand in less height than five did. */
+.p2pmap .cgrid.six { min-width: 980px; grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(70px, auto)); }
+
+/* A small drawing of a map of six columns (the reveal, the host's view, a card of a validation):
+   a tile is about 70 wide, so its name and its three parts each stand on one line, set smaller. */
+.cgrid.compact.six { column-gap: 9px; row-gap: 6px; padding: 2px 8px 4px 4px; grid-template-columns: minmax(70px, 13%) repeat(var(--cols), minmax(0, 1fr)) minmax(54px, 9%); }
+.cgrid.compact.six .ct-head { font-size: 9.5px; align-items: center; }
+.cgrid.compact.six .ct-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; letter-spacing: -0.3px; line-height: 1.2; }
+.cgrid.compact.six .ct-mini { font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; letter-spacing: -0.2px; }
+.cgrid.compact.six .ct-body { font-size: 9px; line-height: 1.15; -webkit-line-clamp: 3; }
+.cgrid.compact.six .csource .cs-name { font-size: 9.5px; }
+.p2maps .cgrid.six { height: 440px; min-width: 560px; }
+.insp-map .cgrid.six { height: 410px; }

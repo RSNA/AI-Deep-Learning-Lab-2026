@@ -1,7 +1,7 @@
 // Projection: the only code that turns pack data into something a browser may see
 // (engineering spec, section 9). Every outgoing object is built field by field. Nothing here
 // spreads, passes through or strips a pack object.
-import { fromPackMap, mapShape, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
+import { copyLine, fromPackMap, mapShape, overPools, readyDetails, readyReasons, ruledLines, tileMinutes, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type Tile as PackTile } from '@lab02/content-schema'
 import type {
   Board, BoardColumn, BoardRow, CanvasLegend, CanvasMap, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
   LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ReadyDetail, Running, ScreenView, SessionInfo,
@@ -224,7 +224,7 @@ function planningView(s: SessionState, pack: Pack, p: PlayerState): PlanningView
 export function mapView(m: PackCanvasMap): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runsOn: t.runsOn, prompt: t.prompt })),
-    lines: m.lines.map((l) => ({ from: l.from, to: l.to })),
+    lines: m.lines.map(copyLine),
   }
 }
 
@@ -495,7 +495,7 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
         note: ps.length ? `${hits} of ${ps.length}` : null, tone: SYSTEM_TONES[i % SYSTEM_TONES.length]!, system: i,
       }
     })
-    return { title: 'Found the agent project, by health system', bars }
+    return { title: s.systems.length > 1 ? 'Found the agent project, by health system' : 'Found the agent project', bars }
   }
   return null
 }

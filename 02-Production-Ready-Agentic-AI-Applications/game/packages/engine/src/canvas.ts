@@ -3,7 +3,7 @@
 // will call it every month with tables that its events have changed. Everything is an expected
 // value, so one map always gets one score. The executable reference is
 // `tools/canvas_scoring.py` of the private folder, and the parity vectors hold the engine to it.
-import { defaultPrompt, handoffOrder, mapShape, overPools, peopleMinutes, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
+import { defaultPrompt, handoffOrder, mapShape, overPools, peopleMinutes, pickPrepared, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
 
 export type NoteId = 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
 export type MissReason = 'missing' | 'weak' | 'decision'
@@ -149,7 +149,8 @@ function solve(sh: MapShape, t: CanvasTables, rush: Readonly<Record<string, numb
     const prepared: { source: string; effort: string; load: number }[] = []
     let linesIn = srcIn.length
     for (const u of wrkIn) {
-      const got = preparedBy(u, sh.tiles, sh.srcIn, sources, workers)
+      // Behind a row of tools the worker takes each source once, as the kind it reads best.
+      const got = preparedBy(u, sh.tiles, sh.srcIn, sh.wrkIn, sources, workers).map((p) => ({ source: p.source, ...pickPrepared(p.candidates, fetch) }))
       prepared.push(...got)
       linesIn += got.length ? got.reduce((sum, x) => sum + x.load, 0) : 1
     }

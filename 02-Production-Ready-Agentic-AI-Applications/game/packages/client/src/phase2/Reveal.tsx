@@ -49,7 +49,7 @@ export function DevReveal({ w, content, dv, inBreak, onSlides }: { w: Welcome; c
                 {pts.band && <span className="chip sun">{pts.band}</span>}
               </div>
             )}
-            {pts && pts.points !== raw && <div className="hint">{P2.scaleLine}</div>}
+            {pts && pts.points !== raw && <div className="hint">{w.session.systems.length > 1 ? P2.scaleLine : P2.scaleLineOne}</div>}
           </div>
         </section>
       </div>

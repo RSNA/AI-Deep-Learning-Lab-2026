@@ -3,7 +3,7 @@
 // money, developers and time, and validates the map. The accuracy of the submitted map is the
 // whole score of the phase. The scoring itself is `evaluate` in ../canvas.ts.
 import {
-  mapErrors, readyReasons, ruledLines, startUnlocked, type BuildFile, type CanvasMap, type Pack,
+  copyLine, mapErrors, readyReasons, ruledLines, startUnlocked, type BuildFile, type CanvasMap, type Pack,
 } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
 import { evaluate } from '../canvas.ts'
@@ -37,7 +37,7 @@ export function developersFree(pack: Pack, p: PlayerState): number {
 export function copyMap(m: CanvasMap): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model ?? null, runsOn: t.runsOn ?? null, prompt: t.prompt ?? null })),
-    lines: m.lines.map((l) => ({ from: l.from, to: l.to })),
+    lines: m.lines.map(copyLine),
   }
 }
 

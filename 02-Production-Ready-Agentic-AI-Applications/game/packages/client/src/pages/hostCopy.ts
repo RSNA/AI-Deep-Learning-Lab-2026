@@ -294,6 +294,8 @@ export const H = {
   boardEveryone: 'Everyone · all phases',
   boardSystem: (name: string) => `${name} · all phases`,
   boardPhase: (n: number) => `Phase ${n} · by health system`,
+  boardPhaseOne: (n: number) => `Phase ${n}`,
+  leaderboardLineOne: 'The ranking of everyone, or of one phase.',
   activity: 'Activity',
   activityLine: 'Who is doing what, line by line. Never what they learned.',
   activityOff: 'Opens while a phase is played.',

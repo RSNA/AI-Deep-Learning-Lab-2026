@@ -119,6 +119,7 @@ export const P1 = {
   flagPtsCaption: 'class and agent project',
   phasePoints: 'Phase 1 points',
   oneScale: 'Points put both health systems on one scale, so they can differ from the board score.',
+  oneScaleOne: 'Points run on a scale from a board sorted by chance to a perfect one, so they can differ from the board score.',
   found: 'You found it',
   missed: 'You did not put it in its class',
   why: 'Why',

@@ -102,9 +102,16 @@ export const CanvasTile = S({
   model: Id.nullable(), runsOn: Id.nullable(), prompt: Id.nullable(),
 })
 export type CanvasTile = z.infer<typeof CanvasTile>
-export const CanvasLine = S({ from: Id, to: Id })
+export const LineSide = z.enum(['top', 'right', 'bottom', 'left'])
+export type LineSide = z.infer<typeof LineSide>
+/**
+ * A line. `fromSide` and `toSide` are the sides of its two tiles where the player attached it.
+ * They change how the line is drawn and never a score. Without them it joins the sides that
+ * face each other. A source and the result have one place for a line and take no side.
+ */
+export const CanvasLine = S({ from: Id, to: Id, fromSide: LineSide.optional(), toSide: LineSide.optional() })
 export type CanvasLine = z.infer<typeof CanvasLine>
-/** A map: tiles on the cells of the grid, and lines that only run to the right. */
+/** A map: tiles on the cells of the grid, and lines that run any way but never in a loop. */
 export const CanvasMap = S({ tiles: z.array(CanvasTile).max(64), lines: z.array(CanvasLine).max(160) })
 export type CanvasMap = z.infer<typeof CanvasMap>
 

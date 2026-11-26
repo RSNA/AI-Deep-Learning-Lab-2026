@@ -1,10 +1,11 @@
 // The canvas (engineering spec, section 10.5): sources on the left, a grid of cells, the result on
-// the right, and lines that run any way between the tiles but never in a loop, each joining the
-// sides of its two tiles that face each other. It draws any map, editable or read-only, and
-// knows nothing of the phase that shows it. Every action works by click or tap; drag is an
-// extra on a laptop.
+// the right, and lines that run any way between the tiles but never in a loop. A line leaves and
+// enters a tile on the side the player picked (any of the four), and where none was picked it
+// joins the sides that face each other. It draws any map, editable or read-only, and knows
+// nothing of the phase that shows it. Every action works by click or tap; drag is an extra on a
+// laptop.
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import type { CanvasLegend, CanvasMap, CanvasTile } from '@lab02/protocol'
+import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile, LineSide } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
 import { lineKey, tileNames, type Vocabulary } from './model.ts'
 import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
@@ -16,7 +17,7 @@ export type Mode =
   | { kind: 'idle' }
   | { kind: 'place'; worker: string }
   | { kind: 'move'; tile: string }
-  | { kind: 'join'; from: string }
+  | { kind: 'join'; from: string; side?: LineSide }
 export type Selection = { kind: 'tile'; id: string } | { kind: 'line'; key: string } | null
 export type Part = 'model' | 'runsOn' | 'prompt'
 
@@ -38,13 +39,17 @@ export type GridProps = {
   /** Tiles and the result that a line from the node in `mode.join` may reach. */
   targets?: ReadonlySet<string>
   onCell?: (col: number, row: number) => void
-  onNode?: (id: string) => void
-  onPort?: (id: string) => void
+  /** A press on a node. `side` is the side of a tile whose dot was pressed to end a line there. */
+  onNode?: (id: string, side?: LineSide) => void
+  /** A press on a dot that starts a line. `side` is the side of the tile it stands on. */
+  onPort?: (id: string, side?: LineSide) => void
   onLine?: (key: string) => void
+  /** A dot of an end tile of the selected line was pressed: that end moves to this side. */
+  onMoveEnd?: (key: string, end: 'from' | 'to', side: LineSide) => void
   onPart?: (tile: string, part: Part) => void
   onDropKind?: (kind: string, col: number, row: number) => void
   onDropTile?: (id: string, col: number, row: number) => void
-  onDragLine?: (from: string, to: string) => void
+  onDragLine?: (from: string, to: string, sides?: { from?: LineSide; to?: LineSide }) => void
   /** What a tile without boxes of parts shows in their place: a person's minutes, a tool's task. */
   bodies?: Record<string, { text: string; over?: boolean }>
   /** The tiles (or the result, or the sources) and the box of a tile that the next thing to do is about. */
@@ -86,7 +91,7 @@ export function Grid(p: GridProps) {
   const box = useRef<HTMLDivElement>(null)
   const nodes = useRef(new Map<string, HTMLElement>())
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
-  const [drag, setDrag] = useState<{ from: string; x: number; y: number } | null>(null)
+  const [drag, setDrag] = useState<{ from: string; side?: LineSide; x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const [hintCol, setHintCol] = useState<number | null>(null)
   // A sentence at the place of an action is brought into view, also where the grid scrolls sideways.
@@ -140,20 +145,27 @@ export function Grid(p: GridProps) {
   const used = new Set(map.lines.map((l) => l.from))
 
   // Where a line is attached. From a source it leaves the right side, into the result it enters
-  // the left side. Between two tiles it joins the sides that face each other: to a later column
+  // the left side. At a tile it stands on the side the player picked for that end (`fromSide`,
+  // `toSide`). An end without a pick takes the side that faces the other tile: to a later column
   // out of the right side and into the left, to an earlier column out of the left and into the
   // right, inside one column out of the bottom and into the top (or the other way up). When two
   // tiles differ in column and row, the column decides, and the line bends in the gap between
-  // the columns. So no line travels around a tile to reach its far side.
+  // the columns. So a line travels around a tile only when the player asked for that side.
   type P = { x: number; y: number }
   type Side = 'l' | 'r' | 't' | 'b'
+  const SHORT: Record<LineSide, Side> = { left: 'l', right: 'r', top: 't', bottom: 'b' }
+  const LONG: Record<Side, LineSide> = { l: 'left', r: 'right', t: 'top', b: 'bottom' }
   const sourceIds = new Set(v.sources.map((x) => x.id))
   const cellOf = new Map(map.tiles.map((t) => [t.id, t]))
-  const sidesOf = (l: { from: string; to: string }): [Side, Side] => {
+  const facing = (l: { from: string; to: string }): [Side, Side] => {
     const a = cellOf.get(l.from), b = cellOf.get(l.to)
     if (!a || !b || b.col > a.col) return ['r', 'l']
     if (b.col < a.col) return ['l', 'r']
     return b.row > a.row ? ['b', 't'] : ['t', 'b']
+  }
+  const sidesOf = (l: CanvasLine): [Side, Side] => {
+    const [fa, fb] = facing(l)
+    return [l.fromSide && cellOf.has(l.from) ? SHORT[l.fromSide] : fa, l.toSide && cellOf.has(l.to) ? SHORT[l.toSide] : fb]
   }
   const center = (id: string): P => { const b = boxes[id]; return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: 0, y: 0 } }
   // The ends of the lines on one side of a node are spread along that side, in the order of
@@ -187,10 +199,16 @@ export function Grid(p: GridProps) {
   }
   const lerp = (a: P, b: P, t: number): P => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
   const OUT: Record<Side, P> = { r: { x: 1, y: 0 }, l: { x: -1, y: 0 }, t: { x: 0, y: -1 }, b: { x: 0, y: 1 } }
-  /** The curve of a line: it leaves and enters square to its two sides, and bends in between. */
-  const curve = (a: P, sa: Side, d: P, sd: Side): [P, P, P, P] => {
+  /**
+   * The curve of a line: it leaves and enters square to its two sides, and bends in between.
+   * `plain` is a line on the sides that face each other. A line on sides the player picked may
+   * have to turn around a corner, so it reaches further out before it bends.
+   */
+  const curve = (a: P, sa: Side, d: P, sd: Side, plain: boolean): [P, P, P, P] => {
     const upright = sa === 't' || sa === 'b'
-    const reach = upright ? Math.max(3, Math.abs(d.y - a.y) * 0.5) : Math.max(14, Math.abs(d.x - a.x) * 0.5)
+    const reach = plain
+      ? (upright ? Math.max(3, Math.abs(d.y - a.y) * 0.5) : Math.max(14, Math.abs(d.x - a.x) * 0.5))
+      : Math.min(90, Math.max(compact ? 12 : 22, Math.hypot(d.x - a.x, d.y - a.y) * 0.4))
     return [a, { x: a.x + OUT[sa].x * reach, y: a.y + OUT[sa].y * reach }, { x: d.x + OUT[sd].x * reach, y: d.y + OUT[sd].y * reach }, d]
   }
   const at = (c: [P, P, P, P], t: number): P => {
@@ -218,24 +236,26 @@ export function Grid(p: GridProps) {
     return 0.5
   }
   type Geom = { d: string; head: { at: P; dir: P }; advice: P }
-  const geom = (l: { from: string; to: string }): Geom | null => {
+  const geom = (l: CanvasLine): Geom | null => {
     const key = lineKey(l)
     const a = anchors.get(`${key}|from`), d = anchors.get(`${key}|to`)
     if (!a || !d) return null
     const [sa, sd] = sidesOf(l)
-    const c = curve(a, sa, d, sd)
+    const [fa, fd] = facing(l)
+    const c = curve(a, sa, d, sd, sa === fa && sd === fd)
     const t = headAt(c)
     const h = at(c, t), h0 = at(c, Math.max(0, t - 0.02)), h1 = at(c, Math.min(1, t + 0.02))
     const len = Math.hypot(h1.x - h0.x, h1.y - h0.y) || 1
     // The mark of advice stands on the first part of the line, clear of the head.
     return { d: draw(c), head: { at: h, dir: { x: (h1.x - h0.x) / len, y: (h1.y - h0.y) / len } }, advice: at(c, 0.27) }
   }
-  /** The line that follows the pointer while it is dragged out of a port. */
-  const dragPath = (from: string, x: number, y: number) => {
+  /** The line that follows the pointer while it is dragged out of a port, from the side of that port. */
+  const dragPath = (from: string, side: LineSide | undefined, x: number, y: number) => {
     const b = boxes[from]!
-    const a = { x: b.x + b.w, y: b.y + b.h / 2 }
-    const dx = Math.max(14, Math.abs(x - a.x) * 0.5)
-    return `M${a.x},${a.y} C${a.x + dx},${a.y} ${x - dx},${y} ${x},${y}`
+    const sd: Side = side ? SHORT[side] : 'r'
+    const a = sd === 'r' ? { x: b.x + b.w, y: b.y + b.h / 2 } : sd === 'l' ? { x: b.x, y: b.y + b.h / 2 } : sd === 't' ? { x: b.x + b.w / 2, y: b.y } : { x: b.x + b.w / 2, y: b.y + b.h }
+    const r = Math.max(14, Math.hypot(x - a.x, y - a.y) * 0.4)
+    return `M${a.x},${a.y} C${a.x + OUT[sd].x * r},${a.y + OUT[sd].y * r} ${x},${y} ${x},${y}`
   }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
@@ -251,8 +271,15 @@ export function Grid(p: GridProps) {
   const lit = (id: string) => (joining || !!drag) && targets.has(id)
 
   // Drag from a port draws a line that follows the pointer (laptop). A click joins in two clicks.
-  const startDrag = (from: string, e: React.PointerEvent) => {
+  const startDrag = (from: string, e: React.PointerEvent, side?: LineSide) => {
     if (readOnly || e.button !== 0 || e.pointerType === 'touch') return
+    // A dot that ends a line, or moves an end of the selected line, starts no new line. The
+    // press still belongs to the dot, so it must not start a drag of the tile around it.
+    if ((joining && mode.from !== from) || endOf(from)) {
+      onPort.current = true
+      window.addEventListener('pointerup', () => { onPort.current = false }, { once: true })
+      return
+    }
     onPort.current = true
     pop.hide()
     const el = box.current!
@@ -262,8 +289,8 @@ export function Grid(p: GridProps) {
     let moved = false
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
-      if (!moved) { moved = true; p.onPort?.(from) }
-      setDrag({ from, x: (ev.clientX - root.left) / k, y: (ev.clientY - root.top) / k })
+      if (!moved) { moved = true; p.onPort?.(from, side) }
+      setDrag({ from, side, x: (ev.clientX - root.left) / k, y: (ev.clientY - root.top) / k })
       const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-target]')
       setOver(el?.dataset.target ?? null)
     }
@@ -275,7 +302,9 @@ export function Grid(p: GridProps) {
         // A drop on a node that cannot take the line goes to the phase too, which says why.
         const at = document.elementFromPoint(ev.clientX, ev.clientY)
         const to = at?.closest<HTMLElement>('[data-target]')?.dataset.target ?? at?.closest<HTMLElement>('[data-node]')?.dataset.node
-        if (to && to !== from) p.onDragLine?.(from, to)
+        // Dropped on a dot of the tile: the line enters on that side.
+        const toSide = at?.closest<HTMLElement>('[data-side]')?.dataset.side as LineSide | undefined
+        if (to && to !== from) p.onDragLine?.(from, to, { from: side, to: toSide })
         setDrag(null)
         setOver(null)
       }
@@ -285,13 +314,28 @@ export function Grid(p: GridProps) {
   }
 
   // The round port of a node starts a line from it. A source has one on its right. A tile has
-  // one on its right that is always there, and one on each other side that shows while the tile
-  // is pointed at or selected: all four start the same thing, and the line then joins whichever
-  // sides face each other. A read-only map marks each side that a line leaves.
-  const port = (id: string, label: string) => readOnly ? (used.has(id) ? <span className="cport ro" style={{ background: colorOf(id) }} aria-hidden="true" /> : null) : (
-    <button type="button" className={`cport${joining && mode.from === id ? ' on' : ''}`} style={{ background: colorOf(id) }}
+  // one on each of its four sides: the one on the right is always there, the others show while
+  // the tile is pointed at or selected, while a line is looking for its end, and at the two ends
+  // of the selected line. A press on a dot does one of three things. It starts a line that
+  // leaves on that side. Or, while a line looks for its end, it ends the line on that side. Or,
+  // on a tile at an end of the selected line, it moves that end to that side. A read-only map
+  // marks each side that a line leaves.
+  const selLine = p.selection?.kind === 'line' ? map.lines.find((l) => lineKey(l) === (p.selection as { key: string }).key) : undefined
+  /** Which end of the selected line this tile is, if any. */
+  function endOf(id: string): 'from' | 'to' | null {
+    if (readOnly || !selLine || mode.kind !== 'idle' || !cellOf.has(id)) return null
+    return selLine.from === id ? 'from' : selLine.to === id ? 'to' : null
+  }
+  const pressPort = (id: string, side: LineSide | undefined) => {
+    const end = endOf(id)
+    if (end && side) { p.onMoveEnd?.(lineKey(selLine!), end, side); return }
+    if (joining && mode.from !== id) { p.onNode?.(id, side); return }
+    p.onPort?.(id, side)
+  }
+  const port = (id: string, label: string, side?: LineSide) => readOnly ? (used.has(id) ? <span className="cport ro" style={{ background: colorOf(id) }} aria-hidden="true" /> : null) : (
+    <button type="button" className={`cport${joining && mode.from === id && (mode.side ?? 'right') === (side ?? 'right') ? ' on' : ''}`} style={{ background: colorOf(id) }} data-side={side}
       aria-label={words.port(label)} aria-pressed={joining && mode.from === id}
-      onClick={(e) => { e.stopPropagation(); p.onPort?.(id) }} onPointerDown={(e) => startDrag(id, e)} />
+      onClick={(e) => { e.stopPropagation(); pressPort(id, side) }} onPointerDown={(e) => startDrag(id, e, side)} />
   )
   const tilePorts = (id: string, label: string) => {
     if (readOnly) {
@@ -300,11 +344,11 @@ export function Grid(p: GridProps) {
     }
     return (
       <>
-        {port(id, label)}
+        {port(id, label, 'right')}
         {(['t', 'b', 'l'] as Side[]).map((sd) => (
-          // The same start as the port on the right, for the pointer: the keyboard and a screen reader have that one.
-          <span key={sd} className={`cport more s-${sd}`} style={{ background: colorOf(id) }} aria-hidden="true"
-            onClick={(e) => { e.stopPropagation(); p.onPort?.(id) }} onPointerDown={(e) => startDrag(id, e)} />
+          // The dots of the other three sides, for the pointer: the keyboard and a screen reader have the one on the right.
+          <span key={sd} className={`cport more s-${sd}${joining && mode.from === id && mode.side === LONG[sd] ? ' on' : ''}`} style={{ background: colorOf(id) }} aria-hidden="true" data-side={LONG[sd]}
+            onClick={(e) => { e.stopPropagation(); pressPort(id, LONG[sd]) }} onPointerDown={(e) => startDrag(id, e, LONG[sd])} />
         ))}
       </>
     )
@@ -340,7 +384,7 @@ export function Grid(p: GridProps) {
     const body = p.bodies?.[t.id] ?? (w?.task ? { text: w.task } : null)
     return (
       <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-node={t.id} data-target={target ? t.id : undefined}
-        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
+        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${endOf(t.id) ? ' ends' : ''}${t.row >= v.rows ? ' lastrow' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
         style={{ gridColumn: t.col + 1, gridRow: t.row + 1 }}
         role={readOnly ? undefined : 'button'} tabIndex={readOnly ? undefined : 0}
         aria-label={`${label}${stray ? `. ${words.stray}` : ''}${warn ? `. ${words.privateData}` : ''}${target ? `. ${words.joinHere(label)}` : ''}`}
@@ -407,7 +451,7 @@ export function Grid(p: GridProps) {
   const res = v.result
   const resLit = lit(res.id)
   return (
-    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
+    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${v.cols >= 6 ? ' six' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
       style={{ '--cols': v.cols, '--rows': v.rows } as React.CSSProperties} aria-label={p.label}>
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
       {Array.from({ length: v.cols }, (_, i) => {
@@ -498,7 +542,7 @@ export function Grid(p: GridProps) {
           )
         })}
         {drag && boxes[drag.from] && (
-          <path className="cline-drag" d={dragPath(drag.from, drag.x, drag.y)} stroke={colorOf(drag.from)} />
+          <path className="cline-drag" d={dragPath(drag.from, drag.side, drag.x, drag.y)} stroke={colorOf(drag.from)} />
         )}
       </svg>
       {/* The heads of the lines, over the tiles: a head in the narrow gap between two neighbours stays whole. */}

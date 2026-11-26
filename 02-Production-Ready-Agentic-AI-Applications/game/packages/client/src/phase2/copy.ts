@@ -71,12 +71,12 @@ export const P2 = {
   cleared: 'The map is clear. Undo brings it back.',
   // Hints in the bar of the map
   hint: {
-    idle: 'Pick an operator or a tool in the toolbox, then a cell. Join with the round port.',
+    idle: 'Pick an operator or a tool in the toolbox, then a cell. Join with a round dot.',
     place: (label: string) => `Click an empty cell for the ${label}. Esc cancels.`,
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
-    join: (label: string) => `Click a lit tile or the result to join ${label}. Esc cancels.`,
+    join: (label: string) => `Click a lit tile, one of its dots, or the result to join ${label}. Esc cancels.`,
     tile: (label: string) => `${label} is selected.`,
-    line: (from: string, to: string) => `Line from ${from} to ${to}.`,
+    line: (from: string, to: string) => `Line from ${from} to ${to}. Click a dot on either tile to move that end there.`,
   },
   replaced: 'The result takes one line. The new line replaced the old one.',
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
@@ -84,7 +84,7 @@ export const P2 = {
   tour: [
     { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
     { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round port of a tile to the tile that gets its work. It joins the two sides that face each other. A line may run any way across the map, but never in a loop. The work ends in the result.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round dot of a tile to the tile that gets its work. A tile has a dot on each side: the line leaves from the dot you press. Select a line and press another dot to move that end. A line may run any way, but never in a loop. The work ends in the result.' },
     { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
     { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. Money you keep stays in your budget, so pay for what your map will use.' },
@@ -171,7 +171,7 @@ export const P2 = {
   // Said once, when a player has started this many actions.
   spendAfter: 4,
   spendTitle: 'A word on money',
-  spendText: (n: number) => `That is ${n === 4 ? 'four' : n} actions started. Money spent on something your map does not use is gone, and what you keep stays in your budget. Pay for what the map needs.`,
+  spendText: (n: number) => `That is ${n === 4 ? 'four' : n} actions you paid for. Money spent on something your map does not use is gone, and what you keep stays in your budget. Pay for what the map needs.`,
   spendOk: 'Got it',
   // Running and validating
   toRun: 'To run:',
@@ -266,6 +266,7 @@ export const P2 = {
   accuracySent: 'Accuracy of your chosen map',
   phasePoints: 'Phase 2 points',
   scaleLine: 'Points put both health systems on one scale.',
+  scaleLineOne: 'Points run from the practice as it works today to the best map that was found.',
   yourMap: 'Your map',
   referenceMap: 'The reference map',
   cases: 'Every kind of case',
