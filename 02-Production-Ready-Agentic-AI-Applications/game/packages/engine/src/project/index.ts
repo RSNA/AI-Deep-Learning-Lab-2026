@@ -475,6 +475,13 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
     image: sl.image ? `${art}${sl.image}` : null,
     stat: stats.map((n) => liveStat(s, n)).find((x) => x !== null) ?? null,
     charts: stats.map((n) => liveChart(s, pack, n)).filter((x): x is Chart => x !== null),
+    standings: sl.standings === undefined ? null : {
+      final: s.closedPhases.includes('maintaining'),
+      highlight: sl.standings.highlight,
+      // Nobody is named before a phase is scored: a live column may still turn.
+      rows: s.closedPhases.length === 0 ? [] : boardView(s, pack, { system: null, rows: sl.standings.rows }).columns.overall.rows
+        .map((r) => ({ rank: r.rank, name: r.name, avatar: r.avatar, value: r.value })),
+    },
   }
 }
 

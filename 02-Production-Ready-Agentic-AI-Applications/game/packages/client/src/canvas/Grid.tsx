@@ -355,18 +355,23 @@ export function Grid(p: GridProps) {
   }
 
   const workerOf = (t: CanvasTile) => v.workers.find((w) => w.id === t.kind)
-  const partLabel = (t: CanvasTile, part: Part): { text: string; missing: boolean; title: string } => {
+  // `what` says which of the three parts a line is ("Model", "Runs on", "Prompt"). A small map
+  // writes it in front of the value. A tile of the board is too narrow for that on a laptop: its
+  // three lines stand in this order, and each says its name on hover and in its chooser.
+  const partLabel = (t: CanvasTile, part: Part): { what: string; text: string; missing: boolean; title: string } => {
     if (part === 'model') {
       const m = v.models.find((x) => x.id === t.model)
-      return m ? { text: m.short, missing: false, title: `${words.model}: ${m.label}` } : { text: words.pickModel, missing: true, title: words.pickModel }
+      // A full name of a few letters fits a tile ("Jenson Mini"). A longer one goes by its short form.
+      const name = m && m.label.length <= 11 ? m.label : m?.short ?? ''
+      return m ? { what: words.model, text: name, missing: false, title: `${words.model}: ${m.label}` } : { what: words.model, text: words.pickModel, missing: true, title: words.pickModel }
     }
     if (part === 'runsOn') {
       const c = v.compute.find((x) => x.id === t.runsOn)
-      return c ? { text: c.short, missing: false, title: `${words.compute}: ${c.label}` } : { text: words.pickCompute, missing: true, title: words.pickCompute }
+      return c ? { what: words.compute, text: c.short, missing: false, title: `${words.compute}: ${c.label}` } : { what: words.compute, text: words.pickCompute, missing: true, title: words.pickCompute }
     }
     const pr = v.prompts.find((x) => x.id === t.prompt)
     const d = v.prompts[0]
-    return pr ? { text: pr.label, missing: false, title: `${words.prompt}: ${pr.label}` } : { text: d ? words.defaultPrompt(d.label) : '–', missing: false, title: `${words.prompt}: ${d?.label ?? ''}` }
+    return pr ? { what: words.prompt, text: pr.label, missing: false, title: `${words.prompt}: ${pr.label}` } : { what: words.prompt, text: d ? words.defaultPrompt(d.label) : '–', missing: false, title: `${words.prompt}: ${d?.label ?? ''}` }
   }
   const PART_ICON: Record<Part, string> = { model: 'model', runsOn: 'compute', prompt: 'prompt' }
 
@@ -411,7 +416,7 @@ export function Grid(p: GridProps) {
         })}
         {isAi && compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)
-          return <div key={part} className={`ct-mini${pl.missing ? ' missing' : ''}`} title={pl.title}>{pl.missing ? '–' : pl.text}</div>
+          return <div key={part} className={`ct-mini${pl.missing ? ' missing' : ''}`} title={pl.title}><i className="ct-what">{pl.what}:</i><span>{pl.missing ? '–' : pl.text}</span></div>
         })}
         {!isAi && (!stray || compact) && body && <div className={`ct-body${body.over ? ' over' : ''}`} title={body.text}>{body.text}</div>}
         {!isAi && !compact && stray && <div className="ct-note">{words.stray}</div>}

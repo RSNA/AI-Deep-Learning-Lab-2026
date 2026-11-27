@@ -652,7 +652,7 @@ export const ROOM_STATS = [
 ] as const
 
 /** How a slide is laid out (section 10.9). `bullets` is the plain slide and the default. */
-export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing'] as const
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings'] as const
 /** The colors a box of a slide may take. They are the colors of the design system. */
 export const SLIDE_TONES = ['go', 'sky', 'sun', 'lav', 'rose'] as const
 
@@ -672,6 +672,8 @@ export const DeckSlide = W({
   /** Lines to read later, such as the articles behind the session. */
   references: z.array(Text).max(6).optional(),
   image: z.string().optional(),
+  /** The leaderboard of the game on a slide (layout `standings`): how many players it names, and how many of them stand out at the top. */
+  standings: W({ rows: PosInt.max(12).default(10), highlight: z.number().int().min(0).max(5).default(3) }).optional(),
   /** One room statistic, or two that stand one under the other. */
   live_stat: z.union([z.enum(ROOM_STATS), z.array(z.enum(ROOM_STATS)).min(1).max(2)]).optional(),
   notes: Text.optional(), placeholder: z.boolean().optional(),

@@ -221,7 +221,7 @@ export type PhaseContent = z.infer<typeof PhaseContent>
 // ------------------------------------------------------------------------------------------
 // Slides (one deck per session). A slide reaches a browser only while it is shown.
 // ------------------------------------------------------------------------------------------
-export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing'] as const
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings'] as const
 export const SlideLayout = z.enum(SLIDE_LAYOUTS)
 export type SlideLayout = z.infer<typeof SlideLayout>
 export const SlideTone = z.enum(['go', 'sky', 'sun', 'lav', 'rose'])
@@ -249,6 +249,10 @@ export const SlideView = S({
   // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
   // behind it is scored: the frame of the chart shows before the numbers do.
   charts: z.array(S({ title: Text, bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone, system: Int.nullable() })) })),
+  // The leaderboard of the game on a slide: the first players by their total points, with the
+  // first `highlight` of them drawn large. `final` once every phase is scored. Before any
+  // phase is scored there are no rows, and the slide says that it fills in later.
+  standings: S({ final: z.boolean(), highlight: Int, rows: z.array(S({ rank: Int, name: Text, avatar: AvatarId, value: z.number() })) }).nullable(),
 })
 export type SlideView = z.infer<typeof SlideView>
 

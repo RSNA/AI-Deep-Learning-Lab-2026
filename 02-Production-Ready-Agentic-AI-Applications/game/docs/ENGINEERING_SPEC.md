@@ -2483,6 +2483,8 @@ type SlideView = {
             bars: { label: Text; value: number | null   // no value until its phase is scored
                     note: Text | null; tone: Tone
                     system: number | null }[] }[]       // a bar of one health system
+  standings: { final: boolean; highlight: number   // the leaderboard on a slide (layout `standings`), or null
+               rows: { rank: number; name: Text; avatar: string; value: number }[] } | null
 }
 
 type PlanningView = {
@@ -3603,7 +3605,12 @@ row: the accuracy of the map sent and which validation it was, the points and th
 one line when the points differ from a thousand times the accuracy. Under them the player's map
 and the reference map side by side, read-only and drawn small with their parts, each with its
 accuracy, and the reference map's summary. On a small map a tile's name takes up to two lines
-and no icon, so a name of eleven letters fits. Then every kind of case with its title and text and two
+and no icon, so a name of eleven letters fits. An agent on a small map carries its three parts on
+three lines with their names in front ("Model: Jenson Mini", "Runs on: Private link", "Prompt:
+Steps"), and a map with an agent on it gets rows that hold them. A tile too narrow for the names
+shows the values alone. On the board a tile is too narrow for the names on a laptop: its three
+lines stand in that order, a model whose full name has eleven letters or fewer is written in
+full, and each line says its name on hover and in its chooser. Then every kind of case with its title and text and two
 bars, the share the player's map solved and the share the reference map solves. A closing line
 says that the map, the money and what was unlocked go into Phase 3. A pack with several
 reference maps shows them one at a time, each under a tab with its label and its accuracy, and
@@ -4226,6 +4233,7 @@ slide looks the same wherever it shows. A slide has one of five layouts:
 | `bullets` (the default) | The title, an optional subtitle, the bullets in large body type. Beside them, when the slide has one: a picture, a live number, or a live chart of bars |
 | `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the join link with its label |
 | `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
+| `standings` | The leaderboard of the game, from the slide's `standings: {rows, highlight}` (ten rows and three large by default). The first `highlight` players stand side by side as large boxes with their rank, character, name and total points, the winner a little taller, and the others in a list beside them. Before a phase is scored the slide is a frame that says when it fills in, and until the last phase is scored a line says that these are the standings so far. The names come from the board of the session, so a facilitator can call the winners from this slide |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
 | `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here" |
 
