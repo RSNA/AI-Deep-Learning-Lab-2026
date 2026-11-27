@@ -5,19 +5,19 @@ import { fromPackMap, mapShape, overPools, phase3Build, readyDetails, readyReaso
 import type {
   Board, BoardColumn, BoardRow, Character, Clock, ColumnId, DevelopmentContent, DevelopmentView,
   LadderRung, Moment, PackArt, PhaseId, PlanningContent, PlanningView, PlayerView, ScreenView, SessionInfo,
-  SlideView, Standing, StageId, SystemPublic, SystemRef,
+  ReviewBase, ReviewMine, SlideView, Standing, StageId, SystemPublic, SystemRef,
 } from '@lab02/protocol'
 import type { HostDeck, HostInspect, HostPlayerRow, HostView } from '@lab02/protocol/host'
-import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage } from '@lab02/protocol'
+import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage, resetPhaseOf } from '@lab02/protocol'
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
-import { developersFree, submitted, unlockedOf } from '../phases/development.ts'
+import { developersFree, shownActions, submitted, unlockedOf } from '../phases/development.ts'
 import { bestReaders, evaluate, running as runningOf, type Evaluation } from '../canvas.ts'
-import { actionView, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
-import { maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
-import { deckSlides } from '../deck.ts'
-import { SEGMENT_OF_STAGE, guideLengthMs, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
+import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
+import { maintainingContent, maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
+import { deckSlides, sectionOf } from '../deck.ts'
+import { SEGMENT_OF_STAGE, guideLengthMs, kindOf, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
 import type { DevelopmentState, GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
 import { reportCard, reportCardShown } from './reportCard.ts'
 
@@ -37,6 +37,7 @@ export function sessionInfo(s: SessionState, pack: Pack, publicUrl: string): Ses
     label: s.label,
     title: pack.game.game.title,
     mode: s.mode,
+    kind: kindOf(s),
     systems: systemRefs(s, pack),
     joinUrl: `${publicUrl.replace(/\/$/, '')}/j/${s.code}`,
     phaseLabels: { planning: ph.planning.label, development: ph.development.label, maintaining: ph.maintaining.label },
@@ -198,13 +199,14 @@ export function developmentContent(s: SessionState, pack: Pack, playerId: Player
   const p = s.players[playerId]!
   const sp = pack.systems[p.system]!
   const b = sp.build!
+  const shown = { unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }
   return {
     phase: 'development',
     ...canvasContent(pack, sp, b, {
       brief: sp.story?.briefs?.development, validations: b.validate.runs, validateSeconds: b.validate.seconds,
       actionGroups: pack.game.phases.development.action_groups ?? [],
-    }),
-    actions: b.actions.map(actionView),
+    }, shown),
+    actions: shown.actions.map(actionView),
   }
 }
 
@@ -236,6 +238,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
   return {
     money: st.money,
     developers: { total: b.budget.developers, free: developersFree(pack, p) },
+    board: boardNumber({ unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }),
     unlocked: [...unlockedOf(pack, p)].sort(),
     actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs })),
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
@@ -322,7 +325,58 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
     }),
     reportCard: reportCardShown(s) ? reportCard(s, pack, playerId, rejoinCode, playedAtMs) : null,
     slide: slidesMirrored(s, pack) ? slideView(s, pack, s.screen.slide) : null,
+    waiting: waitingView(s, pack, p),
+    solo: soloView(s, pack),
   }
+}
+
+/** The phase on stage that this player has no part in: the one they wait out, or one they missed. */
+function sittingOut(s: SessionState, p: PlayerState): PhaseId | null {
+  const phase = resetPhaseOf(s.stage)   // the phase of a play stage, of its reveal and of the break after it
+  if (!phase) return null
+  return p.waitingFor === phase || !!p.missed?.includes(phase) ? phase : null
+}
+
+/** What a player who sits a phase out looks at: the slides that were shown so far (section 6.4). */
+function waitingView(s: SessionState, pack: Pack, p: PlayerState): PlayerView['waiting'] {
+  const phase = sittingOut(s, p)
+  if (!phase) return null
+  const slides = (s.shown ?? []).map((i) => slideView(s, pack, i)).filter((x): x is SlideView => x !== null)
+  return { phase, slides }
+}
+
+/** What the player of a single-player game may do to move it on (section 6.14). */
+function soloView(s: SessionState, pack: Pack): PlayerView['solo'] {
+  if (kindOf(s) !== 'solo') return null
+  const timed = s.stageEndsAtMs !== null
+  const sec = slidesMirrored(s, pack) ? sectionOf(pack, s.stage) : null
+  return {
+    next: timed || s.closed ? null : nextStageOf(s.stage),
+    timed,
+    slide: sec ? { first: s.screen.slide <= sec.start, last: s.screen.slide >= sec.start + sec.count - 1 } : null,
+  }
+}
+
+/**
+ * A game to look at again (section 7.5): the part of one practice. It is the view the player
+ * holds, without what belongs to the live session (a mirrored slide, the waiting room, the
+ * controls of a single-player game), so the page that shows it later reads it as a game that ended.
+ */
+export function reviewMine(s: SessionState, pack: Pack, playerId: PlayerId, rejoinCode: string, playedAtMs: number | null): ReviewMine {
+  return {
+    view: { ...playerView(s, pack, playerId, rejoinCode, playedAtMs), slide: null, waiting: null, solo: null },
+    standing: standing(s, pack, playerId),
+  }
+}
+
+/** The part of a game to look at again that the practices of one health system share. */
+export function reviewBase(s: SessionState, pack: Pack, playerId: PlayerId, publicUrl: string): ReviewBase {
+  const p = s.players[playerId]!
+  const content: ReviewBase['content'] = []
+  if (p.planning) content.push(planningContent(s, pack, playerId))
+  if (p.development) content.push(developmentContent(s, pack, playerId))
+  if (p.maintaining) content.push(maintainingContent(s, pack, playerId))
+  return { session: sessionInfo(s, pack, publicUrl), system: systemPublic(s, pack, p.system), ladder: ladder(pack), art: packArt(pack), content }
 }
 
 // ------------------------------------------------------------------------------------------
@@ -493,7 +547,8 @@ export function standing(s: SessionState, pack: Pack, playerId: PlayerId): Stand
       of: active.length,
       ofSystem: active.filter((id) => s.players[id]!.system === p.system).length,
     },
-    board: boardView(s, pack, { system: null, rows: 3, me: playerId }),
+    // Someone who sits a phase out has the leaderboard as their screen, so it shows more rows.
+    board: boardView(s, pack, { system: null, rows: sittingOut(s, p) ? 10 : 3, me: playerId }),
   }
 }
 
@@ -658,6 +713,7 @@ export type HostExtras = {
   /** Wall time at which each stage was first entered. */
   stageWall: Partial<Record<StageId, number>>
   answerKey: boolean
+  guide: boolean
   screens: number
 }
 
@@ -890,6 +946,7 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
     },
     control: { you: false, state: 'free', holder: null, watchers: [] },
     answerKey: x.answerKey,
+    guide: x.guide,
     phaseLive: live,
     pickModes: [...(pack.game.join.choose_system_in_modes ?? [])],
   }

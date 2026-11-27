@@ -14,7 +14,7 @@ test('the host looks through the deck without showing it, then shows one slide',
   test.skip(info.project.name !== 'laptop', 'laptop only')
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
   const auth = { authorization: `Bearer ${token}` }
-  const code = (await (await page.request.post('/api/host/session', { data: { label: 'E2E look', mode: 'rehearsal' }, headers: auth })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label: 'E2E look', mode: 'rehearsal', replace: {} }, headers: auth })).json()).code as string
 
   // A player and a projector window.
   const player = await browser.newContext()

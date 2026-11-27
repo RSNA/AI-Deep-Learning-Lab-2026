@@ -558,6 +558,11 @@ describe('host consoles', () => {
     expect(page.status).toBe(200)
     expect(await page.text()).toContain('the demo key')
     expect((await fetch(`${srv.url}/api/host/key?ticket=nope`)).status).toBe(401)
+    // The facilitator guide is a second private page. This server has none, and the pack info says so.
+    expect((await fetch(`${srv.url}/api/host/guide-ticket`, { method: 'POST', headers: auth, body: '{}' })).status).toBe(404)
+    expect((await fetch(`${srv.url}/api/host/guide?ticket=${encodeURIComponent(ticket)}`)).status).toBe(401)
+    const info = (await (await fetch(`${srv.url}/api/host/sessions`, { headers: auth })).json()) as { pack: { guide: boolean } }
+    expect(info.pack.guide).toBe(false)
     // The deck: every slide with its notes, for a host. A player token gets nothing.
     expect((await fetch(`${srv.url}/api/host/deck/${code}`)).status).toBe(401)
     const bot = await joinBot(srv, code, 'Alpha Branch')
@@ -570,6 +575,24 @@ describe('host consoles', () => {
     expect(deck.slides[0]).toMatchObject({ slide: { id: 'welcome-1', layout: 'title' } })
     expect(deck.slides.some((x) => !!x.notes)).toBe(true)
     expect((await fetch(`${srv.url}/api/host/deck/NOPE99`, { headers: auth })).status).toBe(404)
+  })
+
+  it('gives a signed-in host the facilitator guide by a ticket of its own, and a ticket opens only the page it was made for', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lab02-guide-'))
+    const keyFile = join(dir, 'key.html'), guideFile = join(dir, 'guide.html')
+    writeFileSync(keyFile, '<!doctype html><title>Key</title><p>the demo key</p>')
+    writeFileSync(guideFile, '<!doctype html><title>Guide</title><p>the demo guide</p>')
+    const srv = await startServer({ answerKeyFile: keyFile, config: { facilitatorGuideFile: guideFile } })
+    cleanups.push(() => srv.app.close().catch(() => {}), srv.cleanup, () => rmSync(dir, { recursive: true, force: true }))
+    const auth = { authorization: `Bearer ${await hostToken(srv.url)}`, 'content-type': 'application/json' }
+    expect((await fetch(`${srv.url}/api/host/guide-ticket`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(401)
+    const { ticket } = (await (await fetch(`${srv.url}/api/host/guide-ticket`, { method: 'POST', headers: auth, body: '{}' })).json()) as { ticket: string }
+    const page = await fetch(`${srv.url}/api/host/guide?ticket=${encodeURIComponent(ticket)}`)
+    expect(page.status).toBe(200)
+    expect(await page.text()).toContain('the demo guide')
+    expect((await fetch(`${srv.url}/api/host/key?ticket=${encodeURIComponent(ticket)}`)).status).toBe(401)
+    const info = (await (await fetch(`${srv.url}/api/host/sessions`, { headers: auth })).json()) as { pack: { guide: boolean } }
+    expect(info.pack.guide).toBe(true)
   })
 
   it('keeps control for a console that comes back within 20 seconds, then frees it', async () => {
@@ -647,7 +670,7 @@ describe('host consoles', () => {
     expect(await (await del('KEEP1')).json()).toEqual({ error: 'unknown_session' })
   })
 
-  it('ends an open session from the list of sessions, so that it can be deleted, and names the newer game', async () => {
+  it('ends an open session from the list of sessions, so that it can be deleted, and the next game is named to its players', async () => {
     const srv = await server()
     cleanups.push(srv.cleanup)
     const token = await hostToken(srv.url)
@@ -655,16 +678,12 @@ describe('host consoles', () => {
     const make = async (code: string) => (await fetch(`${srv.url}/api/host/session`, { method: 'POST', headers: auth, body: JSON.stringify({ label: code, mode: 'rehearsal', code }) })).json()
     const end = (c: string, headers: Record<string, string> = auth) => fetch(`${srv.url}/api/host/session/${c}/end`, { method: 'POST', headers, body: JSON.stringify({ name: 'Host One' }) })
     await make('OLD1')
-    await sleep(5)
-    await make('NEW1')
 
-    // A player of the older game, which is still open, is told of the newer one. The mode is public.
+    // The mode is public. While the game is open there is no later one to name.
     const api = playerApi(srv.url)
     const info = await api.session('OLD1')
     expect(info.ok && info.data.mode).toBe('rehearsal')
-    const newer = await api.open('OLD1')
-    expect(newer.ok && newer.data.session?.code).toBe('NEW1')
-    const none = await api.open('NEW1')
+    const none = await api.open('OLD1')
     expect(none.ok && none.data.session).toBeNull()
 
     expect((await end('OLD1', { 'content-type': 'application/json' })).status).toBe(401)
@@ -677,7 +696,11 @@ describe('host consoles', () => {
     // Ended is ended: a second time is refused, and nobody joins any more.
     expect(await (await end('OLD1')).json()).toEqual({ error: 'wrong_stage' })
     expect((await api.join({ code: 'OLD1', name: 'Practice Two' })).ok).toBe(false)
-    // The other session was not touched, and the ended one can now be deleted.
+    // The game opened after it is named to the players of the ended one, and the ended one can be deleted.
+    await sleep(5)
+    await make('NEW1')
+    const newer = await api.open('OLD1')
+    expect(newer.ok && newer.data.session?.code).toBe('NEW1')
     expect(srv.app.manager.get('NEW1')!.state.stage).toBe('lobby')
     expect((await fetch(`${srv.url}/api/host/session/OLD1`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } })).status).toBe(200)
     expect(srv.app.db.session('OLD1')).toBeUndefined()

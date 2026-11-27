@@ -349,6 +349,38 @@ actions:
       body: Acorn keeps patron data apart under the contract. Every call costs **a third more**.
       data: {value: 30, unit: "%", label: more per call than the public API, comparison: Plus a small monthly fee.}
     story_time: six weeks of talks
+  # Agent skills (2026-11-27): a guide to read, and then an action that the guide puts on the list.
+  - id: rb-a-guide
+    group: learn
+    public: {title: Read up on skills for agents, teaser: What a skill is and when an agent opens one.}
+    money: 0
+    developers: 1
+    seconds: 8
+    insight:
+      type: quote
+      headline: Tom on agent skills
+      body: Tom read the guide on the bus and summed it up.
+      data:
+        speaker: demo-tom
+        text: "A skill is a folder of instructions and scripts.\nThe agent opens it only when a task calls for it.\nIt guesses less, and somebody has to write the folder."
+    story_time: a bus ride
+    key: {note: Puts the action that develops skills on the list.}
+  - id: rb-a-skills
+    group: build
+    public: {title: Write skills for the agents, teaser: The developers write and test a skill for every job the agents repeat.}
+    money: 4
+    developers: 2
+    seconds: 14
+    requires: [rb-a-guide]
+    insight:
+      type: quote
+      headline: Tom on the new skills
+      body: Tom wrote four skills and tested each.
+      data:
+        speaker: demo-tom
+        text: "Every agent now follows a tested recipe for the jobs it repeats.\nA pilot will not show it.\nA year at the desk will."
+    story_time: a month
+    key: {note: "Changes no accuracy. In Phase 3 every agent fails less often (reliability.hardening of maintain.yaml)."}
 
 cases:
   - id: rb-k-shelf

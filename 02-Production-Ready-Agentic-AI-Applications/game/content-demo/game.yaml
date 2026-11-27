@@ -19,9 +19,9 @@ join:
     host_can_remove: true
   reconnect: token
   late_join:
-    open_until: {phase: maintaining, round: 2}
+    open_until: {phase: maintaining}
     missed_phase_points: 0
-    mid_phase: full_budget_remaining_clock
+    mid_phase: wait_for_next_phase
 
 clock:
   time_scale_default: 1

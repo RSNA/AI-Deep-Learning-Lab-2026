@@ -1,27 +1,11 @@
-// What the Phase 3 screens work out from a view (engineering spec, section 10.6): when the round
-// ends, what a map of the list is called, and the points of the chart. Pure functions.
-import type { MaintainingContent, MaintainingView } from '@lab02/protocol'
+// What the Phase 3 screens work out from a view (engineering spec, section 10.6): what a map of
+// the list is called, and the points of the chart. Pure functions.
+import type { MaintainingView } from '@lab02/protocol'
 import type { ChartPoint } from './Chart.tsx'
 import { P3 } from './copy.ts'
 
 export type MapEntry = MaintainingView['validations'][number]
 export type Report = MaintainingView['reports'][number]
-
-/**
- * When the round in progress ends, in game time. The end of the stage less the rounds still to
- * come, so that an extension by the host moves it at once (section 6.7). Null after the last
- * report, and without a clock the time the view carries.
- */
-export function roundEndMs(stageEndsAtMs: number | null, round: MaintainingView['round'], roundSeconds: number): number | null {
-  if (round.index > round.of) return null
-  if (stageEndsAtMs === null) return round.endsAtMs
-  return stageEndsAtMs - (round.of - round.index) * roundSeconds * 1000
-}
-
-/** The period whose report the round in progress ends with, or null when the year is over. */
-export function nextPeriod(c: MaintainingContent, seen: number): { label: string; short: string } | null {
-  return c.year.periods[seen] ?? null
-}
 
 /** What every map of the list is called: the validations of each phase by their number, a reference map by its label. */
 export function mapNames(validations: MapEntry[]): Map<string, string> {

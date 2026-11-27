@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { STAGES } from '@lab02/protocol'
 import {
-  ProvisionalAnchorsError, advance, avatarFor, bandOf, createSession, isProfane, pointsOf, project, roundHalfUp,
-  type SessionState,
+  ProvisionalAnchorsError, advance, apply, avatarFor, bandOf, createSession, deckSlides, isProfane, joinOpen, pointsOf, project, roundHalfUp,
+  soloCommand, type SessionState,
 } from '../src/index.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
 
@@ -228,25 +228,158 @@ describe('joining', () => {
     expect(s.players.def!.avatar).toBe('av07')
   })
 
-  it('a late joiner gets the phase in play and 0 for a closed phase', () => {
+  it('nobody enters a phase in play: a late joiner waits it out, scores 0 for it and enters the next phase', () => {
     const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
     toStage(s, 'planning.play')
     expect(join(s, 'late1', 'Late One', 2000).ok).toBe(true)
-    expect(s.players.late1!.planning).not.toBeNull()
-    toStage(s, 'development.play', 10_000)
-    expect(join(s, 'late2', 'Late Two', 20_000).ok).toBe(true)
-    expect(s.players.late2!.results.planning).toMatchObject({ points: 0, raw: 0 })
+    const late = s.players.late1!
+    expect(late.waitingFor).toBe('planning')
+    expect(late.planning).toBeNull()
+    // No board, so no command of the phase, no timer and no idle line.
+    expect(run(s, { actor: 'player', playerId: 'late1', type: 'planning.submit', payload: {} }, 3000)).toMatchObject({ ok: false, error: 'wrong_stage' })
+    const waiting = project.playerView(s, pack, 'late1', 'CODE').waiting!
+    expect(waiting.phase).toBe('planning')
+    expect(waiting.slides.map((x) => x.section)).toEqual(expect.arrayContaining([expect.any(String)]))
+    expect(project.standing(s, pack, 'late1').board.columns.planning.rows.length).toBeGreaterThan(0)
+    // Not in the phase, so not in its live ranking, at this beat or the next.
+    advance(s, pack, 3000 + pack.game.leaderboards.refresh_seconds * 1000)
+    expect(s.board.order.planning).toEqual(['p1'])
+    expect(project.standing(s, pack, 'late1').ranks.phase).toBeNull()
+    // The phase closes: 0 points for it, and the player still sits out its reveal and its break.
+    const t = toStage(s, 'planning.reveal', 10_000)
+    expect(late.waitingFor).toBeNull()
+    expect(late.results.planning).toMatchObject({ points: 0, raw: 0 })
+    expect(late.missed).toEqual(['planning'])
+    expect(project.playerView(s, pack, 'late1', 'CODE').waiting?.phase).toBe('planning')
+    toStage(s, 'development.play', t)
+    expect(late.development).not.toBeNull()
+    expect(project.playerView(s, pack, 'late1', 'CODE').waiting).toBeNull()
+    // Someone who joins between two phases enters the next one, and the phases before it score 0.
+    const s2 = newSession()
+    const t2 = toStage(s2, 'break.planning')
+    expect(join(s2, 'late2', 'Late Two', t2).ok).toBe(true)
+    expect(s2.players.late2!.waitingFor).toBeNull()
+    expect(s2.players.late2!.results.planning).toMatchObject({ points: 0, raw: 0 })
+    expect(project.playerView(s2, pack, 'late2', 'CODE').waiting?.phase).toBe('planning')
   })
 
-  it('closes joining after open_until', () => {
+  it('a player who is in a phase is not shown the waiting room', () => {
     const s = newSession()
-    toStage(s, 'maintaining.year')
-    const round = pack.game.phases.maintaining.round_seconds * 1000
-    const until = pack.game.join.late_join.open_until.round!
-    expect(join(s, 'x', 'Still In Time', s.stageStartedMs + (until - 1) * round + 10).ok).toBe(true)
-    const r = join(s, 'y', 'Too Late Now', s.stageStartedMs + until * round + 10)
+    join(s, 'p1', 'Alpha Branch')
+    toStage(s, 'planning.play')
+    expect(project.playerView(s, pack, 'p1', 'CODE').waiting).toBeNull()
+    toStage(s, 'break.planning', 5000)
+    expect(project.playerView(s, pack, 'p1', 'CODE').waiting).toBeNull()
+  })
+
+  it('closes joining when the last phase to enter has started', () => {
+    const s = newSession()
+    const t = toStage(s, 'break.development')
+    expect(joinOpen(s, pack)).toBe(true)
+    expect(join(s, 'x', 'Still In Time', t).ok).toBe(true)
+    toStage(s, 'maintaining.year', t)
+    expect(joinOpen(s, pack)).toBe(false)
+    const r = join(s, 'y', 'Too Late Now', s.stageStartedMs + 10)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toBe('join_closed')
+  })
+
+  it('keeps the slides that were on show, in the order they came up, for those who join later', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
+    expect(s.shown ?? []).toEqual([])
+    host(s, 'next')                               // intro: its section goes on show
+    const first = s.screen.slide
+    host(s, 'slide', { delta: 1 })
+    host(s, 'slide', { delta: -1 })
+    expect(s.shown).toEqual([first, first + 1])
+    host(s, 'next', {}, 1000)                     // planning.play
+    join(s, 'late', 'Late Branch', 2000)
+    expect(project.playerView(s, pack, 'late', 'CODE').waiting!.slides.map((x) => x.index)).toEqual([first, first + 1])
+    expect(project.playerView(s, pack, 'p1', 'CODE').waiting).toBeNull()
+  })
+
+  it('renames the session in the lobby and refuses once the game runs', () => {
+    const s = newSession()
+    expect(host(s, 'rename_session', { label: '  Sunday lab  ' }).ok).toBe(true)
+    expect(s.label).toBe('Sunday lab')
+    expect(host(s, 'rename_session', { label: '   ' })).toMatchObject({ ok: false, error: 'bad_message' })
+    host(s, 'next')
+    expect(host(s, 'rename_session', { label: 'Too late' })).toMatchObject({ ok: false, error: 'wrong_stage' })
+    expect(s.label).toBe('Sunday lab')
+  })
+})
+
+describe('a single-player game', () => {
+  const solo = () => createSession(pack, { code: 'SOLO01', label: 'Single player', mode: 'rehearsal', kind: 'solo' })
+  const me = (s: SessionState, type: string, payload: unknown = {}, now = 0) => {
+    advance(s, pack, now)
+    const c = soloCommand(s, pack, type, payload)
+    return typeof c === 'string' ? { ok: false as const, error: c } : apply(s, pack, { actor: 'host', type: c.type, payload: c.payload }, now)
+  }
+
+  it('belongs to one practice, and says so in its session info', () => {
+    const s = solo()
+    expect(project.sessionInfo(s, pack, 'http://x').kind).toBe('solo')
+    expect(project.sessionInfo(newSession(), pack, 'http://x').kind).toBe('multi')
+    expect(join(s, 'p1', 'Alpha Branch').ok).toBe(true)
+    expect(join(s, 'p2', 'Beta Branch')).toMatchObject({ ok: false, error: 'join_closed' })
+  })
+
+  it('refuses the three commands in a session with a facilitator', () => {
+    const s = newSession()
+    for (const type of ['solo.next', 'solo.slide', 'solo.end_now']) expect(soloCommand(s, pack, type, { delta: 1 })).toBe('not_solo')
+  })
+
+  it('is moved on by its player: slides inside a section, next out of it, a phase ended early, to the end', () => {
+    const s = solo()
+    join(s, 'p1', 'Alpha Branch')
+    const view = () => project.playerView(s, pack, 'p1', 'CODE')
+    expect(view().solo).toEqual({ next: 'intro', timed: false, slide: null })
+    expect(me(s, 'solo.end_now')).toMatchObject({ ok: false, error: 'wrong_stage' })
+    expect(me(s, 'solo.slide', { delta: 1 })).toMatchObject({ ok: false, error: 'wrong_stage' })   // no slide in the lobby
+    expect(me(s, 'solo.next').ok).toBe(true)
+    expect(s.stage).toBe('intro')
+    // The slides of the intro are on the player's screen, and the player steps through them.
+    const sec = { start: s.screen.slide, count: deckSlides(pack).filter((x) => x.section.stage === 'intro').length }
+    expect(view().slide).not.toBeNull()
+    expect(view().solo!.slide).toEqual({ first: true, last: sec.count === 1 })
+    expect(me(s, 'solo.slide', { delta: -1 })).toMatchObject({ ok: false, error: 'wrong_stage' })  // not before the section
+    for (let i = 1; i < sec.count; i++) expect(me(s, 'solo.slide', { delta: 1 }).ok).toBe(true)
+    expect(view().solo!.slide).toEqual({ first: sec.count === 1, last: true })
+    expect(me(s, 'solo.slide', { delta: 1 })).toMatchObject({ ok: false, error: 'wrong_stage' })   // not past the section
+    expect(me(s, 'solo.next', {}, 1000).ok).toBe(true)
+    expect(s.stage).toBe('planning.play')
+    expect(view().solo).toEqual({ next: null, timed: true, slide: null })
+    expect(me(s, 'solo.next', {}, 2000)).toMatchObject({ ok: false, error: 'wrong_stage' })
+    expect(me(s, 'solo.end_now', {}, 3000).ok).toBe(true)
+    expect(s.stage).toBe('planning.reveal')
+    let t = 4000
+    while (!s.closed) {
+      const r = s.stageEndsAtMs !== null ? me(s, 'solo.end_now', {}, t) : me(s, 'solo.next', {}, t)
+      expect(r.ok).toBe(true)
+      t += 1000
+    }
+    expect(s.closedPhases).toEqual(['planning', 'development', 'maintaining'])
+    expect(view().solo).toEqual({ next: null, timed: false, slide: null })
+    expect(me(s, 'solo.next', {}, t)).toMatchObject({ ok: false, error: 'wrong_stage' })
+    expect(me(s, 'solo.other')).toMatchObject({ ok: false, error: 'wrong_stage' })
+  })
+
+  it('a game to look at again holds the reveals and nothing of the live session', () => {
+    const s = solo()
+    join(s, 'p1', 'Alpha Branch')
+    let t = 0
+    while (s.stage !== 'break.planning') { t += 1000; expect((s.stageEndsAtMs !== null ? me(s, 'solo.end_now', {}, t) : me(s, 'solo.next', {}, t)).ok).toBe(true) }
+    expect(project.playerView(s, pack, 'p1', 'CODE').slide).not.toBeNull()
+    const mine = project.reviewMine(s, pack, 'p1', 'CODE', null)
+    expect(mine.view.slide).toBeNull()
+    expect(mine.view.solo).toBeNull()
+    expect(mine.view.planning!.reveal).not.toBeNull()
+    const base = project.reviewBase(s, pack, 'p1', 'http://x')
+    expect(base.content.map((c) => c.phase)).toEqual(['planning'])
+    expect(base.session.kind).toBe('solo')
   })
 
   it('a removed player is refused and leaves the rankings', () => {

@@ -10,7 +10,7 @@ async function hostApi(page: Page) {
   return {
     token,
     async session(label: string) {
-      const r = await page.request.post('/api/host/session', { data: { label, mode: 'test' }, headers: auth })
+      const r = await page.request.post('/api/host/session', { data: { label, mode: 'test', replace: {} }, headers: auth })
       return (await r.json()).code as string
     },
     async screenPath(code: string) {
@@ -95,7 +95,7 @@ test('the host drives every stage and the big screen follows', async ({ page, br
   await next.click()
   // Following the game, the intro opens the deck at its section, on the projector and on every player's screen.
   await expect(screen.getByText('The branch library game')).toBeVisible()
-  await expect(pp.getByText('The host is presenting.')).toBeVisible()
+  await expect(pp.getByText('The facilitator is presenting.')).toBeVisible()
   // The player sees the projector's slide, scaled as one block in its proportions, as large as
   // the space under the top bar allows (section 10.9).
   const vp = pp.viewportSize()!

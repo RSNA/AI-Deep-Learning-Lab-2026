@@ -49,6 +49,7 @@ CONTENT_DIR=/opt/lab02/content
 DATA_DIR=/opt/lab02/data
 PUBLIC_URL=https://$DOMAIN
 ANSWER_KEY_FILE=/opt/lab02/private/answer-key.html
+FACILITATOR_GUIDE_FILE=/opt/lab02/private/facilitator-guide.html
 LOG_LEVEL=info
 HOST_PASSCODE=$pass
 ENV

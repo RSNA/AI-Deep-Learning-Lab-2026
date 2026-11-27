@@ -1,30 +1,14 @@
-// The words and the arithmetic of the Phase 3 screens (engineering spec, section 10.6): when a
-// round ends, what a map of the list is called, what the chart draws, and the numbers a report
-// carries in the words a player reads.
+// The words and the arithmetic of the Phase 3 screens (engineering spec, section 10.6): what a
+// map of the list is called, what the chart draws, and the numbers a report carries in the words
+// a player reads.
 import { describe, expect, it } from 'vitest'
-import type { MaintainingContent } from '@lab02/protocol'
-import { axisFloor, axisTicks } from '../src/phase3/Chart.tsx'
+import { axisFloor, axisTicks, tickStep } from '../src/phase3/Chart.tsx'
 import { P3, out100, setUnit3, share100 } from '../src/phase3/copy.ts'
-import { chartPoints, gapOf, lettersOf, mapNames, nextPeriod, roundEndMs } from '../src/phase3/model.ts'
+import { chartPoints, gapOf, lettersOf, mapNames } from '../src/phase3/model.ts'
 import { report, view } from './fixtures/phase3.ts'
 
 describe('the timer of a round', () => {
-  const round = (index: number) => ({ index, of: 5, endsAtMs: null })
-  it('ends a round as many rounds before the end of the stage as are still to come', () => {
-    expect(roundEndMs(600_000, round(1), 120)).toBe(120_000)
-    expect(roundEndMs(600_000, round(5), 120)).toBe(600_000)
-  })
-  it('moves with the end of the stage when the host extends it', () => {
-    expect(roundEndMs(630_000, round(2), 120)).toBe(270_000)
-  })
-  it('has no end once the year is over, and takes the time of the view without a clock', () => {
-    expect(roundEndMs(600_000, round(6), 120)).toBeNull()
-    expect(roundEndMs(null, { index: 2, of: 5, endsAtMs: 240_000 }, 120)).toBe(240_000)
-  })
-  it('names the two months the next report covers', () => {
-    const c = { year: { periods: [{ id: 'p1', label: 'January and February', short: 'Jan–Feb' }, { id: 'p2', label: 'March and April', short: 'Mar–Apr' }] } } as MaintainingContent
-    expect(nextPeriod(c, 1)?.label).toBe('March and April')
-    expect(nextPeriod(c, 2)).toBeNull()
+  it('names the two months the next report covers, and the round', () => {
     expect(P3.until(102, 'March and April')).toBe('1:42 until the report on March and April')
     expect(P3.roundOf(2, 5)).toBe('Round 2 of 5')
   })
@@ -49,6 +33,18 @@ describe('the chart of the year', () => {
     expect(axisFloor([{ validity: 92, reliability: 44, value: 40.5, test: 95 }])).toBe(30)
     expect(axisTicks(50)).toEqual([50, 60, 70, 80, 90, 100])
     expect(axisTicks(30)).toEqual([30, 50, 75, 100])
+  })
+  it('labels every slot of a planned year, and fewer of them when added time makes the slots narrow', () => {
+    expect(tickStep(6)).toBe(1)
+    expect(tickStep(8)).toBe(1)
+    expect(tickStep(9)).toBe(1)
+    expect(tickStep(11)).toBe(2)
+    expect(tickStep(18)).toBe(2)
+    expect(tickStep(30)).toBe(4)
+    // On a narrow screen the labels are set larger, so a planned year already shows every second one.
+    expect(tickStep(6, true)).toBe(1)
+    expect(tickStep(8, true)).toBe(2)
+    expect(tickStep(11, true)).toBe(2)
   })
 })
 

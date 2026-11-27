@@ -61,7 +61,7 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
       // incident, and a news item reach a player one at a time (`maintainTexts`). The lesson of
       // an event comes out at the reveal.
       const m = sp.maintain
-      for (const list of [m.workers, m.actions]) for (const x of list as readonly { id: string; key?: unknown }[]) add(x.key, 'never', `${id}.maintain.${x.id}.key`)
+      for (const list of [m.workers, m.actions, m.models]) for (const x of list as readonly { id: string; key?: unknown }[]) add(x.key, 'never', `${id}.maintain.${x.id}.key`)
       m.events.forEach((e) => {
         add(e.key, 'never', `${id}.maintain.${e.id}.key`)
         add(e.reveal, 'maintaining.reveal', `${id}.maintain.${e.id}.reveal`)
@@ -85,7 +85,7 @@ export function protectedStrings(pack: Pack): ProtectedString[] {
   pub(pack.game.phases.planning.classes, true)
   for (const id of pack.systemIds) {
     const sp = pack.systems[id]!
-    pub([sp.system, sp.problems, sp.insights, sp.build, sp.maintain?.workers, sp.maintain?.actions, sp.maintain?.baseline], false)
+    pub([sp.system, sp.problems, sp.insights, sp.build, sp.maintain?.workers, sp.maintain?.actions, sp.maintain?.models, sp.maintain?.baseline], false)
     // Banter is public, but it is not allowed to repeat a protected string: it stays out of the
     // published set, so the scan flags a line that does.
     if (sp.story) pub({ ...sp.story, banter: undefined }, true)
@@ -140,24 +140,59 @@ export function perPlayerTexts(pack: Pack, system: string): {
 
 /**
  * Texts of Phase 3 that a player receives one at a time: a news item at the start of its round,
- * and with a report the symptom of an event, its cause (only with the lens it asks for), a
+ * and with a report the symptom of an event, its cause (only with the lens it asks for, or
+ * without a lens once an investigation has found the event), a
  * sentence of the report and of an incident. The alarm of an event comes with a lens action. The
  * leak scan checks them per player.
  */
 export function maintainTexts(pack: Pack, system: string): {
   news: Record<string, { round: number; texts: string[] }>
-  events: Record<string, { from: number; symptom: string | null; cause: { lens: string; text: string } | null; alarm: string | null }>
+  events: Record<string, { from: number; symptom: string | null; cause: { lens: string | null; text: string } | null; alarm: string | null }>
   incidents: string[]; report: string[]
 } {
   const m = pack.systems[system]?.maintain
-  const out = { news: {} as Record<string, { round: number; texts: string[] }>, events: {} as Record<string, { from: number; symptom: string | null; cause: { lens: string; text: string } | null; alarm: string | null }>, incidents: [] as string[], report: [] as string[] }
+  const out = { news: {} as Record<string, { round: number; texts: string[] }>, events: {} as Record<string, { from: number; symptom: string | null; cause: { lens: string | null; text: string } | null; alarm: string | null }>, incidents: [] as string[], report: [] as string[] }
   if (!m) return out
   const long = (x: string | undefined): x is string => x !== undefined && x.length >= LEAK_MIN_CHARS
   for (const n of m.news) out.news[n.id] = { round: n.round, texts: [n.title, n.text].filter(long) }
-  for (const e of m.events) out.events[e.id] = { from: e.from, symptom: long(e.symptom) ? e.symptom : null, cause: e.cause && long(e.cause.text) ? { lens: e.cause.lens, text: e.cause.text } : null, alarm: long(e.alarm) ? e.alarm : null }
+  for (const e of m.events) out.events[e.id] = { from: e.from, symptom: long(e.symptom) ? e.symptom : null, cause: e.cause && long(e.cause.text) ? { lens: e.cause.lens ?? null, text: e.cause.text } : null, alarm: long(e.alarm) ? e.alarm : null }
   const inc = m.incidents
   out.incidents = [...Object.values(inc.workers), inc.default_worker, ...Object.values(inc.sources), inc.handoff, ...Object.values(inc.compute), inc.new_map].filter(long)
   const r = m.report
   out.report = [...r.validity.map((x) => x.text), ...r.reliability.map((x) => x.text), r.gap, r.radiologists?.content, r.radiologists?.extra_look, r.radiologists?.rushed, r.steady, r.no_map].filter(long)
+  return out
+}
+
+/**
+ * Texts of the board that reach a player only with what they belong to (sections 6.6 and 6.7,
+ * "What is on the board"): the title and teaser of an action once it is on their list, the words
+ * of a tool, a model, a place to run or a prompt once it is unlocked (a model of Phase 3 with its
+ * names too, because nothing of it is sent before it appears), and what a look action found
+ * once it has found it. The leak scan checks them per player.
+ */
+export function boardTexts(pack: Pack, system: string): {
+  actions: Record<string, string[]>; items: Record<string, string[]>; findings: Record<string, string[]>
+} {
+  const out = { actions: {} as Record<string, string[]>, items: {} as Record<string, string[]>, findings: {} as Record<string, string[]> }
+  const base = pack.systems[system]?.build
+  if (!base) return out
+  const m = pack.systems[system]?.maintain
+  const b = phase3Build(base, m)
+  const long = (x: string | null | undefined): x is string => typeof x === 'string' && x.length >= LEAK_MIN_CHARS
+  for (const a of b.actions) out.actions[a.id] = [a.public.title, a.public.teaser].filter(long)
+  for (const w of b.workers) out.items[w.id] = [w.public.description, w.public.cost_line, w.public.task].filter(long)
+  const later = new Set(m?.models.map((x) => x.id) ?? [])
+  for (const x of b.models) out.items[x.id] = [x.public.description, x.public.cost_line, ...(later.has(x.id) ? [x.public.label, x.public.short] : [])].filter(long)
+  for (const x of b.compute) out.items[x.id] = [x.public.description, x.public.cost_line].filter(long)
+  for (const x of b.prompts) out.items[x.id] = [x.public.description, x.public.sample, ...(x.public.samples ?? []).map((y) => y.text)].filter(long)
+  for (const a of m?.actions ?? []) for (const f of a.finds ?? []) {
+    const t = f.insight
+    const texts = [t.headline, t.body]
+    if (t.type === 'stat') texts.push(t.data.label, t.data.comparison ?? '')
+    if (t.type === 'chart') texts.push(t.data.note ?? '')
+    if (t.type === 'audit') texts.push(t.data.note ?? '', ...t.data.findings.map((x) => x.label))
+    if (t.type === 'quote') texts.push(...t.data.text.split('\n'))
+    out.findings[`${a.id}:${f.event}`] = texts.filter(long)
+  }
   return out
 }

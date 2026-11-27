@@ -12,10 +12,11 @@ function cmd(s: SessionState, id: string, type: string, payload: unknown, now: n
   return run(s, { actor: 'player', playerId: id, type, payload }, now)
 }
 
-/** A session in planning.play at time 1000 with one player in system rb. */
-function playing(mode: 'test' | 'rehearsal' | 'event' = 'test'): { s: SessionState; t0: number } {
+/** A session in planning.play at time 1000 with one player in system rb, and `more` players who joined after them. */
+function playing(mode: 'test' | 'rehearsal' | 'event' = 'test', more: [string, string][] = []): { s: SessionState; t0: number } {
   const s = newSession(mode)
   join(s, 'p1', 'Alpha Branch', 0)
+  for (const [id, name] of more) join(s, id, name, 0)
   host(s, 'next', {}, 500)            // intro
   host(s, 'next', {}, 1000)           // planning.play
   expect(s.stage).toBe('planning.play')
@@ -128,9 +129,7 @@ describe('the board', () => {
   })
 
   it('scores the true board at the maximum and an empty board at 0', () => {
-    const { s, t0 } = playing()
-    join(s, 'p2', 'Beta Branch', t0)
-    join(s, 'p3', 'Gamma Branch', t0)
+    const { s, t0 } = playing('test', [['p2', 'Beta Branch'], ['p3', 'Gamma Branch']])
     expect(s.players.p3!.system).toBe('rb')
     expect(cmd(s, 'p1', 'planning.set_report', { picks: truth }, t0 + 10).ok).toBe(true)
     host(s, 'end_now', {}, t0 + 2000)
@@ -195,8 +194,7 @@ describe('the board', () => {
 
 describe('the live column and the reveal', () => {
   it('counts insights plus sorted problems, carries its maximum, and breaks ties by who got there first', () => {
-    const { s, t0 } = playing()
-    join(s, 'p2', 'Beta Branch', t0)
+    const { s, t0 } = playing('test', [['p2', 'Beta Branch']])
     host(s, 'next', {}, t0)  // refused in a timed stage, harmless
     expect(s.players.p2!.system).toBe('ls')
     expect(cmd(s, 'p2', 'planning.set_report', { picks: { 'ls-q-room': 'no_ai' } }, t0 + 100).ok).toBe(true)

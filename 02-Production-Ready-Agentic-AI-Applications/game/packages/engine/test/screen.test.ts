@@ -137,7 +137,7 @@ describe('the screen by stage', () => {
     expect(titles.slice(1).some((t) => sv().includes(t))).toBe(false)
     const notes = flat.map((f) => f.slide.notes).filter((x): x is string => !!x)
     expect(notes.some((n) => sv().includes(n))).toBe(false)
-    const hv = project.hostView(s, pack, { clock: { gameMs: 0, running: true, scale: 1 }, connected: () => false, publicUrl: 'http://x', wallNowMs: 0, stageWall: {}, answerKey: false, screens: 0 })
+    const hv = project.hostView(s, pack, { clock: { gameMs: 0, running: true, scale: 1 }, connected: () => false, publicUrl: 'http://x', wallNowMs: 0, stageWall: {}, answerKey: false, guide: false, screens: 0 })
     expect(hv.deck.current!.notes).toBe(flat[0]!.slide.notes ?? null)
     expect(hv.deck.next!.slide.id).toBe(flat[1]!.slide.id)
     expect(hv.screen.available).toEqual({ play: false, winners: false, slides: true })

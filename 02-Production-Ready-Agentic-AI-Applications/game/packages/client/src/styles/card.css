@@ -33,8 +33,6 @@
 .rc-foot { font-size: 11px; }
 .rc-linkrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rc-link { font-weight: 800; font-size: 16px; color: var(--ink); overflow-wrap: anywhere; }
-.rc-kept { display: flex; flex-direction: column; gap: 8px; }
-.rc-kept button { justify-content: flex-start; text-align: left; height: auto; min-height: 44px; padding: 6px 10px; }
 
 /* The copy for the printer: outside the application, never on a screen. */
 .printroot { display: none; }

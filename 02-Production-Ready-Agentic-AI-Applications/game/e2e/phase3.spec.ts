@@ -11,7 +11,7 @@ const PASS = 'e2e-passcode-0123'
 
 async function setup(page: Page, label: string) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
-  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal', replace: {} }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
   const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
@@ -118,6 +118,12 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await expect(page.getByRole('dialog', { name: 'Validate the same map again?' })).toContainText('Reference · Map B')
   await page.getByRole('button', { name: 'Validate again' }).click()
   // An action of Phase 3 runs meanwhile.
+  // What waits for a round or for a finding is not on the list, and nothing says that it will come.
+  await expect(page.locator('.arow[data-action="rb-a-look"]')).toHaveCount(1)
+  await expect(page.locator('.arow[data-action="rb-a-rules"]')).toHaveCount(0)
+  await expect(page.locator('.arow[data-action="rb-a-compare"]')).toHaveCount(0)
+  await expect(page.locator('.agroup', { hasText: 'Maintain' }).locator('.more-line')).toHaveCount(0)
+  await expect(page.locator('.schip', { hasText: 'Pine 2' })).toHaveCount(0)
   const tracing = page.locator('.arow', { hasText: 'Turn on tracing' })
   await tracing.getByRole('button', { name: 'Start' }).click()
   await expect(tracing.locator('.ibtn.run')).toBeVisible()
@@ -226,7 +232,7 @@ test('the phone: five tabs that stay on screen, the timer above them, the year a
   await hp.goto(`/host?s=${s.code}`)
   await hp.locator('.plook').first().click()
   const look = hp.getByRole('dialog')
-  await expect(look).toContainText('Only hosts see this page')
+  await expect(look).toContainText('Only facilitators see this page')
   await expect(look.getByRole('tab', { name: 'Phase 3' })).toHaveAttribute('aria-selected', 'true')
   const coach = look.locator('.coach')
   await expect(coach.locator('.eyebrow').first()).toHaveText('What holds them back')

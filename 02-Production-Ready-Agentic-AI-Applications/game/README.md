@@ -17,8 +17,8 @@ npm run dev
 ```
 
 - Players: http://localhost:5173 (the dev server proxies to the game server on port 3100)
-- Host console: http://localhost:5173/host, passcode `demo` in development
-- Create a session in the host console, then open the big screen from it.
+- Facilitator console: http://localhost:5173/host, passcode `demo` in development
+- Create a session in the facilitator console, then open the big screen from it.
 
 `npm run build` and `npm start` run the built server, which serves the client itself. The same build
 can serve a room from a laptop on a local network (`HOST=0.0.0.0 PUBLIC_URL=http://<laptop-ip>:3000`).

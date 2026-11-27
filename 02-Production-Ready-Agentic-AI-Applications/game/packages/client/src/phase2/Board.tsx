@@ -77,7 +77,11 @@ export function reasonText(r: string, pools: { id: string; label: string }[]): s
 // Small parts
 // ------------------------------------------------------------------------------------------
 export function Toast({ text, onShow, onClose }: { text: string; onShow?: () => void; onClose: () => void }) {
-  useEffect(() => { const id = setTimeout(onClose, 6000); return () => clearTimeout(id) }, [text, onClose])
+  // The notice goes after six seconds, counted from its text. The board draws itself again many
+  // times in those seconds (a countdown ticks), and a new `onClose` must not start the count again.
+  const close = useRef(onClose)
+  useEffect(() => { close.current = onClose })
+  useEffect(() => { const id = setTimeout(() => close.current(), 6000); return () => clearTimeout(id) }, [text])
   return (
     <div className="toast p2toast" role="status">
       <span>{text}</span>
@@ -323,7 +327,8 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
 
   // A validation that lands and an insight that lands are said without stealing the scroll.
   const seenV = useRef(dv.validations.length)
-  const seenI = useRef(dv.insights.length)
+  const insightKey = (x: BoardView['insights'][number]) => `${x.action}:${x.tile.headline}`
+  const seenI = useRef(new Set(dv.insights.map(insightKey)))
   const show = (t: BoardTab, panelId?: string) => {
     if (phone) setTab(t)
     else if (t === 'map') window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -336,16 +341,48 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     seenV.current = dv.validations.length
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dv.validations.length])
+  // A card is new when its action had none, and when a later run of the action brought another card.
+  const insightsKey = dv.insights.map(insightKey).join('|')
   useEffect(() => {
-    if (dv.insights.length > seenI.current) {
-      const x = dv.insights.at(-1)!
-      setToast({ text: P2.insightToast(content.actions.find((a) => a.id === x.action)?.title ?? ''), show: showInsights })
+    const x = dv.insights.findLast((i) => !seenI.current.has(insightKey(i)))
+    if (x) {
+      setToast({ text: P2.insightToast(x.tile.headline || (content.actions.find((a) => a.id === x.action)?.title ?? '')), show: showInsights })
       setFresh((f) => new Set([...f, x.action]))
       setTimeout(() => setFresh((f) => { const n = new Set(f); n.delete(x.action); return n }), 8000)
     }
-    seenI.current = dv.insights.length
+    seenI.current = new Set(dv.insights.map(insightKey))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dv.insights.length])
+  }, [insightsKey])
+
+  // --- what is on the board. An item that is not unlocked and an action that waits for something
+  // are not shown. When one comes onto the board, a notice names it and it is marked until the
+  // player has looked at it.
+  const open = <X extends { id: string }>(list: X[]): X[] => list.filter((x) => unlocked.has(x.id))
+  const shownWorkers = open(content.workers), shownModels = open(content.models), shownCompute = open(content.compute), shownPrompts = open(content.prompts)
+  const boardKey = [...shownWorkers, ...shownModels, ...shownCompute, ...shownPrompts].map((x) => x.id).concat(content.actions.map((a) => `action:${a.id}`)).join(',')
+  const usedKey = draft.map.tiles.flatMap((t) => [t.kind, t.model, t.runsOn, t.prompt]).filter((x): x is string => !!x).join(',')
+  const boardSeen = useRef<Set<string> | null>(null)
+  const [newIds, setNewIds] = useState<Set<string>>(new Set())
+  const seen = useCallback((id: string) => setNewIds((n) => { if (!n.has(id)) return n; const next = new Set(n); next.delete(id); return next }), [])
+  const seenAction = useCallback((id: string) => seen(`action:${id}`), [seen])
+  useEffect(() => {
+    const now = boardKey ? boardKey.split(',') : []
+    const before = boardSeen.current
+    boardSeen.current = new Set(now)
+    if (!before) return
+    // What is already on the map (a reference map that was taken) needs no mark.
+    const added = now.filter((id) => !before.has(id) && !usedKey.split(',').includes(id))
+    if (!added.length) return
+    setNewIds((n) => new Set([...n, ...added]))
+    setToast({ text: P2.newOnBoard(added.map((id) => (id.startsWith('action:') ? content.actions.find((a) => a.id === id.slice(7))?.title ?? '' : labelOf(content, id))).filter(Boolean)) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardKey])
+  // An item that goes onto the map has been seen.
+  useEffect(() => {
+    const used = new Set(usedKey.split(','))
+    setNewIds((n) => ([...n].some((id) => used.has(id)) ? new Set([...n].filter((id) => !used.has(id))) : n))
+  }, [usedKey])
+  const newActions = useMemo(() => new Set([...newIds].filter((id) => id.startsWith('action:')).map((id) => id.slice(7))), [newIds])
 
   const commit = (next: CanvasMap) => { setNote(null); if (!draft.commit(next)) say(P2.refusedMap) }
   // Two tiles of one kind carry a number, everywhere a tile is named.
@@ -550,11 +587,12 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   }
   const shelves = (
     <div data-tour="p2-shelves"><Shelves unlocked={unlocked} lockedBy={lockedBy} onInfo={(item) => setSheet({ kind: 'item', item, more: shelfMore(item.id) })} popOf={phone ? undefined : popOfShelf}
+      fresh={newIds} onSeen={seen}
       rows={[
-        { title: P2.models, icon: 'model', items: content.models.map((m) => ({ id: m.id, label: m.label, short: m.short, description: m.description, costLine: m.costLine })) },
-        { title: P2.computes, icon: 'compute', items: content.compute.map((c) => ({ id: c.id, label: c.label, short: c.short, description: c.description, costLine: c.costLine })) },
+        { title: P2.models, icon: 'model', more: content.rules.more.models, items: shownModels.map((m) => ({ id: m.id, label: m.label, short: m.short, description: m.description, costLine: m.costLine })) },
+        { title: P2.computes, icon: 'compute', more: content.rules.more.compute, items: shownCompute.map((c) => ({ id: c.id, label: c.label, short: c.short, description: c.description, costLine: c.costLine })) },
       ]}
-      words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, info: P2.info }} /></div>
+      words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, info: P2.info, more: P2.moreShelf, moreLong: P2.moreShelfLong, newTag: P2.newTag }} /></div>
   )
 
   const api: BoardApi = {
@@ -615,18 +653,19 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     </div>
   ) : null
   const actions = (
-    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={start} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={phone ? spendNote : null}
-      words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more }} />
+    <ActionList groups={content.rules.actionGroups} rows={rows} onStart={(id) => { seenAction(id); start(id) }} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={phone ? spendNote : null}
+      more={content.rules.more.actions} fresh={newActions} onSeen={seenAction}
+      words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more, moreHere: P2.moreActions, newTag: P2.newTag }} />
   )
   const toolbox = (
     <Toolbox phone={phone} picked={mode.kind === 'place' ? mode.worker : null} unlocked={unlocked} lockedBy={lockedBy} groups={content.rules.toolboxGroups}
-      popOf={phone ? undefined : popOfTool}
+      popOf={phone ? undefined : popOfTool} more={content.rules.more.toolbox} fresh={newIds} onSeen={seen}
       onPick={(id) => { setSel(null); setNote(null); setMode(id ? { kind: 'place', worker: id } : { kind: 'idle' }); if (id && phone) setTab('map') }}
-      workers={content.workers.map((x) => ({
+      workers={shownWorkers.map((x) => ({
         id: x.id, label: x.label, short: x.short, description: x.description, costLine: x.costLine, icon: x.icon, kind: x.kind,
         task: x.task, group: x.group, extra: x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null,
       }))}
-      words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, pickHint: P2.pickHint, picked: P2.picked, kinds: P2.kinds, lockedTold: P2.lockedTold }} />
+      words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, pickHint: P2.pickHint, picked: P2.picked, kinds: P2.kinds, lockedTold: P2.lockedTold, more: P2.moreTools, newTag: P2.newTag }} />
   )
   const insights = <InsightsPanel w={w} content={content} dv={dv} fresh={fresh} phase={phase} letters={letters} freshLetters={freshLetters} title={words.insightsTitle} />
 
@@ -664,24 +703,26 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       if (sheet.part === 'prompt') {
         const reads = map.lines.filter((l) => l.to === t.id && content.sources.some((x) => x.id === l.from)).map((l) => labelOf(content, l.from))
         const from = map.lines.filter((l) => l.to === t.id && tileOf(map, l.from)).map((l) => nodeLabel(l.from))
-        sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={content.prompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
+        sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={shownPrompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
           onPick={(id) => set('prompt', id)} onClose={close}
-          words={{ intro: P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction, more: P2.showMore, less: P2.showLess }} />
+          words={{ intro: content.rules.more.prompts ? `${P2.promptIntro} ${P2.morePrompts}` : P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction, more: P2.showMore, less: P2.showLess }} />
       } else if (sheet.part === 'model') {
         sheetEl = <PartSheet title={P2.modelOf(name)} onPick={(id) => set('model', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
-          choices={content.models.map((m) => ({
+          intro={content.rules.more.models ? P2.moreShelfLong : undefined}
+          choices={shownModels.map((m) => ({
             id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id,
-            disabled: !w2.models.includes(m.id) ? P2.cannotCarry : !unlocked.has(m.id) ? P2.locked(lockedBy[m.id] ?? '') : null,
+            disabled: !w2.models.includes(m.id) ? P2.cannotCarry : null,
           }))} />
       } else {
         const model = content.models.find((m) => m.id === t.model)
-        sheetEl = <PartSheet title={P2.computeOf(name)} intro={P2.computeIntro(model?.label ?? null)} onPick={(id) => set('runsOn', id)} onClose={close}
+        // A model that runs nowhere on the board yet names what is on the board and says that more will come.
+        sheetEl = <PartSheet title={P2.computeOf(name)} intro={[P2.computeIntro(model?.label ?? null), content.rules.more.compute ? P2.moreShelfLong : null].filter(Boolean).join(' ')} onPick={(id) => set('runsOn', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
-          choices={content.compute.map((c) => ({
+          choices={shownCompute.map((c) => ({
             id: c.id, label: c.label, detail: [c.description, c.costLine].filter(Boolean).join(' '), current: t.runsOn === c.id,
-            disabled: !unlocked.has(c.id) ? P2.locked(lockedBy[c.id] ?? '') : model && !model.runsOn.includes(c.id)
-              ? P2.cannotRun(model.short, model.runsOn.map((x) => content.compute.find((y) => y.id === x)?.short ?? x).join(', ')) : null,
+            disabled: model && !model.runsOn.includes(c.id)
+              ? P2.cannotRun(model.short, model.runsOn.filter((x) => unlocked.has(x)).map((x) => content.compute.find((y) => y.id === x)?.short ?? x).join(', ') || P2.nowhereYet) : null,
           }))} />
       }
     }

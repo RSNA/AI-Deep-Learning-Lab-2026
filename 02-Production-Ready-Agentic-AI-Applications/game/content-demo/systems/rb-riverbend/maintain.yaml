@@ -9,6 +9,8 @@ periods:
   - {id: p4, label: July and August, short: Jul-Aug}
   - {id: p5, label: September and October, short: Sep-Oct}
   - {id: p6, label: November and December, short: Nov-Dec}
+# Reports that added time brings after December are named from this: the same months, a year on.
+calendar: {cycle: 6, first_year: 2031}
 
 grants:
   - {round: 1, money: 20}
@@ -46,6 +48,8 @@ reliability:
   new_map: {risk: 0.02, spared_by: [rb-a-staging]}
   hardening:
     - {action: rb-a-harden, workers: [rb-w-agent, rb-w-step], factor: 0.5}
+    # Skills (an action of build.yaml): an agent that follows a tested recipe fails less often.
+    - {action: rb-a-skills, workers: [rb-w-agent], factor: 0.6}
   interruption: 0.025
 
 lenses:
@@ -89,6 +93,24 @@ workers:
     complexity: 1
     key: {note: Knows the terms without a line, until the partners rewrite them.}
 
+# A model that exists from Phase 3 on. It comes onto the shelf with the news of round 4, for a
+# branch that has set up the free model. `by_worker` holds its numbers on the test set. What it
+# does at the desk is the event rb-e-open2.
+models:
+  - id: rb-m-open2
+    appears: {round: 4, requires: [rb-a-download]}
+    public:
+      label: Pine 2
+      short: Pine 2
+      description: The new version of the free model. Its makers say it beats Pine in every test they ran. It runs wherever Pine runs.
+      cost_line: Free to download. You pay for where it runs.
+    run: 0.5
+    runs_on: [rb-c-rented, rb-c-owned]
+    by_worker:
+      rb-w-agent: {fetch: {easy: 0.97, hard: 0.80, scan: 0.34}, decide: {plain: 0.93, hard: 0.76}, catch: 0.3}
+      rb-w-step: {fetch: {easy: 0.95, hard: 0.0, scan: 0.28}, decide: {plain: 0.88, hard: 0.60}, catch: 0.2}
+    key: {note: Better than Pine on the test set, worse and less steady at the desk (rb-e-open2).}
+
 line_rules:
   - from: rb-s-cards
     to: rb-w-gateway
@@ -110,6 +132,41 @@ actions:
       data: {speaker: demo-tom, text: "It compares this month's input with last year's.\nWhen the two part ways, it tells us."}
     story_time: three weeks
     key: {note: Holds the lens drift_alarm. It finds nothing until the handwriting changes.}
+  - id: rb-a-look
+    group: watch
+    repeat: true
+    public: {title: Look at what the tools are fed, teaser: A developer compares this year's requests with the ones the tools were built on.}
+    money: 1
+    developers: 1
+    seconds: 8
+    insight:
+      type: quote
+      headline: Tom on this year's requests
+      body: Tom read two hundred requests.
+      data: {speaker: demo-tom, text: "They look like last year's requests.\nNothing to fix today."}
+    finds:
+      - event: rb-e-wording
+        insight:
+          type: quote
+          headline: Tom on the new request form
+          body: Tom read two hundred requests and found the change.
+          data: {speaker: demo-tom, text: "The new web form lets patrons write in their own words.\nThe rule was written for the old drop-down list.\nIt matches fewer requests every month."}
+    story_time: one week
+    key: {note: "A look. It finds nothing before the report of May and June, and then names the new form on a map with the rule."}
+  - id: rb-a-compare
+    group: watch
+    appears: {round: 4}
+    public: {title: Try Pine 2 on our own requests, teaser: A librarian runs both versions on a sample of this year's requests.}
+    money: 2
+    developers: 1
+    seconds: 10
+    insight:
+      type: stat
+      headline: Pine 2 on our own requests
+      body: Better on the plain requests, **worse on the hard ones**, and it stopped more often.
+      data: {value: 3, unit: points, label: ahead of Pine on last year's test set, comparison: Behind Pine on this year's hard requests.}
+    story_time: two weeks
+    key: {note: Says that the new version is not better at the desk.}
   - id: rb-a-testset
     group: watch
     public: {title: Build a test set from this year, teaser: A librarian works a sample of this year's requests by hand.}
@@ -151,6 +208,16 @@ actions:
     seconds: 16
     story_time: one month
     key: {note: Ends the drift when it starts after the drift was seen.}
+  - id: rb-a-rules
+    group: maintain
+    repeat: true
+    appears: {found: [rb-e-wording]}
+    public: {title: Rewrite the rule for the new form, teaser: The developers rewrite the rule against the words patrons use now.}
+    money: 2
+    developers: 1
+    seconds: 12
+    story_time: two weeks
+    key: {note: Ends the harm of the new request form. On the list only once a look has found it.}
   - id: rb-a-reconnect
     group: maintain
     repeat: true
@@ -225,6 +292,19 @@ events:
     key:
       teaches: A standard connector spares a map when a system behind it changes.
       coach: {holds: "Direct lines into the catalog and the mailbox break since the upgrade.", say: "Ask how many lines go straight into a branch system, and what one connector in front of them would change."}
+  # A change that grows for as long as it is left alone: a list of factors by periods since it began.
+  - id: rb-e-wording
+    from: 3
+    needs: {workers: [rb-w-rule]}
+    patches:
+      - {op: worker, worker: rb-w-rule, decide: {plain: [0.95, 0.85, 0.7]}}
+    repaired_by: [rb-a-rules]
+    symptom: The rule sends more plain requests to the wrong shelf than it did in spring. Nothing in the logs failed.
+    cause: {text: "The new web form lets patrons write in their own words, and the rule was written for the old list of choices. It matches fewer requests every month."}
+    reveal: {title: The request form changed, text: "A rule fits the input it was written for. When the input moves, the rule goes wrong quietly, and a little more every month."}
+    key:
+      teaches: A fixed part goes wrong quietly when its input changes, and the harm grows.
+      coach: {holds: "Their rule goes wrong more often every month since the request form changed.", say: "Ask what the rule was written for, and whether anybody has looked at this year's requests."}
   - id: rb-e-handwriting
     from: 4
     needs: {workers: [rb-w-reader]}
@@ -250,6 +330,32 @@ events:
     key:
       teaches: Rented compute costs more over time than owned.
       coach: {holds: "They rent GPUs, and the price rose in July.", say: "Ask what the system costs to run for the rest of the year, and what else could run the same model."}
+  # A provider raises the price of its models.
+  - id: rb-e-tariff
+    from: 6
+    needs: {models: [rb-m-large, rb-m-small]}
+    patches:
+      - {op: model, model: rb-m-large, run: 2.0}
+      - {op: model, model: rb-m-small, run: 2.0}
+    symptom: Every call to an Acorn model costs twice as much since November.
+    reveal: {title: Acorn doubled its prices, text: "A model behind somebody else's service costs what its owner decides."}
+    key:
+      teaches: Depending on one provider is a cost that a pilot does not show.
+      coach: {holds: "Their AI tiles run on Acorn models, which cost twice as much since November.", say: "Ask what the system costs each month, and who sets that price."}
+  # A newer model: better on the test set, worse and less steady at the desk.
+  - id: rb-e-open2
+    from: 1
+    needs: {models: [rb-m-open2]}
+    patches:
+      - {op: model, model: rb-m-open2, decide: {hard: 0.6}, catch: 0.5}
+    risks:
+      - {models: [rb-m-open2], tile: 0.06}
+    symptom: Since the switch to Pine 2 the same kind of request gets a sound answer one day and a wrong one the next.
+    cause: {lens: incident_log, text: "The answers that failed came from the tiles on Pine 2. It stops more often than Pine, and it loses the hard requests."}
+    reveal: {title: The new version did not hold up at the desk, text: "A model that wins a test may still be worse at the desk. Try a new version on your own requests before it goes live."}
+    key:
+      teaches: A test score is not reliability in service.
+      coach: {holds: "They moved their AI tiles to Pine 2, which is less steady at the desk.", say: "Ask who measured that the new version is better, and on whose requests."}
   - id: rb-e-timetable
     from: 5
     needs: {sources: [rb-s-courier]}
@@ -303,12 +409,26 @@ news:
     from: demo-priya
     title: About the GPU bill
     text: The company that rents out cloud GPUs raises its prices by half from July. If we rent, we pay it. A server of our own takes weeks to arrive, so decide soon.
+  # Only for a branch on whose map the event acts.
+  - id: rb-n-wording
+    round: 3
+    if_event: rb-e-wording
+    kind: letter
+    from: demo-tom
+    title: Something is off with the plain requests
+    text: The rule sent a few plain requests to the wrong shelf this month. It never did that before. I would like to look at what comes in.
   - id: rb-n-grant
     round: 3
     kind: letter
     from: demo-priya
     title: More money for the second half
     text: The network liked the first months. They added thirty thousand to the project for the rest of the year. Spend it where the reports say it hurts.
+  - id: rb-n-open2
+    round: 4
+    kind: announcement
+    from: demo-tom
+    title: Pine 2 is out
+    text: The makers of Pine released Pine 2 today. They say it beats Pine in every test, at the same price, and that everybody should switch. From November Acorn also charges twice as much for every call.
   - id: rb-n-audit
     round: 4
     kind: announcement
@@ -375,6 +495,15 @@ key:
     rb-a-monitor:
       best: Before the summer on a map with the card reader.
       wrong: On a map with no narrow model, where it has nothing to watch.
+    rb-m-open2:
+      best: Left on the shelf.
+      wrong: Moving the AI tiles to it because it wins the test.
+    rb-a-look:
+      best: Right after the report of May and June, on a map with the rule.
+      wrong: Before that report, when there is nothing to find.
+    rb-a-rules:
+      best: In the same round as the look that found the new form.
+      wrong: A round later.
     rb-a-retrain:
       best: Right after the report of July and August, when the drift has been seen.
       wrong: Before the drift, when there is nothing new to learn from.

@@ -1,21 +1,21 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { COLUMNS, PLAY_STAGES, phaseOfStage, type PhaseId, type SystemRef, type Welcome } from '@lab02/protocol'
-import { COPY, PHASE_NUMBER, STAGE_TITLE } from '../copy.ts'
+import { COLUMNS, PHASES, phaseOfStage, type PhaseId, type SlideView, type SystemRef, type Welcome } from '@lab02/protocol'
+import { COPY, PHASE_NUMBER, SOLO_NEXT, STAGE_TITLE } from '../copy.ts'
 import { api } from '../lib/net.ts'
 import { usePlayer, forgetPlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import { useTheme } from '../lib/theme.ts'
 import { Room } from '../scene/Room.tsx'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Portrait, Sheet, SystemShape, ThemeButton, columnTag } from '../components/ui.tsx'
-import { NewGame, PastGameCard, useOpenGame } from '../components/after.tsx'
+import { NewGame, PastGameCard } from '../components/after.tsx'
 import { ReportCardPanel } from '../card/ReportCard.tsx'
 import { CARD } from '../card/copy.ts'
 import { useTour } from '../components/Tour.tsx'
 import { Sizable, useHeight } from '../components/sizable.tsx'
 import { SLIDE_H, SLIDE_W, SlideThumb } from '../components/slide.tsx'
-import { TownStrip } from './Join.tsx'
+import { BoardColumns, TownStrip } from './Join.tsx'
 import { BriefSheet, Planning } from '../phase1/Phase1.tsx'
 import { Development, P2_TABS_BELOW, Purse } from '../phase2/Phase2.tsx'
 import { P2 } from '../phase2/copy.ts'
@@ -82,7 +82,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} bar />
     : yearPlay && year ? <Purse dv={year.mv} content={year.content} bar /> : null
   // A phone shows the round in a line above its tabs, so its top bar keeps the plain countdown off.
-  const timer = year ? (yearPlay ? <RoundTimer mv={year.mv} content={year.content} variant="bar" /> : null) : timed ? <Countdown clock={clock} /> : null
+  const timer = year ? (yearPlay ? <RoundTimer mv={year.mv} variant="bar" /> : null) : timed ? <Countdown clock={clock} /> : null
   const rankBtn = (
     <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
       {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
@@ -103,7 +103,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
         </div>
       ) : <div className="mid">{timer}</div>}
       <div className="right">
-        {rankBtn}
+        {w.session.kind === 'multi' && rankBtn}
         {!narrow && <span className={`dot ${status === 'open' ? 'on' : 'off'}`} title={status === 'open' ? 'Connected' : COPY.reconnecting} aria-label={status === 'open' ? 'Connected' : COPY.reconnecting} />}
         <ThemeButton />
         <button className="iconbtn" onClick={onMenu} aria-label={COPY.menu}>☰</button>
@@ -112,7 +112,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   )
 }
 
-function MenuSheet({ onClose, onBrief, onResult, onResult2, onResult3, onLeave, onTour, onHelp }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onResult3: (() => void) | null; onLeave: () => void; onTour: (() => void) | null; onHelp: (() => void) | null }) {
+function MenuSheet({ onClose, onBrief, onResult, onResult2, onResult3, onLeave, onTour, onHelp, solo }: { onClose: () => void; onBrief: () => void; onResult: (() => void) | null; onResult2: (() => void) | null; onResult3: (() => void) | null; onLeave: () => void; onTour: (() => void) | null; onHelp: (() => void) | null; solo: boolean }) {
   const view = usePlayer((s) => s.view)!
   const brief = [...view.inbox].reverse().find((m) => m.kind === 'brief')
   return (
@@ -141,7 +141,7 @@ function MenuSheet({ onClose, onBrief, onResult, onResult2, onResult3, onLeave, 
       <div className="eyebrow">{COPY.howToPlay}</div>
       <HowToPlay compact />
       <div className="menulist">
-        <button type="button" className="btn small text" onClick={onLeave}><span>{COPY.newPlayer}</span><span className="muted">{COPY.newPlayerLine}</span></button>
+        <button type="button" className="btn small text" onClick={onLeave}><span>{solo ? COPY.soloLeave : COPY.newPlayer}</span><span className="muted">{solo ? COPY.soloLeaveLine : COPY.newPlayerLine}</span></button>
       </div>
     </Sheet>
   )
@@ -348,7 +348,7 @@ function Lobby({ w }: { w: Welcome }) {
     <>
       <TownStrip height={narrow ? 96 : short ? 72 : 112}>
         <div className="bubble" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', width: 'min(320px, 86vw)' }}>
-          <b>{COPY.you}:</b> {view.stage === 'intro' ? COPY.introWait : COPY.waitingHost}
+          <b>{COPY.you}:</b> {w.session.kind === 'solo' ? COPY.soloIdle : view.stage === 'intro' ? COPY.introWait : COPY.waitingHost}
         </div>
       </TownStrip>
       {narrow ? (
@@ -428,10 +428,10 @@ function PointsTable() {
   )
 }
 
-type Look = 'planning' | 'development' | 'maintaining' | null
+export type Look = 'planning' | 'development' | 'maintaining' | null
 
 /** The result of a scored phase, opened again. */
-function Looked({ w, look }: { w: Welcome; look: Look }) {
+export function Looked({ w, look }: { w: Welcome; look: Look }) {
   return look === 'planning' ? <Planning w={w} /> : look === 'development' ? <Development w={w} /> : <Maintaining w={w} />
 }
 
@@ -466,10 +466,11 @@ function Winners({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: stri
         <div className="panel-head sun">{ended ? COPY.closed : COPY.finalTitle}</div>
         <div className="panel-body">
           {ended && <p style={{ fontSize: 16 }}>{card ? CARD.endedLine : COPY.closedLine}</p>}
+          {!ended && w.session.kind === 'solo' && <p style={{ fontSize: 16 }}>{COPY.soloDone}</p>}
           {/* Without a card (no phase was scored) the rank and the points stand here. With one, the card holds them. */}
           {!card && <div className="num" style={{ fontSize: 48 }}>{st?.ranks.overall ? `#${st.ranks.overall}` : '–'} <span className="muted" style={{ fontSize: 24 }}>of {st?.ranks.of ?? '–'}</span></div>}
           {!card && <PointsTable />}
-          {top.length > 0 && (
+          {top.length > 0 && w.session.kind === 'multi' && (
             <div className="rc-top3" aria-label={card?.final ? CARD.winners : CARD.standings}>
               <div className="eyebrow">{card?.final ? CARD.winners : CARD.standings}</div>
               <BoardRows rows={top} systems={w.session.systems} />
@@ -543,7 +544,8 @@ function MirroredSlide({ w, onBack }: { w: Welcome; onBack: (() => void) | null 
         <>
           <SlideThumb sl={sl} joinUrl={w.session.joinUrl} width={width} theme={theme} plain meta={<span>{sl.section} · {COPY.slideOf(sl.index + 1, sl.count)}</span>} />
           <div className="pslide-foot" style={{ width }}>
-            <span>{COPY.presenting}{upright ? ` ${COPY.turnPhone}` : ''}</span>
+            {/* In a single-player game the strip above the slide says what to do. */}
+            <span>{w.session.kind === 'solo' ? '' : COPY.presenting}{upright ? ` ${COPY.turnPhone}` : ''}</span>
             {onBack && <button type="button" className="btn go small pslide-back" onClick={onBack}>{COPY.backToBoard}</button>}
           </div>
         </>
@@ -560,9 +562,11 @@ function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: st
   // or a break the player may step back to the board; that choice lasts until the mirror ends.
   const mirrored = !!view.slide
   useEffect(() => { if (!mirrored) setHidden(false) }, [mirrored])
-  const canLeave = st.endsWith('.reveal') || st.startsWith('break.')
+  // A player who sits a phase out may always step back from the slide to the waiting room.
+  const canLeave = st.endsWith('.reveal') || st.startsWith('break.') || !!view.waiting
   if (view.slide && !(hidden && canLeave)) return <MirroredSlide w={w} onBack={canLeave ? () => setHidden(true) : null} />
   const onSlides = view.slide ? () => setHidden(false) : null
+  if (view.waiting) return <WaitingRoom w={w} />
   if (st === 'lobby' || st === 'intro') return <Lobby w={w} />
   if (st === 'winners' || st === 'closed') return <Winners w={w} onNewGame={onNewGame} onLeave={onLeave} />
   const phase = phaseOfStage(st)
@@ -576,21 +580,97 @@ function StageBody({ w, onNewGame, onLeave }: { w: Welcome; onNewGame: (code: st
 }
 
 /**
- * A practice run (a test or a rehearsal) that is still open while the host has opened a newer
- * one: a strip that leads over to it. Never in an event, and never while a phase is in play.
+ * The waiting room of a player who sits a phase out (section 6.4): they joined while it was in
+ * play. The leaderboard and the slides that were shown so far, until the next phase starts.
  */
-function NewerBar({ code, on, onLeave }: { code: string; on: boolean; onLeave: (to: string) => void }) {
-  const open = useOpenGame(code, on)
-  // A player who wants to stay closes the strip. It comes back when the host opens another game.
-  const [stay, setStay] = useState<string | null>(null)
-  if (!open || stay === open.code) return null
+function WaitingRoom({ w }: { w: Welcome }) {
+  const view = usePlayer((s) => s.view)!
+  const st = usePlayer((s) => s.standing)
+  const theme = useTheme()
+  const narrow = useNarrow(700)
+  const [at, setAt] = useState<number | null>(null)
+  const wait = view.waiting!
+  const n = PHASE_NUMBER[wait.phase]
+  const shown: SlideView | null = at !== null ? wait.slides[at] ?? null : null
+  const columns = (['overall', ...PHASES.filter((p) => st?.board.columns[p].state !== 'empty')] as const)
   return (
-    <div className="restartbar newer" role="status">
-      <span>{COPY.newerGameBar(open.label)}</span>
-      <span className="newer-acts">
-        <button type="button" className="btn small" onClick={() => onLeave(open.code)}>{COPY.newerGameGo}</button>
-        <button type="button" className="btn small" onClick={() => setStay(open.code)} aria-label={COPY.newerGameStay} title={COPY.newerGameStay}>✕</button>
+    <main className="waitroom">
+      <section className="panel">
+        <div className="panel-head sun">{view.stage === `${wait.phase}.play` || view.stage === 'maintaining.year' ? COPY.waitTitle(n) : COPY.waitEnded(n)}</div>
+        <div className="panel-body"><p style={{ fontSize: 16, lineHeight: 1.45 }}>{COPY.waitLine(n + 1)}</p></div>
+      </section>
+      <section className="panel">
+        <div className="panel-head lav">{COPY.waitBoard}</div>
+        <div className="panel-body">{st ? <BoardColumns board={st.board} columns={columns} systems={w.session.systems} /> : '…'}</div>
+      </section>
+      <section className="panel">
+        <div className="panel-head sky">{COPY.waitSlides}</div>
+        <div className="panel-body">
+          {wait.slides.length === 0 && <p className="muted">{COPY.waitNoSlides}</p>}
+          {shown ? (
+            <div className="waitbig">
+              <SlideThumb sl={shown} joinUrl={w.session.joinUrl} width={narrow ? Math.min(window.innerWidth - 60, 640) : 900} theme={theme} plain />
+              <div className="acts">
+                <button type="button" className="btn small" disabled={at === 0} onClick={() => setAt(at! - 1)} aria-label={COPY.soloBack}>‹</button>
+                <span className="muted">{COPY.slideOf(at! + 1, wait.slides.length)}</span>
+                <button type="button" className="btn small" disabled={at! >= wait.slides.length - 1} onClick={() => setAt(at! + 1)} aria-label={COPY.soloNextSlide}>›</button>
+                <button type="button" className="btn small text" onClick={() => setAt(null)}>{COPY.close}</button>
+              </div>
+            </div>
+          ) : (
+            <div className="waitslides">
+              {wait.slides.map((sl, i) => (
+                <button key={sl.id} type="button" onClick={() => setAt(i)} aria-label={`${sl.title}. ${COPY.slideOf(i + 1, wait.slides.length)}`}>
+                  <SlideThumb sl={sl} joinUrl={w.session.joinUrl} width={280} theme={theme} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+      <WhoPanel w={w} />
+    </main>
+  )
+}
+
+/**
+ * A single-player game has no facilitator (section 6.14): this strip is how its player moves it
+ * on. It steps through the slides of a section, starts each phase, and may end a phase early.
+ */
+function SoloBar() {
+  const view = usePlayer((s) => s.view)!
+  const send = usePlayer((s) => s.send)
+  const [busy, setBusy] = useState(false)
+  const [ending, setEnding] = useState(false)
+  const solo = view.solo
+  if (!solo || view.stage === 'closed') return null
+  const run = async (type: string, payload: unknown = {}) => {
+    if (busy) return
+    setBusy(true)
+    await send(type, payload)
+    setBusy(false)
+  }
+  const onSlide = !!view.slide && !!solo.slide
+  const say = view.stage === 'lobby' ? COPY.soloLobby : solo.timed ? COPY.soloPlaying : onSlide ? COPY.soloSlides : COPY.soloResult
+  return (
+    <div className="solobar" role="group" aria-label={COPY.soloWord}>
+      <span className="solo-tag">{COPY.soloWord}</span>
+      <span className="solo-say">{say}</span>
+      <span className="acts">
+        {onSlide && <button type="button" className="btn small text" disabled={busy || solo.slide!.first} onClick={() => void run('solo.slide', { delta: -1 })}>← {COPY.soloBack}</button>}
+        {onSlide && !solo.slide!.last && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.slide', { delta: 1 })}>{COPY.soloNextSlide} →</button>}
+        {solo.next && (!onSlide || solo.slide!.last) && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.next')}>{SOLO_NEXT[solo.next]} →</button>}
+        {solo.timed && <button type="button" className="btn small text" disabled={busy} onClick={() => setEnding(true)}>{COPY.soloEnd}</button>}
       </span>
+      {ending && (
+        <Sheet title={COPY.soloEndTitle} head="sun" onClose={() => setEnding(false)}>
+          <p>{COPY.soloEndText}</p>
+          <div className="sheet-actions">
+            <button type="button" className="btn sun" onClick={() => { setEnding(false); void run('solo.end_now') }}>{COPY.soloEndGo}</button>
+            <button type="button" className="btn" onClick={() => setEnding(false)}>{COPY.stay}</button>
+          </div>
+        </Sheet>
+      )}
     </div>
   )
 }
@@ -606,7 +686,6 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   const [brief, setBrief] = useState(false)
   const [look, setLook] = useState<Look>(null)
   const [leaving, setLeaving] = useState(false)
-  const [leaveTo, setLeaveTo] = useState<string | null>(null)
   const [codeSeen, setCodeSeen] = useState(() => (auth ? store.flag(`seen-code-${auth.playerId}`) : true))
   useWakeLock()
 
@@ -625,7 +704,18 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
     return () => clearTimeout(id)
   }, [restarted, clearRestarted])
 
+  // A single-player game that has ended leads to its result, where every phase can be looked at again.
+  const solo = welcome?.session.kind === 'solo'
+  const soloOver = solo && view?.stage === 'closed'
+  useEffect(() => {
+    if (!soloOver || !auth) return
+    forgetPlayer()
+    stop()
+    go(`/result/${auth.session}`)
+  }, [soloOver, auth, stop, go])
+
   if (!auth) return null
+  if (soloOver) return null
   if (status === 'ended') return <Gone session={auth.session} go={go} />
   const leave = (rejoin: boolean) => {
     forgetPlayer()
@@ -649,13 +739,13 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
   // Starting fresh in this browser (section 10.7): the browser lets go of this practice and
   // keeps what it remembers of the game. It leads to the game that takes players now: the
   // same one while it is open, else the newest open one, else the page that asks for a code.
-  const startFresh = async (newer?: string | null) => {
-    const here = view.stage === 'closed' ? null : auth.session
-    const open = here || newer ? null : await api.open()
-    const to = newer ?? here ?? (open?.ok ? open.data.session?.code ?? null : null)
+  const startFresh = async () => {
+    const here = view.stage === 'closed' || solo ? null : auth.session
+    const open = here ? null : await api.open()
+    const to = here ?? (open?.ok ? open.data.session?.code ?? null : null)
     forgetPlayer()
     stop()
-    go(to ? `/j/${to}` : '/')
+    go(to && !solo ? `/j/${to}` : '/home')
   }
   // A scored phase can be opened again from the menu, in any later stage (section 10.7). The
   // stages that already show the result do not offer it.
@@ -678,8 +768,7 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
           <button type="button" className="btn small" onClick={clearRestarted} aria-label={COPY.close}>✕</button>
         </div>
       )}
-      <NewerBar code={auth.session} on={welcome.session.mode !== 'event' && view.stage !== 'closed' && !PLAY_STAGES.includes(view.stage)}
-        onLeave={(to) => { setLeaveTo(to); setLeaving(true) }} />
+      <SoloBar />
       {looking ? (
         <>
           <div className="backstrip"><button type="button" className="btn small" onClick={() => setLook(null)}>← {COPY.backToGame}</button></div>
@@ -701,7 +790,8 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
       {menu && <MenuSheet onClose={() => setMenu(false)} onBrief={() => { setMenu(false); setBrief(true) }} onResult={canLook ? () => { setMenu(false); setLook('planning') } : null}
         onResult2={canLook2 ? () => { setMenu(false); setLook('development') } : null}
         onResult3={canLook3 ? () => { setMenu(false); setLook('maintaining') } : null}
-        onLeave={() => { setMenu(false); if (view.stage === 'closed') void startFresh(); else { setLeaveTo(null); setLeaving(true) } }}
+        solo={solo}
+        onLeave={() => { setMenu(false); if (view.stage === 'closed' || solo) void startFresh(); else setLeaving(true) }}
         onTour={inPlay ? () => { setMenu(false); useTour.getState().start(inPlay) } : null}
         onHelp={inPlay ? () => { setMenu(false); useTour.getState().showHelp(inPlay) } : null} />}
       {brief && (() => {
@@ -710,14 +800,14 @@ export function PlayPage({ go }: { go: (path: string) => void }) {
         return <BriefSheet w={welcome} onClose={() => setBrief(false)} again phase={phase} words={phase === 'development' ? { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays } : phase === 'maintaining' ? { started: P3.phaseStarted, start: P3.briefStart, stays: P3.letterStays } : undefined} />
       })()}
       {leaving && (
-        <Sheet title={leaveTo ? COPY.newerGameTitle : COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
-          <p>{leaveTo ? COPY.newerGameText(view.me.name) : COPY.newPlayerText(view.me.name)}</p>
+        <Sheet title={COPY.newPlayerTitle} head="sun" onClose={() => setLeaving(false)}>
+          <p>{COPY.newPlayerText(view.me.name)}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span className="codebox" style={{ fontSize: 32 }}>{view.me.rejoinCode}</span>
             <span className="hint" style={{ maxWidth: 300 }}>{COPY.newPlayerCode}</span>
           </div>
           <div className="sheet-actions">
-            <button type="button" className="btn sun" onClick={() => void startFresh(leaveTo)}>{leaveTo ? COPY.newerGameGo : COPY.newPlayerGo}</button>
+            <button type="button" className="btn sun" onClick={() => void startFresh()}>{COPY.newPlayerGo}</button>
             <button type="button" className="btn" onClick={() => setLeaving(false)}>{COPY.stay}</button>
           </div>
         </Sheet>

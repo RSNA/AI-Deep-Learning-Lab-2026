@@ -1,13 +1,16 @@
 // HTTP shapes of the player API (engineering spec, section 7.2) and small helpers to call it.
 import { z } from 'zod'
-import { AvatarId, Mode, StageId } from './ids.ts'
-import { ResultReply, type ResultBody } from './report.ts'
-import { PhaseContent, SystemRef, Text } from './views.ts'
+import { AvatarId, Kind, Mode, StageId } from './ids.ts'
+import { ReportCard, ResultReply, type ResultBody } from './report.ts'
+import { ReviewReply } from './review.ts'
+import { Board, PhaseContent, SystemRef, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 
 export const SessionPublic = S({
-  code: z.string(), label: Text, title: Text.nullable(), mode: Mode, stage: StageId, joinOpen: z.boolean(),
+  code: z.string(), label: Text, title: Text.nullable(), mode: Mode, kind: Kind, stage: StageId, joinOpen: z.boolean(),
+  /** A phase is in play: who joins now waits for the next one (section 6.4). */
+  joinWaits: z.boolean(),
   systems: z.array(S({ ...SystemRef.shape, players: z.number().int() })),
   nameRule: S({ min: z.number().int(), max: z.number().int() }),
   /** The health systems a player may pick from, in a session whose mode allows it. Otherwise null. */
@@ -15,9 +18,43 @@ export const SessionPublic = S({
 })
 export type SessionPublic = z.infer<typeof SessionPublic>
 
-/** The session that takes players now: the newest one that is not closed, or null. */
-export const OpenSession = S({ session: S({ code: z.string(), label: Text, title: Text.nullable() }).nullable() })
+/**
+ * The session with a facilitator that takes players now, or null, and whether anyone may start
+ * a single-player game (section 7.2).
+ */
+export const OpenSession = S({
+  session: S({ code: z.string(), label: Text, title: Text.nullable() }).nullable(),
+  solo: z.boolean(),
+  title: Text.nullable(),
+  nameRule: S({ min: z.number().int(), max: z.number().int() }),
+})
 export type OpenSession = z.infer<typeof OpenSession>
+
+/** `POST /api/solo`: a single-player game for this practice. The reply is a join result. */
+export const SoloBody = S({ name: z.string().max(200), avatar: z.string().max(16).optional() })
+export type SoloBody = z.infer<typeof SoloBody>
+
+/**
+ * `POST /api/results`: the games a browser kept, each by its session code and the rejoin code of
+ * its practice. The reply holds the ones the server still has, in the order asked.
+ */
+export const ResultsBody = S({ games: z.array(S({ session: z.string().max(16), rejoinCode: z.string().max(16) })).max(40) })
+export type ResultsBody = z.infer<typeof ResultsBody>
+export const GameSummary = S({
+  session: z.string(), label: Text, kind: Kind, startedAtMs: z.number(),
+  open: z.boolean(),                // the game is not closed: its practice can go back in
+  stage: StageId,
+  name: Text,
+  card: ReportCard.nullable(),      // null before any phase is scored
+  review: z.boolean(),              // the phases can be looked at again (`POST /api/review`)
+})
+export type GameSummary = z.infer<typeof GameSummary>
+export const ResultsReply = S({ games: z.array(GameSummary) })
+export type ResultsReply = z.infer<typeof ResultsReply>
+
+/** `GET /api/board/:code`: the leaderboard of a session, for someone who waits outside it. */
+export const BoardReply = S({ board: Board })
+export type BoardReply = z.infer<typeof BoardReply>
 
 export const JoinBody = S({
   code: z.string().max(16), name: z.string().max(200), avatar: z.string().max(16).optional(),
@@ -58,6 +95,10 @@ export function playerApi(base: string, fetchImpl: typeof fetch = fetch) {
     session: (code: string) => call(fetchImpl, `${base}/api/session/${encodeURIComponent(code)}`, {}, SessionPublic),
     /** The open session, or with `after` the open session that was opened later than that one. */
     open: (after?: string) => call(fetchImpl, `${base}/api/open${after ? `?after=${encodeURIComponent(after)}` : ''}`, {}, OpenSession),
+    solo: (body: SoloBody) => call(fetchImpl, `${base}/api/solo`, json(body), JoinResult),
+    results: (body: ResultsBody) => call(fetchImpl, `${base}/api/results`, json(body), ResultsReply),
+    review: (body: ResultBody) => call(fetchImpl, `${base}/api/review`, json(body), ReviewReply),
+    board: (code: string) => call(fetchImpl, `${base}/api/board/${encodeURIComponent(code)}`, {}, BoardReply),
     join: (body: JoinBody) => call(fetchImpl, `${base}/api/join`, json(body), JoinResult),
     rejoin: (body: RejoinBody) => call(fetchImpl, `${base}/api/rejoin`, json(body), JoinResult),
     /** The report card of a practice, by the session (its code or its label) and the rejoin code. */

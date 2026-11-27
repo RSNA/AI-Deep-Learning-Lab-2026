@@ -16,7 +16,7 @@ const SOCKET: Record<ErrorCode, string> = {
   not_available: 'That is not available right now.',
   window_closed: 'The time to answer that has passed.',
   action_used: 'You have already used that action.',
-  removed: 'The host removed this practice from the game.',
+  removed: 'The facilitator removed this practice from the game.',
   invalid_map: 'That change breaks a rule of the map, so it was not saved.',
   unknown_action: 'The game does not know that action. Reload the page.',
   action_taken: 'That action is already done or under way.',
@@ -34,13 +34,14 @@ const SOCKET: Record<ErrorCode, string> = {
   session_full: 'This game is full.',
   unknown_player: 'That player is no longer in the game.',
   unknown_system: 'That health system is not part of this game.',
-  not_in_control: 'Another host is in charge. Take charge first.',
+  not_in_control: 'Another facilitator is in charge. Take charge first.',
   wrong_passcode: 'That passcode is not right.',
   no_scores_yet: 'There are no scores yet. The leaderboard opens with Phase 1, and the winners after the first phase is scored.',
   no_deck: 'This content has no slides.',
   not_during_play: "Players' screens stay on the game while a phase is running.",
   confirm_mismatch: 'That is not the session code. Type it exactly to confirm.',
   pause_first: 'Pause the game first, then change the speed.',
+  not_solo: 'Only the facilitator moves this game on.',
 }
 
 /** Names that only HTTP routes send. */
@@ -53,8 +54,14 @@ const HTTP: Record<string, string> = {
   code_taken: 'Another session already uses that link name. Pick another one.',
   provisional_anchors: 'Scores are not calibrated yet, so an event session cannot be opened. Use rehearsal or test.',
   no_answer_key: 'This server has no answer key file.',
-  event_session: 'An event session is ended from its own console, by the host in charge. Open it first.',
-  internal: 'Something went wrong on the server. Try again, and tell the host if it happens twice.',
+  no_guide: 'This server has no facilitator guide file.',
+  event_session: 'An event session is ended from its own console, by the facilitator in charge. Open it first.',
+  internal: 'Something went wrong on the server. Try again, and tell the facilitator if it happens twice.',
+  session_running: 'Another session is running. Only one session with a facilitator is open at a time.',
+  rename_running: 'A session keeps its name while it is being played. Rename it in the lobby, or after it has ended.',
+  confirm_delete: 'Type DELETE in capital letters to confirm.',
+  solo_off: 'Single-player games are switched off right now. Join the session of your facilitator.',
+  solo_full: 'Many people are playing on their own right now. Try again in a few minutes.',
 }
 
 /** The client's own conditions, said in the same plain way. */

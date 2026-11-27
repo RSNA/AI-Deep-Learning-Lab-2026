@@ -11,7 +11,7 @@ const PASS = 'e2e-passcode-0123'
 
 async function setup(page: Page, label: string, scale = 1) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
-  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal', replace: {} }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
   const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
@@ -93,7 +93,9 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.locator('.partrow', { hasText: 'Acorn Small' }).click()
   await page.getByRole('button', { name: '+ Runs on' }).click()
   await expect(page.locator('.partrow', { hasText: 'Rented cloud GPUs' })).toBeDisabled()     // Small cannot run there
-  await expect(page.locator('.partrow', { hasText: 'Acorn private link' })).toBeDisabled()    // locked
+  // What the practice has not negotiated or bought is not among the choices, and the chooser says that more will come.
+  await expect(page.locator('.partrow', { hasText: 'Acorn private link' })).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toContainText('More appears on this shelf')
   await page.locator('.partrow', { hasText: 'Acorn public API' }).click()
   await join(page, 'Request form', /Join to Agent/)
   await join(page, 'Shared catalog', /Join to Agent/)
@@ -114,12 +116,13 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await expect(page.locator('.ctile .cmark.warn')).toHaveCount(1)
   await expect(page.locator('.mapfoot')).toContainText('Private data goes through a service that does not protect it.')
 
-  // The prompt chooser: one card per format, with its sample. Two are locked.
+  // The prompt chooser: one card per format the practice has, with its sample. Two more come with an action.
   await page.getByRole('button', { name: /^Prompt:/ }).click()
   const chooser = page.getByRole('dialog')
-  await expect(chooser.locator('.pcard')).toHaveCount(4)
+  await expect(chooser.locator('.pcard')).toHaveCount(2)
   await expect(chooser.locator('.pc-sample').first()).toContainText('Find the book')
-  await expect(chooser.locator('.pcard.is-locked')).toHaveCount(2)
+  await expect(chooser.locator('.pcard.is-locked')).toHaveCount(0)
+  await expect(chooser).toContainText('More formats appear')
   await chooser.locator('.pcard', { hasText: 'Says everything' }).getByRole('button', { name: 'Use this prompt' }).click()
   await expect(page.locator('.ct-part', { hasText: 'Says everything' })).toBeVisible()
 
@@ -142,11 +145,25 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.keyboard.press('Delete')
   await expect(page.locator('.ctile')).toHaveCount(2)
 
-  // An action that unlocks an item: the free model leaves its lock once the action ends.
-  await expect(page.locator('.schip', { hasText: 'Pine' })).toHaveClass(/is-locked/)
+  // What is not on the board is not shown: the free model, the server that needs it, and the
+  // groups and shelves that will hold more say so.
+  await expect(page.locator('.schip', { hasText: 'Pine' })).toHaveCount(0)
+  await expect(page.locator('.arow[data-action="rb-a-server"]')).toHaveCount(0)
+  await expect(page.locator('.shelf', { hasText: 'Models' }).locator('.shelf-more')).toHaveText('more to come')
+  await expect(page.locator('.agroup', { hasText: 'Buy' }).locator('.more-line')).toContainText('More appears here')
+  await expect(page.locator('.tbgroup', { hasText: 'Tools' }).locator('.more-line')).toContainText('More tools appear')
+  // An action that unlocks an item: when it ends, a notice names what came onto the board, the
+  // model stands on its shelf with a mark, and the action that waited for it joins the list.
   await page.locator('.arow[data-action="rb-a-download"]').getByRole('button', { name: 'Start' }).click()
   await expect(page.locator('.arow[data-action="rb-a-download"]')).toHaveClass(/running/)
-  await expect(page.locator('.schip', { hasText: 'Pine' })).not.toHaveClass(/is-locked/, { timeout: 15_000 })
+  await expect(page.locator('.schip', { hasText: 'Pine' })).toHaveClass(/is-new/, { timeout: 15_000 })
+  await expect(page.locator('.p2toast')).toContainText('New on your board')
+  await expect(page.locator('.arow[data-action="rb-a-server"]')).toHaveClass(/is-new/)
+  await expect(page.locator('.arow[data-action="rb-a-server"] .newtag')).toHaveText('New')
+  // The mark goes when the player has looked at it.
+  await page.locator('.arow[data-action="rb-a-server"] .ttl').click()
+  await expect(page.locator('.arow[data-action="rb-a-server"]')).not.toHaveClass(/is-new/)
+  await page.locator('.arow[data-action="rb-a-server"] .ttl').click()
   // An action with an insight lands a card under the map.
   await page.locator('.arow[data-action="rb-a-shadow"]').getByRole('button', { name: 'Start' }).click()
   await expect(page.locator('.p2insights .card[data-insight]')).toHaveCount(1, { timeout: 15_000 })
@@ -194,8 +211,10 @@ test('stages, groups and numbered tiles: a cell under a line takes the click, th
   await expect(page.locator('.chint')).toHaveText('Which partner holds a copy and what it asks before it lends.')
   // The toolbox under its two headings, each row with its task.
   await expect(page.locator('.tbgroup-t')).toHaveText(['Operators', 'Tools'])
-  await expect(tool(page, 'Card reader')).toContainText('Reads the scanned card files')
-  await expect(tool(page, 'Card reader')).toHaveAttribute('aria-disabled', 'true')
+  // A tool the practice does not have yet is not in the toolbox. Its group says that more will come.
+  await expect(tool(page, 'Rule')).toContainText('Answers the plainest requests')
+  await expect(tool(page, 'Card reader')).toHaveCount(0)
+  await expect(page.locator('.tbgroup', { hasText: 'Tools' }).locator('.more-line')).toContainText('More tools appear')
   // A legend says what the two kinds of line are.
   await expect(page.locator('.lglegend')).toContainText('hands its work on')
 
@@ -216,8 +235,18 @@ test('stages, groups and numbered tiles: a cell under a line takes the click, th
   const chooser = page.getByRole('dialog')
   await expect(chooser).toContainText('Prompt for Agent 1')
   await expect(chooser.locator('.pc-about')).toHaveText('Agent 1 reads Request form, and no tile hands it work.')
+  // The formats the practice has, and a word that more will come. The workshop brings the two
+  // with a sample for each kind of job, and a notice names them.
+  await expect(chooser.locator('.pcard')).toHaveCount(2)
+  await expect(chooser.locator('.pc-intro')).toContainText('More formats appear')
+  await chooser.getByText('Close', { exact: true }).click()
+  await page.locator('.arow[data-action="rb-a-workshop"]').getByRole('button', { name: 'Start' }).click()
+  await expect(page.locator('.p2toast')).toContainText('New on your board', { timeout: 25_000 })
+  await page.getByRole('button', { name: /^Prompt:/ }).first().click()
+  await expect(chooser.locator('.pcard')).toHaveCount(4)
   await expect(chooser.locator('.pc-s')).toHaveCount(4)
   await expect(chooser.locator('.pc-sl').first()).toHaveText('When the worker digs')
+  await expect(chooser.locator('.pc-intro')).not.toContainText('More formats appear')
   s.close()
 })
 
@@ -285,7 +314,7 @@ test('the phone: four tabs, a worker placed by taps, and the host looks at the p
   await hp.goto(`/host?s=${s.code}`)
   await hp.locator('.plook').first().click()
   const look = hp.getByRole('dialog')
-  await expect(look).toContainText('Only hosts see this page')
+  await expect(look).toContainText('Only facilitators see this page')
   // The coaching block comes first: three short lists, and the guide of a kind on a press.
   const coach = look.locator('.coach')
   await expect(coach).toContainText('To help this player')

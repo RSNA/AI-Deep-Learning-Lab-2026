@@ -81,6 +81,10 @@ if [ -n "$CONTENT" ] || [ "$DEMO" = 1 ]; then
   rsync -az --delete --exclude '.DS_Store' --exclude 'SCHEMA.md' "$src/" "$REMOTE:/opt/lab02/content/"
   key="$(dirname "$src")/review/answer-key.html"
   if [ -n "$CONTENT" ] && [ -f "$key" ]; then rsync -az "$key" "$REMOTE:/opt/lab02/private/answer-key.html"; else ssh "$REMOTE" "rm -f /opt/lab02/private/answer-key.html"; fi
+  # The facilitator guide travels the same way, and the server is told where it is.
+  guide="$(dirname "$src")/review/facilitator-guide.html"
+  if [ -n "$CONTENT" ] && [ -f "$guide" ]; then rsync -az "$guide" "$REMOTE:/opt/lab02/private/facilitator-guide.html"; else ssh "$REMOTE" "rm -f /opt/lab02/private/facilitator-guide.html"; fi
+  ssh "$REMOTE" "grep -q '^FACILITATOR_GUIDE_FILE=' /opt/lab02/env || echo FACILITATOR_GUIDE_FILE=/opt/lab02/private/facilitator-guide.html >> /opt/lab02/env"
   ssh "$REMOTE" "chown -R lab02:lab02 /opt/lab02/content /opt/lab02/private && chmod -R go-rwx /opt/lab02/content /opt/lab02/private"
 fi
 if [ -n "${SYSTEMS:-}" ]; then

@@ -3,7 +3,7 @@
 // concerns. One console controls the session at a time (section 7.10).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MODES, PHASES, PLAY_STAGES, STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type SceneId } from '@lab02/protocol'
-import type { HostInspect, HostView, SessionSummary } from '@lab02/protocol/host'
+import type { HostInspect, HostView, SessionRunning, SessionSummary, SoloOverview, SoloSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
 import { connect, hostFetch } from '../lib/net.ts'
@@ -12,6 +12,7 @@ import type { ClockRef } from '../lib/clock.ts'
 import { Avatar, BoardRows, COLUMN_TITLE, Countdown, Sheet, SystemShape, columnTag } from '../components/ui.tsx'
 import { Inspector, SlideLook } from './hostParts.tsx'
 import { SystemsStrip } from './Play.tsx'
+import { startedText } from './Start.tsx'
 import { ScreenStage } from './Screen.tsx'
 import { ManualBody } from './Manual.tsx'
 import { H } from './hostCopy.ts'
@@ -65,6 +66,21 @@ function RowActions({ label, items }: { label: string; items: RowAction[] }) {
 type PackInfo = {
   title: string | null; hash: string; systems: string[]; systemNames?: string[]
   phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[]; placeholders?: number
+  guide?: boolean
+}
+
+/**
+ * Opens a private page of the server, the answer key or the facilitator guide, with one press
+ * (section 10.8). The window is opened at once, inside the press, so that no browser blocks it,
+ * and gets its address when the ticket arrives. Returns the refusal to show, or null.
+ */
+async function openPrivatePage(token: string, page: 'key' | 'guide'): Promise<string | null> {
+  const win = window.open('about:blank', '_blank')
+  const r = await hostFetch<{ ticket: string }>(token, `/api/host/${page}-ticket`, {})
+  if (!r.ok) { win?.close(); return plainError(r.error) }
+  const url = `/api/host/${page}?ticket=${encodeURIComponent(r.data.ticket)}`
+  if (win) { win.opener = null; win.location.href = url } else window.open(url, '_blank', 'noopener')
+  return null
 }
 type Summary = SessionSummary & { broken?: string }
 
@@ -145,10 +161,107 @@ function Downloads({ token, code, onError }: { token: string; code: string; onEr
   )
 }
 
+/**
+ * Single-player games in the facilitator's console (section 10.8): the switch, how many there
+ * are, the newest ones, and their cleanup. Nobody watches or helps in such a game, so there is
+ * no way into one from here.
+ */
+function SoloPanel({ token, solo, reload }: { token: string; solo: SoloOverview; reload: () => void }) {
+  const [showList, setShowList] = useState(false)
+  const [deleting, setDeleting] = useState<SoloSummary | null>(null)
+  const [all, setAll] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const act = async (path: string, body: unknown, method?: string) => {
+    if (busy) return false
+    setBusy(true)
+    setErr(null)
+    const r = await hostFetch<unknown>(token, path, body, method)
+    setBusy(false)
+    if (!r.ok) { setErr(plainError(r.error)); return false }
+    reload()
+    return true
+  }
+  const state = (s: SoloSummary) => (s.closed ? H.soloFinished : s.live ? H.soloPlayedNow : H.soloPaused)
+  return (
+    <section className="panel">
+      <div className="panel-head sun">{H.solo}</div>
+      <div className="panel-body">
+        <div className="solohead">
+          <div className="modes" role="radiogroup" aria-label={H.soloSwitch}>
+            {[true, false].map((on) => (
+              <button key={String(on)} type="button" role="radio" aria-checked={solo.enabled === on} className={solo.enabled === on ? 'on' : ''} disabled={busy}
+                onClick={() => { if (solo.enabled !== on) void act('/api/host/solo', { enabled: on }) }}>{on ? H.soloOn : H.soloOff}</button>
+            ))}
+          </div>
+          <div className="hint">{H.soloLine}</div>
+        </div>
+        <div style={{ fontWeight: 700 }}>{H.soloCounts(solo.total, solo.finished, solo.unfinished, solo.live, solo.cap)}</div>
+        {err && !deleting && !all && <div className="err" role="alert">{err}</div>}
+        {solo.total > 0 && (
+          <div className="sbtns" style={{ justifyContent: 'flex-start' }}>
+            <button type="button" className="btn small text" aria-expanded={showList} onClick={() => setShowList(!showList)}>{showList ? H.soloHideList : H.soloShowList(solo.recent.length)}</button>
+            <button type="button" className="btn small text danger" onClick={() => { setTyped(''); setErr(null); setAll(true) }}>{H.soloDeleteAll}</button>
+          </div>
+        )}
+        {showList && (
+          <div>
+            {solo.recent.map((s) => (
+              <div key={s.code} className="srow">
+                <span className="codebox" style={{ fontSize: 16 }}>{s.code}</span>
+                <span className="sinfo">
+                  <b>{s.name}</b>
+                  <span className="muted">{startedText(s.createdAt)} · {state(s)}</span>
+                </span>
+                <button className="btn small text danger" onClick={() => { setErr(null); setDeleting(s) }}>{H.delete}</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {deleting && (
+        <Sheet title={H.soloDeleteTitle} head="sun" onClose={() => setDeleting(null)}>
+          <p>{H.soloDeleteText(deleting.name, startedText(deleting.createdAt), deleting.live && !deleting.closed)}</p>
+          {err && <div className="err" role="alert">{err}</div>}
+          <div className="sheet-actions">
+            <button className="btn danger" disabled={busy} onClick={async () => { if (await act(`/api/host/session/${deleting.code}`, undefined, 'DELETE')) setDeleting(null) }}>{H.deleteNow}</button>
+            <button className="btn" onClick={() => setDeleting(null)}>{H.cancel}</button>
+          </div>
+        </Sheet>
+      )}
+      {all && (
+        <Sheet title={H.soloDeleteAllTitle} head="sun" onClose={() => setAll(false)}>
+          <p>{H.soloDeleteAllText(solo.total, solo.live)}</p>
+          <label className="lbl" htmlFor="solo-all">{H.soloDeleteAllType}</label>
+          <input id="solo-all" className="field code" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => { setTyped(e.target.value); setErr(null) }} aria-describedby="solo-all-err" />
+          {err && <div id="solo-all-err" className="err" role="alert">{err}</div>}
+          <div className="sheet-actions">
+            <button className="btn danger" disabled={busy || typed !== 'DELETE'} onClick={async () => { if (await act('/api/host/solo/delete-all', { confirm: typed })) { setAll(false); setShowList(false) } }}>{H.deleteNow}</button>
+            <button className="btn" onClick={() => setAll(false)}>{H.cancel}</button>
+          </div>
+        </Sheet>
+      )}
+    </section>
+  )
+}
+
+/** The date and the time, as the name a new session starts with. */
+const defaultLabel = () => new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
 function Sessions({ token, open, signOut, manual }: { token: string; open: (code: string) => void; signOut: () => void; manual: () => void }) {
   const [list, setList] = useState<Summary[]>([])
   const [pack, setPack] = useState<PackInfo | null>(null)
-  const [label, setLabel] = useState('')
+  const [guideErr, setGuideErr] = useState<string | null>(null)
+  const [solo, setSolo] = useState<SoloOverview | null>(null)
+  const [label, setLabel] = useState(defaultLabel)
+  // The session that runs, when a new one was refused because of it, with what the facilitator asked for.
+  const [running, setRunning] = useState<{ it: SessionRunning; body: Record<string, unknown> } | null>(null)
+  const [runTyped, setRunTyped] = useState('')
+  const [runErr, setRunErr] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<Summary | null>(null)
+  const [newName, setNewName] = useState('')
+  const [renameErr, setRenameErr] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>('rehearsal')
   const [code, setCode] = useState('')
   const [err, setErr] = useState<{ field: 'label' | 'code' | 'form'; text: string } | null>(null)
@@ -160,11 +273,25 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
   const [endBusy, setEndBusy] = useState(false)
   const [dlErr, setDlErr] = useState<Record<string, string>>({})
   const load = useCallback(async () => {
-    const r = await hostFetch<{ sessions: Summary[]; pack: PackInfo }>(token, '/api/host/sessions')
+    const r = await hostFetch<{ sessions: Summary[]; pack: PackInfo; solo: SoloOverview }>(token, '/api/host/sessions')
     if (!r.ok) { if (r.status === 401) signOut(); return }
     setList(r.data.sessions)
     setPack(r.data.pack)
+    setSolo(r.data.solo)
   }, [token, signOut])
+  // A new session: refused while another runs, with what runs, so that the facilitator decides.
+  const create = async (body: Record<string, unknown>): Promise<{ field: 'code' | 'form'; text: string } | null> => {
+    const res = await fetch('/api/host/session', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+    const data = ((await res?.json().catch(() => ({}))) ?? {}) as { code?: string; error?: string; running?: SessionRunning }
+    if (res?.ok && data.code) { open(data.code); return null }
+    if (data.error === 'session_running' && data.running) {
+      setRunTyped('')
+      setRunning({ it: data.running, body })
+      return null
+    }
+    const error = res ? data.error ?? 'internal' : 'network'
+    return { field: error === 'code_invalid' || error === 'code_taken' ? 'code' : 'form', text: plainError(error) }
+  }
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (pack?.provisional && mode === 'event') setMode('rehearsal') }, [pack, mode])
 
@@ -187,13 +314,14 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
     setEnding(null)
     void load()
   }
+  const startRename = (s: Summary) => { setRenameErr(null); setNewName(s.label); setRenaming(s) }
   const phases = pack ? (['planning', 'development', 'maintaining'] as const).filter((p) => pack.phasesAvailable[p]).map((p) => `Phase ${PHASE_NUMBER[p]}`) : []
   const row = (s: Summary) => (
     <div key={s.code} className="srow">
       <span className="codebox" style={{ fontSize: 20 }} title={H.sessionCode}>{s.code}</span>
       <span className="sinfo">
         <b>{s.label}</b>
-        <span className="muted">{H.mode[s.mode]} · {s.closed ? H.closedWord : STAGE_TITLE[s.stage]} · {players(s.players)}</span>
+        <span className="muted">{H.mode[s.mode]} · {s.closed ? H.closedWord : STAGE_TITLE[s.stage]} · {players(s.players)} · {H.openedBy(s.createdBy, startedText(s.createdAt))}</span>
         {s.broken && <span className="err">{s.broken}</span>}
         {s.closed && (
           <span className="sdl">
@@ -205,10 +333,16 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
       {!s.closed && (
         <span className="sbtns">
           <button className="btn small" onClick={() => open(s.code)}>{H.open}</button>
+          <button className="btn small text" disabled={s.stage !== 'lobby'} title={s.stage !== 'lobby' ? H.renameWhy : undefined} onClick={() => startRename(s)}>{H.rename}</button>
           <button className="btn small text danger" onClick={() => { setEndErr(null); setEnding(s) }}>{H.end}</button>
         </span>
       )}
-      {s.closed && <button className="btn small text danger" onClick={() => { setDelErr(null); setDeleting(s) }}>{H.delete}</button>}
+      {s.closed && (
+        <span className="sbtns">
+          {!s.broken && <button className="btn small text" onClick={() => startRename(s)}>{H.rename}</button>}
+          <button className="btn small text danger" onClick={() => { setDelErr(null); setDeleting(s) }}>{H.delete}</button>
+        </span>
+      )}
     </div>
   )
 
@@ -217,10 +351,12 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <h1>{H.title}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
+          {pack?.guide && <button className="btn small text" onClick={() => void openPrivatePage(token, 'guide').then(setGuideErr)} title={H.guideLine}>{H.guide}</button>}
           <button className="btn small text" onClick={manual}>{H.manual}</button>
           <button className="btn small text" onClick={signOut}>{H.signOut}</button>
         </div>
       </div>
+      {guideErr && <div className="err" role="alert">{guideErr}</div>}
       {pack && (
         <section className="panel">
           <div className="panel-body loaded">
@@ -236,21 +372,16 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
         setErr(null)
         if (!label.trim()) { setErr({ field: 'label', text: H.labelNeeded }); return }
         if (codeBad) { setErr({ field: 'code', text: plainError('code_invalid') }); return }
-        const body: Record<string, string> = { label: label.trim(), mode }
+        const body: Record<string, unknown> = { label: label.trim(), mode, by: store.host()?.name ?? '' }
         if (code.trim()) body.code = code.trim().toUpperCase()
-        const r = await hostFetch<{ code: string }>(token, '/api/host/session', body)
-        if (!r.ok) {
-          const field = r.error === 'code_invalid' || r.error === 'code_taken' ? 'code' : 'form'
-          setErr({ field, text: plainError(r.error) })
-          return
-        }
-        open(r.data.code)
+        setErr(await create(body))
       }}>
         <div className="panel-head">{H.newSession}</div>
         <div className="panel-body newsess">
           <div className="fieldbox">
             <label className="lbl" htmlFor="label">{H.sessionName}</label>
-            <input id="label" className="field" value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} placeholder={H.sessionNameExample} aria-describedby="label-err" />
+            <input id="label" className="field" value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} placeholder={H.sessionNameExample} aria-describedby="label-hint label-err" />
+            <div id="label-hint" className="hint">{H.sessionNameHint}</div>
             {err?.field === 'label' && <div id="label-err" className="err" role="alert">{err.text}</div>}
           </div>
           <div className="fieldbox">
@@ -287,9 +418,51 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
           {showClosed && closedList.map(row)}
         </div>
       </section>
+      {solo && <SoloPanel token={token} solo={solo} reload={() => void load()} />}
+      {running && (
+        <Sheet title={H.runningTitle} head="sun" onClose={() => setRunning(null)}>
+          <p>{H.runningText(running.it.label, running.it.code, running.it.createdBy, startedText(running.it.createdAt), STAGE_TITLE[running.it.stage], running.it.players)}</p>
+          <p style={{ fontWeight: 800 }}>{H.runningWarn}</p>
+          {running.it.needsCode && (
+            <>
+              <label className="lbl" htmlFor="run-code">{H.runningCode(running.it.code)}</label>
+              <input id="run-code" className="field code" autoComplete="off" spellCheck={false} maxLength={8} value={runTyped} onChange={(e) => { setRunTyped(e.target.value); setRunErr(null) }} aria-describedby="run-err" />
+            </>
+          )}
+          {runErr && <div id="run-err" className="err" role="alert">{runErr}</div>}
+          <div className="sheet-actions">
+            <button className="btn danger" disabled={running.it.needsCode && runTyped.trim().toUpperCase() !== running.it.code} onClick={async () => {
+              const was = running
+              setRunErr(null)
+              setRunning(null)
+              const e = await create({ ...was.body, replace: { code: was.it.code, ...(was.it.needsCode ? { confirm: runTyped.trim() } : {}) } })
+              if (e) { setRunning(was); setRunErr(e.text) }
+              void load()
+            }}>{H.runningGo}</button>
+            <button className="btn" autoFocus onClick={() => setRunning(null)}>{H.cancel}</button>
+          </div>
+        </Sheet>
+      )}
+      {renaming && (
+        <Sheet title={H.renameSession(renaming.code)} head="sun" onClose={() => setRenaming(null)}>
+          <label className="lbl" htmlFor="rename">{H.sessionName}</label>
+          <input id="rename" className="field" value={newName} maxLength={80} onChange={(e) => { setNewName(e.target.value); setRenameErr(null) }} aria-describedby="rename-hint rename-err" />
+          <div id="rename-hint" className="hint">{H.renameLine}</div>
+          {renameErr && <div id="rename-err" className="err" role="alert">{renameErr}</div>}
+          <div className="sheet-actions">
+            <button className="btn go" disabled={!newName.trim() || newName.trim() === renaming.label} onClick={async () => {
+              const r = await hostFetch<{ ok: true }>(token, `/api/host/session/${renaming.code}`, { label: newName.trim() }, 'PATCH')
+              if (!r.ok) { setRenameErr(plainError(r.error)); void load(); return }
+              setRenaming(null)
+              void load()
+            }}>{H.renameNow}</button>
+            <button className="btn" onClick={() => setRenaming(null)}>{H.cancel}</button>
+          </div>
+        </Sheet>
+      )}
       {deleting && (
         <Sheet title={H.deleteTitle(deleting.code)} head="sun" onClose={() => setDeleting(null)}>
-          <p>{H.deleteText(deleting.label, deleting.players)}</p>
+          <p>{H.deleteText(deleting.label, deleting.results)}</p>
           {delErr && <div className="err" role="alert">{delErr}</div>}
           <div className="sheet-actions">
             <button className="btn danger" onClick={async () => {
@@ -651,16 +824,8 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const shownPhases = (['planning', 'development', 'maintaining'] as const).filter((ph) => hv.board.columns[ph].state !== 'empty')
   const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else { setTakePass(''); setTakeErr(null); setTakeOpen(true) } }
   const look = (id: string) => { setSpect({ id, view: null }); void cmd('spectate', { playerId: id }, `row:${id}`) }
-  // The key opens with one press (section 10.8). The window is opened at once, inside the press,
-  // so that no browser blocks it, and gets its address when the ticket arrives.
-  const openKey = async () => {
-    const win = window.open('about:blank', '_blank')
-    const r = await hostFetch<{ ticket: string }>(token, '/api/host/key-ticket', {})
-    if (!r.ok) { win?.close(); ref.set('key', plainError(r.error)); return }
-    ref.set('key', null)
-    const url = `/api/host/key?ticket=${encodeURIComponent(r.data.ticket)}`
-    if (win) { win.opener = null; win.location.href = url } else window.open(url, '_blank', 'noopener')
-  }
+  const openKey = async () => ref.set('key', await openPrivatePage(token, 'key'))
+  const openGuide = async () => ref.set('guide', await openPrivatePage(token, 'guide'))
 
   return (
     <div className={`hostwrap${manualOpen ? ' with-manual' : ''}`}>
@@ -684,8 +849,10 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               {ctl.you ? H.youControl : ctl.state === 'held' ? H.inCharge(ctl.holder ?? '') : ctl.state === 'reconnecting' ? H.reconnectingChip(ctl.holder) : H.nobodyChip}
             </span>
             {!ctl.you && <button className="btn small sun takebtn" onClick={take}>{H.takeControl}</button>}
+            {hv.guide && <button className="btn small text" onClick={() => void openGuide()} title={H.guideLine}>{H.guide}</button>}
             <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
           </div>
+          <Refusal text={ref.map.guide} />
         </header>
         {!ctl.you && (
           <div className="viewonly" role="status">

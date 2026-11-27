@@ -70,12 +70,14 @@ export function computeBoard(s: SessionState, pack: Pack, atMs: GameMs): BoardSt
       for (const p of ranked) vals[p.id] = phasePoints(p, col)
     } else if (live === col) {
       const mod = PHASE_MODULES[col]
-      for (const p of players) {
+      // Who waits the phase out is not in it, so not in its live ranking (section 6.4).
+      const inPhase = players.filter((p) => p.waitingFor !== col)
+      for (const p of inPhase) {
         const v = mod.liveValue(s, pack, p)
         if (p.live[col].value !== v) p.live[col] = { value: v, sinceMs: atMs }
         vals[p.id] = v
       }
-      ranked = sortBy(players, [
+      ranked = sortBy(inPhase, [
         { get: (p) => vals[p.id]!, desc: true },
         { get: (p) => p.live[col].sinceMs, desc: false },
       ])

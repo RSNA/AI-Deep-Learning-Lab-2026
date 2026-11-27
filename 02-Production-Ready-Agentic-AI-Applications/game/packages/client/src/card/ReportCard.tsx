@@ -25,7 +25,7 @@ function playedOn(ms: number | null): string | null {
   }
 }
 
-function PhaseBlock({ ph }: { ph: ReportCardPhase }) {
+function PhaseBlock({ ph, ranked }: { ph: ReportCardPhase; ranked: boolean }) {
   return (
     <section className="rc-phase" aria-label={CARD.phase(ph.number, ph.label)}>
       <div className="rc-phase-head">
@@ -36,7 +36,7 @@ function PhaseBlock({ ph }: { ph: ReportCardPhase }) {
       {!ph.scored && <p className="muted rc-line">{CARD.notScoredLine}</p>}
       {ph.scored && (
         <div className="rc-facts">
-          {ph.rank !== null && <div className="kv"><span>{CARD.rankInPhase}</span><span className="v">#{ph.rank} {CARD.of} {ph.of}</span></div>}
+          {ph.rank !== null && ranked && <div className="kv"><span>{CARD.rankInPhase}</span><span className="v">#{ph.rank} {CARD.of} {ph.of}</span></div>}
           {ph.facts.map((f) => <div key={f.label} className="kv"><span>{f.label}</span><span className="v">{f.value}</span></div>)}
         </div>
       )}
@@ -58,6 +58,7 @@ function PhaseBlock({ ph }: { ph: ReportCardPhase }) {
 export function CardBody({ card, paper = false }: { card: ReportCard; paper?: boolean }) {
   const date = playedOn(card.session.playedAtMs)
   const sections = [...new Set(card.lines.map((l) => l.section))]
+  const solo = card.session.kind === 'solo'
   return (
     <article className={paper ? 'rcard paper' : 'rcard panel'} aria-label={card.final ? CARD.title : CARD.titleSoFar}>
       <div className="panel-head sun rc-head">{card.final ? CARD.title : CARD.titleSoFar}{card.session.title && <span className="sub">{card.session.title}</span>}</div>
@@ -70,12 +71,13 @@ export function CardBody({ card, paper = false }: { card: ReportCard; paper?: bo
           </div>
           <div className="rc-total">
             <div className="num rc-big">{card.total}<span className="rc-max"> / {card.maxTotal}</span></div>
-            <div className="rc-rank">{card.rank !== null ? <>{CARD.rankOverall} <b className="num">#{card.rank}</b> {CARD.of} {card.of}</> : CARD.notScored}</div>
-            {card.systems > 1 && card.systemRank !== null && <div className="rc-rank muted">{CARD.rankInSystem(card.practice.system)} <b className="num">#{card.systemRank}</b> {CARD.of} {card.ofSystem}</div>}
+            {/* A single-player game has no room to rank against. */}
+            {card.rank === null ? <div className="rc-rank">{CARD.notScored}</div> : !solo && <div className="rc-rank">{CARD.rankOverall} <b className="num">#{card.rank}</b> {CARD.of} {card.of}</div>}
+            {!solo && card.systems > 1 && card.systemRank !== null && <div className="rc-rank muted">{CARD.rankInSystem(card.practice.system)} <b className="num">#{card.systemRank}</b> {CARD.of} {card.ofSystem}</div>}
           </div>
         </div>
         {!card.final && <p className="muted rc-line">{CARD.soFar}</p>}
-        <div className="rc-phases">{card.phases.map((ph) => <PhaseBlock key={ph.phase} ph={ph} />)}</div>
+        <div className="rc-phases">{card.phases.map((ph) => <PhaseBlock key={ph.phase} ph={ph} ranked={!solo} />)}</div>
         {sections.map((sec) => (
           <section key={sec} className="rc-notes">
             <h3>{sec}</h3>

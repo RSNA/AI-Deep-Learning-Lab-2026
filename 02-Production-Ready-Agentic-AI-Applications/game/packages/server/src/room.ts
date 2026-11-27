@@ -1,15 +1,17 @@
 // One session in memory: its state, its clock, its sockets, and its log on disk
 // (engineering spec, sections 3, 7.3 to 7.7).
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import type { Pack } from '@lab02/content-schema'
 import {
-  advance, apply, createSession, project,
-  type Command, type Outcome, type PlayerId, type SessionState,
+  advance, apply, createSession, kindOf, project, soloCommand,
+  type ApplyResult, type Command, type Outcome, type PlayerId, type SessionState,
 } from '@lab02/engine'
 import { ENGINE_HOST_COMMANDS } from '@lab02/engine'
 import {
   CLOSE, PLAY_STAGES, PROTOCOL_VERSION, PlayerCommand, PlayerServerMessage, ScreenServerMessage, normalizeCode,
-  type ErrorCode, type Mode, type StageId,
+  type ErrorCode, type Kind, type Mode, type StageId,
 } from '@lab02/protocol'
 import { HostServerMessage } from '@lab02/protocol/host'
 import { hashToken, newCode, newPlayerId, newToken, samePasscode } from './auth.ts'
@@ -41,6 +43,10 @@ type AckRecord = { ok: boolean; error?: ErrorCode; data?: unknown }
 
 const SEND_BUFFER_LIMIT = 1024 * 1024
 const DEDUP_SIZE = 50
+/** Games to look at again are stored a few practices at a time, so a full room never holds the server up. */
+const REVIEWS_PER_TICK = 8
+/** The stages at which every practice's game to look at again is stored: a phase was scored, or the game is over. */
+const REVIEW_STAGES: readonly StageId[] = ['planning.reveal', 'development.reveal', 'maintaining.reveal', 'winners', 'closed']
 
 export class Room {
   readonly code: string
@@ -70,6 +76,14 @@ export class Room {
   private lastScreenSend = 0
   /** The wall time the session was opened: the date on a report card. */
   private readonly playedAt: number | null
+  /** Practices whose game to look at again is still to be stored (section 7.5). */
+  private reviewQueue: PlayerId[] = []
+  /** The hash of the shared part that was stored last, so that it is not packed again for the next practice. */
+  private baseStored: string | null = null
+  /** Since when no player has been connected, or null while one is. For a single-player game. */
+  private emptySince: number | null
+  /** The room has left the manager: its sockets are being closed and nothing more is written. */
+  private gone = false
 
   private constructor(private readonly deps: Deps, state: SessionState, clock: ClockState, seq: number) {
     this.code = state.code
@@ -79,6 +93,7 @@ export class Room {
     this.rejoinCodes = deps.db.rejoinCodes(state.code)
     this.playedAt = deps.db.session(state.code)?.created ?? null
     this.lastSnapshotWall = deps.config.wallNow()
+    this.emptySince = this.lastSnapshotWall
     for (const e of deps.db.events(state.code, 'stage')) {
       const st = (JSON.parse(e.data) as { stage: StageId }).stage
       if (this.stageWall[st] === undefined) this.stageWall[st] = e.wall_ms
@@ -88,18 +103,19 @@ export class Room {
   // ----------------------------------------------------------------------------------------
   // Creation and recovery
   // ----------------------------------------------------------------------------------------
-  static create(deps: Deps, opts: { code: string; label: string; mode: Mode }): Room {
-    const state = createSession(deps.pack, { code: opts.code, label: opts.label, mode: opts.mode, nowMs: 0 })
+  static create(deps: Deps, opts: { code: string; label: string; mode: Mode; kind?: Kind; by?: string }): Room {
+    const kind = opts.kind ?? 'multi'
+    const state = createSession(deps.pack, { code: opts.code, label: opts.label, mode: opts.mode, kind, nowMs: 0 })
     const wall = deps.config.wallNow()
     const scale = opts.mode === 'test' ? deps.pack.game.clock.time_scale_default : 1
     deps.db.transaction(() => {
-      deps.db.insertSession({ code: opts.code, label: opts.label, mode: opts.mode, content_hash: deps.pack.hash, created: wall, closed: null })
+      deps.db.insertSession({ code: opts.code, label: opts.label, mode: opts.mode, content_hash: deps.pack.hash, created: wall, closed: null, kind, created_by: opts.by ?? '', stage: 'lobby' })
       deps.db.writeClock(opts.code, 0, true, scale)
       deps.db.writeSnapshot(opts.code, 0, 0, JSON.stringify(state), true)
       deps.db.logEvent(opts.code, 'stage', 0, wall, { stage: 'lobby' })
     })
     const room = new Room(deps, state, { gameMs: 0, running: true, scale, wallAt: wall }, 0)
-    deps.log.info('session created', { code: opts.code, mode: opts.mode })
+    deps.log.info('session created', { code: opts.code, mode: opts.mode, kind })
     return room
   }
 
@@ -108,7 +124,7 @@ export class Room {
     const { db, pack } = deps
     const row = db.session(code)!
     const snap = db.latestSnapshot(code)
-    const state: SessionState = snap ? (JSON.parse(snap.state) as SessionState) : createSession(pack, { code, label: row.label, mode: row.mode, nowMs: 0 })
+    const state: SessionState = snap ? (JSON.parse(snap.state) as SessionState) : createSession(pack, { code, label: row.label, mode: row.mode, kind: row.kind, nowMs: 0 })
     const cmds = db.commandsAfter(code, snap?.seq ?? 0)
     for (const c of cmds) {
       advance(state, pack, c.game_ms)
@@ -117,13 +133,24 @@ export class Room {
     const clk = db.clock(code)
     const gameMs = Math.max(clk?.game_ms ?? 0, cmds.at(-1)?.game_ms ?? 0, snap?.game_ms ?? 0)
     advance(state, pack, gameMs)
-    const room = new Room(deps, state, { gameMs, running: !!clk?.running && !state.closed, scale: clk?.scale ?? 1, wallAt: deps.config.wallNow() }, db.lastSeq(code))
+    // A single-player game comes back with its clock standing: it runs again when its player is connected.
+    const running = !!clk?.running && !state.closed && kindOf(state) !== 'solo'
+    const room = new Room(deps, state, { gameMs, running, scale: clk?.scale ?? 1, wallAt: deps.config.wallNow() }, db.lastSeq(code))
     for (const c of cmds) {
       if (c.cid && c.result) room.remember(c.player_id ?? 'host', c.cid, JSON.parse(c.result) as AckRecord)
     }
     room.changed = true
     deps.log.info('session restored', { code, commands: cmds.length, gameMs })
     return room
+  }
+
+  get kind(): Kind {
+    return kindOf(this.state)
+  }
+
+  /** How long no player has been connected, in ms. 0 while one is. */
+  emptyFor(): number {
+    return this.emptySince === null ? 0 : this.deps.config.wallNow() - this.emptySince
   }
 
   // ----------------------------------------------------------------------------------------
@@ -161,6 +188,7 @@ export class Room {
     if (this.changed && wall - this.lastSnapshotWall >= 10_000) this.snapshot(false)
     if (this.hosts.size && (this.hostDirty || wall - this.lastHostSend >= 2000) && wall - this.lastHostSend >= 1000) this.sendHostViews()
     if (this.screens.size && this.screenDirty && wall - this.lastScreenSend >= 1000) this.sendScreenViews()
+    if (this.reviewQueue.length) this.storeReviews(REVIEWS_PER_TICK)
   }
 
   snapshot(stageChange: boolean): void {
@@ -189,6 +217,7 @@ export class Room {
         case 'stage':
           stageChanged = true
           if (this.stageWall[ev.stage] === undefined) this.stageWall[ev.stage] = wall
+          this.deps.db.setStage(this.code, ev.stage)
           this.deps.db.logEvent(this.code, 'stage', ev.atMs, wall, { stage: ev.stage })
           this.deps.log.info('stage', { code: this.code, stage: ev.stage })
           break
@@ -232,6 +261,7 @@ export class Room {
     if (stageChanged) {
       this.snapshot(true)
       this.storeResults()
+      if (REVIEW_STAGES.includes(this.state.stage)) this.reviewQueue = [...this.state.order]
       this.broadcastClock()
       this.screenDirty = true
       for (const id of this.players.keys()) this.sendStanding(id)
@@ -306,6 +336,41 @@ export class Room {
       if (card) cards.set(id, JSON.stringify(card))
     }
     this.deps.db.writeResults(this.code, cards, this.deps.config.wallNow())
+    // A game that started again has nothing stored any more.
+    if (!cards.size) { this.baseStored = null; this.reviewQueue = [] }
+  }
+
+  /**
+   * A game to look at again, as its two parts: what the practices of a health system share, and
+   * the practice's own. Null before a phase is scored and for a practice that was removed.
+   */
+  review(id: PlayerId) {
+    const p = this.state.players[id]
+    if (!p || p.removed || !this.state.closedPhases.length) return null
+    const { pack, config } = this.deps
+    return {
+      base: project.reviewBase(this.state, pack, id, config.publicUrl),
+      mine: project.reviewMine(this.state, pack, id, this.rejoinCodes.get(id) ?? '', this.playedAt),
+    }
+  }
+
+  /** Store the games to look at again of the next `max` practices that wait for it. */
+  private storeReviews(max: number): void {
+    for (const id of this.reviewQueue.splice(0, max)) {
+      const r = this.review(id)
+      if (!r) continue
+      const text = JSON.stringify(r.base)
+      const hash = createHash('sha256').update(text).digest('hex').slice(0, 16)
+      // The shared part is the same for a whole health system: it is packed once for the practices in a row.
+      const data = this.baseStored === hash ? new Uint8Array() : gzipSync(text)
+      this.deps.db.writeReview(this.code, id, { hash, data }, gzipSync(JSON.stringify(r.mine)))
+      this.baseStored = hash
+    }
+  }
+
+  /** Store every game to look at again that still waits, before the room leaves the memory. */
+  flushReviews(): void {
+    this.storeReviews(Infinity)
   }
 
   private sendView(id: PlayerId): void {
@@ -356,6 +421,7 @@ export class Room {
       wallNowMs: this.deps.config.wallNow(),
       stageWall: this.stageWall,
       answerKey: !!this.deps.config.answerKeyFile && existsSync(this.deps.config.answerKeyFile),
+      guide: !!this.deps.config.facilitatorGuideFile && existsSync(this.deps.config.facilitatorGuideFile),
       screens: this.screens.size,
     })
   }
@@ -415,6 +481,9 @@ export class Room {
     sock.role = 'player'
     sock.playerId = playerId
     this.players.set(playerId, sock)
+    this.emptySince = null
+    // The clock of a single-player game stands still while its player is away (section 6.14).
+    if (this.kind === 'solo' && !this.clock.running && !this.state.closed) this.setClock(true)
     this.handle(advance(this.state, this.deps.pack, this.now()))
     const p = this.state.players[playerId]!
     const { pack } = this.deps
@@ -439,6 +508,13 @@ export class Room {
     if (sock.role === 'player' && sock.playerId && this.players.get(sock.playerId) === sock) {
       this.players.delete(sock.playerId)
       this.hostDirty = true
+      if (!this.players.size && !this.gone) {
+        this.emptySince = this.deps.config.wallNow()
+        if (this.kind === 'solo' && this.clock.running && !this.state.closed) {
+          this.handle(advance(this.state, this.deps.pack, this.now()))
+          this.setClock(false)
+        }
+      }
     }
     if (this.hosts.delete(sock)) {
       this.hostDirty = true
@@ -451,7 +527,7 @@ export class Room {
   attachHost(sock: Sock, name = '', consoleId = ''): void {
     sock.role = 'host'
     sock.spectating = null
-    sock.hostName = name.trim().slice(0, 40) || 'Host console'
+    sock.hostName = name.trim().slice(0, 40) || 'Facilitator console'
     sock.hostSeq = ++this.hostSeqN
     sock.consoleId = consoleId || `c${sock.hostSeq}-${Math.random().toString(36).slice(2, 8)}`
     this.hosts.add(sock)
@@ -569,17 +645,32 @@ export class Room {
     const { pack, db, config } = this.deps
     const now = this.now()
     this.handle(advance(this.state, pack, now))
-    const res = apply(this.state, pack, { actor: 'player', playerId: id, type, payload: parsed.data.payload }, now)
+    // The player of a single-player game moves it on (section 6.14). Each of those commands is
+    // applied and logged as the facilitator's command it stands for, so a restore replays it.
+    let actor: 'player' | 'host' = 'player'
+    let cmd: { type: string; payload: unknown } = { type, payload: parsed.data.payload }
+    if (type.startsWith('solo.')) {
+      const mapped = soloCommand(this.state, pack, type, parsed.data.payload)
+      if (typeof mapped === 'string') return ack({ ok: false, error: mapped })
+      actor = 'host'
+      cmd = mapped
+    }
+    const res: ApplyResult = actor === 'host'
+      ? apply(this.state, pack, { actor: 'host', type: cmd.type, payload: cmd.payload }, now)
+      : apply(this.state, pack, { actor: 'player', playerId: id, type, payload: cmd.payload }, now)
     const rec: AckRecord = res.ok ? { ok: true } : { ok: false, error: res.error, ...(res.data ? { data: res.data } : {}) }
     if (res.ok) {
       this.seq = db.insertCommand({
-        code: this.code, actor: 'player', player_id: id, cid, game_ms: now, wall_ms: config.wallNow(),
-        type, payload: JSON.stringify(parsed.data.payload), result: JSON.stringify(rec),
+        code: this.code, actor, player_id: id, cid, game_ms: now, wall_ms: config.wallNow(),
+        type: cmd.type, payload: JSON.stringify(cmd.payload), result: JSON.stringify(rec),
       })
       this.remember(id, cid, rec)
     }
     ack(rec)
-    if (res.ok) this.handle(res)
+    if (res.ok) {
+      this.handle(res)
+      if (actor === 'host') this.broadcastClock()
+    }
   }
 
   hostCommand(sock: Sock, cid: string, type: string, payload: unknown): void {
@@ -680,8 +771,39 @@ export class Room {
     return 'ok'
   }
 
-  /** Close the sockets of this room (shutdown). */
+  /**
+   * A new name for the session (section 7.2): in the lobby through the engine, so that a restore
+   * replays it, and after the session has ended on the state itself, with the stored cards.
+   */
+  rename(label: string): 'ok' | 'wrong_stage' {
+    const { pack, db, config } = this.deps
+    if (this.state.closed) {
+      this.state.label = label
+      this.snapshot(false)
+      this.storeResults()
+      this.reviewQueue = [...this.state.order]
+    } else {
+      const now = this.now()
+      this.handle(advance(this.state, pack, now))
+      const payload = { label }
+      const res = apply(this.state, pack, { actor: 'host', type: 'rename_session', payload }, now)
+      if (!res.ok) return 'wrong_stage'
+      const wall = config.wallNow()
+      this.seq = db.insertCommand({
+        code: this.code, actor: 'host', player_id: null, cid: `list-${wall}`, game_ms: now, wall_ms: wall,
+        type: 'rename_session', payload: JSON.stringify(payload), result: JSON.stringify({ ok: true }),
+      })
+      this.handle(res)
+      this.sendHostViews()
+      this.sendScreenViews()
+    }
+    db.renameSession(this.code, this.state.label)
+    return 'ok'
+  }
+
+  /** Close the sockets of this room: the server shuts down, or the room leaves the memory. */
   closeAll(code: number = 1001): void {
+    this.gone = true
     for (const s of [...this.players.values(), ...this.hosts, ...this.screens]) s.close(code, 'server shutting down')
   }
 }

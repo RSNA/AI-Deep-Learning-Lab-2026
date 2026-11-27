@@ -9,6 +9,8 @@ export type Config = {
   hostPasscode: string
   publicUrl: string
   answerKeyFile: string | null
+  /** The facilitator guide, a private page like the answer key. */
+  facilitatorGuideFile: string | null
   logLevel: 'debug' | 'info' | 'warn' | 'error' | 'silent'
   clientDir: string | null
   systems: string[] | undefined
@@ -19,6 +21,14 @@ export type Config = {
   /** Wall clock in ms. Tests replace it. Nothing else in the server reads the time. */
   wallNow: () => number
   tickMs: number
+  /** Single-player games held in memory at once. One more is refused with a plain sentence. */
+  soloMax: number
+  /** A single-player game whose player has been away this long leaves the memory. It stays resumable. */
+  soloIdleMs: number
+  /** Single-player games one address may start in ten minutes. */
+  soloPerAddress: number
+  /** How often the single-player games that ended or stand idle are taken out of memory. */
+  soloSweepMs: number
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env, defaults: Partial<Config> = {}): Config {
@@ -39,6 +49,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env, defaults: Pa
     hostPasscode: passcode,
     publicUrl: (env.PUBLIC_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
     answerKeyFile: env.ANSWER_KEY_FILE ? resolve(env.ANSWER_KEY_FILE) : null,
+    facilitatorGuideFile: env.FACILITATOR_GUIDE_FILE ? resolve(env.FACILITATOR_GUIDE_FILE) : null,
     logLevel: ['debug', 'info', 'warn', 'error', 'silent'].includes(level) ? level : 'info',
     clientDir: env.CLIENT_DIR ? resolve(env.CLIENT_DIR) : null,
     systems: env.SYSTEMS ? env.SYSTEMS.split(',').map((x) => x.trim()).filter(Boolean) : undefined,
@@ -47,6 +58,10 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env, defaults: Pa
     build: env.BUILD_ID ?? process.env.BUILD_ID ?? 'dev',
     wallNow: () => Date.now(),
     tickMs: 250,
+    soloMax: Number(env.SOLO_MAX ?? 150),
+    soloIdleMs: Number(env.SOLO_IDLE_MINUTES ?? 15) * 60_000,
+    soloPerAddress: Number(env.SOLO_PER_ADDRESS ?? 20),
+    soloSweepMs: 5000,
     ...defaults,
   }
 }

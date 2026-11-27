@@ -316,6 +316,7 @@ input.field.bad { border-color: var(--bad); }
 .srow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 56px; border-bottom: 2px solid var(--soft); padding: 6px 0; }
 .sinfo { display: flex; flex-direction: column; min-width: 0; }
 .sbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.solohead { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 14px; align-items: center; }
 .snote { padding: 8px 12px; margin-bottom: 6px; background: var(--sun-bg); border: 2px solid var(--line); font-weight: 700; font-size: 14px; }
 .viewonly { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 16px; background: var(--sun-bg); border-bottom: 3px solid var(--line); font-weight: 800; }
 .watchers { padding: 4px 20px; font-size: 14px; color: var(--muted); font-weight: 700; }
@@ -475,10 +476,35 @@ input.field.bad { border-color: var(--bad); }
 .restartbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px;
   background: var(--sun); color: var(--on); border-bottom: 3px solid var(--line); font-weight: 800; font-size: 15px; }
 .newgame { border-color: var(--good); }
-.newgame .newerbtn { align-self: flex-start; white-space: normal; }
-.restartbar.newer { flex-wrap: wrap; }
-.restartbar.newer > span:first-child { flex: 1 1 220px; min-width: 0; }
-.newer-acts { display: flex; gap: 8px; flex-shrink: 0; }
+/* The start page: the games of this browser, and the field for a session code */
+.gamelist { display: flex; flex-direction: column; }
+.gamerow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 14px; align-items: center; min-height: 56px; padding: 8px 0; border-bottom: 2px solid var(--soft); }
+.gamerow:last-child { border-bottom: 0; }
+.gamerow .ginfo { display: flex; flex-direction: column; min-width: 0; }
+.gamerow .ginfo .muted { font-size: 13px; overflow-wrap: anywhere; }
+.gamerow .gpoints { font-weight: 800; white-space: nowrap; }
+.gamerow .gbtns { display: flex; gap: 8px; justify-content: flex-end; }
+.coderow { display: flex; gap: 8px; align-items: stretch; }
+.coderow .field { flex: 1 1 auto; min-width: 0; }
+.coderow .btn { flex-shrink: 0; min-height: 0; }
+@media (max-width: 520px) {
+  .gamerow { grid-template-columns: minmax(0, 1fr) auto; }
+  .gamerow .gbtns { grid-column: 1 / -1; justify-content: flex-start; }
+}
+/* A single-player game: the strip with which its player moves it on */
+.solobar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 16px; border-bottom: 3px solid var(--line); background: var(--sun-bg); font-weight: 700; font-size: 14px; }
+.solo-tag { font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; font-size: 12px; }
+.solo-say { flex: 1 1 200px; min-width: 0; }
+.solobar .acts { display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto; }
+/* A phone keeps the strip to one row: the buttons say what happens. */
+@media (max-width: 700px) { .solobar { padding: 6px 10px; } .solo-say { display: none; } }
+.startsolo { font-size: clamp(20px, 5.6vw, 32px); }
+/* The waiting room of a late joiner */
+.waitroom { padding: 14px 16px 24px; width: 100%; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.waitslides { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.waitslides button { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+.waitbig { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.waitbig .acts { display: flex; gap: 8px; align-items: center; }
 
 /* One row of controls, one size (section 10.1). In the player's top bar the countdown, the rank
    and the menu button are one block high, large enough for a thumb. */

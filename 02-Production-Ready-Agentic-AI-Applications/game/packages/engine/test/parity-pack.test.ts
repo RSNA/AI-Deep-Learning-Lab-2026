@@ -151,15 +151,25 @@ describe.runIf(on && !!process.env.MAINTAIN_SCORER)('Phase 3 parity on CONTENT_D
         ...referenceMaps(b).map((r) => ({ name: `reference ${r.id}`, map: r.map })),
         ...(b.key.traps ?? []).map((t) => ({ name: `trap ${t.id}`, map: fromPackMap(t.map) })),
         ...(key.examples ?? []).map((e) => ({ name: `example ${e.id}`, map: fromPackMap(e.map) })),
-      ].filter((x) => !mapErrors(x.map, b3, null).length && !readyReasons(x.map, b3).length)
+      ]
+      // A model that exists from Phase 3 on: the first reference map with every AI tile on it,
+      // at the first place where it runs.
+      const first = referenceMaps(b)[0]
+      for (const mo of mt.models) {
+        if (first) named.push({ name: `reference ${first.id} on ${mo.id}`, map: { tiles: first.map.tiles.map((t) => (t.model !== null && mo.by_worker[t.kind] ? { ...t, model: mo.id, runsOn: mo.runs_on[0]! } : t)), lines: first.map.lines } })
+      }
+      const ready = named.filter((x) => !mapErrors(x.map, b3, null).length && !readyReasons(x.map, b3).length)
+      expect(ready.filter((x) => x.name.includes(' on ')).length).toBe(first ? mt.models.length : 0)
       // Sets of actions: none, everything of Phase 3 done in the first round, everything done in
-      // the middle of the year, and every repair started right after its event began.
+      // the middle of the year, every repair started right after its event began, and every
+      // hardening held from Phase 2 on (an action of the build file may harden too).
       const all = (k: number) => mt.actions.map((a) => ({ id: a.id, started: k, done: k }))
       const repairs = mt.events.flatMap((e) => e.repaired_by.map((a) => ({ id: a, started: e.from, done: e.from })))
-      const sets = [{ name: 'none', actions: [] as { id: string; started: number; done: number }[] }, { name: 'all early', actions: all(1) }, { name: 'all in the middle', actions: all(3) }, { name: 'repairs', actions: repairs }]
+      const hardened = mt.reliability.hardening.map((h) => ({ id: h.action, started: 0, done: 0 }))
+      const sets = [{ name: 'none', actions: [] as { id: string; started: number; done: number }[] }, { name: 'all early', actions: all(1) }, { name: 'all in the middle', actions: all(3) }, { name: 'repairs', actions: repairs }, { name: 'hardened', actions: hardened }]
       type Req = { kind: 'period' | 'validation' | 'year'; label: string; run: () => unknown; body: Record<string, unknown> }
       const reqs: Req[] = []
-      for (const x of named) for (const set of sets) {
+      for (const x of ready) for (const set of sets) {
         for (let p = 1; p <= last; p++) for (const newMap of p === 2 ? [false, true] : [false]) {
           reqs.push({ kind: 'period', label: `${x.name}, period ${p}, ${set.name}`, body: { kind: 'period', period: p, map: toPack(x.map), actions: set.actions, new_map: newMap }, run: () => period(b3, mt, p, x.map, set.actions, newMap) })
         }

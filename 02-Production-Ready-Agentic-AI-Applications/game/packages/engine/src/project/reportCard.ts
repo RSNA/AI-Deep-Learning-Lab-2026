@@ -3,11 +3,12 @@
 // closed, so that a player can come back to it. It holds what the reveals already sent to that
 // player and nothing more: points, bands, ranks, a few counts, and the public names of the
 // papers behind the game.
-import { fromPackMap, type BuildFile, type Pack } from '@lab02/content-schema'
+import { fromPackMap, periodName, type BuildFile, type Pack } from '@lab02/content-schema'
 import { PHASES, type PhaseId, type ReportCard, type ReportCardPhase } from '@lab02/protocol'
 import { evaluate } from '../canvas.ts'
 import { overallPoints, rankOf } from '../leaderboard.ts'
 import { bandOf } from '../scoring.ts'
+import { kindOf } from '../session.ts'
 import type { PlayerId, PlayerState, SessionState } from '../state.ts'
 
 /** What a line of the pack's report card file may ask about (`when`). */
@@ -90,7 +91,7 @@ function maintainingPart(s: SessionState, pack: Pack, p: PlayerState, facts: Rep
       { label: 'Periods with a map running', value: `${ran} of ${reports.length}` },
     ],
     periods: reports.map((r) => ({
-      label: m.periods[r.period - 1]?.short ?? `Period ${r.period}`,
+      label: periodName(m, r.period).short,
       validity: 100 * r.validity, reliability: 100 * r.reliability, value: r.value,
     })),
   }
@@ -147,7 +148,7 @@ export function reportCard(s: SessionState, pack: Pack, playerId: PlayerId, rejo
   facts.overall_band = final ? overall : 'none'
   const system = pack.systems[p.system]
   return {
-    session: { code: s.code, label: s.label, title: pack.game.game.title, playedAtMs },
+    session: { code: s.code, label: s.label, title: pack.game.game.title, playedAtMs, kind: kindOf(s) },
     practice: { name: p.name, avatar: p.avatar, system: system?.system.public.name ?? p.system, rejoinCode },
     final,
     total, maxTotal: max * PHASES.length,

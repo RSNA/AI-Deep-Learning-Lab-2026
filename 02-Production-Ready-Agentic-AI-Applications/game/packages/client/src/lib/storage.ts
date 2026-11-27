@@ -9,10 +9,16 @@ export type PastGame = {
 }
 
 /**
- * A game whose report card this browser can ask for again (section 7.7): the session and the
- * rejoin code of the practice, which is what the server asks for. Newest first, ten at most.
+ * A game this browser played (section 7.7), newest first, thirty at most. The session and the
+ * rejoin code of the practice are what the server asks for to show its result again. The token
+ * and the player id are kept from the join, so the same browser can go back into a game that
+ * is still open. `startedAt` is when this browser joined.
  */
-export type KeptResult = { session: string; label: string; name: string; rejoinCode: string }
+export type KeptResult = {
+  session: string; label: string; name: string; rejoinCode: string
+  kind?: 'multi' | 'solo'; token?: string; playerId?: string; startedAt?: number
+}
+const KEPT_MAX = 30
 
 function read<T>(key: string): T | null {
   try {
@@ -38,11 +44,16 @@ export const store = {
     const list = read<KeptResult[]>('lab02.results')
     return Array.isArray(list) ? list.filter((r) => r && typeof r.session === 'string' && typeof r.rejoinCode === 'string') : []
   },
-  /** Put a game first in the list. The same game is kept once. */
+  /** Keep a game. One that is already kept stays where it is in the list and takes what is new. */
   keepResult: (r: KeptResult) => {
-    const rest = store.results().filter((x) => x.session !== r.session)
-    const next = [r, ...rest].slice(0, 10)
-    if (JSON.stringify(next) !== JSON.stringify(store.results())) write('lab02.results', next)
+    const all = store.results()
+    const i = all.findIndex((x) => x.session === r.session)
+    const next = (i >= 0 ? all.map((x, k) => (k === i ? { ...x, ...r } : x)) : [r, ...all]).slice(0, KEPT_MAX)
+    if (JSON.stringify(next) !== JSON.stringify(all)) write('lab02.results', next)
+  },
+  /** Let go of the games the server no longer holds. */
+  dropResults: (sessions: string[]) => {
+    if (sessions.length) write('lab02.results', store.results().filter((x) => !sessions.includes(x.session)))
   },
   host: () => read<{ token: string; name?: string }>('lab02.host'),
   setHost: (a: { token: string; name?: string } | null) => write('lab02.host', a),

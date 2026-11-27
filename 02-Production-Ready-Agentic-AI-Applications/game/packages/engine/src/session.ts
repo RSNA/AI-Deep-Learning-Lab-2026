@@ -4,7 +4,7 @@ import type { Pack } from '@lab02/content-schema'
 import { HostCommand } from '@lab02/protocol/host'
 import {
   AVATARS, PHASES, PLAY_STAGES, STAGES, phaseOfStage, resetPhaseOf,
-  SCENES, type AvatarId, type ErrorCode, type Mode, type PhaseId, type SceneId, type StageId,
+  SCENES, type AvatarId, type ErrorCode, type Kind, type Mode, type PhaseId, type SceneId, type StageId,
 } from '@lab02/protocol'
 import { deckSlides, sectionOf, sectionStartFor } from './deck.ts'
 import { computeBoard } from './leaderboard.ts'
@@ -30,7 +30,7 @@ export function stageLengthMs(pack: Pack, stage: StageId): number | null {
   switch (stage) {
     case 'planning.play': return ph.planning.play_seconds * 1000
     case 'development.play': return ph.development.play_seconds * 1000
-    case 'maintaining.year': return ph.maintaining.rounds * ph.maintaining.round_seconds * 1000
+    case 'maintaining.year': return (ph.maintaining.play_seconds ?? ph.maintaining.rounds * ph.maintaining.round_seconds) * 1000
     default: return null
   }
 }
@@ -62,32 +62,30 @@ const CLOSING_STAGE: Record<PhaseId, StageId> = {
   planning: 'planning.reveal', development: 'development.reveal', maintaining: 'maintaining.reveal',
 }
 
-/** The round of Phase 3 in progress, 1 to `rounds`, or null outside its play stage (section 6.7). */
-export function currentRound(s: SessionState, pack: Pack, now: GameMs): number | null {
-  if (s.stage !== 'maintaining.year' || s.stageEndsAtMs === null) return null
-  const mt = pack.game.phases.maintaining
-  // The end of round r is the stage end minus the rounds after it, so an extension by the host
-  // lengthens the round in progress.
-  const left = Math.max(0, s.stageEndsAtMs - now)
-  return Math.max(1, Math.min(mt.rounds, mt.rounds - Math.ceil(left / (mt.round_seconds * 1000)) + 1))
+/**
+ * Joining is open until the last phase a newcomer may enter has started (section 6.4). Nobody
+ * enters a phase in play, so once that phase runs there is no phase left to wait for.
+ */
+export function joinOpen(s: SessionState, pack: Pack): boolean {
+  if (s.closed) return false
+  // A single-player game belongs to the one practice it was made for.
+  if (kindOf(s) === 'solo' && s.order.length > 0) return false
+  return STAGES.indexOf(s.stage) < STAGES.indexOf(FIRST_STAGE[pack.game.join.late_join.open_until.phase])
 }
 
-export function joinOpen(s: SessionState, pack: Pack, now: GameMs): boolean {
-  if (s.closed) return false
-  const until = pack.game.join.late_join.open_until
-  const first = STAGES.indexOf(FIRST_STAGE[until.phase])
-  const i = STAGES.indexOf(s.stage)
-  if (i < first) return true
-  if (until.phase === 'maintaining' && s.stage === 'maintaining.year') {
-    return until.round === undefined || (currentRound(s, pack, now) ?? 0) <= until.round
-  }
-  return s.stage === FIRST_STAGE[until.phase] && until.phase !== 'maintaining'
+/** The phase in play, which someone who joins now waits out (section 6.4), or null. */
+export function joinWaitsFor(s: SessionState): PhaseId | null {
+  return PLAY_STAGES.includes(s.stage) ? phaseOfStage(s.stage) : null
+}
+
+export function kindOf(s: SessionState): Kind {
+  return s.kind ?? 'multi'
 }
 
 // ------------------------------------------------------------------------------------------
 // Creation
 // ------------------------------------------------------------------------------------------
-export type CreateOptions = { code: string; label: string; mode: Mode; nowMs?: GameMs }
+export type CreateOptions = { code: string; label: string; mode: Mode; kind?: Kind; nowMs?: GameMs }
 
 export class ProvisionalAnchorsError extends Error {
   constructor() {
@@ -100,7 +98,7 @@ export function createSession(pack: Pack, opts: CreateOptions): SessionState {
   const now = opts.nowMs ?? 0
   const s: SessionState = {
     v: 1,
-    code: opts.code, label: opts.label, mode: opts.mode, contentHash: pack.hash,
+    code: opts.code, label: opts.label, mode: opts.mode, kind: opts.kind ?? 'multi', contentHash: pack.hash,
     systems: [...pack.systemIds],
     createdAtMs: now,
     stage: 'lobby', stageStartedMs: now, stageEndsAtMs: null,
@@ -129,7 +127,7 @@ function merge(into: Outcome, add: Outcome): void {
 /** When the idle line of the phase in play fires for a player, or null. */
 function idleDue(s: SessionState, pack: Pack, p: PlayerState): GameMs | null {
   const phase = phaseOfStage(s.stage)
-  if (!phase || s.stage !== FIRST_STAGE[phase] || s.stageEndsAtMs === null || p.removed) return null
+  if (!phase || s.stage !== FIRST_STAGE[phase] || s.stageEndsAtMs === null || p.removed || p.waitingFor) return null
   if (!idleLinePending(pack, p, phase)) return null
   const t = Math.max(p.lastCmdMs ?? 0, p.joinedAtMs, s.stageStartedMs) + idleMs(pack)
   return t < s.stageEndsAtMs ? t : null
@@ -142,7 +140,7 @@ function playerDue(s: SessionState, pack: Pack): { at: GameMs; p: PlayerState } 
   let best: { at: GameMs; p: PlayerState } | null = null
   for (const id of s.order) {
     const p = s.players[id]!
-    if (p.removed) continue
+    if (p.removed || p.waitingFor) continue
     const a = mod?.nextDue?.(s, pack, p) ?? null
     const b = idleDue(s, pack, p)
     const t = a === null ? b : b === null ? a : Math.min(a, b)
@@ -154,7 +152,7 @@ function playerDue(s: SessionState, pack: Pack): { at: GameMs; p: PlayerState } 
 /** The live value moves when a command or a timer moves it, so a tie goes to who got there first. */
 function refreshLive(s: SessionState, pack: Pack, p: PlayerState, at: GameMs): void {
   const phase = phaseOfStage(s.stage)
-  if (!phase || !s.opened.includes(phase) || s.closedPhases.includes(phase)) return
+  if (!phase || !s.opened.includes(phase) || s.closedPhases.includes(phase) || p.waitingFor) return
   const v = PHASE_MODULES[phase].liveValue(s, pack, p)
   if (p.live[phase].value !== v) p.live[phase] = { value: v, sinceMs: at }
 }
@@ -215,6 +213,7 @@ function openPhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): Eng
   for (const id of s.order) {
     const p = s.players[id]!
     if (p.removed) continue
+    p.waitingFor = null
     PHASE_MODULES[phase].open(s, pack, p, at)
     p.live[phase] = { value: 0, sinceMs: at }
     events.push(...openStory(pack, p, phase, at))
@@ -241,6 +240,13 @@ function closePhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): En
   for (const id of s.order) {
     const p = s.players[id]!
     if (p.removed || p.results[phase]) continue
+    // Someone who waited the phase out has no board to score: the phase counts 0, and the wait is over.
+    if (p.waitingFor === phase) {
+      p.waitingFor = null
+      p.results[phase] = zeroResult(pack, p.system, phase)
+      ;(p.missed ??= []).push(phase)
+      continue
+    }
     const raw = PHASE_MODULES[phase].close(s, pack, p, at)
     const cal = pack.systems[p.system]!.system.calibration[phase]
     const { points, provisional } = pointsOf(raw, cal, norm)
@@ -249,6 +255,16 @@ function closePhase(s: SessionState, pack: Pack, phase: PhaseId, at: GameMs): En
   }
   if (!s.closedPhases.includes(phase)) s.closedPhases.push(phase)
   return events
+}
+
+function zeroResult(pack: Pack, system: string, phase: PhaseId): PlayerState['results'][PhaseId] {
+  return { raw: 0, points: 0, band: bandOf(0, pack.game.scoring.score_bands), provisional: pack.systems[system]!.system.calibration[phase].provisional }
+}
+
+/** Keep the slide on show in the list of slides that were shown, for those who come later. */
+function markShown(s: SessionState, pack: Pack): void {
+  if (shownScene(s, pack) !== 'slides' || deckSlides(pack).length === 0) return
+  if (!(s.shown ??= []).includes(s.screen.slide)) s.shown.push(s.screen.slide)
 }
 
 function enterStage(s: SessionState, pack: Pack, stage: StageId, at: GameMs): Outcome {
@@ -273,6 +289,7 @@ function enterStage(s: SessionState, pack: Pack, stage: StageId, at: GameMs): Ou
     s.screen.mirror = true
   }
   endMirrorIfOff(s, pack)
+  markShown(s, pack)
   touchAll(s)
   s.board = computeBoard(s, pack, at)
   const events: EngineEvent[] = [{ kind: 'stage', stage, atMs: at }, ...story]
@@ -325,7 +342,7 @@ export function assignSystem(s: SessionState, pack: Pack): string {
 
 function join(s: SessionState, pack: Pack, payload: { playerId: PlayerId; name: string; avatar?: string | null; system?: string | null }, now: GameMs): ApplyResult {
   if (s.players[payload.playerId]) return fail('bad_message')
-  if (!joinOpen(s, pack, now)) return fail('join_closed')
+  if (!joinOpen(s, pack)) return fail('join_closed')
   if (activePlayers(s).length >= MAX_PLAYERS) return fail('session_full')
   // A pick is honored only in the modes that allow it, and ignored elsewhere.
   const picked = canPickSystem(s, pack) && payload.system ? payload.system : null
@@ -347,17 +364,12 @@ function join(s: SessionState, pack: Pack, payload: { playerId: PlayerId; name: 
   s.players[p.id] = p
   s.order.push(p.id)
   s.rev++
-  // A phase that closed before the player joined scores 0. A phase in play is joined with its full budget.
-  for (const ph of s.closedPhases) {
-    p.results[ph] = { raw: 0, points: 0, band: bandOf(0, pack.game.scoring.score_bands), provisional: pack.systems[system]!.system.calibration[ph].provisional }
-  }
-  const events: EngineEvent[] = [{ kind: 'joined', playerId: p.id, atMs: now }]
-  for (const ph of s.opened) {
-    if (s.closedPhases.includes(ph)) continue
-    PHASE_MODULES[ph].open(s, pack, p, now)
-    events.push(...openStory(pack, p, ph, now))
-  }
-  return done({ dirty: [p.id], events })
+  // A phase that closed before the player joined scores 0. Nobody enters a phase in play: the
+  // player waits it out, and it scores 0 when it closes.
+  for (const ph of s.closedPhases) p.results[ph] = zeroResult(pack, system, ph)
+  p.missed = [...s.closedPhases]
+  p.waitingFor = joinWaitsFor(s)
+  return done({ dirty: [p.id], events: [{ kind: 'joined', playerId: p.id, atMs: now }] })
 }
 
 function playerCommand(s: SessionState, pack: Pack, playerId: PlayerId, type: string, payload: unknown, now: GameMs): ApplyResult {
@@ -368,7 +380,7 @@ function playerCommand(s: SessionState, pack: Pack, playerId: PlayerId, type: st
   const mod = (PHASE_MODULES as Record<string, (typeof PHASE_MODULES)[PhaseId] | undefined>)[phaseName]
   const handler = mod?.commands[type]
   if (!mod || !handler) return fail(mod ? 'not_available' : 'bad_message')
-  if (phaseOfStage(s.stage) !== mod.phase) return fail('wrong_stage')
+  if (phaseOfStage(s.stage) !== mod.phase || p.waitingFor) return fail('wrong_stage')
   const res = handler(s, pack, p, payload, now)
   if (!res.ok) return { ...fail(res.error), ...(res.data ? { data: res.data } : {}) }
   p.lastCmdMs = now
@@ -430,6 +442,7 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
         p.results[phase] = null
         p.acted[phase] = false
         p.submittedAtMs[phase] = null
+        if (p.missed) p.missed = p.missed.filter((x) => x !== phase)
       }
       s.closedPhases = s.closedPhases.filter((x) => x !== phase)
       s.opened = s.opened.filter((x) => x !== phase)
@@ -453,13 +466,25 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
         p.inbox = []
         p.said = []
         p.lastCmdMs = null
+        p.waitingFor = null
+        p.missed = []
       }
       s.opened = []
       s.closedPhases = []
       s.stageLog = []
+      s.shown = []
       s.run = (s.run ?? 0) + 1
       s.screen = { ...s.screen, scene: 'auto', slide: 0, spotlight: null, mirror: false }
       return { ok: true, ...enterStage(s, pack, 'lobby', now) }
+    }
+    case 'rename_session': {
+      // The name stands on the join page and on every result, so it is fixed once the game runs.
+      if (s.stage !== 'lobby') return fail('wrong_stage')
+      const label = cmd.payload.label.trim()
+      if (!label) return fail('bad_message')
+      s.label = label
+      touchAll(s)
+      return done({ dirty: 'all', events: [{ kind: 'screen', atMs: now }] })
     }
     case 'close': {
       if (cmd.payload.confirm.toUpperCase() !== s.code) return fail('confirm_mismatch')
@@ -518,6 +543,7 @@ function hostCommand(s: SessionState, pack: Pack, type: string, payload: unknown
   s.rev++
   const wasMirrored = !!s.screen.mirror
   endMirrorIfOff(s, pack)
+  markShown(s, pack)
   // A mirrored slide is part of every player's view.
   if (s.screen.mirror || wasMirrored || cmd.type === 'screen_scene' || cmd.type === 'spotlight') {
     touchAll(s)
@@ -563,8 +589,30 @@ export function apply(s: SessionState, pack: Pack, command: Command, now: GameMs
   return hostCommand(s, pack, command.type, command.payload, now)
 }
 
+/**
+ * A single-player game has no facilitator, so its player moves it on (section 6.14). Each of the
+ * three commands stands for one command of a facilitator, which the caller then applies. Slides
+ * are stepped inside the section of the stage: its last slide is left with `solo.next`.
+ */
+export function soloCommand(s: SessionState, pack: Pack, type: string, payload: unknown): { type: string; payload: unknown } | ErrorCode {
+  if (kindOf(s) !== 'solo') return 'not_solo'
+  if (s.closed) return 'wrong_stage'
+  switch (type) {
+    case 'solo.next': return s.stageEndsAtMs === null ? { type: 'next', payload: {} } : 'wrong_stage'
+    case 'solo.end_now': return s.stageEndsAtMs !== null ? { type: 'end_now', payload: {} } : 'wrong_stage'
+    case 'solo.slide': {
+      const delta = (payload as { delta?: number } | null)?.delta
+      const sec = sectionOf(pack, s.stage)
+      if (!sec || !slidesMirrored(s, pack) || (delta !== 1 && delta !== -1)) return 'wrong_stage'
+      const to = s.screen.slide + delta
+      return to >= sec.start && to < sec.start + sec.count ? { type: 'slide', payload: { delta } } : 'wrong_stage'
+    }
+    default: return 'bad_message'
+  }
+}
+
 /** Host commands that the engine applies (the rest act on the server's clock or sockets). */
 export const ENGINE_HOST_COMMANDS = new Set([
-  'next', 'extend', 'end_now', 'rename_player', 'remove_player', 'reset_stage', 'restart_game', 'close',
+  'next', 'extend', 'end_now', 'rename_player', 'remove_player', 'reset_stage', 'restart_game', 'close', 'rename_session',
   'screen_scene', 'screen_mirror', 'slide_to', 'screen_theme', 'screen_filter', 'slide', 'spotlight',
 ])

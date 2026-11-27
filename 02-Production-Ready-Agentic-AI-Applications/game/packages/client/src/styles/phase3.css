@@ -30,7 +30,7 @@
 .p3chart { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 /* The year in numbers, under the chart: one row for each report. A press shows that report. */
 .p3rows { display: flex; flex-direction: column; }
-.p3rows-h, .p3rows button { display: grid; grid-template-columns: 70px minmax(0, 1fr) 62px 68px 56px; gap: 8px; align-items: baseline; padding: 4px 8px; text-align: right; }
+.p3rows-h, .p3rows button { display: grid; grid-template-columns: 92px minmax(0, 1fr) 62px 68px 56px; gap: 8px; align-items: baseline; padding: 4px 8px; text-align: right; }
 .p3rows-h { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .p3rows-h span:nth-child(-n+2), .p3rows button span:nth-child(-n+2) { text-align: left; }
 .p3rows button { border: 0; border-top: 2px solid var(--soft); background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
@@ -38,6 +38,7 @@
 .p3rows button.on { background: var(--sun-bg); }
 .p3rows button:focus-visible { outline: 3px solid var(--sky); outline-offset: -3px; }
 .p3rows button .num { font-size: 18px; }
+.p3rows button span:first-child { white-space: nowrap; }
 .p3rows-m { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--muted); }
 .ychart { display: flex; flex-direction: column; gap: 4px; border: 2px solid var(--soft); background: var(--inset); padding: 8px 8px 2px; }
 .ychart svg { display: block; width: 100%; height: auto; }
@@ -51,6 +52,10 @@
 .ygrid { stroke: var(--soft); stroke-width: 1; }
 .ytick, .yx { fill: var(--muted); font-family: var(--text); font-size: 12px; font-weight: 800; }
 .yslot.has .yx { fill: var(--ink); }
+.yslot .yx.ymark { fill: var(--muted); font-size: 11px; }
+.ychart.compact .ytick, .ychart.compact .yx { font-size: 19px; }
+.ychart.compact .yslot .yx.ymark { font-size: 17px; }
+.yyear { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
 .yband { fill: var(--sun-bg); stroke: var(--line); stroke-width: 1.5; }
 .yline { fill: none; stroke-width: 3; stroke-linejoin: miter; }
 .yline.validity { stroke: var(--sky); }
@@ -166,7 +171,7 @@
 .p3evs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: stretch; }
 .p3ev { border: 2px solid var(--soft); background: var(--panel); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .p3ev.hit { border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
-.p3ev-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.p3ev-h { display: flex; flex-direction: column; gap: 2px; }
 .p3ev-h h3 { font-family: var(--text); font-size: 16px; font-weight: 800; line-height: 1.25; }
 .p3ev-when { font-family: var(--face); font-size: 18px; color: var(--muted); white-space: nowrap; }
 .p3ev p { font-size: 14.5px; line-height: 1.45; margin: 0; flex: 1; }

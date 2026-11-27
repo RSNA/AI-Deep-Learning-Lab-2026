@@ -448,11 +448,9 @@ function checkCounts(ctx: Ctx, game: GameFile, systems: Record<string, SystemPac
     next = b.max + 1
   }
   if (next - 1 < game.scoring.normalization.max_points) err('game.yaml', 'scoring.score_bands', `bands stop at ${next - 1}`)
-  const until = game.join.late_join.open_until
-  if (until.round !== undefined && until.phase !== 'maintaining') err('game.yaml', 'join.late_join.open_until.round', 'a round applies only to maintaining')
   const mt = game.phases.maintaining
-  if (until.round !== undefined && until.round > mt.rounds) err('game.yaml', 'join.late_join.open_until.round', `round ${until.round} is after the last round, ${mt.rounds}`)
-  if (mt.play_seconds !== undefined && mt.play_seconds !== mt.rounds * mt.round_seconds) err('game.yaml', 'phases.maintaining.play_seconds', `must be rounds times round_seconds, ${mt.rounds * mt.round_seconds}`)
+  const planned = mt.rounds * mt.round_seconds
+  if (mt.play_seconds !== undefined && (mt.play_seconds < planned || mt.play_seconds >= planned + mt.round_seconds)) err('game.yaml', 'phases.maintaining.play_seconds', `must be at least rounds times round_seconds, ${planned}, and less than one round more, ${planned + mt.round_seconds}`)
   if (mt.live_leaderboard.metric !== undefined && mt.live_leaderboard.metric !== 'year_score_so_far') err('game.yaml', 'phases.maintaining.live_leaderboard.metric', 'must be "year_score_so_far"')
   mt.action_groups.forEach((g, i) => { if ((game.phases.development.action_groups ?? []).some((x) => x.id === g.id) || mt.action_groups.findIndex((x) => x.id === g.id) !== i) err('game.yaml', `phases.maintaining.action_groups[${i}].id`, `group "${g.id}" is listed twice`) })
   const dev = game.phases.development

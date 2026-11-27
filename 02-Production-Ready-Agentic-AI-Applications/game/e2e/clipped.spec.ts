@@ -12,7 +12,7 @@ const SIZES: [number, number][] = [[360, 740], [390, 844], [500, 900], [768, 102
 
 async function setup(page: Page, label: string) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
-  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal', replace: {} }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
   const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
