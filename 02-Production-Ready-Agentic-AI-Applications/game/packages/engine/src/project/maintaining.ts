@@ -11,7 +11,7 @@ import type { HostInspect } from '@lab02/protocol/host'
 import { running as runningOf } from '../canvas.ts'
 import { counts, lensHeld, year, type HeldAction } from '../maintain.ts'
 import {
-  developersFreeIn3, heldActions, paidOf, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
+  developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
 } from '../phases/maintaining.ts'
 import type { MaintainingReport, MaintainingState, PlayerState, RiskEntry, SessionState } from '../state.ts'
 import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
@@ -27,6 +27,20 @@ function filesOf(pack: Pack, p: PlayerState): Files | null {
 /** What of the board of Phase 3 this player has. */
 function boardShown(pack: Pack, p: PlayerState): Omit<BoardShown, 'actions'> & { actions: BuildFile['actions'] } {
   return { unlocked: unlockedIn3(pack, p), actions: shownActionsIn3(pack, p), unseen: unseenModels(pack, p) }
+}
+
+/**
+ * What a purchase of a reference map is called in its offer. An action on the player's board
+ * goes by its title. One that is still hidden goes by what it puts on the board (the tool, the
+ * source, the model), whose names a player may see, so that the offer gives no hidden action away.
+ */
+export function offerTitle(pack: Pack, p: PlayerState, b3: BuildFile, actionId: string, title: string): string {
+  if (shownActionsIn3(pack, p).some((a) => a.id === actionId)) return title
+  const label = (id: string) =>
+    b3.workers.find((x) => x.id === id)?.public.label ?? b3.sources.find((x) => x.id === id)?.public.label ?? b3.models.find((x) => x.id === id)?.public.label
+    ?? b3.compute.find((x) => x.id === id)?.public.label ?? b3.prompts.find((x) => x.id === id)?.public.label
+  const gives = (b3.actions.find((a) => a.id === actionId)?.unlocks ?? []).map(label).filter((x): x is string => !!x)
+  return gives.length ? gives.join(', ') : 'What the map needs'
 }
 
 export function maintainingContent(s: SessionState, pack: Pack, playerId: string): MaintainingContent {
@@ -258,6 +272,10 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     seen,
     reports: st.reports.map((r, i) => reportView(f, held, st.found, r, st.reports[i - 1], reportRank(s, p, i))),
     adopted: [...st.adopted],
+    offers: referenceMaps(b).filter((r) => !st.adopted.includes(r.id)).map((r) => {
+      const o = referenceOffer(pack, p, r)
+      return { id: r.id, buys: o.needs.map((n) => ({ title: offerTitle(pack, p, b3, n.id, n.title), money: n.money })), price: o.price, pays: o.pays }
+    }),
     lenses: { freshTestSet: lens('fresh_test_set'), dryRun: lens('dry_run'), incidentLog: lens('incident_log'), caseMix: lens('case_mix'), driftAlarm: lens('drift_alarm') },
     spent: spentView(st),
     score: scoreSoFar(pack, p),

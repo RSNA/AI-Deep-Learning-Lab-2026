@@ -226,3 +226,10 @@
 .p3purse .kv.part { color: var(--muted); font-size: 13px; padding-left: 12px; }
 .p3purse .kv.part .v { font-size: 15px; }
 .p3purse .hint { padding-top: 4px; }
+
+/* What a reference map would buy, before the player takes it. */
+.p3ref-price { border: 2px solid var(--soft); background: var(--inset); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.p3ref-price p { margin: 0; font-size: 14px; line-height: 1.4; }
+.p3ref-price ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.p3ref-price li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-top: 2px solid var(--soft); font-size: 14px; font-weight: 700; }
+.p3ref-price li .num { font-size: 15px; white-space: nowrap; }

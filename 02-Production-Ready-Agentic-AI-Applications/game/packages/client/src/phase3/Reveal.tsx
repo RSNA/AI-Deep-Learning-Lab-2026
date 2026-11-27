@@ -72,9 +72,9 @@ export function YearReveal({ w, content, mv, inBreak, onSlides }: { w: Welcome; 
       </div>
       <YearPanel mv={mv} content={content} names={names} readOnly />
       <section className="panel p3cmp">
-        <div className="panel-head lav"><span>{P3.compareTitle}</span></div>
+        <div className="panel-head lav"><span>{P3.compareTitle(rv.references.length)}</span></div>
         <div className="panel-body">
-          <p className="hint">{P3.compareLine}</p>
+          <p className="hint">{P3.compareLine(rv.references.length)}</p>
           <div className="p3cmp-scroll">
             <table>
               <thead>

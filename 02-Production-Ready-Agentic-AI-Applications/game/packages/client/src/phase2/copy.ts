@@ -166,7 +166,7 @@ export const P2 = {
   leftS: (s: number) => `${secs(s)} left`,
   holds: (n: number) => `holds ${n}`,
   needsFirst: (title: string) => `Do “${title}” first.`,
-  needsMoney: (n: number) => `Needs ${moneyOf(n)}${unit || ' money'}.`,
+  needsMoney: (n: number, have: number) => `Costs ${moneyOf(n)}${unit || ' money'}, and you have ${moneyOf(Math.max(0, have))}${unit || ''} left.`,
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Said once, when a player has started this many actions.
   spendAfter: 4,
