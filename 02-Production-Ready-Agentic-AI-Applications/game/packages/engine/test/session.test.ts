@@ -367,6 +367,49 @@ describe('a single-player game', () => {
     expect(me(s, 'solo.other')).toMatchObject({ ok: false, error: 'wrong_stage' })
   })
 
+  it('the clock closes no phase: each stays open past its time until its player ends it', () => {
+    const s = solo()
+    join(s, 'p1', 'Alpha Branch')
+    let t = 0
+    const to = (stage: string) => { while (s.stage !== stage) { t += 1000; expect((s.stageEndsAtMs !== null ? me(s, 'solo.end_now', {}, t) : me(s, 'solo.next', {}, t)).ok).toBe(true) } }
+    for (const stage of ['planning.play', 'development.play'] as const) {
+      to(stage)
+      const end = s.stageEndsAtMs!
+      // Long after its time the phase is open, its end stands where it was, and a command still lands.
+      t = end + 10 * 60_000
+      advance(s, pack, t)
+      expect(s.stage).toBe(stage)
+      expect(s.stageEndsAtMs).toBe(end)
+      expect(project.playerView(s, pack, 'p1', 'CODE').solo).toEqual({ next: null, timed: true, slide: null })
+      expect(me(s, 'solo.end_now', {}, t).ok).toBe(true)
+      expect(s.stage).toBe(stage.replace('.play', '.reveal'))
+    }
+    // The year: every report comes at its time, and the last round waits for the player.
+    to('maintaining.year')
+    const mt = pack.game.phases.maintaining
+    const end = s.stageEndsAtMs!
+    advance(s, pack, end - 1)
+    expect(s.players.p1!.maintaining!.reports).toHaveLength(mt.rounds)      // the first one opens the year
+    t = end + 10 * 60_000
+    advance(s, pack, t)
+    expect(s.stage).toBe('maintaining.year')
+    expect(s.players.p1!.maintaining!.reports).toHaveLength(mt.rounds)
+    const mv = project.playerView(s, pack, 'p1', 'CODE').maintaining!
+    expect(mv.round).toMatchObject({ index: mt.rounds, of: mt.rounds, endsAtMs: end })
+    expect(me(s, 'solo.end_now', {}, t).ok).toBe(true)
+    expect(s.stage).toBe('maintaining.reveal')
+    expect(s.players.p1!.maintaining!.reports).toHaveLength(mt.rounds + 1)  // the last one closes it
+  })
+
+  it('a session with a facilitator still ends a phase when its time is over', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch')
+    let t = 0
+    while (s.stage !== 'planning.play') { t += 1000; expect(host(s, 'next', {}, t).ok).toBe(true) }
+    advance(s, pack, s.stageEndsAtMs!)
+    expect(s.stage).toBe('planning.reveal')
+  })
+
   it('a game to look at again holds the reveals and nothing of the live session', () => {
     const s = solo()
     join(s, 'p1', 'Alpha Branch')

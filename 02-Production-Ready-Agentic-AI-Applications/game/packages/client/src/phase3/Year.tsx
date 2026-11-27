@@ -29,16 +29,19 @@ export function useRoundLeft(mv: MaintainingView): number | null {
 export function RoundTimer({ mv, variant }: { mv: MaintainingView; variant: 'bar' | 'strip' }) {
   const left = useRoundLeft(mv)
   const clock = usePlayer((s) => s.clock)
+  const solo = usePlayer((s) => s.welcome?.session.kind === 'solo')
   const next = mv.next
   const paused = clock && !clock.clock.running
   const late = left !== null && left <= 20
   const t = left === null ? '--:--' : `${String(Math.floor(Math.ceil(left) / 60)).padStart(2, '0')}:${String(Math.ceil(left) % 60).padStart(2, '0')}`
   const round = Math.min(mv.round.index, mv.round.of)
+  // The last round of a single-player game stays open past its time, until its player ends the year.
+  const over = left === 0 && solo && mv.round.index >= mv.round.of
   if (!next || left === null) return <div className={`p3timer ${variant}`} data-tour="p3-timer" role="timer"><span className="p3t-what"><span className="p3t-until">{P3.yearOver}</span></span></div>
   return (
     <div className={`p3timer ${variant}`} data-tour="p3-timer" role="timer" aria-live="off" aria-label={`${P3.until(left, next.label)}. ${P3.roundOf(round, mv.round.of)}`}>
       <span className={`countdown${late ? ' late' : ''}`}>{paused ? '‖ ' : ''}{t}</span>
-      <span className="p3t-what"><span className="p3t-round">{variant === 'bar' ? `${P3.phase} · ` : ''}{P3.roundOf(round, mv.round.of)}</span><span className="p3t-until">{P3.untilShort(next.label)}</span></span>
+      <span className="p3t-what"><span className="p3t-round">{variant === 'bar' ? `${P3.phase} · ` : ''}{P3.roundOf(round, mv.round.of)}</span><span className="p3t-until">{over ? (variant === 'bar' ? P3.overTimeShort : P3.overTime(next.label)) : P3.untilShort(next.label)}</span></span>
     </div>
   )
 }

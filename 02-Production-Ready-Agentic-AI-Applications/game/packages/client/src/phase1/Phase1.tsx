@@ -65,17 +65,19 @@ export function useWarnings(say: (s: number) => string = P1.warn): string | null
   const clock = usePlayer((s) => s.clock)
   const [text, setText] = useState<string | null>(null)
   const fired = useRef(new Set<number>())
+  // On their own a player is told that the phase stays open: nothing is sent when the timer ends.
+  const solo = usePlayer((s) => s.welcome?.session.kind === 'solo')
   const left = secondsLeft(clock)
   useEffect(() => {
     if (left === null || !clock) return
     for (const w of clock.clock.warnings) {
       if (left <= w && left > w - 3 && !fired.current.has(w)) {
         fired.current.add(w)
-        setText(say(w))
+        setText(solo ? COPY.soloWarn(w) : say(w))
         setTimeout(() => setText(null), 6000)
       }
     }
-  }, [left, clock, say])
+  }, [left, clock, say, solo])
   return text
 }
 

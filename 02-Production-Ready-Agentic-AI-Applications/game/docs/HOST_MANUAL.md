@@ -45,7 +45,8 @@ To make a session, give it a name and a mode and press **Create**.
   shown so far, score 0 for that phase and start with the next one. Once Phase 3 runs nobody
   can join.
 - **Single player.** The panel under the sessions has a switch. While it is on, a person who
-  opens the site can play the whole game alone. Nobody can watch such a game or help in it. The
+  opens the site can play the whole game alone. A phase of such a game stays open when its
+  timer ends, until its player ends it. Nobody can watch such a game or help in it. The
   panel lists the games so that they can be deleted, one by one or all at once after typing
   DELETE. Switch it off right before a session with a room.
 - **The passcode of single player.** The same panel says who may start such a game: whoever

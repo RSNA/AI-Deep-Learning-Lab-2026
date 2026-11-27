@@ -21,6 +21,8 @@ export const P3 = {
   // The timer on top
   until: (s: number, label: string) => `${clock(s)} until the report on ${label}`,
   untilShort: (label: string) => `until the report on ${label}`,
+  overTime: (label: string) => `Over time. The report on ${label} comes when you end the year.`,
+  overTimeShort: 'Over time. End the year for its last report.',
   roundOf: (r: number, of: number) => `Round ${r} of ${of}`,
   yearOver: 'The year is over.',
   // The two numbers

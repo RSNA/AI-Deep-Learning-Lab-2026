@@ -583,3 +583,7 @@ input.field.bad { border-color: var(--bad); }
 .sologate-row { display: flex; gap: 8px; align-items: stretch; }
 .sologate-row .field { flex: 1 1 auto; min-width: 0; }
 .sologate-row .btn { flex-shrink: 0; }
+
+/* A single-player game past the time of its phase: the timer stands at zero and says so. */
+.countdown .overtime { display: block; font-size: 11px; line-height: 1.1; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.solobar.over .solo-say { font-weight: 800; }
