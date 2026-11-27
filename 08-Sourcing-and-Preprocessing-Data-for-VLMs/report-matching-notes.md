@@ -65,7 +65,7 @@ RPT-2006, chest CT RPT-2001 and bilateral mammography RPT-2004. Each source text
 its extracted Findings, Impression, Breast Composition and BI-RADS (missing sections remain missing).
 The CT organ headings and mammography RIGHT/LEFT BREAST headings remain within Findings. Breast
 Composition and BI-RADS are major section boundaries, so BI-RADS is not appended to Impression.
-This is a short comparison within Imon's existing time allocation; the optional cohort can be skipped if needed.
+Keep this comparison within Imon's existing time allocation to preserve time for section 12 and both hands-on exercises.
 
 These are text-only teaching examples, not new image/report pairs. The Orthanc pack has CR, CT and MR
 images, but no MG images. The original reports used in this comparison are not matched to our PACS pixels.

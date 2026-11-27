@@ -6,25 +6,27 @@ Prepare examples for a VLM that receives a chest radiograph, age at examination,
 reason for visit, and drafts only the **findings**. Impression text is neither input nor target.
 We teach data acquisition and preparation, not model training or clinical performance evaluation.
 
-## Proposed faculty handoffs — December 2, 2026
+## Agreed faculty handoffs — December 2, 2026
 
 | Time (Central) | Lead | Content |
 |---|---|---|
 | 9:30–9:35 | Felipe | Introduction and setup |
 | 9:35–9:50 | Eduardo | Sections 1–6: FHIR and clinical context |
 | 9:50–10:05 | Imon | Sections 7–9: RIS report matching, Findings curation and QIDO/WADO |
-| 10:05–10:20 | Alessia | Sections 10–12: pixels, visual inspection, training pair; cohort if time permits |
+| 10:05–10:20 | Alessia | Sections 10–12: pixels, visual inspection, training pair, both hands-on exercises and take-home messages |
 | 10:20–10:30 | Felipe | Questions, troubleshooting and catch-up |
 
-One notebook and one kernel throughout. Begin setup during the introduction; omit the cohort exercise
-if delays accumulate. Arena stays in the independent complementary notebook.
+One notebook and one kernel throughout. Begin setup during the introduction. Section 12 and both hands-on
+exercises are required parts of the guided session. Arena stays in the independent complementary notebook.
+
+After the take-home messages, Alessia checks the remaining time with Felipe. If time permits, she briefly introduces “One last step” and runs its inference cell; Felipe takes over from there. The inference demonstration remains optional and disabled by default during Run all.
 See [integration notes](report-matching-notes.md) for Imon's CSV-to-FHIR adaptation.
 In section 8, compare the original portable CXR (RPT-2006), CT (RPT-2001) and mammography (RPT-2004)
 reports. Ask which headings delimit sections versus remain inside Findings. Highlight CT organ headings,
 RIGHT/LEFT BREAST, separate Breast Composition and BI-RADS, and preserved uncertainty. These are text-only
 examples already in the RIS; the PACS has no mammograms, and these original reports are not paired to
-its images. Resume study-001 for DICOMweb. Keep this within Imon's 15-minute block; skip the optional cohort
-if discussion runs long.
+its images. Resume study-001 for DICOMweb. Keep this within Imon's 15-minute block to preserve time for
+Alessia's sections and both hands-on exercises.
 
 ## Teaching choices
 
@@ -74,7 +76,7 @@ Also rehearse on a fresh Google Colab CPU runtime before the session.
 Alessia's November 20 revision is integrated selectively: section 10 compares full-resolution display pixels
 with a resized preview, section 11 displays the actual saved training image before input/target, and section 12
 shows four cached images versus three eligible pairs. The `VIEW` cell does not repeat network calls or export.
-Use the two completed exercises directly; the cohort remains optional within the 45-minute guided pathway.
+Use both completed hands-on exercises, including the section 12 cohort, within the 45-minute guided pathway.
 Keep the canonical training image at 896 pixels while trying smaller preview sizes.
 
 Faculty rehearsal: November 23, 7–8 AM Central. Session: December 2, 9:30–10:30 AM Central, room S401AB.
@@ -105,7 +107,7 @@ independent practice. Drafts remain separate from finalized hospital reports. Se
 
 The notebooks address participants directly. Keep timing decisions, faculty handoffs and the history of
 integrating contributions in this guide and the adaptation notes. Begin installation during the introduction;
-if setup takes longer, shorten the walkthrough and omit the optional cohort exercise to preserve catch-up time.
+if setup takes longer, keep explanations concise and use the recovery points to preserve time for both hands-on exercises.
 Run collapsed helpers once and expand them for discussion only when useful.
 Imon Banerjee's matching and extraction contribution and Alessia Guarnera's visual exercises remain credited
 in these materials; participant section titles describe the task rather than the contributor.
@@ -124,7 +126,8 @@ agreements and disagreements; this is not a clinical accuracy benchmark and no t
 Each token may use two distinct cases among study-001 through study-004. Identical inputs share one persisted
 result, including concurrent requests. The notebook labels cached responses clearly and polls pending work.
 Run all leaves inference disabled. A failed/uncertain provider call is not automatically charged again.
-Keep this optional within the wrap-up; Arena polling/deployment remains in the complementary notebook.
+Alessia introduces and runs this only if time permits after checking with Felipe, who then takes over.
+Arena polling/deployment remains in the complementary notebook.
 
 November 23 rehearsal: public inference returned a real GPT-6.1 Sol draft. Twenty concurrent student-token
 requests resulted in one generation and shared results. Both notebooks are tested against the public hospital.

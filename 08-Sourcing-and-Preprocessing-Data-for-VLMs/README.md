@@ -50,15 +50,17 @@ The complementary notebook is optional post-session material.
 
 Colab links target the official main branch and become available after this submission is merged.
 
-### Proposed session division
+### Agreed session division
 
 | Time (Central) | Lead | Content |
 | --- | --- | --- |
 | 9:30–9:35 | Felipe | Introduction and lab overview |
 | 9:35–9:50 | Eduardo | Sections 1–6: FHIR, authentication, patient/study selection, order and encounter context |
 | 9:50–10:05 | Imon | Sections 7–9: report–study matching, findings curation and QIDO/WADO retrieval |
-| 10:05–10:20 | Alessia | Sections 10–12: image preprocessing, visual inspection, training pair and cohort exercise if time permits |
+| 10:05–10:20 | Alessia | Sections 10–12: image preprocessing, visual inspection, training pair, both hands-on exercises and take-home messages |
 | 10:20–10:30 | Felipe | Wrap-up, questions, troubleshooting and catch-up |
+
+After the take-home messages, Alessia checks the remaining time with Felipe. If time permits, she briefly introduces “One last step” and runs its inference cell; Felipe takes over from there. The inference demonstration remains optional and disabled by default during Run all.
 
 Imon Banerjee's matching and report-curation exercise from [PR #11](https://github.com/RSNA/AI-Deep-Learning-Lab-2026/pull/11)
 is integrated into sections 7–9. Her CSVs populate the teaching RIS and are retrieved through FHIR;
@@ -69,8 +71,8 @@ an actual Orthanc study; historical RIS-only records are explicitly distinguishe
 Alessia Guarnera's November 20 additions are integrated into sections 10–12: compare full-resolution and
 resized images, inspect the actual saved image with its input/target, and switch between four available
 radiographs and three eligible training pairs. The two completed exercises use `RESIZE_SIDE` and `VIEW`;
-changing previews does not download the cohort again or modify the exported dataset. The cohort is optional
-within the 45-minute guided pathway. The closing take-home messages link to independent complementary practice.
+changing previews does not download the cohort again or modify the exported dataset. Section 12 and both hands-on exercises are part of
+the 45-minute guided pathway. The closing take-home messages link to independent complementary practice.
 
 **Preparation status (November 20, 2026):** the [hospital](https://rsnalearninglab.eduardofarina.com)
 is online. This revision passed both notebooks in independent fresh local kernels against public HTTPS,
