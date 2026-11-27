@@ -12,9 +12,9 @@
 
 ## Faculty
 
-- **Moderator:** Tugba Akinci D'Antonoli, MD — University Hospital Basel
-- **Presenter:** Keno Bressem — Technical University of Munich
-- **Presenter:** Walter Wiggins, MD PhD — Radiology Partners; Wake Forest School of Medicine
+- **Moderator/Presenter:** Tugba Akinci D'Antonoli, MD — University Hospital Basel
+- **Presenter:** Keno Bressem, MD — Technical University of Munich
+- **Presenter:** Walter Wiggins, MD PhD — Mosaic Clinical Technologies (Radiology Partners)
 
 ## Overview
 
@@ -33,7 +33,26 @@ By the end of this session, participants will be able to:
 
 ## Materials
 
-Materials for this lab will be posted here before the meeting.
+| Part | Material | Open |
+|---|---|---|
+| Talk 1 · Prompt Engineering Fundamentals (Tugba Akinci D'Antonoli) | [Lecture1-Prompt-Engineering.ipynb](Lecture1-Prompt-Engineering.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab-2026/blob/main/05-Vibe-Coding-101/Lecture1-Prompt-Engineering.ipynb) |
+| Talk 2 · Vibe Coding 101 (Keno Bressem)
+| Hands-on · From Idea to Prototype (Walter Wiggins) | to be added | |
+
+The notebook follows the talk step by step (how LLMs work, prompt-engineering techniques, building and testing a small tool, safeguards) and ends with a hands-on part for building your own tool.
+All example reports are synthetic. **Never enter patient data.**
+
+To keep your own changes, use **File → Save a copy in Drive** after opening the notebook in Colab.
+
+## Before the Session
+
+1. Bring a laptop with a recent version of the [Chrome browser](https://www.google.com/chrome/).
+2. Make sure you can sign in to a Google account, which you need to run notebooks in [Google Colab](https://colab.research.google.com/).
+3. **Get a free Gemini API key** at [Google AI Studio](https://aistudio.google.com/apikey) (sign in → *Create API key*). This takes about 2 minutes and saves time in the session.
+4. Open the notebook in Colab, click the 🔑 **Secrets** icon in the left sidebar, add a secret named `GOOGLE_API_KEY` with your key as the value, and turn on *Notebook access*.
+5. Run the first two cells. If you see `Connection OK`, you are ready.
+
+No key, or no luck connecting? Set `PROVIDER = "offline"` in the first cell to follow along with example answers.
 
 <!--
 PRESENTERS: Replace the line above with links to your materials. For example:

@@ -1,0 +1,235 @@
+/* Phase 3: the timer of a round, the report of a period, the chart of the year, the list of maps,
+   the reference maps and the reveal (spec, sections 10.6 and 11). The board itself is styled by
+   phase2.css. Thick outlines, hard shadows, no blur. */
+
+/* ---------------------------------------------------------------- the timer of a round */
+.p3timer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.p3timer .p3t-what { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.p3timer .p3t-round { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.85; white-space: nowrap; }
+.p3timer .p3t-until { font-size: 14px; font-weight: 800; white-space: nowrap; }
+.topbar .p3timer.bar .countdown { box-sizing: border-box; height: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+/* A phone: one line above every tab. */
+.p3timer.strip { flex-shrink: 0; display: flex; padding: 5px 10px; gap: 10px; background: var(--inset); border-bottom: 3px solid var(--line); color: var(--ink); }
+.p3timer.strip .countdown { font-size: 24px; min-width: 76px; padding: 0 8px; border-width: 2px; }
+.p3timer.strip .p3t-until { white-space: normal; font-size: 13.5px; }
+
+/* ---------------------------------------------------------------- the line between the map and its footer */
+.p3now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; line-height: 1.3; padding-bottom: 2px; }
+.p3now-run { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.p3now-run i { width: 9px; height: 9px; background: var(--soft); border: 2px solid var(--line); flex-shrink: 0; }
+.p3now-run i.on { background: var(--go); }
+/* The numbers of the last report: a quiet strip that opens the report. Underlined, so that it reads as a link and not as a chip. */
+.p3now-last { margin-left: auto; display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 1px 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--soft); text-underline-offset: 3px; }
+.p3now-last:hover { text-decoration-color: var(--line); }
+.p3now-last:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.p3now-last .p3now-l { font-weight: 800; }
+.p3now-last .num { font-size: 16px; }
+
+/* ---------------------------------------------------------------- the year: the chart and the reports */
+.p3year-body { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr); gap: 16px; align-items: start; }
+.p3chart { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+/* The year in numbers, under the chart: one row for each report. A press shows that report. */
+.p3rows { display: flex; flex-direction: column; }
+.p3rows-h, .p3rows button { display: grid; grid-template-columns: 92px minmax(0, 1fr) 62px 68px 56px; gap: 8px; align-items: baseline; padding: 4px 8px; text-align: right; }
+.p3rows-h { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.p3rows-h span:nth-child(-n+2), .p3rows button span:nth-child(-n+2) { text-align: left; }
+.p3rows button { border: 0; border-top: 2px solid var(--soft); background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.p3rows button:hover { background: var(--inset); }
+.p3rows button.on { background: var(--sun-bg); }
+.p3rows button:focus-visible { outline: 3px solid var(--sky); outline-offset: -3px; }
+.p3rows button .num { font-size: 18px; }
+.p3rows button span:first-child { white-space: nowrap; }
+.p3rows-m { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--muted); }
+.ychart { display: flex; flex-direction: column; gap: 4px; border: 2px solid var(--soft); background: var(--inset); padding: 8px 8px 2px; }
+.ychart svg { display: block; width: 100%; height: auto; }
+.ylegend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; font-weight: 800; }
+.ylegend .yl { display: inline-flex; align-items: center; gap: 6px; }
+.ylegend .yl i { width: 18px; height: 5px; background: currentColor; display: block; }
+.ylegend .yl.validity i { background: var(--sky); }
+.ylegend .yl.reliability i { background: var(--lav); }
+.ylegend .yl.score i { background: var(--go); height: 7px; }
+.ylegend .yl.test i { height: 0; border-top: 3px dashed var(--muted); background: none; }
+.ygrid { stroke: var(--soft); stroke-width: 1; }
+.ytick, .yx { fill: var(--muted); font-family: var(--text); font-size: 12px; font-weight: 800; }
+.yslot.has .yx { fill: var(--ink); }
+.yslot .yx.ymark { fill: var(--muted); font-size: 11px; }
+.ychart.compact .ytick, .ychart.compact .yx { font-size: 19px; }
+.ychart.compact .yslot .yx.ymark { font-size: 17px; }
+.yyear { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+.yband { fill: var(--sun-bg); stroke: var(--line); stroke-width: 1.5; }
+.yline { fill: none; stroke-width: 3; stroke-linejoin: miter; }
+.yline.validity { stroke: var(--sky); }
+.yline.reliability { stroke: var(--lav); }
+.yline.score { stroke: var(--go); stroke-width: 5; }
+.ydot { stroke: var(--line); stroke-width: 1.5; }
+.ydot.validity { fill: var(--sky); }
+.ydot.reliability { fill: var(--lav); }
+.ydot.score { fill: var(--go); }
+.ytest { stroke: var(--muted); stroke-width: 2.5; stroke-dasharray: 5 4; }
+.yhit { fill: transparent; cursor: pointer; }
+.yhit:focus-visible { outline: 3px solid var(--sky); outline-offset: -3px; }
+
+.p3report { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.p3step { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.p3step h3 { font-family: var(--face); font-weight: 400; font-size: 26px; line-height: 1; margin: 0 4px; }
+.p3step .btn.small { min-width: 36px; }
+.p3step .p3open { margin-left: auto; }
+
+/* One report */
+.p3rep { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.p3two { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.p3n { border: 3px solid var(--line); background: var(--panel); padding: 6px 10px 8px; min-width: 0; display: flex; flex-direction: column; gap: 2px; box-shadow: 3px 3px 0 var(--shade); }
+.p3n.validity { border-top: 9px solid var(--sky); }
+.p3n.reliability { border-top: 9px solid var(--lav); }
+.p3n.score { border-top: 9px solid var(--go); }
+.p3n-l { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.p3n-v { display: flex; align-items: baseline; gap: 6px; }
+.p3n-v .num { font-size: 46px; line-height: 1; }
+.p3n-of { font-size: 13px; font-weight: 800; color: var(--muted); }
+.p3n-s { font-size: 13px; line-height: 1.35; color: var(--muted); font-weight: 700; }
+.p3gap { color: var(--bad); }
+.p3ran { font-size: 13px; font-weight: 800; color: var(--muted); }
+.p3says p { font-size: 15px; line-height: 1.45; margin: 0 0 4px; }
+.p3blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.p3block { border-left: 6px solid var(--soft); background: var(--inset); padding: 6px 10px 8px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.p3block p { font-size: 14.5px; line-height: 1.42; margin: 0; }
+.p3block.change { border-left-color: var(--sun); background: var(--sun-bg); }
+.p3block.part { border-left-color: var(--fail, var(--bad)); }
+.p3block.missed { border-left-color: var(--sky); }
+.p3block.people { border-left-color: var(--lav); }
+.p3block .why { color: var(--muted); }
+.p3cause { padding-top: 3px; }
+.p3off { color: var(--bad); white-space: nowrap; }
+.p3lens { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.p3row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(60px, 1fr) 44px; gap: 8px; align-items: center; padding: 2px 0; font-size: 13.5px; }
+.p3row .num { text-align: right; font-size: 16px; }
+.p3row-l { min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
+.p3bar { display: block; height: 12px; border: 2px solid var(--line); background: var(--panel); }
+.p3bar i { display: block; height: 100%; background: var(--go); }
+.p3bar.bad i { background: var(--fail, var(--bad)); }
+.p3money .kv { font-size: 14px; }
+.p3money .kv.total { border-bottom: 0; font-weight: 800; }
+.p3money .kv.total .v { font-size: 26px; }
+.p3rank { font-family: var(--text); font-size: 13px; font-weight: 800; color: var(--muted); }
+
+/* A report that has just arrived, over the board */
+.sheet.p3sheet { width: min(860px, 100%); }
+.sheet.p3sheet .flag { align-self: flex-start; margin-left: 0; }
+
+/* ---------------------------------------------------------------- the list of maps */
+.p3deployline { font-size: 13.5px; line-height: 1.4; }
+.p3maplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.p3map { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 7px 10px; border: 2px solid var(--soft); background: var(--panel); }
+.p3map.on { border: 3px solid var(--line); border-left: 9px solid var(--go); box-shadow: 3px 3px 0 var(--shade); }
+.p3map-acc { display: flex; flex-direction: column; align-items: flex-start; }
+.p3map-acc .num { font-size: 32px; line-height: 1; }
+.p3map-acc .face { font-size: 14px; color: var(--muted); }
+.p3map-t { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.p3map-n { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.p3tags { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+/* A tag states something about a map. No border and no shadow: it is not a button. */
+.p3tag { font-size: 12px; font-weight: 800; color: var(--muted); }
+.p3tag.rel { color: var(--ink); }
+.p3map-acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; min-width: 150px; }
+.p3map-acts .btn.small { min-height: 34px; height: 34px; font-size: 17px; width: 100%; white-space: nowrap; }
+.p3map-is { min-height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: var(--good); text-align: center; }
+.p3map-is.quiet { color: var(--muted); }
+.p3mapfoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.p3mapfoot .btn.small { min-height: 36px; height: 36px; }
+.p3mapfoot .p3stop { margin-left: auto; }
+.toast.p3grant { bottom: 84px; background: var(--go); color: var(--on); }
+
+/* ---------------------------------------------------------------- reference maps */
+.sheet.p3refs { width: min(980px, 100%); }
+.p3refs-intro { font-size: 15px; line-height: 1.45; }
+.p3refs-tabs { flex-wrap: wrap; }
+.p3refs-tabs button { flex: 1 1 0; min-width: 96px; }
+.p3ref { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.p3ref-h { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; align-items: start; }
+.p3ref-h .p3map-acc .num { font-size: 40px; }
+.p3ref-t h3 { font-family: var(--face); font-weight: 400; font-size: 26px; line-height: 1.05; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.p3ref-t p { font-size: 15px; line-height: 1.45; margin: 2px 0 0; }
+.p3ref-map .cgrid { height: 330px; min-width: 620px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
+/* In the small map of the dialog a tile has room for its name and three short lines: each part stays on one line. */
+.p3ref-map .cgrid.compact .ct-mini { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; line-height: 1; font-size: 8.6px; }
+.p3ref-map .cgrid.compact .ctile { padding-bottom: 0; }
+.p3ref-map .cgrid.compact .ct-head { padding-top: 0; padding-bottom: 0; line-height: 1.15; }
+
+/* ---------------------------------------------------------------- reveal */
+.p3spent .kv { font-size: 13.5px; color: var(--muted); }
+.p3spent .kv .v { font-size: 16px; }
+.p3cmp-scroll { overflow-x: auto; }
+.p3cmp table { width: 100%; min-width: 560px; border-collapse: collapse; }
+.p3cmp th, .p3cmp td { padding: 6px 8px; border-bottom: 2px solid var(--soft); text-align: right; }
+.p3cmp thead th { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.p3cmp tbody th { text-align: left; font-size: 15px; font-weight: 800; }
+.p3cmp td.num { font-size: 20px; }
+.p3cmp td.yr { font-size: 24px; border-left: 3px solid var(--line); }
+.p3cmp td.yr.best { background: var(--go-bg); color: var(--good); }
+.p3cmp tr.me th, .p3cmp tr.me td { background: var(--sun-bg); }
+.p3cmp tr.me td.yr.best { background: var(--go-bg); }
+.p3evs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: stretch; }
+.p3ev { border: 2px solid var(--soft); background: var(--panel); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.p3ev.hit { border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
+.p3ev-h { display: flex; flex-direction: column; gap: 2px; }
+.p3ev-h h3 { font-family: var(--text); font-size: 16px; font-weight: 800; line-height: 1.25; }
+.p3ev-when { font-family: var(--face); font-size: 18px; color: var(--muted); white-space: nowrap; }
+.p3ev p { font-size: 14.5px; line-height: 1.45; margin: 0; flex: 1; }
+.p3ev-f { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.p3ev-f.hit { color: var(--bad); }
+
+/* ---------------------------------------------------------------- the host's view of a player in Phase 3 */
+.insp-year { width: 100%; border-collapse: collapse; font-size: 14px; }
+.insp-year th, .insp-year td { padding: 4px 6px; border-bottom: 2px solid var(--soft); text-align: right; vertical-align: top; }
+.insp-year th:first-child, .insp-year td:first-child { text-align: left; white-space: nowrap; }
+.insp-year thead th { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.insp-year td.ev { text-align: left; font-size: 13px; line-height: 1.3; max-width: 320px; }
+.insp-year .num { font-size: 17px; }
+.coach-cols.three ul { margin: 0; padding-left: 18px; }
+
+/* ---------------------------------------------------------------- narrower screens */
+@media (max-width: 1279px) {
+  .p3year-body { grid-template-columns: minmax(0, 1fr); }
+  .p3now-last { margin-left: 0; }
+}
+@media (max-width: 1023px) {
+  .p3n-v .num { font-size: 38px; }
+  .p3ref-map .cgrid { height: 300px; }
+}
+@media (max-width: 560px) {
+  .p3two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .p3rows-h, .p3rows button { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .p3rows-h span:nth-child(2), .p3rows .p3rows-m { display: none; }
+  .p3two .p3n.score { grid-column: 1 / -1; }
+  .p3n-v .num { font-size: 40px; }
+  .p3step h3 { font-size: 22px; flex: 1; min-width: 0; }
+  .p3step .p3open { margin-left: 0; flex-basis: 100%; }
+  .p3map { grid-template-columns: 76px minmax(0, 1fr); }
+  .p3map-acc .num { font-size: 26px; }
+  .p3map-acts { grid-column: 1 / -1; flex-direction: row; min-width: 0; }
+  .p3map-acts > * { flex: 1 1 0; }
+  .p3ref-h { grid-template-columns: 86px minmax(0, 1fr); }
+  .p3ref-h .p3map-acc .num { font-size: 30px; }
+  .p3evs { grid-template-columns: minmax(0, 1fr); }
+  .toast.p3grant { bottom: 128px; }
+}
+
+/* The top bar of Phase 3 holds the timer of the round and the money: the name of the health
+   system gives way first, the menu still names it. */
+@media (max-width: 1599px) { .topbar.year .who .sysbadge { display: none; } }
+
+/* Money and score, under the year in numbers */
+.p3purse { border-top: 3px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; }
+.p3purse .kv { font-size: 14px; }
+.p3purse .kv.total { font-weight: 800; }
+.p3purse .kv.total .v { font-size: 26px; }
+.p3purse .kv.part { color: var(--muted); font-size: 13px; padding-left: 12px; }
+.p3purse .kv.part .v { font-size: 15px; }
+.p3purse .hint { padding-top: 4px; }
+
+/* What a reference map would buy, before the player takes it. */
+.p3ref-price { border: 2px solid var(--soft); background: var(--inset); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.p3ref-price p { margin: 0; font-size: 14px; line-height: 1.4; }
+.p3ref-price ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.p3ref-price li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-top: 2px solid var(--soft); font-size: 14px; font-weight: 700; }
+.p3ref-price li .num { font-size: 15px; white-space: nowrap; }

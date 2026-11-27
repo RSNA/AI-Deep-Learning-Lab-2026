@@ -1,0 +1,248 @@
+# Demo pack, Lakeshore: Phase 3, the year after the grant report system went live.
+# Invented from scratch for the public repository. Field definitions: the engineering spec,
+# section 5.5. Every number, every event and every `key` stays on the server.
+
+periods:
+  - {id: p1, label: January and February, short: Jan-Feb}
+  - {id: p2, label: March and April, short: Mar-Apr}
+  - {id: p3, label: May and June, short: May-Jun}
+  - {id: p4, label: July and August, short: Jul-Aug}
+  - {id: p5, label: September and October, short: Sep-Oct}
+  - {id: p6, label: November and December, short: Nov-Dec}
+# Reports that added time brings after December are named from this: the same months, a year on.
+calendar: {cycle: 6, first_year: 2031}
+
+grants:
+  - {round: 1, money: 20}
+  - {round: 3, money: 25}
+
+validate: {runs: 4, seconds: 6}
+
+# A branch with no deployed map writes the report as before: an aide gathers the numbers and
+# the grant officer checks them.
+baseline:
+  public: {label: The branch as it worked before}
+  map:
+    tiles:
+      - {id: t1, kind: ls-w-aide, col: 2, row: 2}
+      - {id: t2, kind: ls-w-officer, col: 4, row: 2}
+    lines:
+      - {from: ls-s-circ, to: t1}
+      - {from: ls-s-counter, to: t1}
+      - {from: t1, to: t2}
+      - {from: t2, to: ls-result}
+
+score:
+  cost_per_point: 40
+  pool: officer
+  extra_look: 4
+  rushed: 8
+
+reliability:
+  workers: {ls-w-agent: 0.03, ls-w-step: 0.012, ls-w-rule: 0.004, ls-w-officer: 0, ls-w-aide: 0}
+  default_worker: 0.01
+  sources: {ls-s-circ: 0.01, ls-s-counter: 0.008, ls-s-logbook: 0.012, ls-s-inbox: 0.03, ls-s-board: 0.02}
+  handoff: 0.005
+  compute: {ls-c-api: 0.012, ls-c-private: 0.006, ls-c-rented: 0.01, ls-c-owned: 0.02}
+  new_map: {risk: 0.02, spared_by: [ls-a-staging]}
+  hardening:
+    - {action: ls-a-harden, factor: 0.5}
+  interruption: 0.025
+
+lenses:
+  fresh_test_set: [ls-a-testset]
+  dry_run: [ls-a-staging]
+  incident_log: [ls-a-trace]
+  case_mix: [ls-a-tally]
+  drift_alarm: [ls-a-monitor]
+
+actions:
+  - id: ls-a-monitor
+    group: watch
+    public: {title: Set up a monitoring pipeline, teaser: Compare what the system writes each month with what the officer corrects.}
+    money: 5
+    developers: 2
+    seconds: 14
+    run: 0.5
+    story_time: three weeks
+    key: {note: Holds the lens drift_alarm.}
+  - id: ls-a-testset
+    group: watch
+    public: {title: Build a test set from this year, teaser: The grant officer works a sample of this year's months by hand.}
+    money: 4
+    developers: 1
+    seconds: 12
+    story_time: two weeks
+  - id: ls-a-trace
+    group: watch
+    public: {title: Turn on tracing, teaser: Keep a log of every step the system takes and read it.}
+    money: 2
+    developers: 1
+    seconds: 10
+    story_time: one week
+  - id: ls-a-tally
+    group: watch
+    public: {title: Tally the officer's corrections, teaser: Count which kinds of month the grant officer had to correct.}
+    money: 0
+    developers: 1
+    seconds: 10
+    story_time: one week
+  - id: ls-a-staging
+    group: watch
+    public: {title: Build a staging copy, teaser: A copy of the system where a new map runs for a week before it goes live.}
+    money: 3
+    developers: 2
+    seconds: 14
+    story_time: three weeks
+  - id: ls-a-reconnect
+    group: maintain
+    repeat: true
+    public: {title: Repair the direct connections, teaser: The developers rebuild every line that goes straight into a district system.}
+    money: 0
+    developers: 2
+    seconds: 14
+    story_time: two weeks
+  - id: ls-a-pin
+    group: maintain
+    repeat: true
+    public: {title: Test and pin the model version, teaser: Run the test set on the new model version and keep the one that passes.}
+    money: 2
+    developers: 1
+    seconds: 12
+    story_time: two weeks
+  - id: ls-a-harden
+    group: maintain
+    public: {title: Add retries and timeouts, teaser: Every step tries again once and gives up cleanly.}
+    money: 0
+    developers: 2
+    seconds: 16
+    story_time: three weeks
+
+world:
+  - {op: weights, cases: {ls-k-plain: 8, ls-k-silent: 13}}
+
+events:
+  - id: ls-e-upgrade
+    from: 2
+    needs: {sources: [ls-s-circ, ls-s-inbox]}
+    risks:
+      - {sources: [ls-s-circ, ls-s-inbox], line: 0.06}
+    repaired_by: [ls-a-reconnect]
+    symptom: The system stopped several times a week since the circulation system was upgraded.
+    cause: {lens: incident_log, text: "Every line that goes straight into the circulation system or the inboxes breaks on the new version."}
+    reveal: {title: The circulation upgrade, text: "A direct line into another system breaks when that system changes. Somebody has to own the repair."}
+    key:
+      teaches: Integrations break when the systems behind them change.
+      coach: {holds: "Direct lines into the circulation system break since the upgrade.", say: "Ask what changed in the district's systems in March, and who repairs a connection."}
+  - id: ls-e-model
+    from: 4
+    needs: {workers: [ls-w-agent, ls-w-step]}
+    patches:
+      - {op: worker, worker: ls-w-agent, decide: {hard: 0.85}, catch: 0.8}
+      - {op: worker, worker: ls-w-step, decide: {"*": 0.9}}
+    repaired_by: [ls-a-pin]
+    symptom: The hard months went wrong more often since July. Nothing in the logs failed.
+    cause: {lens: drift_alarm, text: "The provider replaced the model behind the same name in July. The new version judges the hard months differently."}
+    alarm: The answers of the last weeks differ from what the same inputs gave in spring. The provider changed the model. Test and pin the version.
+    reveal: {title: A silent model update, text: "A provider may change a model without telling you. Test before every change, and keep the version that passed."}
+    key:
+      teaches: A vendor can change a model silently, so validate before any model change.
+      coach: {holds: "The model behind their AI tiles changed in July, and nothing told them.", say: "Ask what could have changed when no part of their own map did."}
+  - id: ls-e-price
+    from: 4
+    needs: {compute: [ls-c-rented]}
+    patches:
+      - {op: compute, compute: ls-c-rented, run_fixed: 1.5}
+    symptom: The bill for the rented GPUs rose by half in July.
+    reveal: {title: Rented GPUs got dearer, text: "Rented compute costs more every month it runs. Over a year, a server of your own is cheaper."}
+    key: {teaches: Rented compute costs more over time than owned.}
+  - id: ls-e-audit
+    from: 5
+    to: 5
+    needs: {flag: private_data}
+    risks:
+      - {all: 0.5}
+    fine: 10
+    symptom: The district's auditors found patron data going through a public service, and stopped the system for four weeks.
+    reveal: {title: The audit, text: "Private data that runs through a place that does not protect it will be found."}
+    key: {teaches: Private data on an unprotected service is a risk that comes due.}
+  - id: ls-e-board
+    from: 5
+    needs: {sources: [ls-s-board]}
+    patches:
+      - {op: gives, source: ls-s-board, fact: ls-f-visits, factor: 0.5}
+    symptom: Visit counts taken from the community board were far off since the towns stopped posting their events there.
+    reveal: {title: The community board went quiet, text: "A source nobody maintains loses its worth without a word."}
+    key: {teaches: A weak source gets weaker.}
+
+news:
+  - id: ls-n-upgrade
+    round: 1
+    kind: announcement
+    from: demo-tom
+    title: Circulation upgrade in March
+    text: The district upgrades the circulation system in March. Existing connections may need work afterwards.
+  - id: ls-n-price
+    round: 2
+    kind: letter
+    from: demo-priya
+    title: About the GPU bill
+    text: The company that rents out cloud GPUs raises its prices by half from July. If we rent, we pay it.
+  - id: ls-n-grant
+    round: 3
+    kind: letter
+    from: demo-priya
+    title: More money for the second half
+    text: The grant office added twenty-five thousand for the rest of the year. Spend it where the reports say it hurts.
+  - id: ls-n-audit
+    round: 4
+    kind: announcement
+    from: demo-mara
+    title: The auditors are coming
+    text: The district audits how patron data is handled in September and October.
+
+alarm_from: demo-tom
+
+incidents:
+  workers:
+    ls-w-agent: The agent went in circles on a month with many silent branches and ran out of time.
+    ls-w-step: The fixed AI step returned a table in the wrong shape, and the next tile dropped it.
+  default_worker: One of the small programs fell over, and Tom restarted it from his phone.
+  sources:
+    ls-s-circ: The circulation system timed out and the report waited.
+    ls-s-counter: The door counters sent nothing for a few days.
+    ls-s-logbook: The bus logbook could not be opened.
+    ls-s-inbox: The branch inboxes refused the connection.
+    ls-s-board: The community board blocked the system for asking too often.
+  handoff: Two tiles disagreed about the columns of the branch table, and a month went missing between them.
+  compute:
+    ls-c-api: Acorn's public API was swamped at the end of the month, when every district files at once.
+    ls-c-private: The private link to Acorn went quiet for one afternoon.
+    ls-c-rented: The cloud took our rented GPUs for another customer for an hour.
+    ls-c-owned: The district server shares a closet with the heating pipes, and it switched itself off.
+  new_map: The freshly deployed map stumbled through its first monthly report.
+
+report:
+  validity:
+    - {min: 90, text: "The grant office accepted nearly every monthly report as sent."}
+    - {min: 80, text: "Most monthly reports held up. The grant officer fixed the numbers in about one of six."}
+    - {min: 0, text: "The grant office returned report after report with the branch numbers circled in red."}
+  reliability:
+    - {min: 95, text: "The monthly report was ready on the first of the month, every month."}
+    - {min: 85, text: "A report or two reached the grant office a few days after the first of the month."}
+    - {min: 0, text: "The aides went back to the spreadsheet. The system missed more deadlines than it met."}
+  gap: Last year's months, which the map was tried on, were tidier than this year's. It scored higher on those.
+  gap_points: 2
+  radiologists:
+    content: The grant officer reads each report once before it leaves and keeps her Friday afternoons.
+    extra_look: Every report lands on the grant officer's desk twice. She has taped a note to her door about it.
+    rushed: The map wants more of the grant officer's week than she has. She skims the tables and sighs.
+  steady: Two uneventful months for the grant report.
+  no_map: The report was put together by an aide with a spreadsheet and checked by the grant officer, as in every year before.
+
+key:
+  guide:
+    ls-a-pin:
+      best: Right after the report of July and August, when the hard months went wrong.
+      wrong: Before the provider changed anything.
+  strategy: Keep the reference map, repair the connections after the March report, pin the model after the summer, and stay off the public API.

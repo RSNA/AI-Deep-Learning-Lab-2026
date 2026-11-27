@@ -1,0 +1,513 @@
+# Demo pack, Riverbend: Phase 3, the year after the partner requests system went live.
+# Invented from scratch for the public repository. Field definitions: the engineering spec,
+# section 5.5. Every number, every event and every `key` stays on the server.
+
+periods:
+  - {id: p1, label: January and February, short: Jan-Feb}
+  - {id: p2, label: March and April, short: Mar-Apr}
+  - {id: p3, label: May and June, short: May-Jun}
+  - {id: p4, label: July and August, short: Jul-Aug}
+  - {id: p5, label: September and October, short: Sep-Oct}
+  - {id: p6, label: November and December, short: Nov-Dec}
+# Reports that added time brings after December are named from this: the same months, a year on.
+calendar: {cycle: 6, first_year: 2031}
+
+grants:
+  - {round: 1, money: 20}
+  - {round: 3, money: 30}
+
+validate: {runs: 4, seconds: 6}
+
+# A branch with no deployed map answers partner requests as it did before: a desk clerk looks
+# things up and a librarian signs.
+baseline:
+  public: {label: The branch as it worked before}
+  map:
+    tiles:
+      - {id: t1, kind: rb-w-clerk, col: 2, row: 2}
+      - {id: t2, kind: rb-w-librarian, col: 4, row: 2}
+    lines:
+      - {from: rb-s-form, to: t1}
+      - {from: rb-s-catalog, to: t1}
+      - {from: t1, to: t2}
+      - {from: t2, to: rb-result}
+
+score:
+  cost_per_point: 40
+  pool: librarian
+  extra_look: 4
+  rushed: 8
+
+reliability:
+  workers: {rb-w-agent: 0.03, rb-w-step: 0.012, rb-w-rule: 0.004, rb-w-reader: 0.015, rb-w-gateway: 0.006, rb-w-librarian: 0, rb-w-clerk: 0, rb-w-veteran: 0}
+  default_worker: 0.01
+  sources: {rb-s-form: 0.008, rb-s-catalog: 0.012, rb-s-mailbox: 0.03, rb-s-courier: 0.015, rb-s-forum: 0.02, rb-s-cards: 0.01}
+  handoff: 0.005
+  compute: {rb-c-api: 0.012, rb-c-private: 0.006, rb-c-rented: 0.01, rb-c-owned: 0.02}
+  connectors: {rb-w-gateway: 0.25}
+  new_map: {risk: 0.02, spared_by: [rb-a-staging]}
+  hardening:
+    - {action: rb-a-harden, workers: [rb-w-agent, rb-w-step], factor: 0.5}
+    # Skills (an action of build.yaml): an agent that follows a tested recipe fails less often.
+    - {action: rb-a-skills, workers: [rb-w-agent], factor: 0.6}
+  interruption: 0.025
+
+lenses:
+  fresh_test_set: [rb-a-testset]
+  dry_run: [rb-a-staging]
+  incident_log: [rb-a-trace]
+  case_mix: [rb-a-tally]
+  drift_alarm: [rb-a-monitor]
+
+workers:
+  - id: rb-w-gateway
+    kind: fixed
+    group: tools
+    public:
+      label: Records gateway
+      short: Gateway
+      task: One door to the branch's systems
+      description: A standard connector between the map and the branch's systems. It reads nothing itself and hands every record on as it is.
+      icon: search
+      cost_line: A little upkeep every month.
+    needs_model: false
+    prepares: {easy: {as: easy}, hard: {as: hard}}
+    quality: {fetch: {easy: 0.0, hard: 0.0, scan: 0.0}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    run: 0.2
+    complexity: 1
+    key: {note: Changes nothing in the reading. A line through it fails a quarter as often.}
+  - id: rb-w-veteran
+    kind: person
+    group: operators
+    public:
+      label: Retired cataloguer
+      short: Cataloguer
+      task: Remembers the partners' terms
+      description: A volunteer who handled partner loans for thirty years and still knows most of their terms by heart.
+      icon: person
+      cost_line: Minutes of the desk staff for every request.
+    needs_model: false
+    pool: desk
+    quality: {fetch: {easy: 1.0, hard: 0.85, scan: 0.9}, decide: {plain: 0.7, hard: 0.4}, catch: 0.3, knows: {rb-f-terms: 0.8}}
+    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, scan: 4}}
+    complexity: 1
+    key: {note: Knows the terms without a line, until the partners rewrite them.}
+
+# A model that exists from Phase 3 on. It comes onto the shelf with the news of round 4, for a
+# branch that has set up the free model. `by_worker` holds its numbers on the test set. What it
+# does at the desk is the event rb-e-open2.
+models:
+  - id: rb-m-open2
+    appears: {round: 4, requires: [rb-a-download]}
+    public:
+      label: Pine 2
+      short: Pine 2
+      description: The new version of the free model. Its makers say it beats Pine in every test they ran. It runs wherever Pine runs.
+      cost_line: Free to download. You pay for where it runs.
+    run: 0.5
+    runs_on: [rb-c-rented, rb-c-owned]
+    by_worker:
+      rb-w-agent: {fetch: {easy: 0.97, hard: 0.80, scan: 0.34}, decide: {plain: 0.93, hard: 0.76}, catch: 0.3}
+      rb-w-step: {fetch: {easy: 0.95, hard: 0.0, scan: 0.28}, decide: {plain: 0.88, hard: 0.60}, catch: 0.2}
+    key: {note: Better than Pine on the test set, worse and less steady at the desk (rb-e-open2).}
+
+line_rules:
+  - from: rb-s-cards
+    to: rb-w-gateway
+    refuse: true
+    text: The gateway connects systems. The old card files are pictures, and it has nothing to connect to.
+
+actions:
+  - id: rb-a-monitor
+    group: watch
+    public: {title: Set up a monitoring pipeline, teaser: Compare what the tools see each month with what they were built on.}
+    money: 6
+    developers: 2
+    seconds: 14
+    run: 0.5
+    insight:
+      type: quote
+      headline: Tom on the monitoring pipeline
+      body: Tom wired the checks and summed it up in one line.
+      data: {speaker: demo-tom, text: "It compares this month's input with last year's.\nWhen the two part ways, it tells us."}
+    story_time: three weeks
+    key: {note: Holds the lens drift_alarm. It finds nothing until the handwriting changes.}
+  - id: rb-a-look
+    group: watch
+    repeat: true
+    public: {title: Look at what the tools are fed, teaser: A developer compares this year's requests with the ones the tools were built on.}
+    money: 1
+    developers: 1
+    seconds: 8
+    insight:
+      type: quote
+      headline: Tom on this year's requests
+      body: Tom read two hundred requests.
+      data: {speaker: demo-tom, text: "They look like last year's requests.\nNothing to fix today."}
+    finds:
+      - event: rb-e-wording
+        insight:
+          type: quote
+          headline: Tom on the new request form
+          body: Tom read two hundred requests and found the change.
+          data: {speaker: demo-tom, text: "The new web form lets patrons write in their own words.\nThe rule was written for the old drop-down list.\nIt matches fewer requests every month."}
+    story_time: one week
+    key: {note: "A look. It finds nothing before the report of May and June, and then names the new form on a map with the rule."}
+  - id: rb-a-compare
+    group: watch
+    appears: {round: 4}
+    public: {title: Try Pine 2 on our own requests, teaser: A librarian runs both versions on a sample of this year's requests.}
+    money: 2
+    developers: 1
+    seconds: 10
+    insight:
+      type: stat
+      headline: Pine 2 on our own requests
+      body: Better on the plain requests, **worse on the hard ones**, and it stopped more often.
+      data: {value: 3, unit: points, label: ahead of Pine on last year's test set, comparison: Behind Pine on this year's hard requests.}
+    story_time: two weeks
+    key: {note: Says that the new version is not better at the desk.}
+  - id: rb-a-testset
+    group: watch
+    public: {title: Build a test set from this year, teaser: A librarian works a sample of this year's requests by hand.}
+    money: 4
+    developers: 1
+    seconds: 12
+    story_time: two weeks
+    key: {note: A validation is then scored on this year's requests.}
+  - id: rb-a-trace
+    group: watch
+    public: {title: Turn on tracing, teaser: Keep a log of every step the system takes and read it.}
+    money: 2
+    developers: 1
+    seconds: 10
+    story_time: one week
+    key: {note: A report then lists every part that failed.}
+  - id: rb-a-tally
+    group: watch
+    public: {title: Tally the librarians' corrections, teaser: Count which kinds of request the librarians had to correct.}
+    money: 0
+    developers: 1
+    seconds: 10
+    story_time: one week
+    key: {note: A report then lists the share solved of every kind of request.}
+  - id: rb-a-staging
+    group: watch
+    public: {title: Build a staging copy, teaser: A copy of the system where a new map runs for a week before it goes live.}
+    money: 3
+    developers: 2
+    seconds: 14
+    story_time: three weeks
+    key: {note: A validation then shows the reliability, and a new map has no teething troubles.}
+  - id: rb-a-retrain
+    group: maintain
+    repeat: true
+    public: {title: Retrain the card reader, teaser: Teach the card reader on the cards it has met this year.}
+    money: 8
+    developers: 1
+    seconds: 16
+    story_time: one month
+    key: {note: Ends the drift when it starts after the drift was seen.}
+  - id: rb-a-rules
+    group: maintain
+    repeat: true
+    appears: {found: [rb-e-wording]}
+    public: {title: Rewrite the rule for the new form, teaser: The developers rewrite the rule against the words patrons use now.}
+    money: 2
+    developers: 1
+    seconds: 12
+    story_time: two weeks
+    key: {note: Ends the harm of the new request form. On the list only once a look has found it.}
+  - id: rb-a-reconnect
+    group: maintain
+    repeat: true
+    public: {title: Repair the direct connections, teaser: The developers rebuild every line that goes straight into a branch system.}
+    money: 0
+    developers: 2
+    seconds: 14
+    story_time: two weeks
+    key: {note: Ends the harm of the catalog upgrade.}
+  - id: rb-a-templates
+    group: maintain
+    repeat: true
+    public: {title: Rework the mailbox parser, teaser: The developers adapt the parser to how the partners write now.}
+    money: 0
+    developers: 2
+    seconds: 12
+    story_time: two weeks
+    key: {note: Ends the harm of the new mail format.}
+  - id: rb-a-harden
+    group: maintain
+    public: {title: Add retries and timeouts, teaser: Every model call tries again once and gives up cleanly.}
+    money: 0
+    developers: 2
+    seconds: 16
+    story_time: three weeks
+    key: {note: Halves the risk of the AI tiles.}
+  - id: rb-a-gateway
+    group: build
+    public: {title: Build a records gateway, teaser: One standard connector between the map and the branch's systems.}
+    money: 6
+    developers: 2
+    seconds: 14
+    unlocks: [rb-w-gateway]
+    story_time: one month
+    key: {note: Unlocks the gateway.}
+  - id: rb-a-veteran
+    group: negotiate
+    public: {title: Ask a retired cataloguer back, teaser: A volunteer who knows the partners from thirty years at the desk.}
+    money: 1
+    developers: 0
+    seconds: 10
+    unlocks: [rb-w-veteran]
+    story_time: a phone call
+    key: {note: Unlocks the cataloguer.}
+
+# The requests of the year are not the test set: more of them come from partners with terms of their own.
+world:
+  - {op: weights, cases: {rb-k-shelf: 7, rb-k-terms: 14}}
+
+events:
+  - id: rb-e-mailformat
+    from: 2
+    needs: {sources: [rb-s-mailbox]}
+    patches:
+      - {op: fetch_as, effort: hard, as: hard, factor: 0.8}
+    repaired_by: [rb-a-templates]
+    symptom: Terms from the partner mailbox came back half read. Requests that turn on a partner's terms went wrong more often.
+    cause: {lens: incident_log, text: "The partners moved to a new mail system in March, and the parser still expects the old layout."}
+    reveal: {title: The partners changed their mail, text: "A source the map reads may change its shape at any time. A parser needs upkeep after every change."}
+    key:
+      teaches: A source changes, and what reads it needs upkeep.
+      coach: {holds: "The partner mailbox reads worse since the partners changed their mail system.", say: "Ask what changed at the partners in March, and who could adapt the parser."}
+  - id: rb-e-upgrade
+    from: 3
+    needs: {sources: [rb-s-catalog, rb-s-mailbox]}
+    risks:
+      - {sources: [rb-s-catalog, rb-s-mailbox], line: 0.07}
+    repaired_by: [rb-a-reconnect]
+    symptom: The system stopped several times a week since the shared catalog was upgraded.
+    cause: {lens: incident_log, text: "Every line that goes straight into the catalog or the mailbox breaks on the new version. Lines through the gateway held."}
+    reveal: {title: The catalog upgrade, text: "A direct line into another system breaks when that system changes. A standard connector takes the change in one place."}
+    key:
+      teaches: A standard connector spares a map when a system behind it changes.
+      coach: {holds: "Direct lines into the catalog and the mailbox break since the upgrade.", say: "Ask how many lines go straight into a branch system, and what one connector in front of them would change."}
+  # A change that grows for as long as it is left alone: a list of factors by periods since it began.
+  - id: rb-e-wording
+    from: 3
+    needs: {workers: [rb-w-rule]}
+    patches:
+      - {op: worker, worker: rb-w-rule, decide: {plain: [0.95, 0.85, 0.7]}}
+    repaired_by: [rb-a-rules]
+    symptom: The rule sends more plain requests to the wrong shelf than it did in spring. Nothing in the logs failed.
+    cause: {text: "The new web form lets patrons write in their own words, and the rule was written for the old list of choices. It matches fewer requests every month."}
+    reveal: {title: The request form changed, text: "A rule fits the input it was written for. When the input moves, the rule goes wrong quietly, and a little more every month."}
+    key:
+      teaches: A fixed part goes wrong quietly when its input changes, and the harm grows.
+      coach: {holds: "Their rule goes wrong more often every month since the request form changed.", say: "Ask what the rule was written for, and whether anybody has looked at this year's requests."}
+  - id: rb-e-handwriting
+    from: 4
+    needs: {workers: [rb-w-reader]}
+    patches:
+      - {op: worker, worker: rb-w-reader, fetch: {scan: 0.6}}
+      - {op: weights, cases: {rb-k-rare: 8}}
+    repaired_by: [rb-a-retrain]
+    symptom: More of the wrong answers are requests that need the old card files. Nothing in the logs failed.
+    cause: {lens: drift_alarm, text: "The cards scanned since July come from another branch and another hand. They differ from the cards the reader was trained on."}
+    alarm: The cards of the last weeks differ from the cards the reader was trained on. Retraining is recommended.
+    reveal: {title: A new batch of cards, text: "The data a narrow model meets can drift away from what it was trained on. Nothing fails loudly, so only a monitor or a careful reader of the reports sees it."}
+    key:
+      teaches: Drift is silent, and a narrow model needs retraining when its data moves.
+      coach: {holds: "The card reader reads the new cards badly. Nothing told them so.", say: "Ask which kind of request got worse, and which tool reads the source those requests need."}
+  - id: rb-e-price
+    from: 4
+    needs: {compute: [rb-c-rented]}
+    patches:
+      - {op: compute, compute: rb-c-rented, run_fixed: 1.5}
+      - {op: model, model: rb-m-open, run: 1.2}
+    symptom: The bill for the rented GPUs rose by half in July.
+    reveal: {title: Rented GPUs got dearer, text: "Rented compute is quick to get and costs more every month it runs. Over a year, a server of your own is cheaper."}
+    key:
+      teaches: Rented compute costs more over time than owned.
+      coach: {holds: "They rent GPUs, and the price rose in July.", say: "Ask what the system costs to run for the rest of the year, and what else could run the same model."}
+  # A provider raises the price of its models.
+  - id: rb-e-tariff
+    from: 6
+    needs: {models: [rb-m-large, rb-m-small]}
+    patches:
+      - {op: model, model: rb-m-large, run: 2.0}
+      - {op: model, model: rb-m-small, run: 2.0}
+    symptom: Every call to an Acorn model costs twice as much since November.
+    reveal: {title: Acorn doubled its prices, text: "A model behind somebody else's service costs what its owner decides."}
+    key:
+      teaches: Depending on one provider is a cost that a pilot does not show.
+      coach: {holds: "Their AI tiles run on Acorn models, which cost twice as much since November.", say: "Ask what the system costs each month, and who sets that price."}
+  # A newer model: better on the test set, worse and less steady at the desk.
+  - id: rb-e-open2
+    from: 1
+    needs: {models: [rb-m-open2]}
+    patches:
+      - {op: model, model: rb-m-open2, decide: {hard: 0.6}, catch: 0.5}
+    risks:
+      - {models: [rb-m-open2], tile: 0.06}
+    symptom: Since the switch to Pine 2 the same kind of request gets a sound answer one day and a wrong one the next.
+    cause: {lens: incident_log, text: "The answers that failed came from the tiles on Pine 2. It stops more often than Pine, and it loses the hard requests."}
+    reveal: {title: The new version did not hold up at the desk, text: "A model that wins a test may still be worse at the desk. Try a new version on your own requests before it goes live."}
+    key:
+      teaches: A test score is not reliability in service.
+      coach: {holds: "They moved their AI tiles to Pine 2, which is less steady at the desk.", say: "Ask who measured that the new version is better, and on whose requests."}
+  - id: rb-e-timetable
+    from: 5
+    needs: {sources: [rb-s-courier]}
+    patches:
+      - {op: gives, source: rb-s-courier, fact: rb-f-route, factor: 0.6, unless_through: rb-w-gateway}
+    symptom: Routes came back wrong since the courier moved its timetable into a new format.
+    cause: {lens: incident_log, text: "The courier publishes its timetable in a new format. The gateway reads it. A direct line does not."}
+    reveal: {title: The courier's new timetable, text: "When a source changes its format, a tool between the source and its reader can take the change."}
+    key:
+      teaches: A tool in front of a source can absorb a change of format.
+      coach: {holds: "The courier site changed its format, and their line reads it directly.", say: "Ask what stands between the courier site and whoever reads it."}
+  - id: rb-e-audit
+    from: 5
+    to: 5
+    needs: {flag: private_data}
+    risks:
+      - {all: 0.5}
+    fine: 10
+    symptom: The network's auditors found patron data going through a public service, and stopped the system for four weeks.
+    reveal: {title: The audit, text: "Private data that runs through a place that does not protect it will be found. The warning was on the map from the first day."}
+    key:
+      teaches: Private data on an unprotected service is a risk that comes due.
+      coach: {holds: "Patron data runs through the public API, and the audit comes in the autumn.", say: "Ask where each AI tile runs, and whether that place protects patron data."}
+  - id: rb-e-terms
+    from: 6
+    needs: {workers: [rb-w-veteran]}
+    patches:
+      - {op: knows, fact: rb-f-terms, factor: 0.4, workers: [rb-w-veteran]}
+    symptom: Answers that rest on remembered terms went wrong. Several partners rewrote their lending terms in November.
+    reveal: {title: The partners rewrote their terms, text: "What a person or a model remembers goes out of date. A line to the source does not."}
+    key:
+      teaches: Memory goes stale, and a source stays current.
+      coach: {holds: "They rely on what the cataloguer remembers, and the terms changed.", say: "Ask where the current terms are written down, and who on the map reads them."}
+
+news:
+  - id: rb-n-mail
+    round: 1
+    kind: announcement
+    from: demo-tom
+    title: The partners are changing their mail
+    text: Heads up. Three partner libraries move to a new mail system on the first of March. Their messages will look different from then on.
+  - id: rb-n-upgrade
+    round: 2
+    kind: announcement
+    from: demo-tom
+    title: Catalog upgrade in May
+    text: The network upgrades the shared catalog in May. Their note says that existing connections may need work afterwards.
+  - id: rb-n-price
+    round: 2
+    kind: letter
+    from: demo-priya
+    title: About the GPU bill
+    text: The company that rents out cloud GPUs raises its prices by half from July. If we rent, we pay it. A server of our own takes weeks to arrive, so decide soon.
+  # Only for a branch on whose map the event acts.
+  - id: rb-n-wording
+    round: 3
+    if_event: rb-e-wording
+    kind: letter
+    from: demo-tom
+    title: Something is off with the plain requests
+    text: The rule sent a few plain requests to the wrong shelf this month. It never did that before. I would like to look at what comes in.
+  - id: rb-n-grant
+    round: 3
+    kind: letter
+    from: demo-priya
+    title: More money for the second half
+    text: The network liked the first months. They added thirty thousand to the project for the rest of the year. Spend it where the reports say it hurts.
+  - id: rb-n-open2
+    round: 4
+    kind: announcement
+    from: demo-tom
+    title: Pine 2 is out
+    text: The makers of Pine released Pine 2 today. They say it beats Pine in every test, at the same price, and that everybody should switch. From November Acorn also charges twice as much for every call.
+  - id: rb-n-audit
+    round: 4
+    kind: announcement
+    from: demo-mara
+    title: The auditors are coming
+    text: The network audits how patron data is handled in September and October. The courier also tells us its timetable gets a new format this autumn.
+  - id: rb-n-terms
+    round: 5
+    kind: announcement
+    from: demo-idris
+    title: New lending terms
+    text: Several partners publish new lending terms in November. The old ones stop counting on the same day.
+
+alarm_from: demo-tom
+
+incidents:
+  workers:
+    rb-w-agent: The agent went in circles on a request with many partners and ran out of time.
+    rb-w-step: The fixed AI step returned an answer in the wrong shape, and the next tile dropped it.
+    rb-w-reader: The card reader crashed on a batch of faded cards.
+    rb-w-gateway: The gateway restarted and lost the requests it held.
+  default_worker: One of the small programs fell over, and Tom restarted it from his phone.
+  sources:
+    rb-s-form: The request forms could not be fetched for part of a day.
+    rb-s-catalog: The shared catalog timed out and the requests behind it waited.
+    rb-s-mailbox: The partner mailbox refused the connection and requests piled up.
+    rb-s-courier: The courier site was down and routes could not be read.
+    rb-s-forum: The forum blocked the system for asking too often.
+    rb-s-cards: The card file archive was offline.
+  handoff: Two tiles disagreed about what a request slip looks like, and the slip fell between them.
+  compute:
+    rb-c-api: Acorn's public API was swamped on a Monday and let our requests wait in line.
+    rb-c-private: The private link to Acorn went quiet for one afternoon.
+    rb-c-rented: The cloud took our rented GPUs for another customer for an hour.
+    rb-c-owned: The server in the branch basement overheated next to the boiler and switched itself off.
+  new_map: The freshly deployed map stumbled through its first weeks at the desk.
+
+report:
+  validity:
+    - {min: 90, text: "Patrons got the right book from the right partner nearly every time."}
+    - {min: 80, text: "Most patrons got a sound answer. The librarians sent about one request in six back to the desk."}
+    - {min: 0, text: "Too many patrons were sent to the wrong partner. The librarians now redo the requests themselves."}
+  reliability:
+    - {min: 95, text: "The request desk hardly noticed the system was a machine. It was simply there."}
+    - {min: 85, text: "On some mornings the desk found a pile of requests the system had not touched overnight."}
+    - {min: 0, text: "The desk kept the paper forms out. On many days the system answered nothing at all."}
+  gap: The pilot requests were kinder than the ones patrons really send. This map scored higher there than at the desk.
+  gap_points: 2
+  radiologists:
+    content: The librarians sign each answer after one look and still get to the reading group on time.
+    extra_look: Every request crosses a librarian's desk twice. They have started to call it the boomerang.
+    rushed: The map wants more of the librarians' day than the day has. They skim the pile and grumble.
+  steady: Two uneventful months at the request desk.
+  no_map: The request desk ran on paper forms, a clerk and a librarian's signature, as it always had.
+
+key:
+  guide:
+    rb-w-gateway:
+      best: Between the catalog, the mailbox, the courier site and whoever reads them, before the catalog is upgraded.
+      wrong: As one more tile on a map whose sources still have direct lines beside it.
+    rb-w-veteran:
+      best: A stopgap for the terms while the mailbox is not connected.
+      wrong: In place of a line to the mailbox once the partners rewrite their terms.
+    rb-a-monitor:
+      best: Before the summer on a map with the card reader.
+      wrong: On a map with no narrow model, where it has nothing to watch.
+    rb-m-open2:
+      best: Left on the shelf.
+      wrong: Moving the AI tiles to it because it wins the test.
+    rb-a-look:
+      best: Right after the report of May and June, on a map with the rule.
+      wrong: Before that report, when there is nothing to find.
+    rb-a-rules:
+      best: In the same round as the look that found the new form.
+      wrong: A round later.
+    rb-a-retrain:
+      best: Right after the report of July and August, when the drift has been seen.
+      wrong: Before the drift, when there is nothing new to learn from.
+  strategy: >-
+    Keep the lean reference map, put the gateway in front of the catalog, the mailbox and the
+    courier before May, rework the mailbox parser after the March report, and stay off the
+    public API and the rented GPUs.

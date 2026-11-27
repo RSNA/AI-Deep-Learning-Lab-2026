@@ -15,6 +15,7 @@
 - **Moderator:** Ali Ganjizadeh, MD MBA — Elucid Biomedical; Mayo Clinic
 - **Presenter:** Kalina Slavkova, PhD — Protege
 - **Presenter:** Julie Bauml, MD — 4DMedical; Imagen; Vanderbilt
+- **Facilitator:** Akash Pattnaik
 
 ## Overview
 

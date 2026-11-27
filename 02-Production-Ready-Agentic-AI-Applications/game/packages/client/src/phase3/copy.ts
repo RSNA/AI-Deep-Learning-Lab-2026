@@ -1,0 +1,185 @@
+// The words of the Phase 3 screens. Content text comes from the pack. The board itself (the map,
+// the toolbox, the shelves, the actions) speaks with the words of Phase 2.
+import type { TourStep } from '../components/Tour.tsx'
+
+/** A number out of 100 with one decimal: the maps at the top differ by less than a point. */
+export const out100 = (x: number) => (Math.round(10 * x) / 10).toFixed(1)
+/** A share (0 to 1) as a number out of 100 with one decimal. */
+export const share100 = (x: number) => out100(100 * x)
+const whole = (x: number) => String(Math.round(x))
+/** Points, with a sign when they are taken off. */
+const pts = (x: number) => (Math.round(10 * x) / 10).toLocaleString('en-US', { maximumFractionDigits: 1 })
+const amount = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }))
+let unit = ''
+/** The unit of money of the pack, written after a sum. */
+export const setUnit3 = (u: string | null) => { unit = u ? ` ${u}` : '' }
+export const sum = (x: number) => `${amount(x)}${unit}`
+const clock = (s: number) => { const t = Math.max(0, Math.ceil(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` }
+
+export const P3 = {
+  phase: 'Phase 3',
+  // The timer on top
+  until: (s: number, label: string) => `${clock(s)} until the report on ${label}`,
+  untilShort: (label: string) => `until the report on ${label}`,
+  roundOf: (r: number, of: number) => `Round ${r} of ${of}`,
+  yearOver: 'The year is over.',
+  // The two numbers
+  validity: 'Validity',
+  reliability: 'Reliability',
+  scoreShort: 'Score',
+  validityIs: 'Of the real patients of these two months, the share whose plan was right.',
+  reliabilityIs: 'Of the patients of these two months, the share whose plan came out of the system at all.',
+  of100: 'of 100',
+  // The year: the chart and the reports
+  yearTitle: 'Your year',
+  yearSub: (n: number, of: number) => `${n} of ${of} reports`,
+  chartTitle: 'The year so far',
+  chartEmpty: 'No report yet.',
+  testMark: 'Same map on the test set',
+  showReport: (label: string) => `Show the report on ${label}`,
+  reportOn: (label: string) => `Report on ${label}`,
+  newReport: 'New report',
+  olderReport: 'Earlier report',
+  firstReport: 'This is the first report of the year.',
+  lastReportYet: 'This is the latest report. The next one arrives when the timer reaches zero.',
+  newerReport: 'Later report',
+  openReport: 'Open the full report',
+  closeReport: 'Back to the board',
+  ran: (name: string) => `Ran: ${name}`,
+  ranNoMap: 'No map ran',
+  onTestSet: (x: string) => `On the test set this map scored ${x}.`,
+  gapPoints: (d: string) => `${d} under the test set`,
+  interruptions: (n: number) => (n === 0 ? 'No interruption' : n === 1 ? '1 interruption' : `${n} interruptions`),
+  failedPatient: 'One patient it got wrong',
+  failedMost: 'The part that failed most',
+  worstChange: 'What changed for the worse',
+  cause: 'Cause',
+  causeLocked: 'The report names what was seen, not why. Some actions under Watch make reports say more.',
+  people: 'The people who check',
+  pointsOff: (x: number) => `${pts(x)} points off`,
+  noPointsOff: 'Nothing off',
+  note: 'Note',
+  costTwoMonths: 'To run these two months',
+  fine: 'Fine',
+  scorePeriod: 'Score of these two months',
+  scorePeriodHow: (v: string, r: string, off: number) => `${v} × ${r} ÷ 100${off > 0 ? ` − ${pts(off)}` : ''}`,
+  scoreYear: 'Score of the year so far',
+  spentSoFar: 'Money spent so far',
+  rank: (r: number, of: number) => `Rank ${r} of ${of}`,
+  partsTitle: 'Every part that failed',
+  partsShare: 'Share of the loss',
+  kindsTitle: 'Every kind of patient',
+  kindsSolved: 'Right',
+  noReportYet: 'The first report arrives when the phase starts.',
+  // The list of maps
+  mapsTitle: 'Your maps',
+  mapsSub: (n: number) => (n === 1 ? '1 map' : `${n} maps`),
+  runningNow: 'Running now',
+  deploy: 'Deploy',
+  deployLine: 'What is deployed when the timer reaches zero runs for the next two months. A map that did not run before has teething trouble in its first period.',
+  deployed: (name: string) => `${name} is deployed. It runs when the timer reaches zero.`,
+  noMapRunning: 'No map is running. The practice works as it did before, by hand.',
+  stopMap: 'Run no map',
+  stopTitle: 'Take the system out of service?',
+  stopText: 'With no map deployed the practice works by hand, as it did before: nothing breaks and nothing is run. You can deploy a map again at any time.',
+  stopYes: 'Run no map',
+  stopNo: 'Keep it running',
+  accuracy: 'Accuracy',
+  onFresh: 'on this year’s patients',
+  onTest: 'on the test set',
+  reliabilityWould: (x: string) => `Reliability if deployed now: ${x} of 100`,
+  fromPhase2: (n: number) => `Phase 2 · validation ${n}`,
+  fromPhase3: (n: number) => `Validation ${n}`,
+  // A pack with one reference map may simply call it the reference map: the word is not said twice.
+  fromReference: (label: string) => (/^(the )?reference\b/i.test(label) ? label : `Reference · ${label}`),
+  noMaps: 'You have no validated map yet. Build one and validate it, or take a reference map.',
+  sameAs: (name: string) => `This is the map of ${name}. A new validation would say the same.`,
+  restored: (name: string) => `The map of ${name} is back on your canvas. Undo returns to the one before.`,
+  restore: 'Restore this map',
+  onCanvas: 'On your canvas now',
+  deployRefused: 'That map could not be deployed.',
+  now: 'Running now',
+  lastReport: (short: string) => `Last report · ${short}`,
+  validationsLeft: (n: number, of: number) => `${n} of ${of} validations left`,
+  // Reference maps
+  refTitle: (n: number) => (n === 1 ? 'The reference map' : 'Reference maps'),
+  refOpen: (n: number) => (n === 1 ? 'Reference map' : 'Reference maps'),
+  refIntro: (n: number) =>
+    n === 1
+      ? 'A map that was built for this same problem. Take it and it joins your maps at once, at no validation, and is deployed. What it needs and you have not bought is bought with it. You can go back to your own map at any time.'
+      : 'Maps that were built for this same problem. Take one and it joins your maps at once, at no validation, and is deployed. What it needs and you have not bought is bought with it. You can go back to your own map at any time.',
+  refTake: 'Take this map',
+  refTaken: 'In your maps',
+  refHasAll: 'You already have everything it needs. Taking it costs nothing.',
+  refNeeds: 'It needs what you have not bought yet',
+  refPays: (price: number) => `Taking it buys all of this for ${sum(price)} from your account.`,
+  refPaysPart: (price: number, pays: number) =>
+    pays > 0
+      ? `Together this costs ${sum(price)}. Your account holds ${sum(pays)}, so it pays that and is empty afterwards. The partners cover the rest, and all ${sum(price)} count as money spent.`
+      : `Together this costs ${sum(price)}. Your account is empty, so the partners cover it, and all ${sum(price)} count as money spent.`,
+  refKeep: 'Keep my own map',
+  refClose: 'Close',
+  refNone: 'This game offers no reference map.',
+  tookToast: (label: string) => `${label} is in your maps and deployed.`,
+  // Actions
+  again: 'Start again',
+  doneTimes: (n: number) => (n === 1 ? 'Done once' : `Done ${n} times`),
+  donePhase2: 'Done in Phase 2',
+  canRepeat: 'Can be done again.',
+  upkeep: (x: number) => `Then ${sum(x)} a month to keep it running.`,
+  moneyTitle: 'Money and score',
+  // News and money
+  newsToast: (title: string) => (title ? `New in your letters: ${title}` : 'A new memo is in your letters.'),
+  grantToast: (x: number) => `${sum(x)} arrived in your account.`,
+  reportToast: (label: string) => `The report on ${label} is in.`,
+  lettersTitle: 'Letters and insights',
+  memo: 'MEMO',
+  letter: 'LETTER',
+  // The opening
+  phaseStarted: 'Phase 3 has started.',
+  briefStart: 'Start the year',
+  letterStays: 'This letter stays as the first card under Letters and insights.',
+  warn: (s: number) => `${s} seconds until the last report. What is deployed then runs the last two months.`,
+  whyNoneLeft: 'No validations are left. You can still deploy any map of your list.',
+  whyReady: 'Ready. Press Validate to test this map. Deploy it afterwards to run it.',
+  tab: { map: 'Map', actions: 'Actions', toolbox: 'Toolbox', year: 'Year', results: 'Maps' },
+  helpTitle: 'Help · Phase 3',
+  helpIntro: 'Your map now runs on real patients. Every two months a report says how valid and how reliable it was. Change the map, repair what breaks, and keep the best map deployed.',
+  tour: [
+    { area: '[data-tour="p3-timer"]', tab: 'year', title: 'Two months at a time', text: 'The year runs in periods of two months. The timer counts down to the next report. What is deployed, and every action that has finished, when it reaches zero is what the next two months are run with.' },
+    { area: '[data-tour="p3-report"]', tab: 'year', title: 'The report', text: 'Two numbers out of 100. Validity is the share of the real patients whose plan was right. Reliability is the share whose plan came out of the system at all. The report also shows one patient the map got wrong and the part that failed most.' },
+    { area: '[data-tour="p3-chart"]', tab: 'year', title: 'The year so far', text: 'Validity, reliability and the score of every period that has a report. The faint mark is what the same map scored on the test set. Press a period to read its report again.' },
+    { area: '[data-tour="p3-maps"]', tab: 'results', title: 'Your maps, and Deploy', text: 'Every map you validated is here. Deploy puts a map in service, and the one marked Running now is the one that counts. You can change your mind at any moment of a round.' },
+    { area: '[data-tour="p3-refs"]', tab: 'results', title: 'A map to start from', text: 'A reference map that others built for this problem. Take it and it joins your maps without a validation, and what it needs is bought with it. You can always go back to your own.' },
+    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'New actions', text: 'The actions you did not take in Phase 2 are still here. Watch adds what your reports and validations can tell you. Maintain repairs and hardens what runs. Some can be done again. As the year goes on and your team finds things out, more actions and items appear. Your money is limited, so spend it on what the reports show.' },
+    { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate, then deploy', text: 'Change the map and validate it as before. A validation tests the map and does not put it in service: press Deploy on it in Your maps.' },
+  ] as TourStep[],
+  // Reveal
+  timeUp: 'The year is over. Every period counted with the map that ran in it.',
+  letterTitle: 'A letter for you',
+  yourScore: 'Your score',
+  meanValue: 'Mean score of the periods',
+  moneySpent: 'Money spent',
+  moneyOff: (perPoint: number) => `Every ${sum(perPoint)} spent takes one point off.`,
+  spentParts: { phase2: 'Actions of Phase 2', actions: 'Actions of Phase 3', adoption: 'What a reference map needed', running: 'Running the system', fines: 'Fines' },
+  yearScore: 'Score of the year',
+  phasePoints: 'Phase 3 points',
+  eventsTitle: 'What the year brought',
+  eventHit: 'It hit your system',
+  eventMissed: 'It did not touch your system',
+  eventPeriods: (labels: string) => `In ${labels}`,
+  compareTitle: (n: number) => (n === 1 ? 'Your year beside the reference map, left alone' : 'Your year beside the reference maps, left alone'),
+  compareLine: (n: number) => (n === 1 ? 'The reference map as it would have done if deployed in January and never touched.' : 'Each reference map as it would have done if deployed in January and never touched.'),
+  yours: 'Your year',
+  baseline: 'No system',
+  periodsHead: 'Period',
+  mapHead: 'Map that ran',
+  yearHead: 'Year',
+  scaleLine: 'Points run from a practice with no system to the best year that was found.',
+  lookAgainLine3: 'Your year, report by report, and what each event taught',
+  out100,
+  share100,
+  whole,
+  pts,
+  sum,
+}

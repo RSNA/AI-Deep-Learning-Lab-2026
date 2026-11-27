@@ -1,0 +1,124 @@
+# Demo story text. Nothing here affects a score.
+briefs:
+  maintaining:
+    from: demo-priya
+    title: The system is live. Now keep it running
+    text: >-
+      Your system for the partner requests went live in January. Every **two months** I send you a report on
+      how it did: how many answers were **right**, and how often the system **ran at all**. A
+      real year is not the test set. Deploy the map you trust, repair what breaks, and watch
+      what it costs. You may also take one of the network's reference maps and switch back
+      whenever you like. *Whatever runs when the timer ends is what the next report is about.*
+  development:
+    from: demo-priya
+    title: Build the partner requests system
+    # The first paragraph follows from Phase 1: whether partner requests went to the agent column.
+    opening:
+      hit: You saw it in the spring. Partner requests take judgment at every turn, and you put them where an agent belongs.
+      missed: In the spring you filed partner requests under something simpler. Looking at them now, they take judgment at every turn.
+    text: >-
+      The network approved the project. Build me the system that answers **partner requests**:
+      put workers on the map, give each one what it may read, and join them to the answer. Your
+      developers can connect more sources, and every action takes money and time. Validate as
+      you go. *What you build here will run for a long time.*
+  planning:
+    from: demo-priya
+    title: Six requests, one big project
+    text: >-
+      Welcome to Riverbend. The staff sent me six requests, and each one asks for new software.
+      The network will fund **one** large project. Sort all six for me. Some are not real
+      problems, some need a schedule or a rule, one needs one model, and one deserves the big
+      project. *Count before you believe.*
+
+letters:
+  maintaining_reveal:
+    from: demo-priya
+    always: >-
+      The year is over. A system is judged by the year it runs, and less by the day it was
+      tested. What held up was simple, sat behind few connections, and was looked after.
+    variants:
+      empty: No system of yours ran this year, so the branch worked as it always did.
+      rough: Your system cost more than it gave this year. Look at what broke and stayed broken.
+      steady: Your system held on through most of the year. Two repairs came late.
+      strong: A steady year. You repaired what broke and kept the costs in hand.
+      outstanding: This is how a system should be run. Few parts, watched closely, repaired at once.
+  development_reveal:
+    from: demo-priya
+    always: >-
+      The pilot is over. The partner requests need the terms in the partner mailbox, a model
+      that judges well with a clear goal, and a librarian who checks rather than does it all.
+    variants:
+      empty: You never validated a map, so I have nothing to run. Next time, validate early and often.
+      rough: Your map answers the easy requests. The partners with their own rules still slip through.
+      steady: A map that works most days. Look at where it lost the facts it needed.
+      strong: A solid system. You put the strong model where the judgment is.
+      outstanding: This is a system I would put in front of patrons tomorrow.
+  planning_reveal:
+    from: demo-priya
+    always: >-
+      Thank you for the report. The big project goes to the partner requests, because every
+      request takes its own path through catalogs, emails and shipping. The Monday desk needs a
+      second person, and the bounced notices need a rule that asks for a fresh address.
+    variants:
+      empty: You sent me an almost empty board. Next time, sort what you can, even if you are unsure.
+      rough: Your board followed the loudest voices. Look again at what the numbers said.
+      steady: You saw through part of the noise. Check the problems you gave more than they needed.
+      strong: A sound board. You counted first and kept the big project for the work that needs it.
+      outstanding: This is the board I hoped for. Every problem got the smallest fix that works.
+
+dialogue:
+  - id: rb-d-dev-start
+    speaker: demo-tom
+    text: The developers are ready when you are.
+    trigger: {phase: development, on: start}
+  - id: rb-d-dev-mailbox
+    speaker: demo-mara
+    text: So the mailbox was the answer all along.
+    trigger: {phase: development, on: insight:rb-a-shadow}
+  - id: rb-d-dev-result
+    speaker: demo-idris
+    text: A score. Is that good? It feels good.
+    trigger: {phase: development, on: run_result}
+  - id: rb-d-dev-terms
+    speaker: demo-mara
+    text: Northgate and its two-year rule again.
+    trigger: {phase: development, on: trace:rb-k-terms}
+  - id: rb-d-dev-idle
+    speaker: demo-tom
+    text: The map will not build itself. I checked.
+    trigger: {phase: development, on: idle}
+  - id: rb-d-dev-reveal
+    speaker: demo-priya
+    text: Let us see how it compares.
+    trigger: {phase: development, on: reveal}
+  - id: rb-d-start
+    speaker: demo-mara
+    text: The director is here. Quick, look busy.
+    trigger: {phase: planning, on: start}
+  - id: rb-d-queue
+    speaker: demo-idris
+    text: Told you. Mondays.
+    trigger: {phase: planning, on: insight:rb-look-queue}
+  - id: rb-d-idle
+    speaker: demo-tom
+    text: The kiosk logs are on my desk if anyone wants them.
+    trigger: {phase: planning, on: idle}
+  - id: rb-d-reveal
+    speaker: demo-mara
+    text: So we get a second person on Mondays?
+    trigger: {phase: planning, on: reveal}
+
+banter:
+  - id: rb-b-coffee
+    lines:
+      - {speaker: demo-mara, text: Who moved the good mug?}
+      - {speaker: demo-tom, text: It was evidence. I needed it for a test.}
+  - id: rb-b-printer
+    lines:
+      - {speaker: demo-idris, text: The printer says it is out of cyan.}
+      - {speaker: demo-tom, text: We only print in black.}
+      - {speaker: demo-idris, text: That is what makes it so sad.}
+  - id: rb-b-story
+    lines:
+      - {speaker: demo-ola, text: Can I borrow the big chair for story time?}
+      - {speaker: demo-priya, text: Only if the dragon gives it back.}

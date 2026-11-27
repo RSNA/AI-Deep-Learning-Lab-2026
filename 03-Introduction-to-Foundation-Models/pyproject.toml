@@ -1,0 +1,33 @@
+[project]
+name = "medgemma"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub>=0.34.1",
+    "ipykernel>=6.30.0",
+    "ipywidgets>=8.1.7",
+    "matplotlib>=3.10.3",
+    "numpy>=2",
+    "pandas>=2.3.1",
+    "pillow>=11.3.0",
+    "protobuf>=6.31.1",
+    "scikit-learn>=1.7.1",
+    "sentencepiece>=0.2.0",
+    "torch>=2.7.1",
+    "transformers>=4.56.0",
+    "radharmony",
+    "seaborn>=0.13.2",
+    "gradio>=6.31.0",
+]
+
+[tool.uv.sources]
+radharmony = { git = "https://github.com/f10409/RadHarmony.git" }
+torch = { index = "pytorch-cu128" }
+
+# CUDA 12.8 build of torch: needed for Blackwell GPUs (sm_120)
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

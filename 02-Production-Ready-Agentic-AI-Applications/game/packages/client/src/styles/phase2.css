@@ -1,0 +1,670 @@
+/* Phase 2: the canvas, its shelves, the toolbox, the actions, the validation and the reveal
+   (spec, sections 10.5 and 11). The look of section 11: thick outlines, hard shadows, no blur. */
+
+/* ---------------------------------------------------------------- the three columns */
+.p2 { display: flex; flex-direction: column; min-width: 0; }
+.p2-top {
+  --act-w: clamp(236px, 19.5vw, 300px); --tool-w: clamp(200px, 16.5vw, 260px);
+  height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); min-height: 560px;
+  display: grid; grid-template-columns: var(--act-w) minmax(0, 1fr) var(--tool-w);
+  gap: 10px; padding: 8px 10px 10px;
+}
+.p2-below { padding: 4px 10px 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 12px; align-items: start; }
+.colhead .s.ellip { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.p2-map { overflow: hidden; }
+.p2-map .colhead { justify-content: flex-start; }
+.p2-map .colhead .s { margin-left: 6px; }
+
+/* Money, developers, validations */
+.purse { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.purse .pf { display: inline-flex; align-items: baseline; gap: 6px; font-size: 14px; white-space: nowrap; }
+.purse .pl { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.85; }
+.purse .num { font-size: 22px; line-height: 1; }
+.purse .muted { color: inherit; opacity: 0.7; }
+.purse .unit { font-size: 12px; font-weight: 800; opacity: 0.85; }
+.purse .devs { display: inline-flex; gap: 3px; align-self: center; }
+.purse .devs i { display: block; width: 10px; height: 15px; border: 2px solid currentColor; }
+.purse .devs i.held { background: var(--sun); }
+.topbar .purse { margin-left: 4px; padding-left: 14px; border-left: 2px solid var(--bar-muted); }
+.purse-col { flex-shrink: 0; padding: 7px 12px 6px; border-bottom: 3px solid var(--line); background: var(--inset); }
+.purse-col .bwline, .bwline.pad { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.bwline.pad { padding: 4px 4px 8px; }
+
+/* The title bar of the map holds what is going on, the selection, undo and redo. One height. */
+.colhead.maphead { height: 46px; gap: 12px; padding-right: 6px; }
+.mapbar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.mapbar .btn.small { min-height: 34px; height: 34px; font-size: 17px; border-color: #1d2140; box-shadow: 2px 2px 0 rgba(29, 33, 64, 0.45); background: #fff; color: #1d2140; }
+.mapbar .btn.small.danger { background: var(--bad-bg); color: var(--bad); }
+.mapbar .btn.small:disabled { opacity: 0.5; }
+.mhint { flex: 1; min-width: 0; font-size: 13px; font-weight: 800; color: var(--on); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mhint.msg { background: #fff; color: #1d2140; padding: 2px 6px; border: 2px solid #1d2140; }
+
+/* Shelves: chips that inform. A chip is flat and round, so nobody takes it for a button. */
+.shelves { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; padding: 3px 10px; border-bottom: 2px solid var(--soft); }
+.shelf { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.shelf-t { width: 104px; white-space: nowrap; flex-shrink: 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.shelf-items { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.schip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 0; border-radius: 13px; background: var(--inset); color: var(--ink); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.schip:hover { background: var(--sky-bg); }
+.schip.is-locked { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--soft); }
+
+/* ---------------------------------------------------------------- the grid */
+.gridwrap { flex: 1; min-height: 0; overflow: hidden; }
+.gridscroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.cgrid {
+  position: relative; height: 100%; box-sizing: border-box;
+  display: grid;
+  /* The side columns take a share of the width, never a fixed maximum: a grid fills fixed
+     maximums before its cells get any room. */
+  grid-template-columns: minmax(100px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(70px, 10%);
+  grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(60px, 1fr));
+  /* The gap between two columns holds a line with its head, so a short line still reads as an arrow.
+     The gap between two rows holds the short line between two neighbours of one column. */
+  column-gap: 32px; row-gap: 10px; padding: 4px 14px 8px 8px;
+}
+.chdr { grid-row: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; align-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chdr:first-child { text-align: left; }
+/* The name of a stage of the work over a column: up to four words on two lines. A tap or a
+   pointer says its sentence. It is a quiet word, not a button. */
+.chdr.stage { position: relative; z-index: 5; overflow: visible; white-space: normal; text-transform: none; letter-spacing: 0; font-size: 12px; line-height: 1.15; color: var(--ink); }
+.chdr-b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: help; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+.chdr-b:focus-visible { outline: 3px solid var(--sky); }
+.chint { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); width: max(180px, 100%); padding: 6px 8px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); font-size: 12.5px; font-weight: 700; line-height: 1.3; text-align: left; }
+.csources { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.csource {
+  position: relative; z-index: 2; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; column-gap: 4px;
+  padding: 2px 12px 2px 5px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
+  font-size: 13px; font-weight: 800; line-height: 1.15;
+}
+/* A name is read whole: a long word breaks before it is cut. The lock and the dashed edge say that a source is locked. */
+.csource .cs-name { overflow-wrap: break-word; hyphens: auto; min-width: 0; }
+.csource.is-locked { border-style: dashed; color: var(--muted); box-shadow: none; background: var(--inset); }
+.csource .cs-lock { grid-column: 1 / -1; font-size: 11px; font-weight: 700; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* A locked source keeps one line for its name and one for what opens it; the whole text is its title. */
+.csource.is-locked { align-content: center; }
+.csource.is-locked { cursor: help; }
+.csource.is-locked .cs-lock { -webkit-line-clamp: 1; }
+.csource.from { box-shadow: 0 0 0 4px var(--sky); }
+.ccell { z-index: 0; border: 2px dashed var(--soft); min-width: 0; }
+.ccell.open { border-color: var(--go); background: var(--go-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ccell.open:hover, .ccell.open:focus-visible { outline: 3px solid var(--go); outline-offset: -1px; }
+.ccell.dropping { background: var(--sky-bg); border-color: var(--sky); }
+.ccell-plus { font-family: var(--face); font-size: 26px; line-height: 1; color: var(--good); }
+.ctile {
+  /* A name and three parts, each 15 high, fit a tile of 76: the height of a row of five on a laptop of 720. */
+  position: relative; z-index: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1px;
+  padding: 0 4px 2px; background: var(--panel); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); cursor: pointer; outline: none;
+}
+.ctile .ct-head { display: flex; align-items: center; gap: 3px; margin: 0 -4px 1px; padding: 1px 4px; min-height: 19px; border-bottom: 2px solid var(--line); font-size: 13px; font-weight: 800; line-height: 1.15; color: var(--on); }
+.ctile.k-ai .ct-head { background: var(--sky); }
+.ctile.k-fixed .ct-head { background: var(--lav); }
+.ctile.k-person .ct-head { background: var(--sun); }
+/* A little tighter, so that an eleven-letter name fits a tile at 1280 wide. */
+.ctile .ct-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.2px; }
+.ctile .ct-part { display: flex; align-items: center; gap: 3px; min-height: 15px; height: 15px; padding: 0 3px; border: 0; background: var(--inset); color: var(--ink); font: inherit; font-size: 11.5px; letter-spacing: -0.01em; font-weight: 700; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ctile .ct-part span { overflow: hidden; text-overflow: ellipsis; }
+.ctile .ct-part:hover { background: var(--sky-bg); }
+.ctile .ct-part.missing { background: var(--sun-bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--sun); }
+.ctile div.ct-part { cursor: default; }
+.ctile .ct-note { font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.ctile .ct-badge { position: absolute; left: 4px; right: 12px; bottom: -21px; z-index: 4; pointer-events: none; text-align: center; font-size: 10.5px; font-weight: 800; background: var(--panel); color: var(--muted); border: 2px solid var(--soft); line-height: 14px; }
+.ctile .ct-parts { font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctile.sel { outline: 3px solid var(--sky); outline-offset: 2px; }
+.ctile:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.ctile.stray { border-style: dashed; box-shadow: none; opacity: 0.62; }
+.ctile.moving { opacity: 0.4; }
+.ctile.lit, .cresult.lit { box-shadow: 0 0 0 4px var(--go); cursor: pointer; }
+.ctile.over, .cresult.over { box-shadow: 0 0 0 6px var(--go); }
+.joining .ctile:not(.lit) { cursor: not-allowed; }
+.cmark { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; font-size: 12px; font-weight: 900; line-height: 1; }
+.cmark.warn { background: var(--sun); color: #1d2140; border: 2px solid #1d2140; }
+.cmark.lock { color: var(--muted); }
+.cport {
+  position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 3px solid var(--line); cursor: crosshair; touch-action: none;
+}
+.cport::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+.cport:hover, .cport:focus-visible { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); outline: none; }
+.cport.on { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--sky); }
+.cport.ro { width: 10px; height: 10px; right: -7px; border-width: 2px; cursor: default; }
+/* The ports on the other three sides of a tile. They show while the tile is pointed at or
+   selected, small and mostly outside it, so that they cover none of its text. */
+.cport.s-l { right: auto; left: -9px; }
+.cport.s-t { right: auto; left: 50%; top: -9px; transform: translateX(-50%); }
+.cport.s-b { right: auto; left: 50%; top: auto; bottom: -9px; transform: translateX(-50%); }
+/* They reach no further into the tile than its outline, and have no wider area for a press: a
+   press on the name or on a part of the tile must never start a line. */
+.cport.more { width: 12px; height: 12px; border-width: 2px; opacity: 0; pointer-events: none; transition: opacity 0.08s; }
+.cport.more::after { content: none; }
+.ctile:hover > .cport.more, .ctile.sel > .cport.more, .ctile:focus-visible > .cport.more { opacity: 1; pointer-events: auto; }
+.cport.more:hover { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
+.cgrid.joining .cport.more, .cgrid.placing .cport.more { opacity: 0; pointer-events: none; }
+/* While a line looks for its end, every tile that can take it shows its four dots: the line
+   enters on the dot that is pressed. The dot the line starts from stays in view too. */
+.cgrid.joining .ctile.lit > .cport.more, .cgrid.joining .cport.more.on { opacity: 1; pointer-events: auto; }
+.cgrid.joining .ctile.lit > .cport { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--go); }
+.cport.more.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 5px var(--sky); }
+/* The two tiles at the ends of the selected line show their four dots: a press moves that end. */
+.ctile.ends > .cport.more { opacity: 1; pointer-events: auto; }
+.ctile.ends > .cport { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
+.cport.ro.s-l { left: -6px; } .cport.ro.s-t { top: -6px; } .cport.ro.s-b { bottom: -6px; }
+.cport.ro.s-r { right: -7px; }
+.cresult-col { display: flex; align-items: center; min-width: 0; }
+.cresult {
+  position: relative; z-index: 2; width: 100%; min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px 4px; background: var(--go-bg); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade);
+  font-size: 13px; font-weight: 800; line-height: 1.15; text-align: center; color: var(--ink); outline: none;
+}
+.cresult .cr-name { overflow-wrap: anywhere; }
+.clines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: visible; }
+.cline path { fill: none; }
+.cline .halo { stroke: var(--panel); stroke-width: 8; }
+.cline .ink { stroke-width: 3; }
+.cline.handoff .halo { stroke-width: 10; }
+.cline.handoff .ink { stroke-width: 5.5; }
+.cline .hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; outline: none; }
+/* While a worker is placed or moved, a click on a cell under a line goes to the cell. */
+.cgrid.placing .cline .hit { pointer-events: none; }
+.cline:hover .ink { stroke-width: 5; }
+.cline.sel .halo { stroke: var(--sky); stroke-width: 12; }
+.cline.sel .ink { stroke-width: 5; }
+.cline.handoff.sel .ink, .cline.handoff:hover .ink { stroke-width: 7; }
+/* What the two kinds of line mean, where the hint above the grid stands */
+.lglegend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lg-i { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.lg-line path { fill: none; stroke: currentColor; stroke-width: 2; }
+.lg-line.heavy path { stroke-width: 4.5; }
+.lg-line .lg-head { fill: currentColor; stroke: none; }
+.mhint .lg-tip { font-weight: 700; opacity: 0.9; }
+.cline .hit:focus-visible { stroke: var(--sky); stroke-opacity: 0.35; }
+.cline.faded { opacity: 0.3; }
+.cline-drag { fill: none; stroke-width: 3; stroke-dasharray: 7 5; }
+
+/* A small drawing: a reveal, a card on the projector, the host's view of a player. */
+.cgrid.compact { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(30px, 1fr)); column-gap: 24px; row-gap: 7px; padding: 2px 10px 4px 4px; }
+.cgrid.compact .chdr { font-size: 9.5px; }
+.cgrid.compact .chdr.stage { font-size: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* A tile's name on a small map takes two lines before it is cut, and has no icon beside it. */
+.cgrid.compact .ct-name { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.1; }
+.cgrid.compact .ct-head { align-items: flex-start; }
+.cgrid.compact .cline.handoff .halo { stroke-width: 7; }
+.cgrid.compact .cline.handoff .ink { stroke-width: 4; }
+.cgrid.compact .csource, .cgrid.compact .cresult { font-size: 10.5px; border-width: 2px; box-shadow: 2px 2px 0 var(--shade); min-height: 0; }
+.cgrid.compact .cresult { padding: 3px; }
+.cgrid.compact .ctile { border-width: 2px; box-shadow: 2px 2px 0 var(--shade); padding: 0 3px 2px; }
+.cgrid.compact .ct-head { font-size: 10px; margin: 0 -3px; padding: 1px 3px; }
+.cgrid.compact .cline .halo { stroke-width: 5; }
+.cgrid.compact .cline .ink { stroke-width: 1.8; }
+.cgrid.compact .csource { grid-template-columns: minmax(0, 1fr) auto; padding: 1px 10px 1px 4px; }
+.cgrid.compact .csource > .cicon { display: none; }
+.cgrid.compact .csource .cs-name { font-size: 10px; }
+/* The three parts of an agent on a small map, each on a line of its own with its name in front:
+   "Model: Jenson Mini", "Runs on: Private link", "Prompt: Steps". A value that is too long for
+   the tile is cut with three dots, and the whole of it is in the hover. */
+.cgrid.compact .ct-mini { display: flex; gap: 3px; align-items: baseline; padding: 0 1px; font-size: 9.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; color: var(--ink); min-width: 0; }
+.cgrid.compact .ct-mini span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cgrid.compact .ct-mini.missing { color: var(--bad); }
+.cgrid.compact .ctile { gap: 0; container-type: inline-size; }
+.cgrid.compact .ctile.k-ai { padding-bottom: 3px; }
+.cgrid.compact .ct-head { margin-bottom: 2px; }
+/* A map with agents on it gets rows that hold a name and three lines. */
+.cgrid.compact:has(.ct-mini) { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(56px, 1fr)); }
+.ct-what { font-style: normal; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+/* A tile too narrow for the names of the parts shows the values alone. */
+@container (max-width: 92px) { .cgrid.compact .ct-mini .ct-what { display: none; } }
+
+
+/* The foot of the map: what it takes to run in one line, and under it Validate with its sentence. */
+.mapfoot { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 3px 10px 5px; border-top: 2px solid var(--soft); }
+.runline { display: flex; flex-wrap: wrap; gap: 0 14px; font-size: 12.5px; line-height: 1.35; }
+.runline > span { white-space: nowrap; }
+.runline .over { color: var(--bad); font-weight: 800; }
+.footrow { display: flex; align-items: center; gap: 10px; min-height: 46px; }
+.footrow .pwarn { flex: 1 1 230px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.vwrap { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; margin-left: auto; min-width: 0; }
+.vwhy { flex: 0 1 auto; min-width: 150px; max-width: 400px; font-size: 13px; font-weight: 700; color: var(--muted); text-align: right; line-height: 1.25; }
+/* While Validate cannot act, the next thing to do stands beside it in words, in the warning ink. */
+.vwhy.block { color: var(--ink); font-weight: 800; }
+.vwhy.ok { color: var(--good); }
+.vwhy.warn { color: var(--bad); font-weight: 800; }
+.vwhy .vmore { font-weight: 700; color: var(--muted); }
+@keyframes whyflash { 0% { background: var(--sun-bg); box-shadow: 0 0 0 4px var(--sun); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+.vwhy.flash { animation: whyflash 1.4s ease-out; }
+/* A Validate that cannot act looks unavailable and still answers a press with its reason. */
+.vbtn.off { opacity: 0.55; box-shadow: none; transform: none; cursor: help; }
+.vbtn { min-height: 44px; min-width: 196px; font-size: 22px; }
+.vbtn.running { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 12px; border: 3px solid var(--line); background: var(--sky-bg); font-size: 14px; font-weight: 800; }
+.vbtn .runbar, .arow .runbar { width: 100%; height: 9px; border: 2px solid var(--line); background: var(--panel); display: block; }
+.vbtn .runbar i, .arow .runbar i { display: block; height: 100%; background: var(--sky); transition: width .25s linear; }
+
+/* ---------------------------------------------------------------- toolbox */
+.toolbox { display: flex; flex-direction: column; }
+.tb-hint { padding: 6px 10px; font-size: 12.5px; line-height: 1.3; color: var(--muted); border-bottom: 2px solid var(--soft); }
+/* The heading of a group stays in sight while its rows scroll under it. */
+.tbgroup-t { position: sticky; top: 0; z-index: 2; padding: 2px 10px 1px; font-family: var(--face); font-size: 17px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+.tbrow { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 8px 4px 10px; border: 0; border-bottom: 2px solid var(--soft); background: var(--panel); color: var(--ink); text-align: left; font: inherit; cursor: grab; min-height: 40px; width: 100%; }
+.toolbox.phone .tbrow { min-height: 48px; }
+.tbrow:hover:not(:disabled) { background: var(--inset); }
+.tbrow.on { background: var(--sun-bg); box-shadow: inset 5px 0 0 var(--sun); }
+.tbrow.is-locked { cursor: not-allowed; }
+.tbrow.is-locked .tb-ic, .tbrow.is-locked .tb-l, .tbrow.is-locked .tb-d, .tbrow.is-locked .tb-task { opacity: 0.55; }
+.tb-ic { width: 26px; height: 26px; border: 3px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--on); }
+.toolbox.phone .tb-ic { width: 32px; height: 32px; }
+.toolbox.phone .tbrow { grid-template-columns: 32px minmax(0, 1fr); }
+.tbrow.k-ai .tb-ic { background: var(--sky); } .tbrow.k-fixed .tb-ic { background: var(--lav); } .tbrow.k-person .tb-ic { background: var(--sun); }
+.tb-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tb-l { display: block; font-size: 13.5px; font-weight: 800; line-height: 1.2; }
+.toolbox.phone .tb-l { font-size: 14px; }
+.tb-ln { margin-right: 6px; }
+.tb-k { white-space: nowrap; font-size: 10px; letter-spacing: 0.03em; }
+.tb-task { font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--ink); opacity: 0.8; }
+.toolbox:not(.phone) .tbrow .tb-lock > span { min-width: 0; overflow-wrap: anywhere; }
+.toolbox:not(.phone) .tbrow .tb-lock { min-width: 0; font-weight: 700; color: var(--muted); align-items: flex-start; }
+.toolbox:not(.phone) .tbrow .tb-lock svg { flex-shrink: 0; margin-top: 2px; }
+.toolbox.phone .tb-lock { align-items: flex-start; }
+.tb-k { font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tb-d { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.tb-c { font-size: 12px; line-height: 1.3; color: var(--muted); font-style: italic; }
+.tb-lock, .tb-on { font-size: 12px; font-weight: 800; line-height: 1.3; display: flex; align-items: center; gap: 4px; }
+.tb-on { color: var(--ink); }
+.toolbox.phone .tbrow { padding: 10px 12px; }
+
+/* ---------------------------------------------------------------- actions */
+.agroup-t { position: sticky; top: 0; z-index: 2; padding: 3px 12px 2px; font-family: var(--face); font-size: 19px; line-height: 1.1; background: var(--inset); border-bottom: 2px solid var(--soft); }
+.alist .inv-note.one { padding: 5px 10px; font-size: 12.5px; line-height: 1.3; cursor: help; }
+.arow { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 1px 8px; align-items: center; padding: 3px 8px 4px 10px; border-bottom: 2px solid var(--soft); }
+.arow .ttl { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.arow .ttl:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.arow .amark { margin-left: 6px; color: var(--muted); }
+.arow .amore { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 1px; }
+.arow .iact .ibtn { min-height: 32px; }
+.arow.running { background: var(--sky-bg); }
+.arow.blocked .t, .arow.blocked .tz { color: var(--muted); }
+.arow .t { font-size: 13.5px; font-weight: 800; line-height: 1.18; }
+.arow .tz { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.arow .meta { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.3; }
+.arow .meta.opens { color: var(--good); }
+.arow .ablock { grid-column: 1 / -1; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.arow .ibtn.run small { font-size: 11px; }
+
+/* ---------------------------------------------------------------- choosers */
+.partlist { display: flex; flex-direction: column; gap: 8px; }
+.partrow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 8px 12px; border: 3px solid var(--line); background: var(--panel); color: var(--ink); box-shadow: 2px 2px 0 var(--shade); text-align: left; font: inherit; cursor: pointer; }
+.partrow:hover:not(:disabled) { background: var(--inset); }
+.partrow.on { background: var(--sky-bg); }
+.partrow:disabled { box-shadow: none; cursor: not-allowed; }
+.partrow:disabled .pr-l, .partrow:disabled .pr-d { opacity: 0.6; }
+.pr-l { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.pr-cur { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 7px; background: var(--go-bg); color: var(--good); }
+.pr-d { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.pr-x { font-size: 13px; font-weight: 800; color: var(--bad); }
+.sheet.promptsheet { width: min(1120px, 100%); }
+.pcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.pcards .stdcard { height: 372px; }
+.pcard { min-width: 0; border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); }
+.pcard.on { box-shadow: 0 0 0 4px var(--go), 3px 3px 0 var(--shade); }
+.pcard.is-locked .pc-desc, .pcard.is-locked .pc-sample { opacity: 0.6; }
+.pc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 10px; background: var(--lav); color: var(--on); border-bottom: 3px solid var(--line); font-family: var(--face); font-size: 22px; line-height: 1.1; }
+.pc-def { font-family: var(--text); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.pc-desc { padding: 8px 10px 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+.pc-about { font-size: 15px; font-weight: 800; line-height: 1.35; }
+.pc-intro { font-size: 14px; line-height: 1.35; }
+.pc-sample { margin: 8px 10px; padding: 7px 9px; background: var(--inset); border: 2px solid var(--soft); color: var(--ink); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12.5px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pc-s { display: flex; flex-direction: column; }
+.pc-s + .pc-s { margin-top: -2px; }
+.pc-sl { padding: 6px 10px 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.pc-s .pc-sample { flex: 0 0 auto; margin-top: 3px; }
+.pc-foot { flex-shrink: 0; padding: 0 10px 10px; min-height: 44px; display: flex; align-items: center; }
+.pc-foot .btn { width: 100%; min-height: 40px; }
+.pc-lock { font-size: 13px; font-weight: 800; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.pc-in { font-size: 14px; font-weight: 800; color: var(--good); }
+
+/* ---------------------------------------------------------------- results and insights */
+.p2results .panel-body, .p2insights .panel-body { gap: 10px; }
+.vtop { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.vacc { display: flex; align-items: baseline; gap: 8px; }
+.vacc .num { font-size: 56px; line-height: 1; }
+.vacc .face { font-size: 22px; }
+.vrank { font-size: 16px; font-weight: 800; }
+/* Every validation, the newest first and largest. None is hidden behind a chip or a hover. */
+.vruns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.vrun { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; border: 2px solid var(--soft); background: var(--panel); }
+.vrun.newest { border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); }
+.vrun.send { border-left: 8px solid var(--go); }
+.vrun-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vrun-n { font-family: var(--face); font-size: 22px; line-height: 1; }
+.vrun-h .flag { margin-left: 0; }
+.vrun-h .vrank { margin-left: auto; font-size: 13px; color: var(--muted); }
+.vrun-b { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; }
+.vrun .vacc { flex-direction: column; align-items: flex-start; gap: 0; }
+.vrun .vacc .num { font-size: 40px; }
+.vrun .vacc .face { font-size: 16px; }
+.vrun.newest .vacc .num { font-size: 56px; }
+.vrun.newest .vacc .face { font-size: 20px; }
+.vrun-t { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vnote.rush { background: var(--sky-bg); border-left-color: var(--sky); display: flex; flex-direction: column; gap: 4px; }
+.vfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.vmiss p { font-size: 15px; line-height: 1.45; }
+.vmiss .why { color: var(--muted); }
+.vnote { padding: 6px 10px; background: var(--sun-bg); border-left: 5px solid var(--sun); font-size: 14.5px; line-height: 1.4; }
+.vacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vacts .flag { margin-left: 0; font-size: 12px; padding: 4px 10px; }
+.icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+.icards .stdcard { height: 420px; }
+.icards .card { cursor: default; }
+.h-g-learn { background: var(--sky); } .h-g-build { background: var(--go); } .h-g-buy { background: var(--sun); } .h-g-negotiate { background: var(--lav); }
+.p2toast { display: flex; align-items: center; gap: 12px; bottom: 24px; }
+.p2toast .btn { min-height: 32px; }
+
+/* ---------------------------------------------------------------- phone */
+/* As tall as the screen under the top bar, never as tall as its content: the tabs stay at the
+   bottom and each tab scrolls inside. (A flex basis of 0 would have let the content set the height.) */
+.p2-phone { flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column; height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); }
+.p2-phone-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; background: var(--panel); }
+.p2pmap { display: flex; flex-direction: column; min-height: 0; }
+.p2pmap .purse, .p2pcol .purse { padding: 8px 10px; background: var(--inset); border-bottom: 2px solid var(--soft); gap: 12px; }
+.p2pmap .gridscroll { flex-shrink: 0; }
+.p2pmap .cgrid { min-width: 780px; height: auto; grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(84px, auto)); }
+.p2pmap .footrow { flex-wrap: wrap; }
+.p2pmap .runline > span { white-space: normal; }
+.p2pmap .vwrap { width: 100%; justify-content: space-between; }
+.p2pmap .vwhy { text-align: left; max-width: none; flex: 1; }
+.p2pcol { display: flex; flex-direction: column; }
+.p2pcol.pad { padding: 8px; gap: 12px; background: var(--bg); }
+.ptabs.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.p2-phone .mapbar { flex-wrap: wrap; padding: 6px 10px; }
+.p2-phone .mhint { flex-basis: 100%; }
+.p2-phone .shelf { align-items: flex-start; }
+.p2-phone .shelf-t { padding-top: 6px; width: 104px; }
+
+/* ---------------------------------------------------------------- reveal */
+.p2maps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.p2maps .panel-head .sub { margin-left: auto; }
+.p2maps .cgrid { height: 420px; min-width: 520px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
+.refsum { font-size: 15px; line-height: 1.45; }
+.rcases { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(130px, 1fr) minmax(130px, 1fr); gap: 8px 16px; align-items: center; }
+.rcases .rc-head, .rcases .rcase { display: contents; }
+.rc-head span { font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.rc-t { font-size: 15px; font-weight: 800; }
+.rc-x { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.rc-bar { display: flex; align-items: center; gap: 8px; }
+.rc-bar .bar { flex: 1; height: 14px; border: 2px solid var(--line); background: var(--inset); }
+.rc-bar .bar i { display: block; height: 100%; background: var(--go); }
+.rc-bar.ref .bar i { background: var(--lav); }
+.rc-bar .num { width: 46px; text-align: right; font-size: 18px; }
+.panel-head.go { background: var(--go); }
+
+@media (min-width: 1600px) and (min-height: 900px) {
+  .cgrid:not(.compact) .ct-head, .cgrid:not(.compact) .csource, .cgrid:not(.compact) .cresult { font-size: 15px; }
+  .cgrid:not(.compact) .ct-part { font-size: 13.5px; height: 22px; min-height: 22px; }
+  .cgrid:not(.compact) .ct-note, .cgrid:not(.compact) .ct-body { font-size: 13px; }
+  .cgrid:not(.compact) { column-gap: 44px; row-gap: 14px; }
+  .toolbox:not(.phone) .tb-l { font-size: 15px; }
+  .toolbox:not(.phone) .tb-task, .toolbox:not(.phone) .tb-lock { font-size: 13px; }
+  .tbgroup-t { font-size: 19px; }
+  .arow .t { font-size: 15.5px; }
+  .arow .meta, .alist .inv-note.one { font-size: 13px; }
+}
+@media (max-width: 1279px) {
+  /* A notice stands above the tab bar of a phone, never over it. */
+  .p2toast { bottom: 74px; }
+  .p2-below { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+}
+@media (max-width: 1023px) {
+  .toast { bottom: 74px; }
+  .p2maps { grid-template-columns: minmax(0, 1fr); }
+  .p2maps .gridscroll .cgrid { min-width: 640px; }
+  .rcases { grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 8px 10px; }
+  .vacc .num, .vrun.newest .vacc .num { font-size: 44px; }
+  .vrun .vacc .num { font-size: 34px; }
+  .vrun-b { grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }
+}
+@media (max-width: 560px) {
+  .rcases { grid-template-columns: minmax(0, 1fr) 92px 92px; }
+  .rc-bar .num { width: 40px; font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .vbtn .runbar i, .arow .runbar i { transition: none; } }
+
+/* The host's view of one player in Phase 2 (section 10.8) */
+.insp-map .cgrid { height: 360px; min-width: 640px; }
+.insp-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.insp-vals, .insp-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.insp-acts .chip { font-size: 12.5px; }
+.insp-cases .kv { font-size: 14px; }
+.insp-flags { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+@media (max-width: 760px) { .insp-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* A practice's map on the projector, at its 1920 by 1080 design (section 10.9) */
+.screen-map { padding: 10px 14px; }
+.screen-map .cgrid { grid-template-columns: minmax(150px, 16%) repeat(var(--cols), minmax(0, 1fr)) minmax(110px, 12%); grid-template-rows: minmax(26px, auto) repeat(var(--rows), minmax(0, 1fr)); column-gap: 34px; row-gap: 10px; }
+.screen-map .cgrid .chdr { font-size: 16px; }
+.screen-map .cgrid .csource, .screen-map .cgrid .cresult { font-size: 21px; border-width: 4px; }
+.screen-map .cgrid .ctile { border-width: 4px; }
+.screen-map .cgrid .ct-head { font-size: 21px; min-height: 30px; }
+.screen-map .cgrid.compact .ct-name { -webkit-line-clamp: 2; }
+.screen-map .cgrid .ct-part { font-size: 18px; height: 27px; min-height: 27px; }
+.screen-map .cline .halo { stroke-width: 11; }
+.screen-map .cline .ink { stroke-width: 4.5; }
+.screen-map .cline.handoff .halo { stroke-width: 15; }
+.screen-map .cline.handoff .ink { stroke-width: 9; }
+.screen-map .cgrid .chdr.stage { font-size: 17px; }
+.screen-map .cport.ro { width: 16px; height: 16px; right: -10px; border-width: 3px; }
+
+/* What stands in a tile that has no boxes of parts: a person's minutes, a tool's task. */
+.ctile .ct-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--muted); padding-top: 1px; }
+.ctile.k-person .ct-body { color: var(--ink); font-size: 12px; line-height: 1.15; }
+.ctile .ct-body.over { color: var(--bad); }
+.cgrid.compact .ct-body { font-size: 9.5px; line-height: 1.2; -webkit-line-clamp: 2; padding-top: 0; }
+/* The mark of the next thing to do: the tile, the box, the result or the sources it is about.
+   The same mark wherever a map is drawn for the player. */
+@keyframes guidepulse { 0%, 100% { box-shadow: 0 0 0 3px var(--sun); } 50% { box-shadow: 0 0 0 7px rgba(255, 185, 60, 0.45); } }
+.ctile.guided, .cresult.guided, .csource.guided { animation: guidepulse 1.6s ease-in-out infinite; }
+.ctile .ct-part.guided { box-shadow: inset 0 0 0 2px var(--bad); background: var(--bad-bg); }
+@media (prefers-reduced-motion: reduce) { .ctile.guided, .cresult.guided, .csource.guided { animation: none; box-shadow: 0 0 0 5px var(--sun); } }
+/* A sentence at the place of an action: why it was refused, or advice on a line. */
+.cnote { position: absolute; z-index: 8; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 13px; font-weight: 700; line-height: 1.3; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); animation: pop .18s ease-out; }
+.cnote.refuse { border-color: var(--bad); background: var(--bad-bg); }
+.cnote.advice { border-color: var(--sky); background: var(--sky-bg); }
+.cnote span { flex: 1; min-width: 0; }
+.cnote-x { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1; cursor: pointer; }
+.cgrid.compact .cnote { font-size: 11px; }
+/* The mark on a line that comes with advice. */
+.cadvice circle:first-child { fill: var(--sky); stroke: var(--line); stroke-width: 2; }
+.cadvice text { font-family: var(--text); font-size: 12px; font-weight: 900; fill: #1d2140; pointer-events: none; }
+.cgrid.compact .cadvice text { font-size: 9px; }
+.cadvice .cadvice-hit { fill: transparent; pointer-events: all; cursor: pointer; outline: none; }
+.cadvice .cadvice-hit:focus-visible { stroke: var(--sky); stroke-width: 3; }
+.joining .csource:not(.is-locked), .joining .cresult:not(.lit) { cursor: not-allowed; }
+
+.tb-told { font-size: 12.5px; font-weight: 800; line-height: 1.3; color: var(--bad); }
+/* The help panel's samples of the marks of the map. */
+.hm-stray { display: inline-block; width: 40px; height: 24px; border: 3px dashed var(--line); opacity: .62; }
+.hm-missing { font-size: 11px; font-weight: 700; padding: 1px 4px; background: var(--sun-bg); box-shadow: inset 0 0 0 2px var(--sun); white-space: nowrap; }
+.hm-guide { display: inline-block; width: 40px; height: 24px; border: 3px solid var(--line); box-shadow: 0 0 0 4px var(--sun); }
+.help-marks .lglegend { flex-direction: column; align-items: flex-start; gap: 4px; grid-column: 1 / -1; justify-self: start; }
+
+/* The play area is a board, not a text: a drag across it draws a line or moves a tile and never
+   marks the labels as selected. What is read stays selectable below, in results and insights. */
+.p2-top, .p2pmap, .p2-phone .ptabs, .toolbox, .alist .ttl, .alist .agroup-t { -webkit-user-select: none; user-select: none; }
+
+/* The card beside whatever is pointed at or holds the focus. It never takes a click. */
+.pop { position: fixed; z-index: 65; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; padding: 9px 11px 10px; background: var(--panel); color: var(--ink); border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); pointer-events: none; overflow-wrap: anywhere; }
+.pop.k-ai { border-left: 8px solid var(--sky); } .pop.k-fixed { border-left: 8px solid var(--lav); } .pop.k-person { border-left: 8px solid var(--sun); }
+.pop-t { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 800; line-height: 1.2; }
+.pop-k { flex-shrink: 0; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.pop-lead { font-size: 13px; font-weight: 800; line-height: 1.3; }
+.pop-b { font-size: 13.5px; line-height: 1.4; }
+.pop-m { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.pop-lock { display: flex; align-items: flex-start; gap: 5px; padding-top: 2px; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.pop-lock svg { flex-shrink: 0; margin-top: 2px; }
+.csource:not(.is-locked), .cresult { cursor: help; }
+.joining .cresult.lit { cursor: pointer; }
+
+/* A card of the standard size: its text is cut where the card ends, and a button shows the rest. */
+.stdcard { display: flex; flex-direction: column; min-height: 0; }
+.stdcard.open { height: auto !important; }
+.stdcard .clamp-box { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.stdcard .clamp-box.open { overflow: visible; }
+.stdcard .clamp-box.cut::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(to bottom, transparent, var(--panel)); pointer-events: none; }
+.stdcard .clamp-foot { flex-shrink: 0; min-height: 30px; display: flex; align-items: center; padding: 0 10px; }
+.clamp-btn { min-height: 28px; padding: 0 2px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.clamp-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.icards .card .cbody { flex: 0 0 auto; }
+
+/* A word the player should read before the next action, at the head of the list. */
+.spendnote { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin: 6px 8px; padding: 8px 10px; background: var(--sun-bg); border: 3px solid var(--line); box-shadow: 3px 3px 0 var(--shade); font-size: 13px; line-height: 1.35; -webkit-user-select: text; user-select: text; }
+.spendnote b { font-size: 14px; }
+.spendnote .btn { min-height: 32px; }
+.mapbar .btn.small.off { opacity: 0.5; cursor: help; }
+/* Between a phone and a wide laptop the bar of the map keeps the two kinds of line and leaves
+   the sentence on how to start to the line beside Validate, which says the same. */
+@media (max-width: 1499px) { .mhint .lg-tip { display: none; } }
+.p2pmap .footrow .pwarn { flex-basis: 100%; }
+.p2-actions > .spendnote { flex-shrink: 0; margin: 6px 6px 4px; }
+.p2-phone .spendnote { position: sticky; top: 0; z-index: 3; }
+/* A list longer than its column shows a bar that stays in sight, so nobody misses the rows below. */
+.p2-top .colscroll::-webkit-scrollbar { width: 10px; }
+.p2-top .colscroll::-webkit-scrollbar-track { background: var(--inset); border-left: 2px solid var(--soft); }
+.p2-top .colscroll::-webkit-scrollbar-thumb { background: var(--lav); border: 2px solid var(--line); }
+.cgrid.compact .csource.is-locked { grid-template-columns: auto minmax(0, 1fr); padding-right: 4px; }
+
+/* A locked row of the toolbox on a laptop: a small lock beside its name. Its card says what opens it. */
+.toolbox .tbrow .tb-lk { display: inline-flex; align-items: center; margin-left: 5px; color: var(--muted); }
+
+/* On a laptop with the three columns, a notice stands over the head of the left column. At the
+   foot of the window it covered the line beside Validate, which says what to do next, and the
+   buttons of the results below the map. */
+@media (min-width: 1280px) {
+  .p2toast { left: 12px; right: auto; transform: none; top: 62px; bottom: auto; max-width: 246px; flex-wrap: wrap; gap: 6px 10px; }
+}
+
+/* The heads of the lines, in a layer over the tiles. */
+.cheads { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.chead { fill: none; stroke: none; }
+.chead.faded { opacity: 0.3; }
+
+/* A map of five columns or more (dense). On a laptop of 1280 the two side columns give the map
+   a little of their width, the gaps between its columns are narrower, and a tile shows its name
+   and its parts without their small pictures, so that a name of eleven letters and a part of
+   thirteen stand uncut. From 1440 wide there is room for the pictures again. */
+.p2-top.dense { --act-w: clamp(236px, 18.8vw, 300px); --tool-w: clamp(190px, 15.4vw, 260px); }
+.cgrid.dense:not(.compact) { column-gap: 22px; padding: 4px 12px 8px 6px; grid-template-columns: minmax(104px, 13.5%) repeat(var(--cols), minmax(0, 1fr)) minmax(62px, 8.5%); }
+.cgrid.dense:not(.compact) .ct-body { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }
+.cgrid.dense:not(.compact) .ctile.k-person .ct-body { font-size: 11.5px; }
+@media (max-width: 1439px) {
+  .cgrid.dense:not(.compact) .ct-head > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .ct-part { font-size: 11px; letter-spacing: -0.2px; }
+  .cgrid.dense:not(.compact) .ct-name { letter-spacing: -0.3px; }
+  /* A source of a five-column map is narrow: its name stands without the small picture (a locked
+     source keeps its lock), a little tighter, and a word is not broken to fit. */
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) > .cicon { display: none; }
+  .cgrid.dense:not(.compact) .csource:not(.is-locked) { grid-template-columns: minmax(0, 1fr); }
+  .cgrid.dense:not(.compact) .csource .cs-name { font-size: 13.5px; letter-spacing: -0.3px; hyphens: manual; }
+}
+/* The small maps of the reveal and of the host: narrower gaps, so that five columns keep their names. */
+.cgrid.dense.compact { column-gap: 14px; }
+.p2maps .cgrid.dense { column-gap: 12px; grid-template-columns: minmax(76px, 14%) repeat(var(--cols), minmax(0, 1fr)) minmax(58px, 10%); }
+.p2pmap .cgrid.dense { min-width: 900px; }
+/* A small map shows the task of a tool on up to four short lines, never cut in the middle of a sentence. */
+.cgrid.compact .ct-body { -webkit-line-clamp: 4; }
+.cgrid.dense:not(.compact) .ct-note { -webkit-line-clamp: 4; font-size: 11px; line-height: 1.18; }
+
+/* The host's coaching block on a player's Phase 2: three short lists, and the guide of one kind on a click. */
+.coach { border: 3px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--shade); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.coach-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 15px; }
+.coach-head b { font-size: 17px; }
+.coach-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.coach-cols ul { margin: 2px 0 0; padding-left: 18px; }
+.coach-cols li, .coach-cols p { font-size: 14px; line-height: 1.35; margin: 0 0 5px; }
+.coach-name { border: 0; background: none; padding: 0; font: inherit; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.coach-name.on { background: var(--sun-bg); }
+.coach-name:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.coach-guide { border-left: 4px solid var(--sky); background: var(--inset); padding: 6px 10px; font-size: 14px; }
+.coach-guide p { margin: 4px 0 0; line-height: 1.35; }
+.coach-maps { align-self: flex-start; max-width: 100%; }
+.coach-maps button { white-space: nowrap; font-size: 15px; min-height: 40px; padding: 6px 14px; }
+.coach-maps button:disabled { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 900px) { .coach-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------------- smaller cells, a larger grid
+   (Play check 3). A cell is as large as an AI tile needs and no larger: it stretches with the
+   window up to a cap, and past the cap the grid stands in the middle of its panel. So a tile is
+   mostly filled on a small laptop and on a large monitor alike. The parts of an AI tile share
+   the height of the tile, so a taller cell gives them air and no empty band below them. The type
+   grows a step on a large window (1600 and 2200 wide), and the cap with it. */
+.p2-map .cgrid:not(.compact) {
+  --cell-w: 150px; --cell-h: 88px;
+  grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(50px, var(--cell-h)));
+  justify-content: center; align-content: center;
+}
+.p2-map .cgrid:not(.compact):not(.dense) { grid-template-columns: minmax(100px, min(14%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(70px, min(10%, 120px)); }
+.p2-map .cgrid.dense:not(.compact) { grid-template-columns: minmax(104px, min(13.5%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(62px, min(8.5%, 120px)); }
+.p2-map .cgrid:not(.compact) .ct-part { flex: 1 1 13px; height: auto; min-height: 12px; max-height: 24px; }
+.p2-map .cgrid:not(.compact) .csources { justify-content: center; }
+/* Six columns or more. On a laptop of 1280 by 720 a cell is about 85 by 65: the gaps are
+   narrower, a tile has a thinner frame, and its name and parts are set a little smaller, so that
+   a name of eleven letters and a part of thirteen stand uncut. */
+.p2-map .cgrid.six:not(.compact) { column-gap: 14px; row-gap: 8px; padding: 4px 10px 6px 6px; grid-template-columns: minmax(100px, min(13%, 170px)) repeat(var(--cols), minmax(0, var(--cell-w))) minmax(60px, min(8%, 120px)); }
+@media (max-width: 1599px) {
+  .p2-map .cgrid.six:not(.compact) .ctile { border-width: 2px; padding: 0 3px 1px; box-shadow: 2px 2px 0 var(--shade); gap: 0; }
+  .p2-map .cgrid.six:not(.compact) .ct-head { font-size: 12px; min-height: 16px; margin: 0 -3px; padding: 0 3px; border-bottom-width: 1px; }
+  .p2-map .cgrid.six:not(.compact) .ct-part { font-size: 10.5px; padding: 0 2px; letter-spacing: -0.25px; }
+  .p2-map .cgrid.six:not(.compact) .ct-body, .p2-map .cgrid.six:not(.compact) .ct-note { font-size: 10.5px; line-height: 1.14; -webkit-line-clamp: 3; }
+  .p2-map .cgrid.six:not(.compact) .ctile.k-person .ct-body { font-size: 10.5px; }
+  .p2-map .cgrid.six:not(.compact) .csource .cs-name { font-size: 12.5px; }
+  .p2-map .cgrid.six:not(.compact) .csources { gap: 4px; }
+}
+@media (min-width: 1600px) and (min-height: 900px) {
+  .p2-map .cgrid:not(.compact) { --cell-w: 190px; --cell-h: 100px; }
+  .p2-map .cgrid:not(.compact) .ct-part { height: auto; min-height: 16px; max-height: 27px; }
+  .p2-map .cgrid:not(.compact) .ct-body, .p2-map .cgrid:not(.compact) .ct-note, .p2-map .cgrid:not(.compact) .ctile.k-person .ct-body { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 4; }
+}
+@media (min-width: 2200px) and (min-height: 1200px) {
+  .p2-map .cgrid:not(.compact) { --cell-w: 250px; --cell-h: 138px; column-gap: 48px; row-gap: 16px; }
+  .p2-map .cgrid:not(.compact) .ct-head, .p2-map .cgrid:not(.compact) .csource, .p2-map .cgrid:not(.compact) .cresult { font-size: 18px; }
+  .p2-map .cgrid:not(.compact) .ct-head { min-height: 26px; }
+  .p2-map .cgrid:not(.compact) .ct-part { font-size: 16px; max-height: 36px; }
+  .p2-map .cgrid:not(.compact) .ct-note, .p2-map .cgrid:not(.compact) .ct-body, .p2-map .cgrid:not(.compact) .ctile.k-person .ct-body { font-size: 17.5px; }
+}
+/* The note under an AI tile without a line out stands over a tile of the last row: under it there is no room. */
+.ctile.lastrow .ct-badge { bottom: auto; top: -21px; }
+/* While a line looks for its end, the dots of the tiles that can take it are a little smaller, so that the dots of two neighbours do not meet. */
+.cgrid.joining .ctile.lit > .cport.more { width: 10px; height: 10px; }
+/* A phone scrolls the map sideways. Six rows stand in less height than five did. */
+.p2pmap .cgrid.six { min-width: 980px; grid-template-rows: minmax(18px, auto) repeat(var(--rows), minmax(70px, auto)); }
+
+/* A small drawing of a map of six columns (the reveal, the host's view, a card of a validation):
+   a tile is about 70 wide, so its name and its three parts each stand on one line, set smaller. */
+.cgrid.compact.six { column-gap: 9px; row-gap: 6px; padding: 2px 8px 4px 4px; grid-template-columns: minmax(70px, 13%) repeat(var(--cols), minmax(0, 1fr)) minmax(54px, 9%); }
+.cgrid.compact.six .ct-head { font-size: 9.5px; align-items: center; }
+.cgrid.compact.six .ct-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; letter-spacing: -0.3px; line-height: 1.2; }
+.cgrid.compact.six .ct-mini { font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; letter-spacing: -0.2px; }
+.cgrid.compact.six .ct-body { font-size: 9px; line-height: 1.15; -webkit-line-clamp: 3; }
+.cgrid.compact.six .csource .cs-name { font-size: 9.5px; }
+.p2maps .cgrid.six { height: 440px; min-width: 560px; }
+.insp-map .cgrid.six { height: 410px; }
+
+/* An action that may be done again (Phase 3), a memo among the letters, a fifth tab on a phone,
+   and one cell across both columns under the map. */
+.arow .atag { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--good); padding: 0 2px 2px; }
+.ibtn.start.again { font-size: 15px; white-space: normal; line-height: 1; }
+.h-memo { background: var(--sky); }
+.ptabs.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.ptabs.five .tl { font-size: 18px; }
+.p2-below.with-above .p2-above { grid-column: 1 / -1; min-width: 0; }
+/* The reveal of a pack with several reference maps: one tab for each. */
+.refseg { flex-wrap: wrap; }
+.refseg button { flex: 1 1 0; min-width: 120px; }
+/* Under 1280 px a notice with a button takes the width of the screen, so that its words stay on one or two lines. */
+@media (max-width: 1279px) { .p2toast { left: 12px; right: 12px; transform: none; justify-content: space-between; max-width: none; } }
+
+/* What has just come onto the board, and the quiet lines that say more will come (section 10.5,
+   "What is on the board"). A new mark is a word, not a control: no border, no shadow. */
+.newtag { display: inline-block; margin-left: 6px; padding: 0 5px; font-family: var(--text); font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.5; color: var(--on); background: var(--sun); vertical-align: middle; }
+.schip .newtag { margin-left: 2px; }
+.tbrow.is-new, .arow.is-new { box-shadow: inset 4px 0 0 var(--sun); }
+.schip.is-new { box-shadow: inset 0 -3px 0 var(--sun); }
+.more-line { padding: 4px 12px 6px; font-size: 12.5px; font-weight: 700; line-height: 1.3; color: var(--muted); }
+.toolbox .more-line { padding: 4px 10px 6px; }
+.shelf-more { align-self: center; font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }

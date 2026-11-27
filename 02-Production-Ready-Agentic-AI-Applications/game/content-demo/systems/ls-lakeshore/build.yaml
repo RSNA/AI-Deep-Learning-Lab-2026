@@ -1,0 +1,403 @@
+# Demo pack, Lakeshore: the canvas of Phase 2 (spec, section 5.5). Written from scratch for the
+# demo. The player builds the system that writes the monthly grant report of the branch.
+problem: ls-q-grant
+
+grid: {cols: 4, rows: 5}
+budget: {money: 90, developers: 3}
+validate: {runs: 6, seconds: 6}
+pools:
+  # A map may ask the officer for more minutes than there are. The officer then rushes and gets
+  # through a share of the reports. The aides keep the plain limit.
+  - {id: officer, public: {label: Grant officer minutes}, max: 5, over: rush}
+  - {id: aides, public: {label: Library aide minutes}, max: 10}
+handoff: {keep: 0.95}
+quality_cap: 0.99
+
+facts:
+  - id: ls-f-loans
+    miss:
+      missing: Nothing on your map reads the loans of the month.
+      weak: Your map reads the loans, and counts renewals twice too often.
+  - id: ls-f-visits
+    miss:
+      missing: Nothing on your map knows how many people came in.
+      weak: Your map counts the visitors, and trusts a guess too often.
+  - id: ls-f-bus
+    miss:
+      missing: Nothing on your map knows where the book bus went.
+      weak: Your map reads the bus trips, and drops a stop on the way.
+  - id: ls-f-gaps
+    miss:
+      missing: Nothing on your map chases the numbers a branch forgot to send.
+      weak: Your map chases the missing numbers, and gives up too early.
+
+sources:
+  - id: ls-s-circ
+    public: {label: Circulation system, description: "Every loan and return of the district, by card.", icon: catalog}
+    gives: {ls-f-loans: 1.0}
+    effort: easy
+    private_data: true
+    run: 0
+  - id: ls-s-counter
+    public: {label: Door counters, description: The counters at the door of every branch., icon: counter}
+    gives: {ls-f-visits: 1.0}
+    effort: easy
+    private_data: false
+    run: 0
+  - id: ls-s-logbook
+    public: {label: Bus logbook, description: The driver's log of stops and riders of the book bus., icon: truck}
+    gives: {ls-f-bus: 1.0}
+    effort: easy
+    private_data: true
+    run: 1
+  - id: ls-s-inbox
+    public: {label: Branch inboxes, description: "The emails in which branches send, or forget, their numbers.", icon: mail}
+    gives: {ls-f-gaps: 1.0, ls-f-bus: 0.8}
+    effort: hard
+    private_data: true
+    run: 2
+  - id: ls-s-board
+    public: {label: Community board, description: Posts by the towns about events and crowds at the branches., icon: chat}
+    gives: {ls-f-visits: 0.6}
+    effort: easy
+    private_data: false
+    distracts: 0.88
+    run: 0
+
+result:
+  id: ls-result
+  public: {label: Report sent, description: The monthly report that the grant office receives.}
+
+workers:
+  - id: ls-w-agent
+    kind: ai
+    public: {label: Agent, short: Agent, description: Works toward a goal and picks its own steps and tools on the way., icon: agent, cost_line: Several model calls for every report.}
+    needs_model: true
+    by_model:
+      ls-m-large: {fetch: {easy: 0.98, hard: 0.85}, decide: {plain: 0.94, hard: 0.83}, catch: 0.4}
+      ls-m-small: {fetch: {easy: 0.95, hard: 0.68}, decide: {plain: 0.84, hard: 0.52}, catch: 0.2}
+      ls-m-open:  {fetch: {easy: 0.94, hard: 0.66}, decide: {plain: 0.82, hard: 0.50}, catch: 0.2}
+    load: {free: 4, factor: 0.92}
+    calls: 4
+    complexity: 3
+  - id: ls-w-step
+    kind: ai
+    public: {label: Fixed AI step, short: AI step, description: One model call that does the same thing every time. It cannot dig., icon: step, cost_line: One model call for every report.}
+    needs_model: true
+    by_model:
+      ls-m-large: {fetch: {easy: 0.97, hard: 0.0}, decide: {plain: 0.91, hard: 0.68}, catch: 0.3}
+      ls-m-small: {fetch: {easy: 0.93, hard: 0.0}, decide: {plain: 0.81, hard: 0.44}, catch: 0.15}
+      ls-m-open:  {fetch: {easy: 0.92, hard: 0.0}, decide: {plain: 0.79, hard: 0.40}, catch: 0.15}
+    load: {free: 2, factor: 0.90}
+    calls: 1
+    complexity: 1
+  - id: ls-w-rule
+    kind: fixed
+    public: {label: Rule, short: Rule, description: "A fixed rule in software. Perfect on the plain case, useless on any other.", icon: rule, cost_line: Costs nothing to run.}
+    needs_model: false
+    quality: {fetch: {easy: 1.0, hard: 0.0}, decide: {plain: 1.0, hard: 0.0}, catch: 0.0}
+    complexity: 1
+  - id: ls-w-officer
+    kind: person
+    public: {label: Grant officer, short: Officer, description: Knows what the funder wants and judges every odd case. Busy., icon: person, cost_line: Minutes of the grant officer for every report.}
+    needs_model: false
+    pool: officer
+    quality: {fetch: {easy: 1.0, hard: 0.95}, decide: {plain: 0.98, hard: 0.94}, catch: 0.85}
+    minutes: {decide: 7, check: 3, per_line: {easy: 1, hard: 5}}
+    complexity: 1
+  - id: ls-w-aide
+    kind: person
+    public: {label: Library aide, short: Aide, description: Finds numbers quickly and leaves the judgment to others., icon: clerk, cost_line: Minutes of the aides for every report.}
+    needs_model: false
+    pool: aides
+    quality: {fetch: {easy: 1.0, hard: 0.88}, decide: {plain: 0.62, hard: 0.22}, catch: 0.30}
+    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6}}
+    complexity: 1
+
+models:
+  - id: ls-m-large
+    public: {label: Acorn Large, short: Large, description: The strongest model of the Acorn company., cost_line: Four times the price of Small.}
+    run: 4
+    runs_on: [ls-c-api, ls-c-private]
+  - id: ls-m-small
+    public: {label: Acorn Small, short: Small, description: A fast and cheap model of the same company., cost_line: The cheapest of the two Acorn models.}
+    run: 1
+    runs_on: [ls-c-api, ls-c-private]
+  - id: ls-m-open
+    public: {label: Pine, short: Pine, description: A free model that anyone may download and run on their own computers., cost_line: Free to use. Needs GPUs.}
+    run: 0.5
+    runs_on: [ls-c-rented, ls-c-owned]
+
+compute:
+  - id: ls-c-api
+    public: {label: Acorn public API, short: Public API, description: "Acorn's ordinary service. Open to anyone, and it keeps what it is sent.", cost_line: Pay per call.}
+    protects_private_data: false
+    price_factor: 1.0
+    run_fixed: 0
+  - id: ls-c-private
+    public: {label: Acorn private link, short: Private link, description: A link under a contract that keeps patron data safe., cost_line: "A little more per call, and a monthly fee."}
+    protects_private_data: true
+    price_factor: 1.3
+    run_fixed: 2
+  - id: ls-c-rented
+    public: {label: Rented cloud GPUs, short: Rented GPUs, description: "GPUs rented by the hour from a cloud company. Safe, and ready at once.", cost_line: The highest monthly bill.}
+    protects_private_data: true
+    price_factor: 1.0
+    run_fixed: 12
+  - id: ls-c-owned
+    public: {label: District GPU server, short: Own server, description: A server in the district office that the district owns., cost_line: "Costly to buy, cheap to run."}
+    protects_private_data: true
+    price_factor: 0.2
+    run_fixed: 1
+
+prompts:
+  - id: ls-p-line
+    public: {label: One line, description: A single sentence that names the task., sample: Write this month's grant report from the numbers of the district.}
+    fetch: 1.0
+    decide: 1.0
+  - id: ls-p-goal
+    public:
+      label: Goal and limits
+      description: The goal, what the worker may and may not do, when to ask the grant officer, and two worked reports.
+      sample: "Goal: a report the funder accepts the first time. Never guess a number. Ask the grant officer when a branch is silent. Example one: ..."
+    fetch: 1.05
+    decide: 1.10
+  - id: ls-p-long
+    public:
+      label: Says everything
+      description: Every rule of the grant, every form of the last five years and every exception.
+      sample: "You write reports for the Lakeshore Library District. The district has six branches and one bus. The grant was won in spring. Section A of the form asks for ..."
+    fetch: 0.97
+    decide: 0.90
+  - id: ls-p-steps
+    public:
+      label: List of steps
+      description: The steps in order, one line each, from pulling the loans to sending the report.
+      sample: "1. Pull the loans of the month. 2. Add the door counts. 3. Add the bus stops. 4. Ask silent branches. 5. Fill the form."
+    fetch: 1.08
+    decide: 0.95
+    by_worker:
+      ls-w-step: {fetch: 1.0, decide: 1.12}
+
+actions:
+  - id: ls-a-read
+    group: learn
+    public: {title: Read last year's reports, teaser: Look at what the grant office sent back and why.}
+    money: 0
+    developers: 0
+    seconds: 12
+    insight:
+      type: stat
+      headline: Most returned reports had a gap
+      body: The office sent back reports in which a branch had **not sent its numbers**. Those numbers sit in the branch inboxes.
+      data: {value: 7, unit: of 9, label: returned reports had a missing branch, comparison: The other two had the bus stops wrong.}
+    story_time: a quiet afternoon
+  - id: ls-a-workshop
+    group: learn
+    public: {title: Run a prompt workshop, teaser: An afternoon on how to write instructions for a model.}
+    money: 10
+    developers: 0
+    seconds: 15
+    unlocks: [ls-p-goal, ls-p-steps]
+    insight:
+      type: quote
+      headline: Priya on what the workshop taught
+      body: Priya sat in and kept two lessons.
+      data:
+        speaker: demo-priya
+        text: "One line leaves the model guessing what the funder wants.\nThe long one buries the two rules that matter.\nA list of steps helps the worker that gathers."
+    story_time: an afternoon
+  - id: ls-a-inbox
+    group: build
+    public: {title: Connect the branch inboxes, teaser: The developers give the map a line into the emails of every branch.}
+    money: 15
+    developers: 2
+    seconds: 20
+    unlocks: [ls-s-inbox]
+    story_time: three weeks of work
+  - id: ls-a-download
+    group: build
+    public: {title: Set up the free model, teaser: Download Pine and get it running for the district.}
+    money: 0
+    developers: 1
+    seconds: 10
+    unlocks: [ls-m-open]
+    story_time: a week of work
+  - id: ls-a-server
+    group: buy
+    public: {title: Buy a GPU server, teaser: "A server of our own in the district office, for Pine."}
+    money: 35
+    developers: 1
+    seconds: 30
+    requires: [ls-a-download]
+    unlocks: [ls-c-owned]
+    story_time: two months to arrive
+  - id: ls-a-deal
+    group: negotiate
+    public: {title: Negotiate a private link, teaser: Ask Acorn for a contract that keeps patron data safe.}
+    money: 25
+    developers: 0
+    seconds: 25
+    unlocks: [ls-c-private]
+    insight:
+      type: stat
+      headline: The private link is signed
+      body: Acorn keeps patron data apart under the contract. Every call costs **a third more**.
+      data: {value: 30, unit: "%", label: more per call than the public API, comparison: Plus a small monthly fee.}
+    story_time: six weeks of talks
+
+cases:
+  - id: ls-k-plain
+    weight: 10
+    public: {title: A plain month, text: Every branch sent its numbers and the form did not change.}
+    needs: [ls-f-loans, ls-f-visits]
+    difficulty: plain
+    decision_miss: The map had the numbers and filled the wrong boxes.
+  - id: ls-k-bus
+    weight: 8
+    public: {title: The book bus section, text: The funder asks for the stops of the bus and the loans made on it.}
+    needs: [ls-f-loans, ls-f-bus]
+    difficulty: plain
+    decision_miss: The map had the bus trips and counted them under the wrong town.
+  - id: ls-k-silent
+    weight: 11
+    public: {title: A branch that went silent, text: One branch did not send its numbers this month.}
+    needs: [ls-f-loans, ls-f-visits, ls-f-gaps]
+    difficulty: plain
+    decision_miss: The map found the missing numbers and still sent the report without them.
+  - id: ls-k-newform
+    weight: 6
+    public: {title: The funder changed its form, text: A new form arrives with two sections the district never filled before.}
+    needs: [ls-f-loans, ls-f-visits, ls-f-bus]
+    difficulty: hard
+    decision_miss: The map had every number and put them in last year's form.
+  - id: ls-k-audit
+    weight: 5
+    public: {title: An audit of the year, text: The funder asks to check every month of last year against the counts.}
+    needs: [ls-f-loans, ls-f-visits, ls-f-bus, ls-f-gaps]
+    difficulty: hard
+    decision_miss: The map had the year and missed the months that do not add up.
+
+notes:
+  - {id: rushed, text: "Your map asks the grant officer for more minutes than there are, so part of the reports went out unread."}
+  - {id: private_data, text: Patron data on your map goes through a service that does not protect it.}
+  - {id: overloaded, text: One worker on your map has more lines coming in than it can keep track of.}
+  - {id: distracting, text: An AI worker on your map reads a source that sounds sure and is often wrong.}
+  - {id: prompt, text: "One prompt on your map makes its worker worse, not better."}
+  - {id: stray, text: "Part of your map is not connected to the result, so it does nothing."}
+
+key:
+  reference:
+    map:
+      tiles:
+        - {id: t1, kind: ls-w-agent, col: 2, row: 2, model: ls-m-large, runs_on: ls-c-private, prompt: ls-p-goal}
+        - {id: t2, kind: ls-w-officer, col: 4, row: 2}
+      lines:
+        - {from: ls-s-circ, to: t1}
+        - {from: ls-s-counter, to: t1}
+        - {from: ls-s-logbook, to: t1}
+        - {from: ls-s-inbox, to: t1}
+        - {from: t1, to: t2}
+        - {from: t2, to: ls-result}
+    needs_actions: [ls-a-inbox, ls-a-deal, ls-a-workshop]
+    public_summary: >-
+      One large agent with a goal, its limits and two worked reports reads the loans, the door
+      counts, the bus logbook and the branch inboxes, and leaves the community board alone. The
+      grant officer checks the report before it goes out. It runs on the private link.
+    rationale: The inboxes hold the missing numbers, a goal with limits helps the worker that decides, and the officer checks rather than writes.
+  # Every reference map: shown at the reveal of Phase 2 and offered in Phase 3.
+  references:
+    - id: lean
+      public:
+        label: Map A
+        summary: One large agent reads the loans, the door counts, the bus logbook and the branch inboxes. The grant officer checks the report.
+      map:
+        tiles:
+          - {id: t1, kind: ls-w-agent, col: 2, row: 2, model: ls-m-large, runs_on: ls-c-private, prompt: ls-p-goal}
+          - {id: t2, kind: ls-w-officer, col: 4, row: 2}
+        lines:
+          - {from: ls-s-circ, to: t1}
+          - {from: ls-s-counter, to: t1}
+          - {from: ls-s-logbook, to: t1}
+          - {from: ls-s-inbox, to: t1}
+          - {from: t1, to: t2}
+          - {from: t2, to: ls-result}
+      needs_actions: [ls-a-inbox, ls-a-deal, ls-a-workshop]
+    - id: aide
+      public:
+        label: Map B
+        summary: A library aide gathers the loans and the door counts. One large agent reads the logbook and the inboxes and decides. The grant officer checks.
+      map:
+        tiles:
+          - {id: t1, kind: ls-w-aide, col: 1, row: 1}
+          - {id: t2, kind: ls-w-agent, col: 2, row: 2, model: ls-m-large, runs_on: ls-c-private, prompt: ls-p-goal}
+          - {id: t3, kind: ls-w-officer, col: 4, row: 2}
+        lines:
+          - {from: ls-s-circ, to: t1}
+          - {from: ls-s-counter, to: t1}
+          - {from: t1, to: t2}
+          - {from: ls-s-logbook, to: t2}
+          - {from: ls-s-inbox, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: ls-result}
+      needs_actions: [ls-a-inbox, ls-a-deal, ls-a-workshop]
+    - id: pair
+      public:
+        label: Map C
+        summary: A small agent gathers from all four sources. A large agent decides from what it is handed. The grant officer checks.
+      map:
+        tiles:
+          - {id: t1, kind: ls-w-agent, col: 1, row: 2, model: ls-m-small, runs_on: ls-c-private, prompt: ls-p-steps}
+          - {id: t2, kind: ls-w-agent, col: 3, row: 2, model: ls-m-large, runs_on: ls-c-private, prompt: ls-p-goal}
+          - {id: t3, kind: ls-w-officer, col: 4, row: 2}
+        lines:
+          - {from: ls-s-circ, to: t1}
+          - {from: ls-s-counter, to: t1}
+          - {from: ls-s-logbook, to: t1}
+          - {from: ls-s-inbox, to: t1}
+          - {from: t1, to: t2}
+          - {from: ls-s-circ, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: ls-result}
+      needs_actions: [ls-a-inbox, ls-a-deal, ls-a-workshop]
+  traps:
+    - id: ls-trap-everyone
+      kind: overbuilt
+      map:
+        tiles:
+          - {id: t1, kind: ls-w-agent, col: 1, row: 1, model: ls-m-small, runs_on: ls-c-api, prompt: ls-p-long}
+          - {id: t2, kind: ls-w-agent, col: 1, row: 3, model: ls-m-small, runs_on: ls-c-api, prompt: ls-p-long}
+          - {id: t3, kind: ls-w-agent, col: 3, row: 2, model: ls-m-large, runs_on: ls-c-api, prompt: ls-p-long}
+        lines:
+          - {from: ls-s-circ, to: t1}
+          - {from: ls-s-counter, to: t1}
+          - {from: ls-s-board, to: t2}
+          - {from: ls-s-logbook, to: t2}
+          - {from: t1, to: t3}
+          - {from: t2, to: t3}
+          - {from: t3, to: ls-result}
+      why_tempting: Three agents and the longest prompt look thorough.
+      why_it_fails: The long prompt confuses every one of them, and the board misleads.
+    - id: ls-trap-rule
+      kind: underbuilt
+      map:
+        tiles:
+          - {id: t1, kind: ls-w-rule, col: 2, row: 2}
+        lines:
+          - {from: ls-s-circ, to: t1}
+          - {from: ls-s-counter, to: t1}
+          - {from: t1, to: ls-result}
+      why_tempting: A rule fills the plain month for free.
+      why_it_fails: The plain month is one report in four.
+  # What a host reads beside a player's map: for a kind of worker, its best use and the wrong
+  # choices. Never sent to a player.
+  guide:
+    ls-w-rule:
+      best: The plain month, where the numbers only need to be copied.
+      wrong: Letting it decide alone. Most months are not the plain month.
+    ls-w-agent:
+      best: Gathering the numbers from every place that holds them, with the grant officer behind it.
+      wrong: One agent for every source, or the officer left out.
+    ls-w-officer:
+      best: Last before the report goes out, checking what was prepared.
+      wrong: Gathering the numbers herself. She has minutes for a check.

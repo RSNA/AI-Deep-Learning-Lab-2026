@@ -1,0 +1,33 @@
+# Demo pack: the lines of the personal report card (engineering spec, sections 5.9 and 6.12).
+# A line is shown when every fact under `when` has that value for the player. The facts are
+# listed in section 6.12. Text only: nothing here changes a score.
+sections:
+  - id: planning
+    title: What you saw at your branch
+    lines:
+      - when: {flagship_found: true}
+        text: You kept the agent for the one job whose steps change from request to request.
+        source: [DEMO-2]
+      - when: {flagship_found: false, planning_band: rough}
+        text: The agent project slipped past you. Ask of each problem what the smallest fix would be.
+        source: [DEMO-1]
+      - when: {flagship_found: false, planning_band: steady}
+        text: Most of your board held. The agent project went to a job that a simpler fix would do.
+        source: [DEMO-1]
+  - id: development
+    title: What you built
+    lines:
+      - when: {map_validated: false}
+        text: No map of yours was tested. A plain map that is tested teaches more than a fine one that is not.
+      - when: {map_validated: true, map_beats_reference: false}
+        text: Your map worked. The board's map got more requests right, so lay the two side by side.
+      - when: {map_beats_reference: true}
+        text: Your map did as well as the board's own, or better.
+        source: [DEMO-2]
+closing:
+  rough: A first season. The second one is easier, and you now know where to look.
+  steady: A steady branch. Measure before you build and you will climb.
+  strong: A sharp branch director. The board will ask you first next year.
+  outstanding: The best run branch in the network. Tell the others how.
+links:
+  - {label: The engineering spec of this game, url: "https://github.com/RSNA/AI-Deep-Learning-Lab-2026"}

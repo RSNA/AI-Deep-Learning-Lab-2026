@@ -1,0 +1,554 @@
+# Demo pack, Riverbend: the canvas of Phase 2 (spec, section 5.5). Written from scratch for the
+# demo. The player builds the system that answers requests for books held by partner libraries.
+problem: rb-q-partner
+
+grid:
+  cols: 4
+  rows: 5
+  # The stages of the work. Names only: any worker may stand in any column.
+  columns:
+    - {label: Read the request, hint: Who asked and for which book and edition.}
+    - {label: Find the copies, hint: Which partner holds a copy and what it asks before it lends.}
+    - {label: Weigh the options, hint: Pick the partner and the route that serve the patron best.}
+    - {label: Check and send, hint: A last look before the patron gets the answer.}
+efforts:
+  - {id: easy, key: {note: A lookup.}}
+  - {id: hard, key: {note: Digging through long threads.}}
+  - {id: scan, key: {note: Old handwriting on scanned cards.}}
+toolbox_groups:
+  - {id: operators, label: Operators}
+  - {id: tools, label: Tools}
+budget: {money: 100, developers: 3}
+validate: {runs: 6, seconds: 6}
+pools:
+  - {id: librarian, public: {label: Librarian minutes}, max: 4}
+  - {id: desk, public: {label: Desk staff minutes}, max: 12}
+handoff: {keep: 0.96}
+quality_cap: 0.99
+
+facts:
+  - id: rb-f-patron
+    miss:
+      missing: Nothing on your map reads who asked and what they need.
+      weak: Your map reads the request, and too often gets the edition wrong.
+    key: {note: The request form holds the patron and the edition.}
+  - id: rb-f-copies
+    miss:
+      missing: Nothing on your map finds out which partner holds a copy.
+      weak: Your map looks for copies, and misses the ones a partner keeps off its catalog.
+    key: {note: The shared catalog lists copies. The mailbox knows the rest.}
+  - id: rb-f-terms
+    miss:
+      missing: Nothing on your map knows what each partner asks before it lends.
+      weak: Your map reads the partners' terms, and loses the small print on the way.
+    key: {note: Only the partner mailbox holds the terms, and they take digging.}
+  - id: rb-f-route
+    miss:
+      missing: Nothing on your map knows how a book would travel here.
+      weak: Your map checks the route, and trusts a rumor too often.
+    key: {note: The courier site is right. The forum is a guess.}
+
+sources:
+  - id: rb-s-form
+    public: {label: Request form, description: "What the patron asked for, with their card number.", icon: form}
+    gives: {rb-f-patron: 1.0}
+    effort: easy
+    private_data: true
+    run: 0
+    key: {note: Easy to read, holds patron data.}
+  - id: rb-s-catalog
+    public: {label: Shared catalog, description: The catalog that the nine partner networks share., icon: catalog}
+    gives: {rb-f-copies: 1.0}
+    effort: easy
+    private_data: false
+    run: 1
+    key: {note: Public data.}
+  - id: rb-s-mailbox
+    public: {label: Partner mailbox, description: "Years of emails with the partner libraries, terms and all.", icon: mail}
+    gives: {rb-f-copies: 0.9, rb-f-terms: 1.0}
+    effort: hard
+    private_data: true
+    run: 2
+    key: {note: Locked until the developers connect it. The only place with the terms.}
+  - id: rb-s-courier
+    public: {label: Courier site, description: The tracking pages of the courier that moves books between branches., icon: truck}
+    gives: {rb-f-route: 1.0}
+    effort: easy
+    private_data: false
+    run: 0
+  - id: rb-s-forum
+    public: {label: Librarians' forum, description: What other librarians say about partners and couriers., icon: chat}
+    gives: {rb-f-route: 0.7}
+    effort: easy
+    private_data: false
+    distracts: 0.9
+    run: 0
+    key: {note: A distraction. Lowers the judgment of an AI worker that reads it.}
+  - id: rb-s-cards
+    public: {label: Old card files, description: Scanned index cards from before the shared catalog. Partners noted their terms on them., icon: image}
+    gives: {rb-f-copies: 0.95, rb-f-terms: 0.6}
+    effort: scan
+    private_data: false
+    run: 0.5
+    key: {note: Locked until scanned. A card reader reads it well, an agent badly.}
+
+result:
+  id: rb-result
+  public: {label: Loan arranged, description: "The answer the patron gets: where the book comes from, when and at what cost."}
+
+workers:
+  - id: rb-w-agent
+    kind: ai
+    group: operators
+    public:
+      label: Agent
+      short: Agent
+      task: Works a request from start to end
+      description: Works toward a goal and picks its own steps and tools on the way.
+      icon: agent
+      cost_line: Several model calls for every request.
+    needs_model: true
+    by_model:
+      rb-m-large: {fetch: {easy: 0.98, hard: 0.86, scan: 0.40}, decide: {plain: 0.95, hard: 0.84}, catch: 0.4}
+      rb-m-small: {fetch: {easy: 0.95, hard: 0.70, scan: 0.30}, decide: {plain: 0.85, hard: 0.55}, catch: 0.2}
+      rb-m-open:  {fetch: {easy: 0.94, hard: 0.68, scan: 0.30}, decide: {plain: 0.83, hard: 0.52}, catch: 0.2}
+    load: {free: 4, factor: 0.92}
+    calls: 4
+    complexity: 3
+    key: {note: The only AI worker that can dig.}
+  - id: rb-w-step
+    kind: ai
+    group: tools
+    public:
+      label: Fixed AI step
+      short: AI step
+      task: Pulls the details out of a request
+      description: One model call that does the same thing every time. It cannot dig.
+      icon: step
+      cost_line: One model call for every request.
+    needs_model: true
+    by_model:
+      rb-m-large: {fetch: {easy: 0.97, hard: 0.0, scan: 0.35}, decide: {plain: 0.92, hard: 0.70}, catch: 0.3}
+      rb-m-small: {fetch: {easy: 0.93, hard: 0.0, scan: 0.25}, decide: {plain: 0.82, hard: 0.45}, catch: 0.15}
+      rb-m-open:  {fetch: {easy: 0.92, hard: 0.0, scan: 0.25}, decide: {plain: 0.80, hard: 0.42}, catch: 0.15}
+    load: {free: 2, factor: 0.90}
+    calls: 1
+    complexity: 1
+  - id: rb-w-rule
+    kind: fixed
+    group: tools
+    public:
+      label: Rule
+      short: Rule
+      task: Answers the plainest requests
+      description: A fixed rule in software. Perfect on the plain case, useless on any other.
+      icon: rule
+      cost_line: Costs nothing to run.
+    needs_model: false
+    quality: {fetch: {easy: 1.0, hard: 0.0, scan: 0.0}, decide: {plain: 1.0, hard: 0.0}, catch: 0.0}
+    complexity: 1
+  - id: rb-w-reader
+    kind: fixed
+    group: tools
+    public:
+      label: Card reader
+      short: Reader
+      task: Reads the scanned card files
+      description: A small program trained on old handwriting. It reads and judges nothing else.
+      icon: image
+      cost_line: A small monthly licence.
+    needs_model: false
+    quality: {fetch: {easy: 0.9, hard: 0.0, scan: 0.97}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    run: 0.4
+    complexity: 1
+    key: {note: Reads the card files well. Hands what it found to an operator.}
+  - id: rb-w-librarian
+    kind: person
+    group: operators
+    public:
+      label: Reference librarian
+      short: Librarian
+      task: Judges the hard requests
+      description: Knows the partners well and judges hard cases. Has little time.
+      icon: person
+      cost_line: Minutes of the librarians for every request.
+    needs_model: false
+    pool: librarian
+    quality: {fetch: {easy: 1.0, hard: 0.95, scan: 0.85}, decide: {plain: 0.98, hard: 0.95}, catch: 0.85}
+    minutes: {decide: 6, check: 2, per_line: {easy: 1, hard: 5, scan: 6}}
+    complexity: 1
+  - id: rb-w-clerk
+    kind: person
+    group: operators
+    public:
+      label: Desk clerk
+      short: Clerk
+      task: Looks things up
+      description: Looks things up fast and well, and leaves the judgment to others.
+      icon: clerk
+      cost_line: Minutes of the desk staff for every request.
+    needs_model: false
+    pool: desk
+    quality: {fetch: {easy: 1.0, hard: 0.90, scan: 0.80}, decide: {plain: 0.60, hard: 0.20}, catch: 0.30}
+    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, scan: 5}}
+    complexity: 1
+
+models:
+  - id: rb-m-large
+    public: {label: Acorn Large, short: Large, description: The strongest model of the Acorn company., cost_line: Four times the price of Small.}
+    run: 4
+    runs_on: [rb-c-api, rb-c-private]
+  - id: rb-m-small
+    public: {label: Acorn Small, short: Small, description: A fast and cheap model of the same company., cost_line: The cheapest of the two Acorn models.}
+    run: 1
+    runs_on: [rb-c-api, rb-c-private]
+  - id: rb-m-open
+    public: {label: Pine, short: Pine, description: A free model that anyone may download and run on their own computers., cost_line: Free to use. Needs GPUs.}
+    run: 0.5
+    runs_on: [rb-c-rented, rb-c-owned]
+
+compute:
+  - id: rb-c-api
+    public: {label: Acorn public API, short: Public API, description: "Acorn's ordinary service. Open to anyone, and it keeps what it is sent.", cost_line: Pay per call.}
+    protects_private_data: false
+    price_factor: 1.0
+    run_fixed: 0
+  - id: rb-c-private
+    public: {label: Acorn private link, short: Private link, description: A link under a contract that keeps patron data safe., cost_line: "A little more per call, and a monthly fee."}
+    protects_private_data: true
+    price_factor: 1.3
+    run_fixed: 2
+  - id: rb-c-rented
+    public: {label: Rented cloud GPUs, short: Rented GPUs, description: "GPUs rented by the hour from a cloud company. Safe, and ready at once.", cost_line: The highest monthly bill.}
+    protects_private_data: true
+    price_factor: 1.0
+    run_fixed: 12
+  - id: rb-c-owned
+    public: {label: Branch GPU server, short: Own server, description: A server in the back office that the network owns., cost_line: "Costly to buy, cheap to run."}
+    protects_private_data: true
+    price_factor: 0.2
+    run_fixed: 1
+
+prompts:
+  - id: rb-p-line
+    public:
+      label: One line
+      description: A single sentence that names the task.
+      sample: Find the book in this request at a partner library and arrange the loan.
+    fetch: 1.0
+    decide: 1.0
+  - id: rb-p-goal
+    public:
+      label: Goal and limits
+      description: The goal, what the worker may and may not do, when to ask a librarian, and two worked requests.
+      samples:
+        - {label: When the worker digs, text: "Goal: find every partner that holds this edition and what each asks. Read the partner emails for terms. Do not decide. List what you found and where."}
+        - {label: When the worker judges, text: "Goal: get the patron the edition they asked for within ten days. Never pay a fee above five dollars. Ask a librarian when two partners disagree. Example one: ..."}
+    fetch: 1.05
+    decide: 1.10
+    key: {note: The best prompt for a worker that judges.}
+  - id: rb-p-long
+    public:
+      label: Says everything
+      description: Two pages that cover every rule of the network, every partner and every exception.
+      sample: "You are the interlibrary assistant of Riverbend. Riverbend has nine branches. The Monday desk opens at nine. Partner terms are as follows. Northgate lends for three weeks, except ..."
+    fetch: 0.97
+    decide: 0.90
+    key: {note: It confuses.}
+  - id: rb-p-steps
+    public:
+      label: List of steps
+      description: The steps in order, one line each, from reading the request to booking the courier.
+      samples:
+        - {label: When the worker digs, text: "1. Read the request and note the edition. 2. Search the shared catalog. 3. Open the partner emails. 4. Copy out the terms."}
+        - {label: When the worker judges, text: "1. Read what was found. 2. Drop partners whose terms rule the patron out. 3. Pick the fastest route. 4. Write the answer."}
+    fetch: 1.08
+    decide: 0.95
+    by_worker:
+      rb-w-step: {fetch: 1.0, decide: 1.12}
+    key: {note: Helps a worker that digs or a fixed step, hurts one that judges.}
+
+actions:
+  - id: rb-a-shadow
+    group: learn
+    public: {title: Shadow the partner desk, teaser: Spend a morning beside the librarian who handles partner requests.}
+    money: 0
+    developers: 0
+    seconds: 12
+    insight:
+      type: audit
+      headline: What a morning of partner requests takes
+      body: The librarian opened the **partner mailbox** for most of them. The catalog alone settled few.
+      data:
+        sample_size: 14
+        findings:
+          - {label: Settled from the catalog alone, count: 3}
+          - {label: Needed the terms in the mailbox, count: 8}
+          - {label: Needed a judgment call, count: 5}
+        note: Some requests needed more than one.
+    story_time: a morning
+    key: {note: Points at the mailbox.}
+  - id: rb-a-workshop
+    group: learn
+    public: {title: Run a prompt workshop, teaser: An afternoon on how to write instructions for a model.}
+    money: 10
+    developers: 0
+    seconds: 15
+    unlocks: [rb-p-goal, rb-p-steps]
+    insight:
+      type: quote
+      headline: Tom on what the workshop taught
+      body: Tom ran the workshop and kept one lesson.
+      data:
+        speaker: demo-tom
+        text: "Short prompts left the model guessing.\nThe long one buried the rules that matter.\nA goal with limits worked best for the one that decides."
+    story_time: an afternoon
+  - id: rb-a-mailbox
+    group: build
+    public: {title: Connect the partner mailbox, teaser: The developers give the map a line into years of partner emails.}
+    money: 15
+    developers: 2
+    seconds: 20
+    unlocks: [rb-s-mailbox]
+    story_time: three weeks of work
+  - id: rb-a-cards
+    group: build
+    public: {title: Scan the old card files, teaser: Scan the index cards and set up a reader for them.}
+    money: 10
+    developers: 1
+    seconds: 14
+    unlocks: [rb-s-cards, rb-w-reader]
+    story_time: two weeks of scanning
+  - id: rb-a-download
+    group: build
+    public: {title: Set up the free model, teaser: Download Pine and get it running for the branch.}
+    money: 0
+    developers: 1
+    seconds: 10
+    unlocks: [rb-m-open]
+    story_time: a week of work
+  - id: rb-a-server
+    group: buy
+    public: {title: Buy a GPU server, teaser: "A server of our own in the back office, for Pine."}
+    money: 40
+    developers: 1
+    seconds: 30
+    requires: [rb-a-download]
+    unlocks: [rb-c-owned]
+    story_time: two months to arrive
+  - id: rb-a-deal
+    group: negotiate
+    public: {title: Negotiate a private link, teaser: Ask Acorn for a contract that keeps patron data safe.}
+    money: 25
+    developers: 0
+    seconds: 25
+    unlocks: [rb-c-private]
+    insight:
+      type: stat
+      headline: The private link is signed
+      body: Acorn keeps patron data apart under the contract. Every call costs **a third more**.
+      data: {value: 30, unit: "%", label: more per call than the public API, comparison: Plus a small monthly fee.}
+    story_time: six weeks of talks
+  # Agent skills (2026-11-27): a guide to read, and then an action that the guide puts on the list.
+  - id: rb-a-guide
+    group: learn
+    public: {title: Read up on skills for agents, teaser: What a skill is and when an agent opens one.}
+    money: 0
+    developers: 1
+    seconds: 8
+    insight:
+      type: quote
+      headline: Tom on agent skills
+      body: Tom read the guide on the bus and summed it up.
+      data:
+        speaker: demo-tom
+        text: "A skill is a folder of instructions and scripts.\nThe agent opens it only when a task calls for it.\nIt guesses less, and somebody has to write the folder."
+    story_time: a bus ride
+    key: {note: Puts the action that develops skills on the list.}
+  - id: rb-a-skills
+    group: build
+    public: {title: Write skills for the agents, teaser: The developers write and test a skill for every job the agents repeat.}
+    money: 4
+    developers: 2
+    seconds: 14
+    requires: [rb-a-guide]
+    insight:
+      type: quote
+      headline: Tom on the new skills
+      body: Tom wrote four skills and tested each.
+      data:
+        speaker: demo-tom
+        text: "Every agent now follows a tested recipe for the jobs it repeats.\nA pilot will not show it.\nA year at the desk will."
+    story_time: a month
+    key: {note: "Changes no accuracy. In Phase 3 every agent fails less often (reliability.hardening of maintain.yaml)."}
+
+cases:
+  - id: rb-k-shelf
+    weight: 9
+    public: {title: A partner has it on the shelf, text: A patron asks for a recent novel that a partner branch lists in the catalog.}
+    needs: [rb-f-patron, rb-f-copies]
+    difficulty: plain
+    decision_miss: The map found the copy and still sent the patron the wrong answer.
+  - id: rb-k-travel
+    weight: 8
+    public: {title: The copy must travel, text: The only copy sits three towns away and needs the courier.}
+    needs: [rb-f-patron, rb-f-copies, rb-f-route]
+    difficulty: plain
+    decision_miss: The map had the copy and the route, and booked the wrong pickup.
+  - id: rb-k-terms
+    weight: 12
+    public: {title: A partner with its own rules, text: The partner lends only to card holders of two years or more.}
+    needs: [rb-f-patron, rb-f-copies, rb-f-terms, rb-f-route]
+    difficulty: plain
+    decision_miss: The map read the terms and did not apply them.
+  - id: rb-k-split
+    weight: 6
+    public: {title: "Two partners, two half answers", text: One partner has the book and another has the right edition.}
+    needs: [rb-f-patron, rb-f-copies, rb-f-route]
+    difficulty: hard
+    decision_miss: The map had what it needed and picked the wrong partner.
+  - id: rb-k-rare
+    weight: 5
+    public: {title: A rare book behind a fee, text: A local historian wants a book that one partner lends for a fee.}
+    needs: [rb-f-patron, rb-f-copies, rb-f-terms, rb-f-route]
+    difficulty: hard
+    decision_miss: The map had every fact and still agreed to a fee the network does not pay.
+
+notes:
+  - {id: private_data, text: Patron data on your map goes through a service that does not protect it.}
+  - {id: overloaded, text: One worker on your map has more lines coming in than it can keep track of.}
+  - {id: distracting, text: An AI worker on your map reads a source that sounds sure and is often wrong.}
+  - {id: prompt, text: "One prompt on your map makes its worker worse, not better."}
+  - {id: stray, text: "Part of your map is not connected to the result, so it does nothing."}
+
+# A line that cannot be drawn says why, and a line worth a second thought gives advice.
+line_rules:
+  - from: rb-s-cards
+    to: rb-w-agent
+    refuse: true
+    text: The old card files are pictures of handwritten cards. An agent cannot read them as they are. Put the card reader between them.
+  - from: rb-s-forum
+    to: rb-w-agent
+    refuse: false
+    text: The forum is full of opinions. An agent that reads it may take a rumour about a partner for a fact.
+
+# Nothing goes to a patron that a librarian has not seen.
+required:
+  - workers: [rb-w-librarian]
+    text: A reference librarian signs every answer before it reaches a patron. Put one on the way to the result.
+
+key:
+  reference:
+    map:
+      tiles:
+        - {id: t1, kind: rb-w-agent, col: 2, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+        - {id: t2, kind: rb-w-librarian, col: 4, row: 2}
+      lines:
+        - {from: rb-s-form, to: t1}
+        - {from: rb-s-catalog, to: t1}
+        - {from: rb-s-mailbox, to: t1}
+        - {from: rb-s-courier, to: t1}
+        - {from: t1, to: t2}
+        - {from: t2, to: rb-result}
+    needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+    public_summary: >-
+      One large agent with a goal, its limits and two worked requests reads the form, the
+      catalog, the partner mailbox and the courier site, and leaves the forum alone. A librarian
+      checks its answer before it goes out. It runs on the private link, so patron data stays safe.
+    rationale: The partner mailbox holds the terms, a goal with limits helps the worker that decides, and a person who checks beats one who does everything.
+  # Every reference map: shown at the reveal of Phase 2 and offered in Phase 3. The first is the
+  # map above. They score alike on the test set and part ways over the year.
+  references:
+    - id: lean
+      public:
+        label: Map A
+        summary: One large agent reads the form, the catalog, the partner mailbox and the courier site. A librarian checks its answer.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-agent, col: 2, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t2, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: rb-s-mailbox, to: t1}
+          - {from: rb-s-courier, to: t1}
+          - {from: t1, to: t2}
+          - {from: t2, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+    - id: clerk
+      public:
+        label: Map B
+        summary: A desk clerk looks up the form and the catalog. One large agent reads the mailbox and the courier site and decides. A librarian checks.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-clerk, col: 1, row: 1}
+          - {id: t2, kind: rb-w-agent, col: 2, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t3, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: t1, to: t2}
+          - {from: rb-s-mailbox, to: t2}
+          - {from: rb-s-courier, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+    - id: pair
+      public:
+        label: Map C
+        summary: A small agent gathers from all four sources. A large agent decides from what it is handed and the form. A librarian checks.
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-agent, col: 1, row: 2, model: rb-m-small, runs_on: rb-c-private, prompt: rb-p-steps}
+          - {id: t2, kind: rb-w-agent, col: 3, row: 2, model: rb-m-large, runs_on: rb-c-private, prompt: rb-p-goal}
+          - {id: t3, kind: rb-w-librarian, col: 4, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: rb-s-mailbox, to: t1}
+          - {from: rb-s-courier, to: t1}
+          - {from: t1, to: t2}
+          - {from: rb-s-form, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: rb-result}
+      needs_actions: [rb-a-mailbox, rb-a-deal, rb-a-workshop]
+  traps:
+    - id: rb-trap-chain
+      kind: overbuilt
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-agent, col: 1, row: 1, model: rb-m-small, runs_on: rb-c-api, prompt: rb-p-line}
+          - {id: t2, kind: rb-w-agent, col: 2, row: 1, model: rb-m-small, runs_on: rb-c-api, prompt: rb-p-line}
+          - {id: t3, kind: rb-w-agent, col: 3, row: 1, model: rb-m-small, runs_on: rb-c-api, prompt: rb-p-line}
+          - {id: t4, kind: rb-w-agent, col: 4, row: 1, model: rb-m-small, runs_on: rb-c-api, prompt: rb-p-line}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t2}
+          - {from: rb-s-forum, to: t3}
+          - {from: rb-s-courier, to: t4}
+          - {from: t1, to: t2}
+          - {from: t2, to: t3}
+          - {from: t3, to: t4}
+          - {from: t4, to: rb-result}
+      why_tempting: Four agents look like four times the work done.
+      why_it_fails: Every handoff loses a little, and no small agent judges well.
+    - id: rb-trap-rule
+      kind: underbuilt
+      map:
+        tiles:
+          - {id: t1, kind: rb-w-rule, col: 2, row: 2}
+        lines:
+          - {from: rb-s-form, to: t1}
+          - {from: rb-s-catalog, to: t1}
+          - {from: t1, to: rb-result}
+      why_tempting: A rule is free and never wrong on the plain case.
+      why_it_fails: Most requests are not the plain case.
+  # What a host reads beside a player's map: for a kind of worker, its best use and the wrong
+  # choices. Never sent to a player.
+  guide:
+    rb-w-agent:
+      best: One agent that reads the four places a request can be answered from, with a person behind it.
+      wrong: The forum as a fifth source, or an agent for every source.
+    rb-w-librarian:
+      best: Last before the answer goes out, checking what the agent prepared.
+      wrong: Reading every source herself. She has minutes for a check and not for the search.

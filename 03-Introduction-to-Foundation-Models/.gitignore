@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.ipynb_checkpoints/
+key.txt
+.python-version
+other/
+keys.py
+lightning_logs/
+notebook_figs/.ipynb_checkpoints/
+
+# Downloaded datasets, and the saved embeddings and predictions
+data/
+cache/
+
+# Local settings (for example the GPU)
+.env
