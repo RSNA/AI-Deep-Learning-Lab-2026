@@ -1,6 +1,6 @@
 // The projector's loop of views (engineering spec, section 6.13).
 import { describe, expect, it } from 'vitest'
-import { ago, programmeSlot } from '../src/lib/programme.ts'
+import { ago, practiceTurn, programmeSlot } from '../src/lib/programme.ts'
 
 const P = [
   { show: 'activity', seconds: 20 },
@@ -22,6 +22,23 @@ describe('programmeSlot', () => {
   it('gives the activity list for an empty programme and for a time before the start', () => {
     expect(programmeSlot([], 12).show).toBe('activity')
     expect(programmeSlot(P, -5)).toEqual({ show: 'activity', index: 0, round: 0 })
+  })
+})
+
+describe('practiceTurn', () => {
+  const cards = ['a', 'b', 'c', 'd']
+  it('shows the next practice at work each time the loop comes round', () => {
+    expect([0, 1, 4].map((r) => practiceTurn('player', r, cards, []))).toEqual(['a', 'b', 'a'])
+    expect(practiceTurn('player', 0, [], ['x'])).toBeNull()
+  })
+  it('shows a practice with a letter of its own, and without one another practice at work', () => {
+    expect([0, 1, 2].map((r) => practiceTurn('news', r, cards, ['x', 'y']))).toEqual(['x', 'y', 'x'])
+    expect(practiceTurn('news', 0, cards, [])).toBe('c')            // not the one the turn before it showed
+    expect(practiceTurn('news', 0, [], [])).toBeNull()
+  })
+  it('leaves the other turns alone', () => {
+    expect(practiceTurn('activity', 0, cards, ['x'])).toBeNull()
+    expect(practiceTurn('phase_board', 0, cards, ['x'])).toBeNull()
   })
 })
 

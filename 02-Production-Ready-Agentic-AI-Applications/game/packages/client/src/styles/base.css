@@ -587,3 +587,8 @@ input.field.bad { border-color: var(--bad); }
 /* A single-player game past the time of its phase: the timer stands at zero and says so. */
 .countdown .overtime { display: block; font-size: 11px; line-height: 1.1; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .solobar.over .solo-say { font-weight: 800; }
+
+/* The projector: the letter a practice just got, on its card. */
+.screen-letter { background: var(--sun); color: var(--on); }
+/* The name of the practice beside its map: two lines before it is cut, so that the room can read who it is. */
+.screen-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }

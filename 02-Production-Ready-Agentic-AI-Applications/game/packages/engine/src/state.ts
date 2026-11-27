@@ -279,6 +279,8 @@ export type MomentRef =
 export type FeedEntry = { kind: 'started' | 'finished' | 'sent' | 'validated' | 'deployed'; text: string | null; atMs: GameMs }
 /** What the projector may say about one practice during play: counts and what runs, and in Phase 2 its map. */
 export type PlayerCard = { now: string[]; facts: { label: string; value: string }[]; map?: CanvasMap | null }
+/** A letter that went to one practice and not to the room: who wrote it (a character id), its title and when it came. */
+export type PlayerLetter = { from: string; title: string; atMs: GameMs }
 
 export type Outcome = { dirty: PlayerId[] | 'all'; events: EngineEvent[] }
 export type ApplyResult = (Outcome & { ok: true }) | (Outcome & { ok: false; error: ErrorCode; data?: AckData })

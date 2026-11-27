@@ -1,6 +1,6 @@
 import type { Pack } from '@lab02/content-schema'
 import type { AckData, ErrorCode, PhaseId } from '@lab02/protocol'
-import type { EngineEvent, FeedEntry, GameMs, Outcome, PlayerCard, PlayerState, SessionState } from '../state.ts'
+import type { EngineEvent, FeedEntry, GameMs, Outcome, PlayerCard, PlayerLetter, PlayerState, SessionState } from '../state.ts'
 
 export type CommandHandler = (
   s: SessionState, pack: Pack, p: PlayerState, payload: unknown, now: GameMs,
@@ -27,5 +27,7 @@ export type PhaseModule = {
   feed?(s: SessionState, pack: Pack, p: PlayerState): FeedEntry[]
   /** What the projector may show of this player during play: what runs and how far they are. */
   card?(s: SessionState, pack: Pack, p: PlayerState): PlayerCard
+  /** The last letter of this phase that went to this practice alone, for the projector, or null. */
+  letter?(s: SessionState, pack: Pack, p: PlayerState): PlayerLetter | null
   commands: Record<string, CommandHandler>
 }

@@ -198,6 +198,7 @@ leaderboards:
       - {show: phase_board, seconds: 10}
       - {show: activity, seconds: 20}
       - {show: player, seconds: 8}
+      - {show: news, seconds: 8}
 
 text_limits:
   problem_title: 8

@@ -18,7 +18,7 @@ import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incom
 import { maintainingContent, maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
 import { deckSlides, sectionOf } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, kindOf, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
-import type { DevelopmentState, GameMs, MomentRef, PlayerId, PlayerState, SessionState } from '../state.ts'
+import type { DevelopmentState, GameMs, MomentRef, PlayerId, PlayerLetter, PlayerState, SessionState } from '../state.ts'
 import { reportCard, reportCardShown } from './reportCard.ts'
 
 export { reportCard, reportCardShown } from './reportCard.ts'
@@ -638,7 +638,7 @@ export function projectorRotates(s: SessionState, pack: Pack): boolean {
 }
 
 /** The activity of the room, the leaderboard of one phase and the practice cards (section 6.13). */
-function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: ScreenView['scene']): Pick<ScreenView, 'programme' | 'feed' | 'phaseBoard' | 'cards' | 'legends'> {
+function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: ScreenView['scene']): Pick<ScreenView, 'programme' | 'feed' | 'phaseBoard' | 'cards' | 'newsCards' | 'legends'> {
   const cfg = pack.game.leaderboards.projector
   const rotates = projectorRotates(s, pack)
   const playing = PLAY_STAGES.includes(s.stage) ? phaseOfStage(s.stage) : null
@@ -665,19 +665,34 @@ function followViews(s: SessionState, pack: Pack, active: PlayerState[], scene: 
   }
 
   let cards: ScreenView['cards'] = []
+  let newsCards: ScreenView['newsCards'] = []
   if (rotates && mod?.card && playing && cfg) {
     const at = s.stageStartedMs
+    const cardOf = (p: PlayerState, letter: PlayerLetter | null): ScreenView['cards'][number] => {
+      const c = mod.card!(s, pack, p)
+      const who = letter ? pack.characters.find((x) => x.id === letter.from) : undefined
+      return {
+        name: p.name, avatar: p.avatar, system: p.system, now: c.now, facts: c.facts.map((f) => ({ label: f.label, value: f.value })), map: c.map ? mapView(c.map) : null,
+        news: letter ? { from: who ? `${who.public.name}, ${who.public.role}` : '', title: letter.title } : null,
+      }
+    }
     cards = active.filter((p) => p.acted[playing])
       .sort((a, b) => mix(a.id + at) - mix(b.id + at))
       .slice(0, cfg.cards)
-      .map((p) => {
-        const c = mod.card!(s, pack, p)
-        return { name: p.name, avatar: p.avatar, system: p.system, now: c.now, facts: c.facts.map((f) => ({ label: f.label, value: f.value })), map: c.map ? mapView(c.map) : null }
-      })
+      .map((p) => cardOf(p, null))
+    // The `news` turn: practices that got a letter of their own, the newest first. A practice
+    // that has done nothing in the phase counts too, since a letter may be about just that.
+    if (mod.letter && cfg.programme.some((x) => x.show === 'news')) {
+      newsCards = active.map((p) => ({ p, letter: mod.letter!(s, pack, p) }))
+        .filter((x): x is { p: PlayerState; letter: PlayerLetter } => x.letter !== null)
+        .sort((a, b) => b.letter.atMs - a.letter.atMs || mix(a.p.id + at) - mix(b.p.id + at))
+        .slice(0, cfg.cards)
+        .map((x) => cardOf(x.p, x.letter))
+    }
   }
   // The maps of the cards are drawn with the public names of their health system.
-  const legends = cards.some((c) => c.map) ? s.systems.filter((id) => pack.systems[id]?.build).map((id) => ({ system: id, legend: canvasLegend(playing === 'maintaining' ? phase3Build(pack.systems[id]!.build!, pack.systems[id]!.maintain) : pack.systems[id]!.build!) })) : []
-  return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards, legends }
+  const legends = [...cards, ...newsCards].some((c) => c.map) ? s.systems.filter((id) => pack.systems[id]?.build).map((id) => ({ system: id, legend: canvasLegend(playing === 'maintaining' ? phase3Build(pack.systems[id]!.build!, pack.systems[id]!.maintain) : pack.systems[id]!.build!) })) : []
+  return { programme: rotates && cfg ? cfg.programme.map((x) => ({ show: x.show, seconds: x.seconds })) : null, feed, phaseBoard, cards, newsCards, legends }
 }
 
 /** The results of the phase that closed last, for the room (big screen reveal). */

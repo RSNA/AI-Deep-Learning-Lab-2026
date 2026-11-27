@@ -225,7 +225,7 @@ export const GameFile = W({
     projector: W({
       feed_rows: PosInt,
       cards: PosInt,
-      programme: z.array(W({ show: z.enum(['activity', 'phase_board', 'player']), seconds: PosInt })).min(1),
+      programme: z.array(W({ show: z.enum(['activity', 'phase_board', 'player', 'news']), seconds: PosInt })).min(1),
     }).optional(),
     filters: Later, systems_strip: Later, live_column: Later, live_column_marked: Later,
     planning_live: Later, overall_during_play: Later, player_sees: Later, system_score: Later,
