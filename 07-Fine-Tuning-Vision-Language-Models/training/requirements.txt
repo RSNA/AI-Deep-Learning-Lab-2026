@@ -1,0 +1,16 @@
+# Offline training/evaluation environment for Lab 07.
+# Versions match the free Google Colab GPU runtime (googlecolab/backend-info, Nov 2026)
+# so the adapter trained here loads unchanged in the participant notebook.
+# Python 3.13. Install torch from the PyTorch index that matches your CUDA driver, e.g.:
+#   pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cu126
+transformers==5.23.0
+peft==0.22.0
+accelerate==1.16.0
+datasets==4.8.5
+huggingface-hub==1.33.0
+trl==1.18.2
+pillow==11.3.0
+numpy==2.4.6
+pandas==2.2.3
+scikit-learn==1.6.1
+matplotlib==3.10.0
