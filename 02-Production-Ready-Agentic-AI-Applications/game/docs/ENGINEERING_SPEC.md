@@ -533,13 +533,14 @@ type Build = {
                                             // that every worker has numbers for
              private_data: boolean          // it holds data that must be protected
              distracts?: number             // below 1, it lowers the judgment of an AI worker that reads it
-             run?: number                   // money a month for every line from it
+             run?: number                   // money a month while a line leaves it, paid once
              key?: object }[]
   result: { id: string; public: { label: Text; description: Text } }
   workers: Worker[]
   models?: { id: ModelId; public: Part; run?: number             // money a month per call unit
              runs_on: ComputeId[]; key?: object }[]
-  compute?: { id: ComputeId; public: Part; protects_private_data: boolean
+  compute?: { id: ComputeId; public: Part & { bill_line?: Text }   // what its fixed cost is called on a bill ("rent")
+              protects_private_data: boolean
               price_factor?: number         // multiplies the price of every model that runs here
               run_fixed?: number            // money a month while any tile runs here
               key?: object }[]
@@ -1364,8 +1365,11 @@ raw       = 1000 × accuracy
 *What the map takes to run*, counted over every placed tile and every line, live or stray:
 
 - **Money a month** = for every tile `w.run`, plus for a tile with a model and a compute
-  `w.calls × model.run × compute.price_factor`, plus `source.run` for every line from a source,
-  plus `compute.run_fixed` once for every compute that at least one tile uses.
+  `w.calls × model.run × compute.price_factor`, plus `source.run` once for every source that a
+  line leaves (however many lines), plus `compute.run_fixed` once for every compute that at
+  least one tile uses. `evaluate` also returns this sum as a **bill**: one line for the calls
+  of the models at each place, one for the fixed cost of each place, one for the tiles of each
+  kind, one for each source, in the order of first use, without the lines that cost nothing.
 - **Minutes per case, by pool** = for every person tile, `minutes.check` when a tile has a line
   into it and `minutes.decide` when none has, plus `minutes.per_line[source.effort]` for every
   line from a source into it.
@@ -1484,7 +1488,8 @@ stage closes.
 **What a player carries from Phase 2.** Every validation stays in the list, the chosen one is
 deployed, the draft is the draft, and the money that was left, the actions done and what they
 unlocked carry over. The account then takes the grants of `maintain.yaml`: a grant of round `r`
-lands when that round starts (round 1 with the stage). A player with no Phase 2 state starts
+lands with the report that opens that round (round 1 with the stage), before the bill of that
+report is paid. A player with no Phase 2 state starts
 with the budget of the build file, no map and nothing unlocked. The number of validations is
 that of `maintain.yaml`, a fresh count.
 
@@ -1498,9 +1503,9 @@ map, at any moment of a round.
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `maintaining.set_map {map}` | As `development.set_map`, on the build file of Phase 3 and what is unlocked | Replaces the draft. Refuses `invalid_map`, or `line_refused` with the line and the rule's words |
-| `maintaining.act {id}` | The action exists and has appeared (`unknown_action`, see "A year that grows"). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the money is there (`not_enough_money`) and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
+| `maintaining.act {id}` | The action exists and has appeared (`unknown_action`, see "A year that grows"). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the account pays its price (`not_enough_money`, see "The bill and the account") and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
 | `maintaining.validate {}` | No validation runs (`validation_running`), one is left of the count of `maintain.yaml` (`no_validations_left`), the draft is ready (`not_ready`) | After `validate.seconds` the copy of the draft joins the list with its result (below) |
-| `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once, as if the player had bought them. Their price is taken from the account and added to the money spent. A player whose account holds less than the price is refused (`not_enough_money`) and nothing changes. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
+| `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once, as if the player had bought them. Their price is taken from the account and added to the money spent. A player whose account holds less than the price, or is below zero, is refused (`not_enough_money`) and nothing changes. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
 | `maintaining.deploy {id or null}` | `id` is a map of the list (`unknown_validation`), or null | That map, or no map, runs from now on |
 
 **A validation in Phase 3** is scored on the tables of the build file of Phase 3, the test set,
@@ -1581,9 +1586,20 @@ raw         = max(0, 10 × score)
 ```
 
 `money paid` is the money of every action of Phase 2 and Phase 3 and of what the reference maps
-taken needed. Running costs are never taken from the account: they only count here. The live
-value of the phase is the same over the reports held so far, with the money paid up to now,
-rounded to one decimal and never below 0.
+taken needed. The live value of the phase is the same over the reports held so far, with the
+money paid up to now, rounded to one decimal and never below 0.
+
+**The bill and the account.** Every report carries its bill: the lines of `evaluate` on the
+tables of the period, each times 2 for the two months, a line for every action with `run`
+that counts, and a line for every fine. They add up to `spent(p)`. When the report is made,
+the grants of its round land in the account and `spent(p)` is taken from it, and the report
+keeps the money that arrived (`granted`) and what the account held afterwards (`account`).
+**The account may go below zero.** Nothing else happens to it then: the map in service keeps
+running and the score counts the money as always. A purchase is refused (`not_enough_money`)
+when its price is above zero and above what the account holds, so an account below zero buys
+nothing until it is positive again, and what costs nothing can always be had. The view names
+every line of a bill in the words of the pack (the label of the place with "model calls" or
+its `bill_line`, the label of a kind of tile or of a source, the title of an action, "Fine").
 
 **No deployed map.** The report is scored on `baseline.map` with the tables of the period:
 `reliability = 1`, no part of the people, no running cost, no fine. This is also the report of
@@ -2330,7 +2346,7 @@ so most of these sentences are rarely seen.
 | `unknown_action` | Section 6.6 | "The game does not know that action. Reload the page." |
 | `action_taken` | Section 6.6 | "That action is already done or under way." |
 | `requires_action` | Section 6.6 | "Another action has to be done first." |
-| `not_enough_money` | Section 6.6 | "There is not enough money left for that." |
+| `not_enough_money` | Sections 6.6 and 6.7 | "There is not enough money left for that." A row or a sheet that knows the sums says them, and says so when the account is below zero |
 | `developers_busy` | Section 6.6 | "Not enough developers are free. Wait for an action to finish." |
 | `validation_running` | Section 6.6 | "A validation is still running. Wait for its result." |
 | `no_validations_left` | Section 6.6 | "You have no validations left." |
@@ -2563,6 +2579,8 @@ type MaintainingReport = {
   map: string | null                              // the validation that ran. Null: no map ran
   validity: number; test: number; reliability: number; interruptions: number
   value: number; off: number; runCost: number; fine: number
+  bill: { label: Text; money: number }[]          // the lines of the period, adding up to runCost + fine
+  granted: number; account: number                // money that arrived with the report, and the account after its bill
   spent: number; score: number                    // everything spent, and the score of the year, after this report
   rank: number | null; of: number                 // among the practices that hold this report
   sentences: { validity: Text | null; reliability: Text | null; gap: Text | null
@@ -3544,7 +3562,7 @@ that sends private data through a place that does not protect it carries a "!" m
 of the map says "Private data goes through a service that does not protect it." A locked source is
 dashed, takes no line, has no port, and says which action opens it. When `showRunning` is true the
 foot says what the draft would take to run a month, with one decimal and never "0.0" for a cost
-above zero ("< 0.1"), and the minutes a case of each pool against its limit, in the warning color
+above zero ("< 0.1"), and what that is over a year, and the minutes a case of each pool against its limit, in the warning color
 when over.
 
 **Shelves.** Two rows above the grid, "Models" and "Where they run". A chip is flat and round with
@@ -3749,8 +3767,10 @@ pass their own panels and words. Nothing of the board is copied.
   it, and otherwise one line that some actions make reports say more), the part that failed
   most, one failed case, what the people who check say with the points they take off, a note,
   the tables of the lenses when the view carries them (every part that failed, every kind of
-  case), and the money: what the two months cost, a fine, the money spent so far, the score of
-  the year so far and the rank.
+  case), and the money: the bill of the two months line by line (`bill`), what was paid from
+  the account, money that arrived with the report, what is left in the account, the score of
+  the year so far and the rank. An account below zero is red, and a sentence under it says
+  that nothing can be bought until it is positive again and that the system keeps running.
 - **The year.** One cell across both columns under the map, above the list of maps and the
   letters: on the left the chart (one slot for each period of the year as its clock stands: more slots when time is added, with a label left out where slots get narrow, and the calendar year marked where one begins; with validity, reliability and
   the score of every period that has a report, the test-set accuracy of that period's map as a

@@ -9,7 +9,8 @@ export const share100 = (x: number) => out100(100 * x)
 const whole = (x: number) => String(Math.round(x))
 /** Points, with a sign when they are taken off. */
 const pts = (x: number) => (Math.round(10 * x) / 10).toLocaleString('en-US', { maximumFractionDigits: 1 })
-const amount = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }))
+/** A sum of money: whole or with one decimal, and a true minus sign below zero. */
+const amount = (x: number) => { const r = Math.round(10 * x) / 10; return (r < 0 ? '−' : '') + Math.abs(r).toLocaleString('en-US', Number.isInteger(r) ? {} : { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }
 let unit = ''
 /** The unit of money of the pack, written after a sum. */
 export const setUnit3 = (u: string | null) => { unit = u ? ` ${u}` : '' }
@@ -61,8 +62,12 @@ export const P3 = {
   pointsOff: (x: number) => `${pts(x)} points off`,
   noPointsOff: 'Nothing off',
   note: 'Note',
-  costTwoMonths: 'To run these two months',
-  fine: 'Fine',
+  billTitle: 'The bill of these two months',
+  billTotal: 'Paid from your account',
+  billNothing: 'Nothing to pay. No system ran.',
+  granted: 'Arrived in your account',
+  accountLeft: 'Left in your account',
+  accountBelow: 'Your account is below zero. You cannot buy anything until it is positive again. The system keeps running.',
   scorePeriod: 'Score of these two months',
   scorePeriodHow: (v: string, r: string, off: number) => `${v} × ${r} ÷ 100${off > 0 ? ` − ${pts(off)}` : ''}`,
   scoreYear: 'Score of the year so far',
@@ -116,8 +121,10 @@ export const P3 = {
   refNeeds: 'It needs what you have not bought yet',
   refPays: (price: number) => `Taking it buys all of this for ${sum(price)} from your account.`,
   refTooDear: (price: number, have: number) =>
-    `Together this costs ${sum(price)}, and your account holds ${sum(Math.max(0, have))}. You cannot take the map yet. Buy the parts you can afford from the list of actions, and come back when the rest fits. The map stays here.`,
-  refTooDearShort: (price: number, have: number) => `Costs ${sum(price)}, and you have ${sum(Math.max(0, have))} left`,
+    have < 0
+      ? `Together this costs ${sum(price)}, and your account is below zero (${sum(have)}). You cannot buy anything until it is positive again. The map stays here.`
+      : `Together this costs ${sum(price)}, and your account holds ${sum(have)}. You cannot take the map yet. Buy the parts you can afford from the list of actions, and come back when the rest fits. The map stays here.`,
+  refTooDearShort: (price: number, have: number) => (have < 0 ? `Costs ${sum(price)}, and your account is below zero` : `Costs ${sum(price)}, and you have ${sum(have)} left`),
   refKeep: 'Keep my own map',
   refClose: 'Close',
   refNone: 'This game offers no reference map.',
@@ -148,11 +155,11 @@ export const P3 = {
   helpIntro: 'Your map now runs on real patients. Every two months a report says how valid and how reliable it was. Change the map, repair what breaks, and keep the best map deployed.',
   tour: [
     { area: '[data-tour="p3-timer"]', tab: 'year', title: 'Two months at a time', text: 'The year runs in periods of two months. The timer counts down to the next report. What is deployed, and every action that has finished, when it reaches zero is what the next two months are run with.' },
-    { area: '[data-tour="p3-report"]', tab: 'year', title: 'The report', text: 'Two numbers out of 100. Validity is the share of the real patients whose plan was right. Reliability is the share whose plan came out of the system at all. The report also shows one patient the map got wrong and the part that failed most.' },
+    { area: '[data-tour="p3-report"]', tab: 'year', title: 'The report', text: 'Two numbers out of 100. Validity is the share of the real patients whose plan was right. Reliability is the share whose plan came out of the system at all. The report also shows one patient the map got wrong and the part that failed most. At its foot is the bill: what your system cost to run in those two months, taken from your account.' },
     { area: '[data-tour="p3-chart"]', tab: 'year', title: 'The year so far', text: 'Validity, reliability and the score of every period that has a report. The faint mark is what the same map scored on the test set. Press a period to read its report again.' },
     { area: '[data-tour="p3-maps"]', tab: 'results', title: 'Your maps, and Deploy', text: 'Every map you validated is here. Deploy puts a map in service, and the one marked Running now is the one that counts. You can change your mind at any moment of a round.' },
     { area: '[data-tour="p3-refs"]', tab: 'results', title: 'A map to start from', text: 'A reference map that others built for this problem. Take it and it joins your maps without a validation, and what it needs is bought with it. You can always go back to your own.' },
-    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'New actions', text: 'The actions you did not take in Phase 2 are still here. Watch adds what your reports and validations can tell you. Maintain repairs and hardens what runs. Some can be done again. As the year goes on and your team finds things out, more actions and items appear. Your money is limited, so spend it on what the reports show.' },
+    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'New actions', text: 'The actions you did not take in Phase 2 are still here. Watch adds what your reports and validations can tell you. Maintain repairs and hardens what runs. Some can be done again. As the year goes on and your team finds things out, more actions and items appear. Your money is limited and also pays the bills, so spend it on what the reports show. An account below zero buys nothing.' },
     { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate, then deploy', text: 'Change the map and validate it as before. A validation tests the map and does not put it in service: press Deploy on it in Your maps.' },
   ] as TourStep[],
   // Reveal

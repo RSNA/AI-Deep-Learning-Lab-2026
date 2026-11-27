@@ -543,6 +543,7 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.225,
+    "bill": [],
     "complexity": 4,
     "flags": {
      "distracting": [],
@@ -630,6 +631,7 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.225,
+    "bill": [],
     "complexity": 4,
     "flags": {
      "distracting": [],
@@ -710,6 +712,20 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.3890903124999999,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     }
+    ],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -803,6 +819,20 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.3890903124999999,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     }
+    ],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -889,6 +919,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.8171191244999999,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 8,
     "flags": {
      "distracting": [],
@@ -1048,6 +1104,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.676574635086,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 9,
     "flags": {
      "distracting": [
@@ -1219,6 +1301,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.789538864663073,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 5.2
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 11,
     "flags": {
      "distracting": [],
@@ -1406,6 +1514,44 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.8665515223857169,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 0.8
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 23,
     "flags": {
      "distracting": [],
@@ -1781,6 +1927,26 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.48131782151425206,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 16.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 23,
     "flags": {
      "distracting": [],
@@ -2022,6 +2188,20 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.1947663,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 5.2
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     }
+    ],
     "complexity": 4,
     "flags": {
      "distracting": [],
@@ -2164,6 +2344,14 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.172603125,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 4.0
+     }
+    ],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -2266,6 +2454,14 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.172603125,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 4.0
+     }
+    ],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -2361,6 +2557,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.6686883140834675,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 8,
     "flags": {
      "distracting": [],
@@ -2522,6 +2744,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.9049332917728125,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 8,
     "flags": {
      "distracting": [],
@@ -2682,6 +2930,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.7806596927174368,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 26.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 14,
     "flags": {
      "distracting": [],
@@ -2868,6 +3142,32 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.6953046151827915,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 26.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 2
+     }
+    ],
     "complexity": 14,
     "flags": {
      "distracting": [],
@@ -3054,6 +3354,20 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.209585475,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 5.2
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     }
+    ],
     "complexity": 4,
     "flags": {
      "distracting": [],
@@ -3308,6 +3622,7 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.21600000000000003,
+    "bill": [],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -3408,6 +3723,7 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.21600000000000003,
+    "bill": [],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -3501,6 +3817,26 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.5546066941262493,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 20.8
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 2
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     }
+    ],
     "complexity": 15,
     "flags": {
      "distracting": [],
@@ -4260,6 +4596,20 @@
    "expect": {
     "accepted": true,
     "accuracy": 0.3890903124999999,
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 1
+     }
+    ],
     "complexity": 7,
     "flags": {
      "distracting": [],
@@ -4975,6 +5325,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.18,
+      "bill": [],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -5065,6 +5416,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.18,
+      "bill": [],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -5147,6 +5499,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.31127225,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -5243,6 +5609,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.31127225,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -5331,6 +5711,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6536952996,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -5494,6 +5900,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5412597080688001,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 9,
       "flags": {
        "distracting": [
@@ -5669,6 +6101,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6316310917304584,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -5860,6 +6318,44 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6932412179085735,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "calls",
+        "money": 0.8
+       },
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "place",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 23,
       "flags": {
        "distracting": [],
@@ -6242,6 +6738,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.38505425721140163,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 16.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 23,
       "flags": {
        "distracting": [],
@@ -6487,6 +7003,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.15581303999999999,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -6633,6 +7163,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1380825,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -6738,6 +7276,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1380825,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -6835,6 +7381,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.534950651266774,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -7000,6 +7572,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.7239466334182499,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -7164,6 +7762,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6245277541739495,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 26.0
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -7354,6 +7978,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5562436921462333,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 26.0
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -7544,6 +8194,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.16766838,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -7805,6 +8469,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1728,
+      "bill": [],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -7908,6 +8573,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1728,
+      "bill": [],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -8003,6 +8669,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.44368535530099945,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 15,
       "flags": {
        "distracting": [],
@@ -8778,6 +9464,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.22809499999999996,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -8932,6 +9632,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.3323982816,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -9113,6 +9833,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.0,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 10,
       "flags": {
        "distracting": [],
@@ -9441,6 +10181,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.0,
+      "bill": [
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 5,
       "flags": {
        "distracting": [],
@@ -10708,6 +11456,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.789538864663073,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -10895,6 +11669,44 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.8665515223857169,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "calls",
+        "money": 0.8
+       },
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "place",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 23,
       "flags": {
        "distracting": [],
@@ -12713,6 +13525,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5546066941262493,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 15,
       "flags": {
        "distracting": [],
@@ -13906,6 +14738,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.2124863515329911,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 10,
       "flags": {
        "distracting": [
@@ -14086,6 +14932,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.17247043583999994,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 12,
       "flags": {
        "distracting": [],
@@ -14806,6 +15666,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.8116818318235449,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 12,
       "flags": {
        "distracting": [],
@@ -15001,6 +15887,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.7145222357033603,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 13,
       "flags": {
        "distracting": [],
@@ -15030,7 +15942,7 @@
       },
       "raw": 714.5222357033603,
       "ready": true,
-      "run_month": 12.2,
+      "run_month": 10.2,
       "unhurried": 0.8689872664067206
      },
      "map": {
@@ -15206,6 +16118,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.33291359641333707,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -15422,6 +16360,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26400530890209833,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -15611,6 +16575,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1783409286265698,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -15974,6 +16958,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.7145222357033603,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 13,
       "flags": {
        "distracting": [],
@@ -16003,7 +17013,7 @@
       },
       "raw": 714.5222357033603,
       "ready": true,
-      "run_month": 12.2,
+      "run_month": 10.2,
       "unhurried": 0.8689872664067206
      },
      "map": {
@@ -16805,6 +17815,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.18,
+      "bill": [],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -16897,6 +17908,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.18,
+      "bill": [],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -16981,6 +17993,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.31127225,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -17079,6 +18105,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.31127225,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -17169,6 +18209,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6536952996,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -17336,6 +18402,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5412597080688001,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 9,
       "flags": {
        "distracting": [
@@ -17515,6 +18607,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6316310917304584,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -17710,6 +18828,44 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6932412179085735,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "calls",
+        "money": 0.8
+       },
+       {
+        "count": 1,
+        "id": "c-owned",
+        "kind": "place",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 23,
       "flags": {
        "distracting": [],
@@ -17959,6 +19115,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.21739714285714284,
+      "bill": [
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 6,
       "flags": {
        "distracting": [],
@@ -18129,6 +19299,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.38505425721140163,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 16.0
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 23,
       "flags": {
        "distracting": [],
@@ -18378,6 +19568,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.15581303999999999,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -18528,6 +19732,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1380825,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -18635,6 +19847,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1380825,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-open-api",
+        "kind": "calls",
+        "money": 4.0
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -18734,6 +19954,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.534950651266774,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -18903,6 +20149,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.7239466334182499,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -19071,6 +20343,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6245277541739495,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 26.0
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -19265,6 +20563,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5562436921462333,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 26.0
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -19459,6 +20783,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.16766838,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 4,
       "flags": {
        "distracting": [],
@@ -19728,6 +21066,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1728,
+      "bill": [],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -19833,6 +21172,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1728,
+      "bill": [],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -19930,6 +21270,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.44368535530099945,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       }
+      ],
       "complexity": 15,
       "flags": {
        "distracting": [],
@@ -20725,6 +22085,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.22809499999999996,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -20883,6 +22257,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.3323982816,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 11,
       "flags": {
        "distracting": [],
@@ -21068,6 +22462,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.0,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 10,
       "flags": {
        "distracting": [],
@@ -21245,6 +22659,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.2866635215592652,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 10,
       "flags": {
        "distracting": [],
@@ -21433,6 +22861,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.0,
+      "bill": [
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 5,
       "flags": {
        "distracting": [],
@@ -21583,6 +23019,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.09072,
+      "bill": [],
       "complexity": 3,
       "flags": {
        "distracting": [],
@@ -21675,6 +23112,7 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.09072,
+      "bill": [],
       "complexity": 3,
       "flags": {
        "distracting": [],
@@ -21759,6 +23197,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1554017182728192,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 8,
       "flags": {
        "distracting": [],
@@ -21929,6 +23381,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.1380825,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       }
+      ],
       "complexity": 6,
       "flags": {
        "distracting": [],
@@ -22079,6 +23545,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.3376535903999999,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       },
+       {
+        "count": 1,
+        "id": "reader",
+        "kind": "worker",
+        "money": 0.5
+       }
+      ],
       "complexity": 14,
       "flags": {
        "distracting": [],
@@ -22290,6 +23782,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26459019999999994,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       }
+      ],
       "complexity": 10,
       "flags": {
        "distracting": [],
@@ -22474,6 +23986,38 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.6243592784688,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 13,
       "flags": {
        "distracting": [
@@ -22687,6 +24231,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26671680000000003,
+      "bill": [
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -22796,6 +24348,14 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26671680000000003,
+      "bill": [
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       }
+      ],
       "complexity": 7,
       "flags": {
        "distracting": [],
@@ -22897,6 +24457,32 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.05814,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 5.2
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 9,
       "flags": {
        "distracting": [],
@@ -23074,6 +24660,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26459019999999994,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 2,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.4
+       }
+      ],
       "complexity": 13,
       "flags": {
        "distracting": [],
@@ -23284,6 +24890,26 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.26459019999999994,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       }
+      ],
       "complexity": 13,
       "flags": {
        "distracting": [],
@@ -23494,6 +25120,38 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.5643022544033458,
+      "bill": [
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "calls",
+        "money": 20.8
+       },
+       {
+        "count": 1,
+        "id": "c-private",
+        "kind": "place",
+        "money": 2
+       },
+       {
+        "count": 1,
+        "id": "prep",
+        "kind": "worker",
+        "money": 0.2
+       },
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 15,
       "flags": {
        "distracting": [
@@ -23725,6 +25383,20 @@
      "expect": {
       "accepted": true,
       "accuracy": 0.21441824999999998,
+      "bill": [
+       {
+        "count": 1,
+        "id": "s-shelf",
+        "kind": "source",
+        "money": 1
+       },
+       {
+        "count": 1,
+        "id": "s-depot",
+        "kind": "source",
+        "money": 2
+       }
+      ],
       "complexity": 6,
       "flags": {
        "distracting": [],

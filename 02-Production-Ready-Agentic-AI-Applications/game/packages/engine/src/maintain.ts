@@ -5,7 +5,7 @@
 // reference is `tools/maintain_scoring.py` of the private folder, and the parity vectors hold
 // these functions to it.
 import { fromPackMap, rushFactors, type CanvasMap, type CanvasTables } from '@lab02/content-schema'
-import { evaluate, type Evaluation } from './canvas.ts'
+import { evaluate, type BillLine, type Evaluation } from './canvas.ts'
 import type { EventLoss, PeriodScore, RiskEntry } from './state.ts'
 
 /** A factor: a number, or a list by periods since the event began (the last one holds). */
@@ -301,7 +301,7 @@ export function period(
     return {
       noMap: true, validity: ev.accuracy, test: evaluate(base, t3).accuracy,
       reliability: 1, interruptions: 0, off: 0, poolTiles: 0, hurry: 1,
-      value: 100 * ev.accuracy, runCost: 0, fine: 0,
+      value: 100 * ev.accuracy, runCost: 0, fine: 0, bill: [],
       components: [], worstPart: null, events: [], worstEvent: null,
       perCase: ev.perCase, missed: ev.missed, note: null,
     }
@@ -342,11 +342,18 @@ export function period(
   const hurry = rushFactors(m, tables)[S.pool] ?? 1
   const off = (S.extra_look ?? 0) * Math.max(0, poolTiles - 1) + (S.rushed ?? 0) * (1 - hurry)
 
+  // The bill of the period: the two months of the map, of every action with upkeep, and the fines.
+  const bill: BillLine[] = ev.bill.map((b) => ({ ...b, money: 2 * b.money }))
   let upkeep = 0
   const seen = new Set<string>()
   for (const a of rules.actions ?? []) {
-    if (a.run && !seen.has(a.id) && counts(actions, [a.id], p)) { upkeep += a.run; seen.add(a.id) }
+    if (a.run && !seen.has(a.id) && counts(actions, [a.id], p)) {
+      upkeep += a.run
+      seen.add(a.id)
+      bill.push({ kind: 'action', id: a.id, count: 1, money: 2 * a.run })
+    }
   }
+  for (const e of acting) if (e.fine) bill.push({ kind: 'fine', id: e.id, count: 1, money: e.fine })
   return {
     noMap: false, validity, test: evaluate(m, t3).accuracy,
     reliability: rel, interruptions: interruptionsOf(rules, rel),
@@ -354,6 +361,7 @@ export function period(
     value: 100 * validity * rel - off,
     runCost: 2 * ev.running.money + 2 * upkeep,
     fine: acting.reduce((sum, e) => sum + (e.fine ?? 0), 0),
+    bill,
     components: risks, worstPart,
     events, worstEvent,
     perCase: ev.perCase, missed: ev.missed, note: ev.note,

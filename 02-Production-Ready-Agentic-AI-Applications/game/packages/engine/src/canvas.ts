@@ -24,6 +24,12 @@ export type Flags = {
 /** Why the map loses cases of some kinds, added up over the kinds with the same reason. */
 export type Loss = { reason: MissReason; fact: string | null; lost: number; kinds: number }
 
+/**
+ * One line of what a map costs to run a month: the calls of the models at a place, the fixed
+ * cost of a place, the tiles of one kind, or a source. `count`: the tiles of that kind.
+ */
+export type BillLine = { kind: 'calls' | 'place' | 'worker' | 'source' | 'action' | 'fine'; id: string; count: number; money: number }
+
 export type Evaluation = {
   accuracy: number                      // 0 to 1
   // The accuracy the same map would reach if its people had the minutes it asks of them. Null
@@ -31,6 +37,8 @@ export type Evaluation = {
   unhurried: number | null
   perCase: Record<string, number>       // the share solved of every case
   running: Running
+  /** What makes up `running.money`, a line for everything that costs something. */
+  bill: BillLine[]
   flags: Flags
   missed: Missed | null
   note: NoteId | null
@@ -52,7 +60,7 @@ export function promptEffect(t: CanvasTables, workerId: string, promptId: string
  * which reach nothing. Works on any accepted map, ready or not, so the screen can show it
  * while the player builds.
  */
-export function running(m: CanvasMap, t: CanvasTables): { running: Running; privateData: string[]; stray: string[]; rushed: string[] } {
+export function running(m: CanvasMap, t: CanvasTables): { running: Running; bill: BillLine[]; privateData: string[]; stray: string[]; rushed: string[] } {
   const sources = new Map(t.sources.map((s) => [s.id, s]))
   const workers = new Map(t.workers.map((w) => [w.id, w]))
   const models = new Map((t.models ?? []).map((x) => [x.id, x]))
@@ -64,16 +72,22 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; priv
   let complexity = 0
   let lines = 0
   let handoffs = 0
+  // A source in use is paid once, however many lines leave it.
+  const paidSources: string[] = []
   for (const ln of m.lines) {
     lines++
     if (ln.to === t.result.id) continue
     const s = sources.get(ln.from)
-    if (s) { srcIn.get(ln.to)!.push(ln.from); money += s.run ?? 0 }
-    else { wrkIn.get(ln.to)!.push(ln.from); handoffs++ }
+    if (s) {
+      srcIn.get(ln.to)!.push(ln.from)
+      if (!paidSources.includes(s.id)) { paidSources.push(s.id); money += s.run ?? 0 }
+    } else { wrkIn.get(ln.to)!.push(ln.from); handoffs++ }
   }
   const tainted = new Map<string, boolean>()
   const usedModels = new Set<string>()
   const usedCompute = new Set<string>()
+  const kindTiles = new Map<string, number>()
+  const callsAt = new Map<string, number>()
   const unprotected: string[] = []
   // Private data travels along the lines, so the tiles are walked in the order of the handoffs.
   const pairs: [string, string][] = []
@@ -83,24 +97,35 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; priv
     const tile = tiles.get(n)!
     const w = workers.get(tile.kind)!
     money += w.run ?? 0
+    kindTiles.set(w.id, (kindTiles.get(w.id) ?? 0) + 1)
     complexity += w.complexity ?? 0
     const dirty = srcIn.get(n)!.some((s) => !!sources.get(s)!.private_data) || wrkIn.get(n)!.some((u) => tainted.get(u))
     tainted.set(n, dirty)
     if (w.needs_model && tile.model && tile.runsOn) {
       const model = models.get(tile.model)!
       const comp = compute.get(tile.runsOn)!
-      money += (w.calls ?? 1) * (model.run ?? 0) * (comp.price_factor ?? 1)
+      const calls = (w.calls ?? 1) * (model.run ?? 0) * (comp.price_factor ?? 1)
+      money += calls
       usedModels.add(model.id)
       usedCompute.add(comp.id)
+      callsAt.set(comp.id, (callsAt.get(comp.id) ?? 0) + calls)
       if (dirty && !(comp.protects_private_data ?? true)) unprotected.push(n)
     }
   }
-  for (const c of usedCompute) money += compute.get(c)!.run_fixed ?? 0
+  const bill: BillLine[] = []
+  for (const c of usedCompute) {
+    const fixed = compute.get(c)!.run_fixed ?? 0
+    money += fixed
+    bill.push({ kind: 'calls', id: c, count: 1, money: callsAt.get(c) ?? 0 }, { kind: 'place', id: c, count: 1, money: fixed })
+  }
+  for (const [kind, count] of kindTiles) bill.push({ kind: 'worker', id: kind, count, money: count * (workers.get(kind)!.run ?? 0) })
+  for (const s of paidSources) bill.push({ kind: 'source', id: s, count: 1, money: sources.get(s)!.run ?? 0 })
   complexity += lines + handoffs
   complexity += Math.max(0, usedModels.size - 1) + Math.max(0, usedCompute.size - 1)
   const live = mapShape(m, t).live
   return {
     running: { money, minutes: peopleMinutes(m, t), complexity },
+    bill: bill.filter((b) => b.money > 0),
     privateData: unprotected.sort(),
     stray: [...tiles.keys()].filter((id) => !live.has(id)).sort(),
     rushed: overPools(m, t).filter((o) => o.rush).flatMap((o) => o.tiles).sort(),
@@ -288,7 +313,7 @@ export function evaluate(m: CanvasMap, t: CanvasTables, shownCases: readonly str
   }
   const listed = (t.notes ?? []).map((x) => x.id as NoteId).filter((id) => raised[id])
   const note = listed.find((id) => !shownNotes.includes(id)) ?? listed[0] ?? null
-  return { accuracy, unhurried, perCase, running: run.running, flags, missed, note, losses }
+  return { accuracy, unhurried, perCase, running: run.running, bill: run.bill, flags, missed, note, losses }
 }
 
 /** Who reads a source best among the tools and AI workers of a pack, with or without a tool in front. */

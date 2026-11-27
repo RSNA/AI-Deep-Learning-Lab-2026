@@ -1,7 +1,7 @@
 // Session state. Plain JSON data: no classes, maps, sets or dates (engineering spec, 6.1).
 import type { CanvasMap } from '@lab02/content-schema'
 import type { AckData, AvatarId, ColumnId, ErrorCode, InboxItem, Kind, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
-import type { Missed, NoteId, Running } from './canvas.ts'
+import type { BillLine, Missed, NoteId, Running } from './canvas.ts'
 
 export type PlayerId = string
 export type GameMs = number
@@ -122,6 +122,8 @@ export type PeriodScore = {
   value: number
   runCost: number
   fine: number
+  /** What the period cost, line by line: the two months of the map, upkeep of actions, fines. */
+  bill: BillLine[]
   components: RiskEntry[]
   worstPart: number | null
   events: EventLoss[]
@@ -141,6 +143,9 @@ export type MaintainingReport = PeriodScore & {
   /** Everything spent up to and with this report, and the score of the year after it. */
   spent: number
   score: number
+  /** Money that arrived with this report, and what the account held after its bill was paid. */
+  granted: number
+  account: number
 }
 
 export type MaintainingResult = { raw: number; score: number; mean: number; spent: number }

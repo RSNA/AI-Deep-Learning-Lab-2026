@@ -8,7 +8,7 @@ import {
 } from '@lab02/content-schema'
 import type { MaintainingContent, MaintainingReport as ReportView, MaintainingSpent, MaintainingView } from '@lab02/protocol'
 import type { HostInspect } from '@lab02/protocol/host'
-import { running as runningOf } from '../canvas.ts'
+import { running as runningOf, type BillLine } from '../canvas.ts'
 import { counts, lensHeld, year, type HeldAction } from '../maintain.ts'
 import {
   developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
@@ -85,6 +85,19 @@ function partLabel(b3: BuildFile, e: RiskEntry): string {
   }
 }
 
+/** A line of a bill in the words of the pack: what was paid for. */
+function billLabel(b3: BuildFile, x: BillLine): string {
+  const place = () => b3.compute.find((c) => c.id === x.id)?.public
+  switch (x.kind) {
+    case 'calls': return `${place()?.label ?? 'A place to run'}: model calls`
+    case 'place': return `${place()?.label ?? 'A place to run'}: ${place()?.bill_line ?? 'monthly cost'}`
+    case 'worker': return `${b3.workers.find((w) => w.id === x.id)?.public.label ?? 'A tile'}${x.count > 1 ? ` × ${x.count}` : ''}`
+    case 'source': return `${b3.sources.find((s) => s.id === x.id)?.public.label ?? 'A source'}: access`
+    case 'action': return b3.actions.find((a) => a.id === x.id)?.public.title ?? 'An action'
+    case 'fine': return 'Fine'
+  }
+}
+
 /** What happened to the part that failed most: the symptom of the event that added the risk, or the incident of the part. */
 function partText(mt: MaintainFile, e: RiskEntry): string | null {
   if (e.event !== null) return mt.events.find((x) => x.id === e.event)?.symptom ?? null
@@ -125,6 +138,8 @@ function reportView(f: Files, held: readonly HeldAction[], found: readonly strin
     map: r.map,
     validity: r.validity, test: r.test, reliability: r.reliability, interruptions: r.interruptions,
     value: r.value, off: r.off, runCost: r.runCost, fine: r.fine,
+    bill: r.bill.map((x) => ({ label: billLabel(b3, x), money: x.money })),
+    granted: r.granted, account: r.account,
     spent: r.spent, score: r.score,
     rank: rank.rank, of: rank.of,
     sentences: {
@@ -333,6 +348,8 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
   if (lenses > 0) good.push(`They look before they change: ${lenses} of the actions that make a report say more are done.`)
   const repaired = mt.events.filter((e) => e.from <= seen && counts(held, e.repaired_by, seen + 1, e.from) && e.reveal).map((e) => e.reveal!.title)
   if (repaired.length) good.push(`They repaired what broke: ${repaired.join(', ')}.`)
+  if (st.money < 0) holds.push('Their account is below zero, so they cannot buy anything. Every report takes the running cost of the map in service.')
+  if (st.money < 0 && last && last.runCost > 0) say.push('Ask which line of their last bill is the largest, and whether another place to run the models would cost less.')
   const start = mt.grants.reduce((sum, g) => sum + (g.round <= st.roundsOpened ? g.money : 0), 0)
   if (seen >= 3 && st.money > 0.6 * start && (last?.events.some((x) => x.hit) ?? false)) say.push('They still hold most of their money. Ask what the last report says is worth paying for.')
   if (run && b3.sources.length && st.adopted.length === 0 && run.origin !== 'reference') good.push('They run a map of their own.')

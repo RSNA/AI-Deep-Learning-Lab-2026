@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasMap } from '@lab02/protocol'
 import { sameLayout } from '../src/canvas/model.ts'
-import { P2, poolPeople, reach } from '../src/phase2/copy.ts'
+import { P2, money, poolPeople, reach, setMoneyUnit } from '../src/phase2/copy.ts'
 
 describe('the minutes of the people', () => {
   it('names the people of a pool, whatever the pack calls its minutes', () => {
@@ -32,6 +32,23 @@ describe('the minutes of the people', () => {
     expect(all).not.toMatch(/\bworkers?\b/i)
     expect(all).not.toMatch(/\bfacts\b/i)
     expect(all).not.toMatch(/\ba case\b/)
+  })
+})
+
+describe('money', () => {
+  it('says what a map costs to run a month and a year', () => {
+    setMoneyUnit('k$')
+    expect(P2.perMonth(3)).toBe('3.0 k$ a month, 36 k$ a year')
+    expect(P2.perMonth(0.3)).toBe('0.3 k$ a month, 4 k$ a year')
+    expect(P2.perMonth(0)).toBe('0.0 k$ a month, 0 k$ a year')
+  })
+  it('says why an action cannot be paid, also when the account is below zero', () => {
+    setMoneyUnit('k$')
+    expect(P2.needsMoney(8, 5)).toBe('Costs 8 k$, and you have 5 k$ left.')
+    expect(P2.needsMoney(8, -6)).toBe('Your account is below zero, so it cannot pay 8 k$.')
+    expect(money(-6)).toBe('−6')
+    expect(money(23.4)).toBe('23.4')
+    setMoneyUnit(null)
   })
 })
 

@@ -135,17 +135,17 @@ compute:
     price_factor: 1.0
     run_fixed: 0
   - id: ls-c-private
-    public: {label: Acorn private link, short: Private link, description: A link under a contract that keeps patron data safe., cost_line: "A little more per call, and a monthly fee."}
+    public: {label: Acorn private link, short: Private link, description: A link under a contract that keeps patron data safe., cost_line: "A little more per call, and a monthly fee.", bill_line: monthly fee}
     protects_private_data: true
     price_factor: 1.3
     run_fixed: 2
   - id: ls-c-rented
-    public: {label: Rented cloud GPUs, short: Rented GPUs, description: "GPUs rented by the hour from a cloud company. Safe, and ready at once.", cost_line: The highest monthly bill.}
+    public: {label: Rented cloud GPUs, short: Rented GPUs, description: "GPUs rented by the hour from a cloud company. Safe, and ready at once.", cost_line: The highest monthly bill., bill_line: rent}
     protects_private_data: true
     price_factor: 1.0
     run_fixed: 12
   - id: ls-c-owned
-    public: {label: District GPU server, short: Own server, description: A server in the district office that the district owns., cost_line: "Costly to buy, cheap to run."}
+    public: {label: District GPU server, short: Own server, description: A server in the district office that the district owns., cost_line: "Costly to buy, cheap to run.", bill_line: power and upkeep}
     protects_private_data: true
     price_factor: 0.2
     run_fixed: 1

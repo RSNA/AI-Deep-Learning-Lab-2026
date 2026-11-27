@@ -76,6 +76,9 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await expect(first.locator('.p3n-l')).toHaveText(['Validity', 'Reliability', 'Score of these two months'])
   // No map came out of Phase 2, so nothing ran: the report says so.
   await expect(first).toContainText('No map ran')
+  // The bill: nothing ran, so nothing was paid, and the report says what the account holds.
+  await expect(first.locator('.p3money')).toContainText('Nothing to pay. No system ran.')
+  await expect(first.locator('.p3money')).toContainText('Left in your account')
   await first.getByRole('button', { name: 'Back to the board' }).click()
   const refs = page.getByRole('dialog', { name: 'Reference maps' })
   await expect(refs).toBeVisible()
@@ -142,6 +145,9 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await expect(second).toContainText('Ran: Validation 1')
   await expect(second).toContainText('On the test set this map scored')
   await expect(second).toContainText('Every part that failed')
+  // A map ran these two months: its bill is listed line by line and paid from the account.
+  await expect(second.locator('.p3money .kv.part').first()).toBeVisible()
+  await expect(second.locator('.p3money')).toContainText('Paid from your account')
   await noErrorNames(page)
   await second.getByRole('button', { name: 'Back to the board' }).click()
   await expect(page.locator('.topbar .p3timer')).toContainText('Round 2 of 5')

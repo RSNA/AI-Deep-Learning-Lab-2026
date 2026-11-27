@@ -88,16 +88,19 @@ function YearPlay({ w, content }: { w: Welcome; content: MaintainingContent }) {
     seenLetters.current = letters.length
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [letters.length])
+  // Money that a report brings is said once, when that report arrives.
   const [grant, setGrant] = useState<number | null>(null)
-  const seenMoney = useRef(mv.money)
+  const seenReports = useRef(mv.reports.length)
   useEffect(() => {
-    const up = mv.money - seenMoney.current
-    seenMoney.current = mv.money
-    if (up <= 1e-9) return
+    const fresh = mv.reports.length > seenReports.current
+    seenReports.current = mv.reports.length
+    const up = mv.reports.at(-1)?.granted ?? 0
+    if (!fresh || up <= 0) return
     setGrant(up)
     const id = setTimeout(() => setGrant(null), 7000)
     return () => clearTimeout(id)
-  }, [mv.money])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mv.reports.length])
 
   // A validation of the same map says the same, unless a lens makes validations say more.
   const sameAs = (map: Parameters<typeof sameLayout>[0]) => {

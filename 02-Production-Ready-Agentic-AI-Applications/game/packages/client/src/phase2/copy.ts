@@ -7,7 +7,8 @@ const pct = (x: number) => `${Math.round(100 * x)}%`
 // The accuracy of a map, with one decimal: at the top the maps of a pack differ by less than a point.
 const acc1 = (x: number) => `${(Math.round(1000 * x) / 10).toFixed(1)}%`
 /** A sum of money: whole when it is whole, else two decimals below 10 and one above. */
-export const money = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: Math.abs(x) < 10 ? 2 : 1 }))
+/** A sum of money, with a true minus sign below zero. */
+export const money = (x: number) => (x < 0 ? '−' : '') + (Number.isInteger(x) ? Math.abs(x).toLocaleString('en-US') : Math.abs(x).toLocaleString('en-US', { maximumFractionDigits: 1 }))
 const num = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en-US') : x.toLocaleString('en-US', { maximumFractionDigits: 1 }))
 /** The unit of money of the pack, written after a sum. */
 let unit = ''
@@ -166,7 +167,11 @@ export const P2 = {
   leftS: (s: number) => `${secs(s)} left`,
   holds: (n: number) => `holds ${n}`,
   needsFirst: (title: string) => `Do “${title}” first.`,
-  needsMoney: (n: number, have: number) => `Costs ${moneyOf(n)}${unit || ' money'}, and you have ${moneyOf(Math.max(0, have))}${unit || ''} left.`,
+  needsMoney: (n: number, have: number) =>
+    have < 0
+      ? `Your account is below zero, so it cannot pay ${moneyOf(n)}${unit || ' money'}.`
+      : `Costs ${moneyOf(n)}${unit || ' money'}, and you have ${moneyOf(have)}${unit || ''} left.`,
+  belowZero: 'Your account is below zero. Nothing can be bought until it is positive again.',
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Said once, when a player has started this many actions.
   spendAfter: 4,
@@ -175,7 +180,7 @@ export const P2 = {
   spendOk: 'Got it',
   // Running and validating
   toRun: 'To run:',
-  perMonth: (x: number) => `${runCost(x)}${unit} a month`,
+  perMonth: (x: number) => `${runCost(x)}${unit} a month, ${money(Math.round(12 * x))}${unit} a year`,
   minutes: (label: string, used: number, max: number) => `${poolPeople(label)}: needs ${num(used)} min per patient, has ${num(max)}`,
   complexity: (n: number) => `complexity ${n}`,
   privateWarn: 'Private data goes through a service that does not protect it.',

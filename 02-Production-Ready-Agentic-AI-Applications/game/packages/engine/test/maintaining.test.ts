@@ -69,10 +69,13 @@ describe('the year opens', () => {
     expect(m.deployed).toBe('v1')
     expect(m.actionsDone).toEqual([{ id: 'rb-a-cards', atMs: expect.any(Number) as number, started: 0, done: 0 }])
     expect(m.paidPhase2).toBe(10)
-    // What was left of Phase 2 plus the grant of round 1.
-    expect(m.money).toBe(B.budget.money - 10 + M.grants.find((g) => g.round === 1)!.money)
     expect(m.reports).toHaveLength(1)
     const want = period(B3, M, 1, SMALL, [{ id: 'rb-a-cards', started: 0, done: 0 }])
+    // What was left of Phase 2 plus the grant of round 1, less the bill of the first report.
+    const grant = M.grants.find((g) => g.round === 1)!.money
+    expect(want.runCost).toBeGreaterThan(0)
+    expect(m.money).toBeCloseTo(B.budget.money - 10 + grant - want.runCost, 9)
+    expect(m.reports[0]).toMatchObject({ granted: grant, account: m.money })
     expect(m.reports[0]).toMatchObject({ period: 1, map: 'v1', validity: want.validity, reliability: want.reliability, value: want.value, atMs: t0 })
     expect(m.reports[0]!.validity).not.toBeCloseTo(m.reports[0]!.test, 6)   // a real year is not the test set
     // The news of round 1 is in the inbox, beside the letter that opens the phase.
@@ -128,13 +131,42 @@ describe('rounds and reports', () => {
     expect(st(s).reports).toHaveLength(6)
     expect(st(s).result).not.toBeNull()
   })
-  it('a grant lands at the start of its round', () => {
+  it('every report takes its bill from the account, and a grant lands with the report that opens its round', () => {
     const { s, t0 } = year()
     const before = st(s).money
     advance(s, pack, boundary(t0, 1))
-    expect(st(s).money).toBe(before)
+    const second = st(s).reports[1]!
+    expect(second.granted).toBe(0)
+    expect(st(s).money).toBeCloseTo(before - second.runCost - second.fine, 9)
     advance(s, pack, boundary(t0, 2))
-    expect(st(s).money).toBe(before + M.grants.find((g) => g.round === 3)!.money)
+    const third = st(s).reports[2]!
+    expect(third.granted).toBe(M.grants.find((g) => g.round === 3)!.money)
+    expect(st(s).money).toBeCloseTo(before - second.runCost - second.fine + third.granted - third.runCost - third.fine, 9)
+    expect(third.account).toBe(st(s).money)
+    // The bill is the running cost and the fines, line by line, and the view names every line.
+    for (const r of st(s).reports) expect(r.bill.reduce((sum, x) => sum + x.money, 0)).toBeCloseTo(r.runCost + r.fine, 9)
+    const shown = view(s).reports[2]!
+    expect(shown.bill.length).toBeGreaterThan(0)
+    expect(shown.bill.every((x) => x.label.length > 0 && x.money > 0)).toBe(true)
+    expect(shown).toMatchObject({ granted: third.granted, account: third.account })
+  })
+  it('an account below zero buys nothing, and the system keeps running', () => {
+    const { s, t0 } = year()
+    st(s).money = 0.5
+    advance(s, pack, boundary(t0, 1))
+    expect(st(s).money).toBeLessThan(0)
+    expect(st(s).reports[1]!.account).toBe(st(s).money)
+    expect(st(s).reports[1]!.noMap).toBe(false)
+    // An action that costs money and a reference map that needs something are refused.
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-testset' }, boundary(t0, 1) + 1))).toBe('not_enough_money')
+    expect(view(s).offers.find((o) => o.id === 'clerk')!.price).toBeGreaterThan(0)
+    expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, boundary(t0, 1) + 2))).toBe('not_enough_money')
+    // What costs nothing can still be done.
+    const free = B3.actions.find((a) => a.money === 0 && !st(s).actionsDone.some((d) => d.id === a.id) && a.requires.length === 0 && M.actions.find((x) => x.id === a.id)?.appears === undefined)!
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: free.id }, boundary(t0, 1) + 3))).toBe('ok')
+    // The next report is made and billed all the same.
+    advance(s, pack, boundary(t0, 2))
+    expect(st(s).reports).toHaveLength(3)
   })
   it('time that the facilitator adds makes more rounds, each closed by a report, past the planned year', () => {
     const { s, t0 } = year()
@@ -545,7 +577,7 @@ describe('a late player', () => {
     expect(m.paidPhase2).toBe(price)
     expect(m.paidAdoption).toBe(0)
     const grant = sys.maintain!.grants.filter((g) => g.round === 1).reduce((n, g) => n + g.money, 0)
-    expect(m.money).toBe(sys.build!.budget.money - price + grant)
+    expect(m.money).toBeCloseTo(sys.build!.budget.money - price + grant - m.reports[0]!.runCost, 9)
     // The first report is the report of that map, not of a practice with no system.
     expect(m.reports.map((r) => [r.period, r.noMap])).toEqual([[1, false]])
     // Taking the same reference map again is refused, like for anybody who holds it.

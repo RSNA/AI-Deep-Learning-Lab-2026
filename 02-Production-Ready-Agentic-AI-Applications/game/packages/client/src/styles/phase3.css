@@ -108,6 +108,11 @@
 .p3bar i { display: block; height: 100%; background: var(--go); }
 .p3bar.bad i { background: var(--fail, var(--bad)); }
 .p3money .kv { font-size: 14px; }
+.p3money .kv.part { color: var(--muted); }
+.p3money .kv.part .v, .p3money .kv.sum .v { font-size: 16px; }
+.p3money .kv.sum { font-weight: 800; }
+.p3money .kv.below .v, .p3below { color: var(--bad); }
+.p3below { margin: 2px 0 4px; font-size: 13px; font-weight: 800; line-height: 1.3; }
 .p3money .kv.total { border-bottom: 0; font-weight: 800; }
 .p3money .kv.total .v { font-size: 26px; }
 .p3rank { font-family: var(--text); font-size: 13px; font-weight: 800; color: var(--muted); }

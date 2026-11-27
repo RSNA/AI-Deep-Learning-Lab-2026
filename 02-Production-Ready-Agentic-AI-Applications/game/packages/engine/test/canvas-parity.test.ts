@@ -7,10 +7,11 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fromPackMap, mapErrors, readyReasons, type CanvasTables } from '@lab02/content-schema'
 import { evaluate } from '../src/canvas.ts'
+import { expectBill, type BillExpect } from './maintain-expect.ts'
 
 type Expect = {
   accepted: boolean; errors?: string[]; ready?: boolean; reasons?: string[]
-  accuracy?: number; unhurried?: number | null; per_case?: Record<string, number>; run_month?: number; minutes?: Record<string, number>
+  accuracy?: number; unhurried?: number | null; per_case?: Record<string, number>; run_month?: number; bill?: BillExpect[]; minutes?: Record<string, number>
   complexity?: number; raw?: number
   flags?: { private_data: string[]; overloaded: string[]; distracting: string[]; prompt: string[]; stray: string[]; rushed: string[] }
   missed?: { case: string; reason: string; fact: string | null } | null; note?: string | null
@@ -65,6 +66,8 @@ describe('parity: the canvas', () => {
         else expect(close(r.unhurried!, e.unhurried)).toBe(true)
         expect(sameNumbers(r.perCase, e.per_case!)).toBe(true)
         expect(close(r.running.money, e.run_month!)).toBe(true)
+        expectBill(r.bill, e.bill!, close)
+        expect(close(r.bill.reduce((sum, x) => sum + x.money, 0), r.running.money)).toBe(true)
         expect(sameNumbers(r.running.minutes, e.minutes!)).toBe(true)
         expect(r.running.complexity).toBe(e.complexity)
         expect({

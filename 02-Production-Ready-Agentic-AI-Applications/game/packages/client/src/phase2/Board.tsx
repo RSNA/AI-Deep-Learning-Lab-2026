@@ -94,7 +94,7 @@ export function Toast({ text, onShow, onClose }: { text: string; onShow?: () => 
 export function Purse({ dv, content, bar = false }: { dv: Pick<BoardView, 'money' | 'developers' | 'validationsLeft'>; content: Pick<BoardContent, 'rules'>; bar?: boolean }) {
   return (
     <div className="purse" aria-label={`${P2.money} ${dv.money}. ${P2.developers} ${P2.freeOf(dv.developers.free, dv.developers.total)}. ${P2.validations} ${P2.left(dv.validationsLeft)}`}>
-      <span className="pf"><span className="pl">{P2.money}</span><b className="num">{money(dv.money)}</b>{content.rules.moneyUnit && <span className="unit">{content.rules.moneyUnit}</span>}</span>
+      <span className={`pf${dv.money < 0 ? ' below' : ''}`} title={dv.money < 0 ? P2.belowZero : undefined}><span className="pl">{P2.money}</span><b className="num">{money(dv.money)}</b>{content.rules.moneyUnit && <span className="unit">{content.rules.moneyUnit}</span>}</span>
       <span className="pf"><span className="pl">{P2.developers}</span><span className="devs" aria-hidden="true">{Array.from({ length: dv.developers.total }, (_, i) => <i key={i} className={i < dv.developers.total - dv.developers.free ? 'held' : ''} />)}</span><b>{P2.freeOf(dv.developers.free, dv.developers.total)}</b></span>
       {!bar && <span className="pf" title={`${dv.validationsLeft} of ${content.rules.validations}`}><span className="pl">{P2.validations}</span><b>{P2.left(dv.validationsLeft)}</b></span>}
     </div>
@@ -502,7 +502,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     if (doneIds.has(a.id) && !a.repeat) return { ...base, state: 'done' }
     const first = a.requires.find((r) => !doneIds.has(r))
     if (first) return { ...base, ...again, state: 'blocked', blocked: P2.needsFirst(content.actions.find((x) => x.id === first)?.title ?? first) }
-    if (a.money > dv.money + 1e-9) return { ...base, ...again, state: 'blocked', blocked: P2.needsMoney(a.money, dv.money) }
+    if (a.money > 0 && a.money > dv.money + 1e-9) return { ...base, ...again, state: 'blocked', blocked: P2.needsMoney(a.money, dv.money) }
     if (a.developers > dv.developers.free) return { ...base, ...again, state: 'blocked', blocked: P2.needsDevs(a.developers, dv.developers.free) }
     return { ...base, ...again, state: 'ready' }
   })
@@ -772,7 +772,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
               {footer}
             </div>
           )}
-          {tab === 'actions' && <div className="p2pcol" data-tour="p2-actions"><Purse dv={dv} content={content} /><div className="bwline pad">{P2.moneyLine}</div>{actions}</div>}
+          {tab === 'actions' && <div className="p2pcol" data-tour="p2-actions"><Purse dv={dv} content={content} /><div className="bwline pad">{dv.money < 0 ? P2.belowZero : P2.moneyLine}</div>{actions}</div>}
           {tab === 'toolbox' && <div className="p2pcol" data-tour="p2-tools">{toolbox}</div>}
           {tab === 'year' && above && <div className="p2pcol pad">{above(api)}</div>}
           {tab === 'results' && <div className="p2pcol pad" data-tour="p2-below">{results(api)}{insights}</div>}
