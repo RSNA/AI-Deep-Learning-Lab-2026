@@ -1500,7 +1500,7 @@ map, at any moment of a round.
 | `maintaining.set_map {map}` | As `development.set_map`, on the build file of Phase 3 and what is unlocked | Replaces the draft. Refuses `invalid_map`, or `line_refused` with the line and the rule's words |
 | `maintaining.act {id}` | The action exists and has appeared (`unknown_action`, see "A year that grows"). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the money is there (`not_enough_money`) and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
 | `maintaining.validate {}` | No validation runs (`validation_running`), one is left of the count of `maintain.yaml` (`no_validations_left`), the draft is ready (`not_ready`) | After `validate.seconds` the copy of the draft joins the list with its result (below) |
-| `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once. Their price is not taken from the account: it is added to the money spent. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
+| `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once, as if the player had bought them. Their price is taken from the account as far as the account reaches (it never goes below zero, and nobody is refused the map for lack of money), and the whole price is added to the money spent. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
 | `maintaining.deploy {id or null}` | `id` is a map of the list (`unknown_validation`), or null | That map, or no map, runs from now on |
 
 **A validation in Phase 3** is scored on the tables of the build file of Phase 3, the test set,
@@ -2585,6 +2585,8 @@ type MaintainingView = {
   seen: number                                     // the reports held
   reports: MaintainingReport[]
   adopted: string[]                                // ids of the reference maps taken
+  offers: { id: string; buys: { title: Text; money: number }[]    // for each reference map not taken: what it would buy
+            price: number; pays: number }[]        // for this player now, its price, and what the account pays of it
   lenses: { freshTestSet: boolean; dryRun: boolean; incidentLog: boolean; caseMix: boolean
             driftAlarm: boolean }
   spent: MaintainingSpent
@@ -3755,12 +3757,15 @@ pass their own panels and words. Nothing of the board is copied.
   validation of Phase 3 also shows its failed case and its note. A line above the list says that
   what is deployed when the timer reaches zero runs for the next two months. "Run no map" asks
   first. A refused deployment says why in its row.
-- **Reference maps.** A sheet with one tab for each reference map of the pack: its label, its
-  accuracy on the test set, its summary and its drawing, and "Take this map" (`maintaining.adopt`),
-  which closes the sheet. A map that was taken says so. The sheet says that taking one costs no
-  validation, that what it needs and the player has not bought counts as money spent without
-  being taken from the account, and that a player can go back to their own map at any time. It
-  is reachable from the list of maps for the whole phase.
+- **Reference maps.** A sheet with the reference maps of the pack, with one tab for each when
+  there are several and no tabs for one: its label, its accuracy on the test set, its summary
+  and its drawing, and "Take this map" (`maintaining.adopt`), which closes the sheet. A map that
+  was taken says so. Before the press the sheet lists what the map needs and the player has not
+  bought, each with its price (`offers` of the view), and says what taking it costs: all of it
+  from the account, or, when the account holds less, what the account holds, with the rest
+  covered and the whole price counted as money spent. It says that taking the map costs no
+  validation and that a player can go back to their own map at any time. It is reachable from
+  the list of maps for the whole phase.
 - **Actions.** The groups of Phase 2 and those Phase 3 adds, in the order of the content. An
   action done in Phase 2 shows as done. An action with `repeat` that has finished can be started
   again: its button says so, and a quiet word under its title says how often it was done. An

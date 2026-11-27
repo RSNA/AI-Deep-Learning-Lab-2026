@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { fromPackMap, periodName, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
 import { advance, project, type SessionState } from '../src/index.ts'
 import { live, period } from '../src/maintain.ts'
+import { offerTitle } from '../src/project/maintaining.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
 
 const pack = demoPack()
@@ -314,18 +315,26 @@ describe('the five commands', () => {
     expect(v.reliability).toBeCloseTo(r.reliability, 12)                    // staging also spares the new map its teething troubles
     expect(r.components.some((c) => c.part === 'new_map')).toBe(false)
   })
-  it('adopt takes a reference map into the list, unlocks what it needs, counts the price and deploys it', () => {
+  it('adopt takes a reference map into the list, buys what it needs from the account and deploys it', () => {
     const { s, t0 } = year()
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'nope' }, t0))).toBe('unknown_id')
     const money = st(s).money
+    // The view says beforehand what the map would buy, at what price, and what the account pays.
+    const offer = view(s).offers.find((o) => o.id === 'clerk')!
+    const price = referenceMaps(B).find((r) => r.id === 'clerk')!.needsActions
+      .filter((id) => !st(s).actionsDone.some((d) => d.id === id)).reduce((sum, id) => sum + B.actions.find((a) => a.id === id)!.money, 0)
+    expect(price).toBeGreaterThan(0)
+    expect(offer).toMatchObject({ price, pays: price })
+    expect(offer.buys.map((n) => n.money).reduce((a, b) => a + b, 0)).toBe(price)
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('ok')
+    expect(view(s).offers.map((o) => o.id)).not.toContain('clerk')
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 2))).toBe('action_taken')
     const m = st(s)
     const ref = referenceMaps(B).find((r) => r.id === 'clerk')!
     expect(m.validations.at(-1)).toMatchObject({ id: 'r2', origin: 'reference', reference: 'clerk' })
     expect(m.deployed).toBe('r2')
-    expect(m.money).toBe(money)                                             // not taken from the account
-    expect(m.paidAdoption).toBe(ref.needsActions.reduce((sum, id) => sum + B.actions.find((a) => a.id === id)!.money, 0))
+    expect(m.money).toBe(money - price)                                     // bought from the account, as if the player had bought it
+    expect(m.paidAdoption).toBe(price)
     expect(m.actionsDone.filter((d) => ref.needsActions.includes(d.id)).every((d) => d.started === 1 && d.done === 1)).toBe(true)
     expect(view(s).unlocked).toEqual(expect.arrayContaining(['rb-s-mailbox', 'rb-c-private', 'rb-p-goal']))
     expect(view(s).validations.at(-1)).toMatchObject({ label: 'Map B', reference: 'clerk' })
@@ -338,6 +347,31 @@ describe('the five commands', () => {
     // An action it needed that the player had done is not paid twice.
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'lean' }, boundary(t0, 1) + 1))).toBe('ok')
     expect(m.paidAdoption).toBe(50)
+  })
+  it('a player who cannot pay for a reference map still gets it: the account pays what it holds and never goes below zero', () => {
+    const { s, t0 } = year()
+    st(s).money = 7
+    const offer = view(s).offers.find((o) => o.id === 'clerk')!
+    expect(offer.price).toBeGreaterThan(7)
+    expect(offer.pays).toBe(7)
+    expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('ok')
+    expect(st(s).money).toBe(0)
+    expect(st(s).paidAdoption).toBe(offer.price)                            // the whole price counts as money spent
+    expect(view(s).spent.adoption).toBe(offer.price)
+    // With an empty account an action that costs money is refused, and says why.
+    const paid = B3.actions.find((a) => a.money > 0 && !st(s).actionsDone.some((d) => d.id === a.id) && a.requires.every((r) => st(s).actionsDone.some((d) => d.id === r)))!
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: paid.id }, t0 + 2))).toBe('not_enough_money')
+    expect(st(s).money).toBe(0)
+  })
+  it('the offer names a purchase that is still hidden by what it gives, and never by the title of a hidden action', () => {
+    const { s } = year()
+    const p = s.players.p1!
+    // The server is hidden until the download is done. The download itself is on the board.
+    const hidden = B.actions.find((a) => a.id === 'rb-a-server')!
+    const open = B.actions.find((a) => a.id === 'rb-a-download')!
+    expect(offerTitle(pack, p, B3, hidden.id, hidden.public.title)).toBe(B.compute.find((c) => c.id === 'rb-c-owned')!.public.label)
+    expect(offerTitle(pack, p, B3, open.id, open.public.title)).toBe(open.public.title)
+    expect(JSON.stringify(view(s))).not.toContain(hidden.public.title)
   })
   it('a reference map taken with an empty canvas lands on the canvas too, and never replaces a draft', () => {
     const { s, t0 } = year()

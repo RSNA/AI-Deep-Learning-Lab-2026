@@ -81,7 +81,7 @@ export function MapsPanel({ mv, content, names, current, send, onLoad, onRefs, r
         </ol>
         {!readOnly && (
           <div className="p3mapfoot" data-tour="p3-refs">
-            <button type="button" className="btn small" onClick={onRefs} disabled={!content.references.length} title={content.references.length ? undefined : P3.refNone}>{P3.refOpen}</button>
+            <button type="button" className="btn small" onClick={onRefs} disabled={!content.references.length} title={content.references.length ? undefined : P3.refNone}>{P3.refOpen(content.references.length)}</button>
             {!content.references.length && <span className="hint">{P3.refNone}</span>}
             {mv.deployed && <button type="button" className="btn small text p3stop" onClick={() => setStopping(true)}>{P3.stopMap}</button>}
             {refused?.id === null && <div className="err irefused" role="alert">{refused.text}</div>}
@@ -118,8 +118,9 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
   const [refused, setRefused] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const r = refs[Math.min(at, refs.length - 1)]
-  if (!r) return <Sheet title={P3.refTitle} head="go" onClose={onClose}><p className="muted">{P3.refNone}</p></Sheet>
+  if (!r) return <Sheet title={P3.refTitle(0)} head="go" onClose={onClose}><p className="muted">{P3.refNone}</p></Sheet>
   const taken = mv.adopted.includes(r.id)
+  const offer = mv.offers.find((x) => x.id === r.id)
   const take = () => {
     setBusy(true)
     setRefused(null)
@@ -129,15 +130,17 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
     })
   }
   return (
-    <Sheet title={P3.refTitle} head="go" onClose={onClose} className="p3refs">
-      <p className="p3refs-intro">{P3.refIntro}</p>
-      <div className="seg p3refs-tabs" role="tablist">
-        {refs.map((x, i) => (
-          <button key={x.id} type="button" role="tab" aria-selected={i === at} aria-pressed={i === at} onClick={() => { setAt(i); setRefused(null) }}>
-            {x.label}{mv.adopted.includes(x.id) ? ' ✓' : ''}
-          </button>
-        ))}
-      </div>
+    <Sheet title={P3.refTitle(refs.length)} head="go" onClose={onClose} className="p3refs">
+      <p className="p3refs-intro">{P3.refIntro(refs.length)}</p>
+      {refs.length > 1 && (
+        <div className="seg p3refs-tabs" role="tablist">
+          {refs.map((x, i) => (
+            <button key={x.id} type="button" role="tab" aria-selected={i === at} aria-pressed={i === at} onClick={() => { setAt(i); setRefused(null) }}>
+              {x.label}{mv.adopted.includes(x.id) ? ' ✓' : ''}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="p3ref">
         <div className="p3ref-h">
           <div className="p3map-acc"><span className="num">{P2.acc1(r.accuracy)}</span><span className="face">{P3.accuracy}</span></div>
@@ -148,6 +151,18 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
         </div>
         <div className="gridscroll p3ref-map"><Grid v={v} map={r.map} flags={NO_FLAGS} compact words={gridWords} label={r.label} /></div>
       </div>
+      {/* What taking it buys, said before the press: the price, and what the account pays of it. */}
+      {offer && !taken && (
+        <div className="p3ref-price" data-price={offer.price}>
+          {offer.buys.length === 0 ? <p>{P3.refHasAll}</p> : (
+            <>
+              <div className="eyebrow">{P3.refNeeds}</div>
+              <ul>{offer.buys.map((n) => <li key={n.title}><span>{n.title}</span><span className="num">{P3.sum(n.money)}</span></li>)}</ul>
+              <p>{offer.pays >= offer.price ? P3.refPays(offer.price) : P3.refPaysPart(offer.price, offer.pays)}</p>
+            </>
+          )}
+        </div>
+      )}
       {refused && <div className="err" role="alert">{refused}</div>}
       <div className="sheet-actions">
         {taken ? <span className="p3map-is">✓ {P3.refTaken}</span> : <button type="button" className="btn go" disabled={busy} onClick={take}>{P3.refTake}</button>}

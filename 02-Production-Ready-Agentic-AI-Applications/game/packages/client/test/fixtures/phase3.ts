@@ -30,7 +30,8 @@ export const view = (over: Partial<MaintainingView> = {}): MaintainingView => ({
   map: map(1), ready: { ok: true, reasons: [], details: [] }, lineAdvice: [], tileMinutes: {}, rushed: [],
   flags: { stray: [], incomplete: [], privateData: [] }, running: null, validationsLeft: 6, validating: null,
   validations: [entry('v1', 'phase2'), entry('v2', 'phase2'), entry('r1', 'reference'), entry('v3', 'phase3')],
-  deployed: 'v1', round: { index: 1, of: 5, endsAtMs: 120_000 }, seen: 1, reports: [report(1)], adopted: ['lean'],
+  deployed: 'v1', round: { index: 1, of: 5, endsAtMs: 120_000 }, slots: [{ tick: 'Jan–Feb', mark: null }, { tick: 'Mar–Apr', mark: null }], next: { label: 'March and April', short: 'Mar–Apr' },
+  seen: 1, reports: [report(1)], adopted: ['lean'], offers: [],
   lenses: { freshTestSet: false, dryRun: false, incidentLog: false, caseMix: false, driftAlarm: false },
   spent: { phase2: 62, actions: 0, adoption: 0, running: 4.4, fines: 0, total: 66.4 }, score: 73.2, reveal: null, ...over,
 })

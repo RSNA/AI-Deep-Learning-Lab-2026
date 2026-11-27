@@ -5,7 +5,7 @@
 // ../maintain.ts.
 import {
   mapErrors, phase3Build, readyReasons, referenceMaps, ruledLines, startUnlocked,
-  type BuildFile, type CanvasMap, type MaintainFile, type Pack,
+  type BuildFile, type CanvasMap, type MaintainFile, type Pack, type ReferenceEntry,
 } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
 import { evaluate } from '../canvas.ts'
@@ -275,6 +275,22 @@ function startFromReference(pack: Pack, p: PlayerState, now: GameMs): void {
   st.deployed = 'r1'
 }
 
+/**
+ * What taking a reference map would buy for this player now: the actions it needs that are
+ * neither done nor running, their price, and what the account pays of it. The account never
+ * goes below zero: a player who cannot pay the whole price pays what the account holds, and the
+ * whole price counts as money spent all the same.
+ */
+export function referenceOffer(pack: Pack, p: PlayerState, ref: ReferenceEntry): { needs: { id: string; title: string; money: number }[]; price: number; pays: number } {
+  const st = p.maintaining!
+  const b3 = build3Of(pack, p)
+  const needs = ref.needsActions
+    .filter((id) => !st.actionsDone.some((d) => d.id === id) && !st.actionsRunning.some((r) => r.id === id))
+    .map((id) => { const a = b3.actions.find((x) => x.id === id); return { id, title: a?.public.title ?? id, money: a?.money ?? 0 } })
+  const price = needs.reduce((sum, n) => sum + n.money, 0)
+  return { needs, price, pays: Math.min(Math.max(0, st.money), price) }
+}
+
 export const maintaining: PhaseModule = {
   phase: 'maintaining',
   implemented: true,
@@ -447,14 +463,13 @@ export const maintaining: PhaseModule = {
       const ref = refs[index]
       if (!ref) return fail('unknown_id')
       if (st.adopted.includes(id)) return fail('action_taken')
-      // The items the map needs are unlocked without a wait. Their price is not taken from the
-      // account: it counts as money spent.
+      // What the map needs is bought at once, without a wait, as if the player had bought it:
+      // the account pays, as far as it reaches, and the whole price counts as money spent.
       const seen = st.reports.length
-      for (const need of ref.needsActions) {
-        if (st.actionsDone.some((d) => d.id === need) || st.actionsRunning.some((r) => r.id === need)) continue
-        st.actionsDone.push({ id: need, atMs: now, started: seen, done: seen })
-        st.paidAdoption += b3.actions.find((a) => a.id === need)?.money ?? 0
-      }
+      const offer = referenceOffer(pack, p, ref)
+      for (const need of offer.needs) st.actionsDone.push({ id: need.id, atMs: now, started: seen, done: seen })
+      st.money -= offer.pays
+      st.paidAdoption += offer.price
       const ev = evaluate(ref.map, b3)
       const vid = `r${index + 1}`
       st.validations.push({

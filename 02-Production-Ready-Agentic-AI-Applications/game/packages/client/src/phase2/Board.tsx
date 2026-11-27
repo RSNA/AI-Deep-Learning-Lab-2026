@@ -502,7 +502,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     if (doneIds.has(a.id) && !a.repeat) return { ...base, state: 'done' }
     const first = a.requires.find((r) => !doneIds.has(r))
     if (first) return { ...base, ...again, state: 'blocked', blocked: P2.needsFirst(content.actions.find((x) => x.id === first)?.title ?? first) }
-    if (a.money > dv.money + 1e-9) return { ...base, ...again, state: 'blocked', blocked: P2.needsMoney(a.money) }
+    if (a.money > dv.money + 1e-9) return { ...base, ...again, state: 'blocked', blocked: P2.needsMoney(a.money, dv.money) }
     if (a.developers > dv.developers.free) return { ...base, ...again, state: 'blocked', blocked: P2.needsDevs(a.developers, dv.developers.free) }
     return { ...base, ...again, state: 'ready' }
   })
