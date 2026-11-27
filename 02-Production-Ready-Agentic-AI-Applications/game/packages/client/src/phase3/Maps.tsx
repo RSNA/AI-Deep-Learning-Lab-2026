@@ -121,6 +121,8 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
   if (!r) return <Sheet title={P3.refTitle(0)} head="go" onClose={onClose}><p className="muted">{P3.refNone}</p></Sheet>
   const taken = mv.adopted.includes(r.id)
   const offer = mv.offers.find((x) => x.id === r.id)
+  // A map that costs more than the account holds cannot be taken, and the sheet says why.
+  const tooDear = !!offer && offer.price > mv.money + 1e-9
   const take = () => {
     setBusy(true)
     setRefused(null)
@@ -158,14 +160,15 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
             <>
               <div className="eyebrow">{P3.refNeeds}</div>
               <ul>{offer.buys.map((n) => <li key={n.title}><span>{n.title}</span><span className="num">{P3.sum(n.money)}</span></li>)}</ul>
-              <p>{offer.pays >= offer.price ? P3.refPays(offer.price) : P3.refPaysPart(offer.price, offer.pays)}</p>
+              <p className={tooDear ? 'p3ref-short' : undefined}>{tooDear ? P3.refTooDear(offer.price, mv.money) : P3.refPays(offer.price)}</p>
             </>
           )}
         </div>
       )}
       {refused && <div className="err" role="alert">{refused}</div>}
       <div className="sheet-actions">
-        {taken ? <span className="p3map-is">✓ {P3.refTaken}</span> : <button type="button" className="btn go" disabled={busy} onClick={take}>{P3.refTake}</button>}
+        {taken ? <span className="p3map-is">✓ {P3.refTaken}</span>
+          : <button type="button" className="btn go" disabled={busy || tooDear} title={tooDear && offer ? P3.refTooDearShort(offer.price, mv.money) : undefined} onClick={take}>{P3.refTake}</button>}
         <button type="button" className="btn" onClick={onClose}>{first && !mv.adopted.length ? P3.refKeep : P3.refClose}</button>
       </div>
     </Sheet>

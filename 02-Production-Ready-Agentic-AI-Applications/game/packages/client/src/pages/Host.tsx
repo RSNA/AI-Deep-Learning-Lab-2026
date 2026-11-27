@@ -3,7 +3,7 @@
 // concerns. One console controls the session at a time (section 7.10).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MODES, PHASES, PLAY_STAGES, STAGES, phaseOfStage, resetPhaseOf, type Clock, type GameConnection, type Mode, type SceneId } from '@lab02/protocol'
-import type { HostInspect, HostView, SessionRunning, SessionSummary, SoloOverview, SoloSummary } from '@lab02/protocol/host'
+import { SOLO_GATES, type HostInspect, type HostView, type SessionRunning, type SessionSummary, type SoloGate, type SoloOverview, type SoloSummary } from '@lab02/protocol/host'
 import { PHASE_NUMBER, STAGE_TITLE, players } from '../copy.ts'
 import { plainError } from '../lib/errors.ts'
 import { connect, hostFetch } from '../lib/net.ts'
@@ -184,6 +184,20 @@ function SoloPanel({ token, solo, reload }: { token: string; solo: SoloOverview;
     return true
   }
   const state = (s: SoloSummary) => (s.closed ? H.soloFinished : s.live ? H.soloPlayedNow : H.soloPaused)
+  // Who may start a game. A passcode of its own is typed here and saved with its button: the
+  // server keeps only its hash, so the field is empty again afterwards.
+  const [gateAt, setGateAt] = useState<SoloGate>(solo.gate)
+  const [newPass, setNewPass] = useState('')
+  const [saved, setSaved] = useState(false)
+  useEffect(() => { setGateAt(solo.gate) }, [solo.gate])
+  const pickGate = (g: SoloGate) => {
+    setSaved(false)
+    setGateAt(g)
+    if (g !== 'custom' && g !== solo.gate) void act('/api/host/solo', { gate: g })
+  }
+  const saveGate = async () => {
+    if (await act('/api/host/solo', { gate: 'custom', passcode: newPass })) { setNewPass(''); setSaved(true) }
+  }
   return (
     <section className="panel">
       <div className="panel-head sun">{H.solo}</div>
@@ -196,6 +210,25 @@ function SoloPanel({ token, solo, reload }: { token: string; solo: SoloOverview;
             ))}
           </div>
           <div className="hint">{H.soloLine}</div>
+        </div>
+        <div className="sologate">
+          <div className="lbl" id="solo-gate">{H.soloGateTitle}</div>
+          <div className="modes" role="radiogroup" aria-labelledby="solo-gate">
+            {SOLO_GATES.map((g) => (
+              <button key={g} type="button" role="radio" aria-checked={gateAt === g} className={gateAt === g ? 'on' : ''} onClick={() => pickGate(g)}>{H.soloGate[g]}</button>
+            ))}
+          </div>
+          <div className="hint">{H.soloGateLine[gateAt]}</div>
+          {gateAt === 'custom' && (
+            <form className="sologate-new" onSubmit={(e) => { e.preventDefault(); void saveGate() }}>
+              <label className="lbl" htmlFor="solo-gate-pass">{H.soloGateNew}</label>
+              <div className="sologate-row">
+                <input id="solo-gate-pass" className="field" autoComplete="off" maxLength={200} value={newPass} onChange={(e) => { setNewPass(e.target.value); setSaved(false) }} />
+                <button type="submit" className="btn" disabled={busy || newPass.trim().length < 6} title={newPass.trim().length < 6 ? H.soloGateWhy : undefined}>{H.soloGateSave}</button>
+              </div>
+              {saved && <div className="good" role="status">{H.soloGateSaved}</div>}
+            </form>
+          )}
         </div>
         <div style={{ fontWeight: 700 }}>{H.soloCounts(solo.total, solo.finished, solo.unfinished, solo.live, solo.cap)}</div>
         {err && !deleting && !all && <div className="err" role="alert">{err}</div>}

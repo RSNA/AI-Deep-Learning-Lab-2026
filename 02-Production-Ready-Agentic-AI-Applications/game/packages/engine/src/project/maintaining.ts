@@ -274,7 +274,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     adopted: [...st.adopted],
     offers: referenceMaps(b).filter((r) => !st.adopted.includes(r.id)).map((r) => {
       const o = referenceOffer(pack, p, r)
-      return { id: r.id, buys: o.needs.map((n) => ({ title: offerTitle(pack, p, b3, n.id, n.title), money: n.money })), price: o.price, pays: o.pays }
+      return { id: r.id, buys: o.needs.map((n) => ({ title: offerTitle(pack, p, b3, n.id, n.title), money: n.money })), price: o.price }
     }),
     lenses: { freshTestSet: lens('fresh_test_set'), dryRun: lens('dry_run'), incidentLog: lens('incident_log'), caseMix: lens('case_mix'), driftAlarm: lens('drift_alarm') },
     spent: spentView(st),

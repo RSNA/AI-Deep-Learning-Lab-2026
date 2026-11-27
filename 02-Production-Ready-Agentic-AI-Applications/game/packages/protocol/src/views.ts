@@ -424,9 +424,9 @@ export const MaintainingView = S({
   reports: z.array(MaintainingReport),
   adopted: z.array(z.string()),     // ids of the reference maps taken
   // What taking each reference map would buy for this player now: what it needs and the player
-  // does not have, the price of that, and how much of the price the account pays (all of it,
-  // or what the account holds). The whole price counts as money spent.
-  offers: z.array(S({ id: z.string(), buys: z.array(S({ title: Text, money: z.number() })), price: z.number(), pays: z.number() })),
+  // does not have, and the price of that. The account pays all of it, and a player whose
+  // account holds less than the price cannot take the map.
+  offers: z.array(S({ id: z.string(), buys: z.array(S({ title: Text, money: z.number() })), price: z.number() })),
   lenses: S({ freshTestSet: z.boolean(), dryRun: z.boolean(), incidentLog: z.boolean(), caseMix: z.boolean(), driftAlarm: z.boolean() }),
   spent: MaintainingSpent,
   score: z.number(),                // the score of the year so far

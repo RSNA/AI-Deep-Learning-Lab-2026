@@ -202,7 +202,8 @@ async function room(): Promise<{ code: string; lost: number; unscored: number }>
 // ------------------------------------------------------------------------------------------
 /** One game from its start to its report card. The player moves it on, and ends each phase after a while. */
 async function solo(n: number): Promise<'done' | string> {
-  const r = await api.solo({ name: `Solo load ${String(n).padStart(3, '0')}` })
+  // The passcode of the facilitators opens a single-player game unless the server was told otherwise.
+  const r = await api.solo({ name: `Solo load ${String(n).padStart(3, '0')}`, passcode: PASS })
   if (!r.ok) return `start:${r.error}`
   const bot = player(r.data.token, { playerId: r.data.playerId, rejoinCode: r.data.rejoinCode })
   const playFor = Math.max(4000, 60_000 / SCALE)

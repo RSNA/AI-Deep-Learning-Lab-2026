@@ -113,10 +113,9 @@ export const P3 = {
   refHasAll: 'You already have everything it needs. Taking it costs nothing.',
   refNeeds: 'It needs what you have not bought yet',
   refPays: (price: number) => `Taking it buys all of this for ${sum(price)} from your account.`,
-  refPaysPart: (price: number, pays: number) =>
-    pays > 0
-      ? `Together this costs ${sum(price)}. Your account holds ${sum(pays)}, so it pays that and is empty afterwards. The partners cover the rest, and all ${sum(price)} count as money spent.`
-      : `Together this costs ${sum(price)}. Your account is empty, so the partners cover it, and all ${sum(price)} count as money spent.`,
+  refTooDear: (price: number, have: number) =>
+    `Together this costs ${sum(price)}, and your account holds ${sum(Math.max(0, have))}. You cannot take the map yet. Buy the parts you can afford from the list of actions, and come back when the rest fits. The map stays here.`,
+  refTooDearShort: (price: number, have: number) => `Costs ${sum(price)}, and you have ${sum(Math.max(0, have))} left`,
   refKeep: 'Keep my own map',
   refClose: 'Close',
   refNone: 'This game offers no reference map.',

@@ -15,7 +15,7 @@ import {
   CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, ReportCard, ResultBody, ResultsBody, Review, SoloBody, normalizeCode,
   type GameSummary, type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
-import { CreateSessionBody, HostCmdEnvelope, HostDeck, RenameSessionBody, type SessionSummary, type SoloOverview } from '@lab02/protocol/host'
+import { CreateSessionBody, HostCmdEnvelope, HostDeck, RenameSessionBody, SoloGate, type SessionSummary, type SoloOverview } from '@lab02/protocol/host'
 import { hashToken, newToken, samePasscode } from './auth.ts'
 import { configFromEnv, type Config } from './config.ts'
 import { Storage } from './db.ts'
@@ -129,7 +129,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const rule = pack.game.join.practice_name
     return {
       session: room ? { code: room.code, label: room.state.label, title: pack.game.game.title } : null,
-      solo: manager.soloEnabled(), title: pack.game.game.title, nameRule: { min: rule.min_chars, max: rule.max_chars },
+      solo: manager.soloEnabled(), soloPasscode: manager.soloGate().mode !== 'none', title: pack.game.game.title, nameRule: { min: rule.min_chars, max: rule.max_chars },
     }
   })
 
@@ -183,6 +183,23 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     soloByAddress.set(address, [...times, now])
     return true
   }
+  // The passcode of a single-player game. A wrong one delays the next attempt by a second
+  // more, up to 30, with a count of its own: guessing here never slows a facilitator's sign-in.
+  let soloFailures = 0
+  let nextSoloAt = 0
+  const soloPasscodeOk = async (given: string | undefined): Promise<boolean> => {
+    const gate = manager.soloGate()
+    if (gate.mode === 'none') return true
+    const wait = nextSoloAt - config.wallNow()
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+    const ok = typeof given === 'string' && (gate.mode === 'facilitator' ? samePasscode(given, config.hostPasscode) : samePasscode(hashToken(given.trim()), gate.hash ?? ''))
+    if (ok) soloFailures = 0
+    else {
+      soloFailures++
+      nextSoloAt = config.wallNow() + Math.min(30, soloFailures) * 1000
+    }
+    return ok
+  }
   fastify.post('/api/solo', async (req, reply) => {
     const body = SoloBody.safeParse(req.body)
     if (!body.success) return bad(reply, 400, 'bad_message')
@@ -190,6 +207,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const named = checkName(body.data.name, pack.game.join.practice_name, () => false)
     if (!named.ok) return bad(reply, 400, named.error)
     if (!soloLimit() || !addressAllowed(req.ip)) return bad(reply, 429, 'rate_limited')
+    if (!(await soloPasscodeOk(body.data.passcode))) return bad(reply, 401, 'wrong_passcode')
     const made = manager.createSolo(named.name)
     if (!made.ok) return bad(reply, 503, made.error)
     const r = made.room.join(named.name, body.data.avatar)
@@ -394,7 +412,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     // Single-player games are many, so the console gets their numbers and the newest fifty.
     const counts = db.soloCounts()
     const solo: SoloOverview = {
-      enabled: manager.soloEnabled(), total: counts.total, finished: counts.finished, unfinished: counts.total - counts.finished,
+      enabled: manager.soloEnabled(), gate: manager.soloGate().mode, total: counts.total, finished: counts.finished, unfinished: counts.total - counts.finished,
       live: manager.soloLive(), cap: config.soloMax,
       recent: db.soloRecent(50).map((row) => ({ code: row.code, name: row.created_by, createdAt: row.created, closed: row.closed !== null, live: !!manager.get(row.code) })),
     }
@@ -437,13 +455,19 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     return { ok: true }
   })
 
-  // Single-player games: the switch, and the cleanup of all of them at once (section 7.2).
+  // Single-player games: the switch, who may start one, and the cleanup of all of them at once
+  // (section 7.2). A passcode of its own has six characters or more, and only its hash is kept.
   fastify.post('/api/host/solo', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
-    const enabled = (req.body as { enabled?: unknown } | null)?.enabled
-    if (typeof enabled !== 'boolean') return bad(reply, 400, 'bad_message')
-    manager.setSoloEnabled(enabled)
-    return { enabled }
+    const b = (req.body ?? {}) as { enabled?: unknown; gate?: unknown; passcode?: unknown }
+    const gate = b.gate === undefined ? null : SoloGate.safeParse(b.gate)
+    if ((b.enabled === undefined && gate === null) || (b.enabled !== undefined && typeof b.enabled !== 'boolean') || (gate !== null && !gate.success)) return bad(reply, 400, 'bad_message')
+    if (gate?.success && gate.data === 'custom') {
+      if (typeof b.passcode !== 'string' || b.passcode.trim().length < 6 || b.passcode.length > 200) return bad(reply, 400, 'passcode_short')
+      manager.setSoloGate('custom', hashToken(b.passcode.trim()))
+    } else if (gate?.success) manager.setSoloGate(gate.data)
+    if (typeof b.enabled === 'boolean') manager.setSoloEnabled(b.enabled)
+    return { enabled: manager.soloEnabled(), gate: manager.soloGate().mode }
   })
   fastify.post('/api/host/solo/delete-all', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')

@@ -1000,6 +1000,7 @@ exports[`outgoing types > OpenSession 1`] = `
   "session.label",
   "session.title",
   "solo",
+  "soloPasscode",
   "title",
 ]
 `;
@@ -1285,7 +1286,6 @@ exports[`outgoing types > PlayerView 1`] = `
   "maintaining.offers.[].buys.[].money",
   "maintaining.offers.[].buys.[].title",
   "maintaining.offers.[].id",
-  "maintaining.offers.[].pays",
   "maintaining.offers.[].price",
   "maintaining.ready",
   "maintaining.ready.details",
@@ -1979,6 +1979,7 @@ exports[`outgoing types > SoloOverview 1`] = `
   "cap",
   "enabled",
   "finished",
+  "gate",
   "live",
   "recent",
   "recent.[].closed",
@@ -2373,7 +2374,6 @@ exports[`outgoing types > Welcome 1`] = `
   "view.maintaining.offers.[].buys.[].money",
   "view.maintaining.offers.[].buys.[].title",
   "view.maintaining.offers.[].id",
-  "view.maintaining.offers.[].pays",
   "view.maintaining.offers.[].price",
   "view.maintaining.ready",
   "view.maintaining.ready.details",

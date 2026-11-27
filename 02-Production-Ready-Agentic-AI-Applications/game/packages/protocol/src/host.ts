@@ -244,8 +244,15 @@ export type SessionRunning = z.infer<typeof SessionRunning>
  */
 export const SoloSummary = S({ code: z.string(), name: Text, createdAt: z.number(), closed: z.boolean(), live: z.boolean() })
 export type SoloSummary = z.infer<typeof SoloSummary>
+/**
+ * Who may start a single-player game: whoever knows the facilitator passcode (the default),
+ * whoever knows a passcode of its own, or anybody.
+ */
+export const SOLO_GATES = ['facilitator', 'custom', 'none'] as const
+export const SoloGate = z.enum(SOLO_GATES)
+export type SoloGate = z.infer<typeof SoloGate>
 export const SoloOverview = S({
-  enabled: z.boolean(), total: Int, finished: Int, unfinished: Int, live: Int, cap: Int,
+  enabled: z.boolean(), gate: SoloGate, total: Int, finished: Int, unfinished: Int, live: Int, cap: Int,
   recent: z.array(SoloSummary),     // the newest fifty
 })
 export type SoloOverview = z.infer<typeof SoloOverview>
