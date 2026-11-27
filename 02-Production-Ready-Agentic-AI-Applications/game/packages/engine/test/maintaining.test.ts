@@ -555,6 +555,28 @@ describe('a late player', () => {
   })
 })
 
+describe('the leaderboard on a slide', () => {
+  it('names the first players once a phase is scored, the first few large, and is final after the last phase', () => {
+    const fresh = newSession()
+    join(fresh, 'p1', 'Alpha Branch', 0)
+    const at = project.hostDeck(fresh, pack).slides.findIndex((x) => x.slide.id === 'maintaining-0')
+    expect(at).toBeGreaterThan(0)
+    // Before a phase is scored nobody is named.
+    expect(project.slideView(fresh, pack, at)!.standings).toEqual({ final: false, highlight: 3, rows: [] })
+    expect(project.slideView(fresh, pack, 0)!.standings).toBeNull()
+    const { s, t0 } = year()
+    let st = project.slideView(s, pack, at)!.standings!
+    expect(st.final).toBe(false)
+    expect(st.rows.map((r) => r.rank)).toEqual([1, 2, 3])
+    host(s, 'end_now', {}, t0 + 5000)
+    st = project.slideView(s, pack, at)!.standings!
+    expect(st.final).toBe(true)
+    expect(st.rows).toHaveLength(3)
+    expect(st.rows.map((r) => r.value)).toEqual([...st.rows.map((r) => r.value)].sort((a, b) => b - a))
+    expect(st.rows[0]).toMatchObject({ rank: 1, name: expect.any(String), avatar: expect.any(String) })
+  })
+})
+
 describe('the host and the projector', () => {
   it('the host sees the year beside the key, with a few lines on what holds the player back', () => {
     const { s, t0 } = year()

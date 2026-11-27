@@ -169,3 +169,38 @@
 /* A small slide on the host console */
 .sl-thumb { overflow: hidden; border: 3px solid var(--line); background: var(--bg); color: var(--ink); flex-shrink: 0; pointer-events: none; }
 .sl-thumb.plain { border: 0; }
+
+/* The leaderboard on a slide (layout `standings`): the first few players large and side by side,
+   the others in a list beside them. */
+.sl-stand { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); column-gap: calc(44 * var(--u)); row-gap: calc(12 * var(--u)); align-items: stretch; }
+.sl-stand.only-top { grid-template-columns: minmax(0, 1fr); }
+.sl-stand.empty { display: flex; align-items: center; justify-content: center; border: calc(4 * var(--u)) dashed var(--soft); color: var(--muted); font-size: calc(36 * var(--u)); font-weight: 800; }
+.sl-stand-top { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(24 * var(--u)); align-items: end; }
+.sl-stand-top.n1 { grid-template-columns: minmax(0, 1fr); }
+.sl-stand-top.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sl-stand-top.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sl-stand-top.n5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sl-stand-big {
+  display: flex; flex-direction: column; align-items: center; gap: calc(10 * var(--u)); min-width: 0; text-align: center;
+  padding: calc(18 * var(--u)) calc(14 * var(--u)) calc(22 * var(--u)); background: var(--panel);
+  border: calc(4 * var(--u)) solid var(--line); box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--shade);
+}
+/* The winner stands a little taller, on the color of a first place. */
+.sl-stand-big.r1 { background: var(--sun-bg); padding-top: calc(40 * var(--u)); padding-bottom: calc(44 * var(--u)); }
+.sl-stand-big.r2 { padding-top: calc(28 * var(--u)); padding-bottom: calc(30 * var(--u)); }
+.sl-stand-big .rk { font-family: var(--face); font-size: calc(80 * var(--u)); line-height: 1; }
+.sl-stand-big .px { width: calc(132 * var(--u)); height: calc(132 * var(--u)); }
+/* Room under the letters, so that no descender of a name is cut where the two-line limit hides the rest. */
+.sl-stand-big .nm { font-size: calc(38 * var(--u)); font-weight: 800; line-height: 1.3; padding-bottom: calc(3 * var(--u)); overflow-wrap: anywhere; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sl-stand-big .pt { font-size: calc(26 * var(--u)); font-weight: 700; color: var(--muted); }
+.sl-stand-big .pt b { font-size: calc(44 * var(--u)); color: var(--ink); }
+.sl-stand-rest { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(9 * var(--u)); min-width: 0; }
+.sl-stand-rest li {
+  display: grid; grid-template-columns: calc(54 * var(--u)) calc(46 * var(--u)) minmax(0, 1fr) auto; align-items: center; gap: calc(16 * var(--u));
+  padding: calc(7 * var(--u)) calc(18 * var(--u)); background: var(--panel); border: calc(3 * var(--u)) solid var(--line);
+  font-size: calc(31 * var(--u)); font-weight: 800; line-height: 1.2;
+}
+.sl-stand-rest .rk { text-align: right; color: var(--muted); }
+.sl-stand-rest .px { width: calc(46 * var(--u)); height: calc(46 * var(--u)); }
+.sl-stand-rest .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-stand-note { grid-column: 1 / -1; font-size: calc(24 * var(--u)); font-weight: 700; color: var(--muted); }

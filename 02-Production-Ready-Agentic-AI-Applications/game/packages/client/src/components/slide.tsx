@@ -5,7 +5,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import type { SlideView } from '@lab02/protocol'
-import { SystemShape } from './ui.tsx'
+import { Avatar, SystemShape } from './ui.tsx'
 
 /** The slide area of the projector: the screen without the header and the street. */
 export const SLIDE_W = 1920
@@ -55,6 +55,45 @@ function Chart({ ch }: { ch: SlideView['charts'][number] }) {
           <span className="v num">{b.value === null ? '–' : `${Math.round(b.value)}%`}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * The leaderboard of the game: the first few players large, side by side, and the others in a
+ * list beside them. Before a phase is scored it is a frame that says when it fills in.
+ */
+function Standings({ sl }: { sl: SlideView }) {
+  const st = sl.standings
+  if (!st) return null
+  if (!st.rows.length) return <div className="sl-stand empty">The names appear when the first phase is scored.</div>
+  const top = st.rows.slice(0, st.highlight)
+  const rest = st.rows.slice(st.highlight)
+  return (
+    <div className={`sl-stand${rest.length ? '' : ' only-top'}`}>
+      <div className={`sl-stand-top n${top.length}`}>
+        {top.map((r) => (
+          <div key={`${r.rank}-${r.name}`} className={`sl-stand-big r${r.rank}`}>
+            <span className="rk num">{r.rank}</span>
+            <Avatar id={r.avatar} size={96} />
+            <span className="nm">{r.name}</span>
+            <span className="pt"><b className="num">{Math.round(r.value).toLocaleString('en-US')}</b> points</span>
+          </div>
+        ))}
+      </div>
+      {rest.length > 0 && (
+        <ol className="sl-stand-rest">
+          {rest.map((r) => (
+            <li key={`${r.rank}-${r.name}`}>
+              <span className="rk num">{r.rank}</span>
+              <Avatar id={r.avatar} size={40} />
+              <span className="nm">{r.name}</span>
+              <span className="pt num">{Math.round(r.value).toLocaleString('en-US')}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!st.final && <div className="sl-stand-note">The standings so far. The last phase is not scored yet.</div>}
     </div>
   )
 }
@@ -170,6 +209,16 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
         <div className="sl-main">
           <div className="sl-col">
             <Figures sl={sl} />
+            <Bullets items={sl.bullets} small />
+          </div>
+        </div>
+      )
+      break
+    case 'standings':
+      main = (
+        <div className="sl-main">
+          <div className="sl-col">
+            <Standings sl={sl} />
             <Bullets items={sl.bullets} small />
           </div>
         </div>

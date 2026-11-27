@@ -198,9 +198,21 @@
 .cgrid.compact .csource { grid-template-columns: minmax(0, 1fr) auto; padding: 1px 10px 1px 4px; }
 .cgrid.compact .csource > .cicon { display: none; }
 .cgrid.compact .csource .cs-name { font-size: 10px; }
-.cgrid.compact .ct-mini { font-size: 9.5px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; color: var(--ink); }
+/* The three parts of an agent on a small map, each on a line of its own with its name in front:
+   "Model: Jenson Mini", "Runs on: Private link", "Prompt: Steps". A value that is too long for
+   the tile is cut with three dots, and the whole of it is in the hover. */
+.cgrid.compact .ct-mini { display: flex; gap: 3px; align-items: baseline; padding: 0 1px; font-size: 9.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; color: var(--ink); min-width: 0; }
+.cgrid.compact .ct-mini span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cgrid.compact .ct-mini.missing { color: var(--bad); }
-.cgrid.compact .ctile { gap: 0; }
+.cgrid.compact .ctile { gap: 0; container-type: inline-size; }
+.cgrid.compact .ctile.k-ai { padding-bottom: 3px; }
+.cgrid.compact .ct-head { margin-bottom: 2px; }
+/* A map with agents on it gets rows that hold a name and three lines. */
+.cgrid.compact:has(.ct-mini) { grid-template-rows: minmax(14px, auto) repeat(var(--rows), minmax(56px, 1fr)); }
+.ct-what { font-style: normal; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+/* A tile too narrow for the names of the parts shows the values alone. */
+@container (max-width: 92px) { .cgrid.compact .ct-mini .ct-what { display: none; } }
+
 
 /* The foot of the map: what it takes to run in one line, and under it Validate with its sentence. */
 .mapfoot { flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; padding: 3px 10px 5px; border-top: 2px solid var(--soft); }

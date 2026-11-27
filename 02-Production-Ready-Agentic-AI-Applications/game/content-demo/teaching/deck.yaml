@@ -66,6 +66,13 @@ sections:
     title: After Phase 3
     stage: break.maintaining
     slides:
+      # The leaderboard of the game on a slide: the names come from the session.
+      - id: maintaining-0
+        layout: standings
+        title: The top of the room
+        subtitle: The points of all phases, added up.
+        standings: {rows: 10, highlight: 3}
+        notes: Call the first three by name.
       - id: maintaining-1
         title: Systems drift
         bullets:

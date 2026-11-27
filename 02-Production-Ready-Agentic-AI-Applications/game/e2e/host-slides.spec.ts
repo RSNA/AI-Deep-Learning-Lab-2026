@@ -35,11 +35,11 @@ test('the host looks through the deck without showing it, then shows one slide',
   await expect(page.locator('.sessbar .chip.good')).toHaveText('You are in charge')
   await page.getByRole('button', { name: /^Next:/ }).click()
   await expect(projectorSlide(screen)).toHaveText('1')
-  await expect(playerSlide(pp)).toContainText('Slide 1 of 9')
+  await expect(playerSlide(pp)).toContainText('Slide 1 of 10')
 
   // The look follows the shown slide, with its notes.
   const look = page.locator('.looker')
-  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 1 of 9')
+  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 1 of 10')
   await expect(look.locator('.notes')).toContainText('Wait until most people have joined')
   await expect(look.getByRole('button', { name: 'Show this slide' })).toBeDisabled()
 
@@ -50,9 +50,9 @@ test('the host looks through the deck without showing it, then shows one slide',
   await page.locator('body').press('Shift+ArrowRight')
   await expect(look.locator('.looknav .slidecount')).toHaveText('Looking at 3 · Shown 1')
   await expect(look.getByText('The room still sees slide 1.')).toBeVisible()
-  await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 9')
+  await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 1 of 10')
   await expect(projectorSlide(screen)).toHaveText('1')
-  await expect(playerSlide(pp)).toContainText('Slide 1 of 9')
+  await expect(playerSlide(pp)).toContainText('Slide 1 of 10')
   // The shown slide carries its tag in the strip of the deck.
   await expect(look.locator('.stripbtn.shown')).toHaveCount(1)
   await expect(look.locator('.stripbtn.shown .stripnum')).toContainText('1')
@@ -60,16 +60,16 @@ test('the host looks through the deck without showing it, then shows one slide',
 
   // Back to the shown slide, and out again from the strip.
   await look.getByRole('button', { name: 'Back to the shown slide' }).click()
-  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 1 of 9')
+  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 1 of 10')
   await look.getByRole('button', { name: 'Look at slide 3' }).click()
   await expect(look.locator('.looknav .slidecount')).toHaveText('Looking at 3 · Shown 1')
 
   // Show this slide: the projector and the players' screens move, and the look follows again.
   await look.getByRole('button', { name: 'Show this slide' }).click()
   await expect(projectorSlide(screen)).toHaveText('3')
-  await expect(playerSlide(pp)).toContainText('Slide 3 of 9')
-  await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 3 of 9')
-  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 3 of 9')
+  await expect(playerSlide(pp)).toContainText('Slide 3 of 10')
+  await expect(page.locator('.slidenav .slidecount')).toHaveText('Slide 3 of 10')
+  await expect(look.locator('.looknav .slidecount')).toHaveText('Slide 3 of 10')
 
   // A slide of a later part: Show this slide asks first, and Cancel keeps the room where it is.
   await look.getByLabel('Look at a section').selectOption({ label: 'After Phase 1' })
