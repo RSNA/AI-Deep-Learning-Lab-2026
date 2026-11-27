@@ -12,9 +12,9 @@
 
 ## Faculty
 
-- **Moderator:** Ali Ganjizadeh, MD MBA — HOPPR
-- **Presenter:** Kalina Slavkova, PhD — HOPPR
-- **Presenter:** Julie Bauml, MD — HOPPR
+- **Moderator:** Ali Ganjizadeh, MD MBA — Elucid Biomedical; Mayo Clinic
+- **Presenter:** Kalina Slavkova, PhD — Protege
+- **Presenter:** Julie Bauml, MD — 4DMedical; Imagen; Vanderbilt
 
 ## Overview
 
