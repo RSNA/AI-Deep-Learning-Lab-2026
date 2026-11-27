@@ -26,6 +26,8 @@ describe('outgoing types', () => {
     PlayerView: P.PlayerView, Welcome: P.Welcome, ScreenView: P.ScreenView, Standing: P.Standing,
     Clock: P.Clock, PlanningContent: P.PlanningContent, Moment: P.Moment, HostView: H.HostView,
     HostInspect: H.HostInspect, HostDeck: H.HostDeck,
+    GameSummary: P.GameSummary, OpenSession: P.OpenSession, SessionPublic: P.SessionPublic,
+    SessionRunning: H.SessionRunning, SoloOverview: H.SoloOverview,
   }
   for (const [name, schema] of Object.entries(types)) {
     it(name, () => expect(fields(schema).sort()).toMatchSnapshot())

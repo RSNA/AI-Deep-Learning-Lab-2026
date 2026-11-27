@@ -1,4 +1,4 @@
-// The host manual (engineering spec, section 10.8): docs/HOST_MANUAL.md of this repository,
+// The console manual (engineering spec, section 10.8): docs/HOST_MANUAL.md of this repository,
 // included in the build as text. Rendered with headings, paragraphs, lists, tables and bold, and
 // nothing else. Every other character is text and no HTML is interpreted.
 import type { ReactNode } from 'react'

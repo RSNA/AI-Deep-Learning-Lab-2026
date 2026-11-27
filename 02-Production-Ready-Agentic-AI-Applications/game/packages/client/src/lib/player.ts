@@ -2,7 +2,7 @@
 // Moments only animate what a view already holds (speech bubbles, a new card), so a missed
 // moment loses nothing.
 import { create } from 'zustand'
-import type { ConnStatus, GameConnection, Moment, PhaseContent, PlayerView, Standing, Welcome } from '@lab02/protocol'
+import { PROTOCOL_VERSION, type ConnStatus, type GameConnection, type JoinResult, type Kind, type Moment, type PhaseContent, type PlayerView, type Review, type Standing, type Welcome } from '@lab02/protocol'
 import type { ClockRef } from './clock.ts'
 import { api, connect, reloadForNewBuild } from './net.ts'
 import { store, type PastGame } from './storage.ts'
@@ -24,6 +24,10 @@ type PlayerStore = {
   /** The host started a phase or the whole game again while this browser was in it. */
   restarted: { kind: 'phase' | 'game'; run: number } | null
   clearRestarted(): void
+  /** Show a game that ended, from what the server kept of it (section 7.5). Nothing is connected. */
+  load(review: Review): void
+  /** Forget everything of the game on show, before another one is opened. */
+  unload(): void
   start(token: string): void
   stop(): void
   send(type: string, payload: unknown): Promise<{ ok: boolean; error?: string; data?: unknown }>
@@ -66,19 +70,42 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
   arrived: {},
   restarted: null,
   clearRestarted: () => set({ restarted: null }),
+  load(review) {
+    get().conn?.close()
+    const view: PlayerView = { ...review.view, stage: 'closed' }
+    const clock = { gameMs: 0, running: false, scale: 1, stage: 'closed' as const, stageEndsAtMs: null, guideEndsAtMs: null, warnings: [] }
+    set({
+      conn: null, status: 'idle', view, standing: review.standing, said: [], arrived: {}, restarted: null,
+      clock: { clock, at: performance.now() },
+      welcome: { t: 'welcome', protocol: PROTOCOL_VERSION, build: '', role: 'player', session: review.session, system: review.system, ladder: review.ladder, art: review.art, clock, view },
+      content: Object.fromEntries(review.content.map((c) => [c.phase, c])),
+    })
+  },
+  unload() {
+    get().conn?.close()
+    set({ conn: null, status: 'idle', welcome: null, view: null, clock: null, standing: null, content: {}, said: [], arrived: {}, restarted: null })
+  },
   start(token) {
     get().conn?.close()
     const conn = connect(token)
     // The content of a phase is fetched once the phase has opened, also after the game has
-    // ended, so that a player can look at a result again.
+    // ended, so that a player can look at a result again. The content of a board is made for
+    // its player and holds only what is on their board: a view names the `board` it goes with,
+    // and the content is asked again when more has come onto the board.
     const asked = new Set<string>()
+    const boardOf = (x: unknown): number | null => (x && typeof (x as { board?: unknown }).board === 'number' ? (x as { board: number }).board : null)
     const fetchContent = (view: PlayerView) => {
       for (const phase of ['planning', 'development', 'maintaining'] as const) {
-        if (view[phase] === null || get().content[phase] || asked.has(`${phase}:${view.run}`)) continue
-        asked.add(`${phase}:${view.run}`)
+        if (view[phase] === null) continue
+        const want = boardOf(view[phase])
+        const have = get().content[phase]
+        if (have && boardOf(have) === want) continue
+        const key = `${phase}:${view.run}:${want ?? ''}`
+        if (asked.has(key)) continue
+        asked.add(key)
         void api.content(token, phase).then((r) => {
           if (r.ok) set((s) => ({ content: { ...s.content, [phase]: r.data } }))
-          else asked.delete(`${phase}:${view.run}`)
+          else asked.delete(key)
         })
       }
     }
@@ -138,4 +165,10 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
 
 export function forgetPlayer(): void {
   store.setPlayer(null)
+}
+
+/** This browser is in a game: it holds the practice, and keeps the game in its list (section 7.7). */
+export function enterGame(r: JoinResult, game: { name: string; label: string; kind: Kind }): void {
+  store.setPlayer({ session: r.session, token: r.token, playerId: r.playerId, rejoinCode: r.rejoinCode })
+  store.keepResult({ session: r.session, label: game.label, name: game.name, rejoinCode: r.rejoinCode, kind: game.kind, token: r.token, playerId: r.playerId, startedAt: Date.now() })
 }

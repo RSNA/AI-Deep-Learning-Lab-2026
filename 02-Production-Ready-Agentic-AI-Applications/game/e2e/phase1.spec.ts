@@ -11,7 +11,7 @@ const PASS = 'e2e-passcode-0123'
 
 async function setup(page: Page, label: string) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
-  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal', replace: {} }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
   const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)   // the e2e server of playwright.config.ts
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
@@ -249,6 +249,9 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await noErrorNames(page)
   await page.getByLabel('Link name (optional)').fill('')
   await page.getByRole('button', { name: 'Create' }).click()
+  // The test before this one left its session open, and one session is open at a time: the console asks first.
+  const replace = page.getByRole('dialog').getByRole('button', { name: 'End it and start the new session' })
+  if (await replace.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await replace.click()
   await expect(page.getByText('Now on stage')).toBeVisible()
   await expect(page.getByText('You are in charge').first()).toBeVisible()
 
@@ -272,11 +275,11 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await p2.getByRole('button', { name: 'Take charge' }).click()
   await expect(p2.getByRole('dialog')).toContainText("Take charge from Maya's laptop?")
   await expect(p2.getByRole('dialog').getByRole('button', { name: 'Take charge' })).toBeDisabled()
-  await p2.getByLabel('Host passcode, to confirm').fill('not the passcode')
+  await p2.getByLabel('Facilitator passcode, to confirm').fill('not the passcode')
   await p2.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
   await expect(p2.getByRole('dialog')).toContainText('That passcode is not right.')
   await expect(page.getByText('You are in charge').first()).toBeVisible()
-  await p2.getByLabel('Host passcode, to confirm').fill(PASS)
+  await p2.getByLabel('Facilitator passcode, to confirm').fill(PASS)
   await p2.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
   await expect(p2.getByText('You are in charge').first()).toBeVisible()
   await expect(page.getByText("Sam's laptop took charge. You are watching now.")).toBeVisible()
@@ -323,13 +326,13 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await p2.getByRole('button', { name: 'Follow the game' }).first().click()
   await expect(p2.getByText(/^Pinned to/)).toHaveCount(0)
   // The manual opens beside the console.
-  await p2.getByRole('button', { name: 'Host manual' }).first().click()
-  await expect(p2.locator('.manual-side h1')).toHaveText('Host manual')
+  await p2.getByRole('button', { name: 'Console manual' }).first().click()
+  await expect(p2.locator('.manual-side h1')).toHaveText('Console manual')
   await noErrorNames(p2)
   await noOverflow(p2)
   // Maya takes charge back: the notice that Sam took it goes away by itself.
   await page.locator('.sessbar').getByRole('button', { name: 'Take charge' }).click()
-  await page.getByLabel('Host passcode, to confirm').fill(PASS)
+  await page.getByLabel('Facilitator passcode, to confirm').fill(PASS)
   await page.getByRole('dialog').getByRole('button', { name: 'Take charge' }).click()
   await expect(page.locator('.sessbar .chip.good')).toHaveText('You are in charge')
   await expect(page.getByText("Sam's laptop took charge. You are watching now.")).toHaveCount(0)
@@ -341,7 +344,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   test.skip(info.project.name !== 'laptop', 'laptop only')
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
   const auth = { authorization: `Bearer ${token}` }
-  const code = (await (await page.request.post('/api/host/session', { data: { label: 'E2E again', mode: 'rehearsal' }, headers: auth })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label: 'E2E again', mode: 'rehearsal', replace: {} }, headers: auth })).json()).code as string
   await page.goto('/host')
   await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: 'E2E laptop' })), token)
   await page.goto(`/host?s=${code}`)
@@ -392,7 +395,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   // The host looks at the player: every problem under its true class, the pick with its mark, the reason behind a button.
   await page.locator('.plook').first().click()
   const look = page.getByRole('dialog')
-  await expect(look).toContainText('Only hosts see this page')
+  await expect(look).toContainText('Only facilitators see this page')
   await expect(look.locator('.inspect-grid .rbin')).toHaveCount(4)
   await expect(look.locator('.rprob')).toHaveCount(6)
   await expect(look.locator('.rprob').filter({ hasText: picked }).locator('.pchip')).toHaveText('Agentic')
@@ -407,7 +410,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await page.getByRole('button', { name: 'Reset Phase 1' }).click()
   await expect(page.getByRole('dialog').locator('input')).toHaveCount(0)
   await page.getByRole('dialog').getByRole('button', { name: 'Reset the phase' }).click()
-  await expect(pp.locator('.restartbar')).toContainText('The host started Phase 1 again.')
+  await expect(pp.locator('.restartbar')).toContainText('The facilitator started Phase 1 again.')
   await pp.getByRole('button', { name: 'Start investigating' }).click()
   await pp.getByRole('button', { name: 'End tour' }).click()
   await expect(pp.locator('.asec[data-class]').first().locator('.acard')).toHaveCount(0)
@@ -415,8 +418,8 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   // The whole game starts again: the same player is back in the lobby with no points.
   await page.getByRole('button', { name: 'Restart the game' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Restart the game' }).click()
-  await expect(pp.locator('.restartbar')).toContainText('The host started the game again.')
-  await expect(pp.getByText('I am in. Waiting for the host to start.')).toBeVisible()
+  await expect(pp.locator('.restartbar')).toContainText('The facilitator started the game again.')
+  await expect(pp.getByText('I am in. Waiting for the facilitator to start.')).toBeVisible()
   await expect(cols.nth(0).locator('.prow')).toContainText('Second Tester')
   await expect(page.getByText('Now on stage').locator('xpath=following-sibling::*[1]')).toHaveText('Lobby')
 
@@ -426,9 +429,9 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await page.getByRole('dialog').getByRole('button', { name: 'End the session' }).click()
   await expect(page.locator('.endedbar')).toContainText('This session has ended.')
   await expect(pp.getByText('This game has ended')).toBeVisible()
-  await expect(pp.getByText('When the host opens a new game, a button to join it appears here.')).toBeVisible()
+  await expect(pp.getByText('When the facilitator opens a new game, a button to join it appears here.')).toBeVisible()
   await expect(pp.getByRole('button', { name: 'Leave this game and join as a new player' })).toBeVisible()
-  const code2 = (await (await page.request.post('/api/host/session', { data: { label: 'E2E the next game', mode: 'rehearsal' }, headers: auth })).json()).code as string
+  const code2 = (await (await page.request.post('/api/host/session', { data: { label: 'E2E the next game', mode: 'rehearsal', replace: {} }, headers: auth })).json()).code as string
   await expect(pp.getByText('A new game is open')).toBeVisible({ timeout: 15_000 })
   await expect(pp.locator('.newgame')).toContainText('E2E the next game')
   await pp.getByRole('button', { name: 'Join the new game' }).click()

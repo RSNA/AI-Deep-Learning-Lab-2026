@@ -8,14 +8,10 @@ import { Avatar } from './ui.tsx'
 
 type Open = { code: string; label: string }
 
-/**
- * The session that was opened after the game `after` and takes players now. Asked again every
- * 8 seconds. With `on` false nothing is asked and the answer is null.
- */
-export function useOpenGame(after: string, on: boolean = true): Open | null {
+/** The session that was opened after the game `after` and takes players now. Asked again every 8 seconds. */
+function useOpenGame(after: string): Open | null {
   const [open, setOpen] = useState<Open | null>(null)
   useEffect(() => {
-    if (!on) { setOpen(null); return }
     let live = true
     const load = () => api.open(after).then((r) => {
       if (!live || !r.ok) return
@@ -25,27 +21,8 @@ export function useOpenGame(after: string, on: boolean = true): Open | null {
     void load()
     const id = setInterval(load, 8000)
     return () => { live = false; clearInterval(id) }
-  }, [after, on])
+  }, [after])
   return open
-}
-
-/**
- * For a practice run (a test or a rehearsal) that is still open while the host has opened a
- * newer one: the way over to it. An event never shows this, so no player leaves it by a slip.
- */
-export function NewerGame({ after, on, onJoin }: { after: string; on: boolean; onJoin: (code: string) => void }) {
-  const open = useOpenGame(after, on)
-  if (!open) return null
-  return (
-    <section className="panel newgame" role="status">
-      <div className="panel-head">{COPY.newerGameTitle}</div>
-      <div className="panel-body">
-        <div style={{ fontWeight: 800, fontSize: 17 }}>{open.label}</div>
-        <div className="hint">{COPY.newerGameStill}</div>
-        <button type="button" className="btn small newerbtn" onClick={() => onJoin(open.code)}>{COPY.joinNewerGame}</button>
-      </div>
-    </section>
-  )
 }
 
 /** A panel that leads to the game the host opened after the game `after`. Before there is one it says so. */

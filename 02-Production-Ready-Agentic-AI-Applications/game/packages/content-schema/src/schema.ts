@@ -144,11 +144,14 @@ const DevelopmentRules = W({
 export type DevelopmentRules = z.infer<typeof DevelopmentRules>
 
 // Phase 3 (spec, section 5.5): the year in rounds. A round is the time to act before the report
-// of the next period, and the play time of the phase is `rounds` times `round_seconds`.
+// of the next period. The phase plays `rounds` of them, each `round_seconds` long, and the last
+// one takes what `play_seconds` leaves over.
 const MaintainingRules = W({
   label: Text, reveal_seconds: NonNeg,
   rounds: PosInt, round_seconds: PosInt,
-  play_seconds: PosInt.optional(),                // when given, rounds times round_seconds
+  // The play time. Absent: rounds times round_seconds. Given: at least that, and less than one
+  // round more.
+  play_seconds: PosInt.optional(),
   // The groups of actions that Phase 3 adds, shown after the groups of development.
   action_groups: z.array(W({ id: Id, label: Text })).default([]),
   live_leaderboard: W({ label: Text, metric: z.string().optional() }),   // year_score_so_far
@@ -175,10 +178,11 @@ export const GameFile = W({
     }),
     reconnect: z.literal('token'),
     late_join: W({
-      // `round`: in Phase 3, the last round in which a new player may still join.
-      open_until: W({ phase: PhaseId, round: PosInt.optional() }),
+      // The last phase a newcomer may enter. Joining closes when that phase starts.
+      open_until: W({ phase: PhaseId }),
       missed_phase_points: z.literal(0),
-      mid_phase: z.literal('full_budget_remaining_clock'),
+      // Nobody enters a phase in play: who joins then waits for the next phase.
+      mid_phase: z.literal('wait_for_next_phase'),
     }),
   }),
   clock: W({
@@ -489,16 +493,20 @@ export const LENSES = ['fresh_test_set', 'dry_run', 'incident_log', 'case_mix', 
 export type LensId = (typeof LENSES)[number]
 export const MAP_FLAGS = ['private_data', 'overloaded', 'distracting', 'prompt', 'stray', 'rushed'] as const
 
+const Factor = z.union([NonNeg, z.array(NonNeg).min(1)])
 /** A change to the tables of the scoring while it holds (section 6.7, "The tables of a period"). */
 export const Patch = z.discriminatedUnion('op', [
   S({ op: z.literal('weights'), cases: z.record(Id, NonNeg) }),
   S({ op: z.literal('fetch_as'), effort: Effort, as: Effort, factor: NonNeg }),
   // The keys of `fetch` are kinds of effort and of `decide` the two difficulties. "*" is every key.
-  S({ op: z.literal('worker'), worker: Id, fetch: z.record(z.string(), NonNeg).optional(), decide: z.record(z.string(), NonNeg).optional(), catch: NonNeg.optional() }),
+  // A factor is a number, or a list by periods since the event began (the last one holds): a
+  // change that grows for as long as it is left alone.
+  S({ op: z.literal('worker'), worker: Id, fetch: z.record(z.string(), Factor).optional(), decide: z.record(z.string(), Factor).optional(), catch: Factor.optional() }),
   S({ op: z.literal('knows'), fact: Id, factor: NonNeg, workers: z.array(Id).min(1) }),
   S({ op: z.literal('gives'), source: Id, fact: Id, factor: NonNeg, unless_through: Id.optional() }),
   S({ op: z.literal('compute'), compute: Id, run_fixed: NonNeg.optional(), price_factor: NonNeg.optional() }),
-  S({ op: z.literal('model'), model: Id, run: NonNeg }),
+  // The price of a model (`run`), and what every worker does with it (as the patch of a worker).
+  S({ op: z.literal('model'), model: Id, run: Factor.optional(), fetch: z.record(z.string(), Factor).optional(), decide: z.record(z.string(), Factor).optional(), catch: Factor.optional() }),
 ])
 export type Patch = z.infer<typeof Patch>
 
@@ -507,13 +515,24 @@ const EventRisk = S({
   // `behind_connector`: the share of `line` that a line into a connector tile takes, in place
   // of the connector's own share. With 0 the event leaves such a line alone.
   sources: z.array(Id).optional(), line: Unit.optional(), behind_connector: Unit.optional(),
-  workers: z.array(Id).optional(), tile: Unit.optional(),
+  // `tile`: added to every tile of these kinds, and to every tile that carries one of these models.
+  workers: z.array(Id).optional(), models: z.array(Id).optional(), tile: Unit.optional(),
   all: Unit.optional(),
 })
+/**
+ * When something of Phase 3 comes onto the board: from a round on, once the actions it
+ * requires are done, once an investigation has found the events it names. Until then it is
+ * not shown and cannot be used.
+ */
+const Appears = S({ round: PosInt.optional(), requires: z.array(Id).optional(), found: z.array(Id).optional() })
 const Bands = z.array(S({ min: Num, text: Text })).min(1)
 
 export const MaintainFile = W({
+  // The periods of the planned year, one for every report: rounds + 1.
   periods: z.array(S({ id: Id, label: Text, short: Text })).min(2),
+  // How the periods repeat, for the reports that added time brings after the listed ones: the
+  // first `cycle` periods are one calendar year, which began in `first_year`.
+  calendar: S({ cycle: PosInt, first_year: PosInt }).optional(),
   grants: z.array(S({ round: PosInt, money: NonNeg })).default([]),
   validate: S({ runs: Int.min(0), seconds: PosInt }),
   baseline: W({ public: S({ label: Text }), map: PackMap }),
@@ -532,13 +551,25 @@ export const MaintainFile = W({
   lenses: z.partialRecord(z.enum(LENSES), z.array(Id)).default({}),
   workers: z.array(Worker).default([]),
   line_rules: z.array(LineRule).default([]),
-  actions: z.array(W({ ...ActionShape, repeat: z.boolean().optional(), run: NonNeg.optional() })).default([]),
+  // Models that exist from Phase 3 on. `by_worker`: the numbers of each kind of worker that may
+  // carry it, as `by_model` of a worker in build.yaml.
+  models: z.array(W({
+    id: Id, public: PartPublic, run: NonNeg.optional(), runs_on: z.array(Id).min(1),
+    by_worker: z.record(Id, Quality), appears: Appears.optional(), key: K({}).optional(),
+  })).default([]),
+  // `finds`: what the action finds when it finishes while that event acts on the map in
+  // service and has shown in a report. Its card then takes the place of `insight`.
+  actions: z.array(W({
+    ...ActionShape, repeat: z.boolean().optional(), run: NonNeg.optional(),
+    appears: Appears.optional(), finds: z.array(S({ event: Id, insight: Tile })).optional(),
+  })).default([]),
   world: z.array(Patch).default([]),
   events: z.array(W({
     id: Id,
     from: PosInt, to: PosInt.optional(),
     needs: S({
       workers: z.array(Id).optional(), sources: z.array(Id).optional(), compute: z.array(Id).optional(),
+      models: z.array(Id).optional(),
       flag: z.enum(MAP_FLAGS).optional(),
     }).optional(),
     patches: z.array(Patch).default([]),
@@ -546,7 +577,8 @@ export const MaintainFile = W({
     fine: NonNeg.optional(),
     repaired_by: z.array(Id).default([]),
     symptom: Text.optional(),
-    cause: S({ lens: z.enum(LENSES), text: Text }).optional(),
+    // Shown with the symptom to a player who holds the lens, or (without a lens) who has found the event.
+    cause: S({ lens: z.enum(LENSES).optional(), text: Text }).optional(),
     alarm: Text.optional(),
     reveal: S({ title: Text, text: Text }).optional(),
     // `coach`: for the host's view of a player on whose map the event acts.
@@ -555,6 +587,8 @@ export const MaintainFile = W({
   news: z.array(W({
     id: Id, round: PosInt, kind: z.enum(['letter', 'announcement']),
     from: Id, title: Text.optional(), text: Text,
+    // Only for a practice on whose map in service that event acts, at the first round from `round` on at which it does.
+    if_event: Id.optional(),
   })).default([]),
   alarm_from: Id.optional(),
   incidents: S({

@@ -1,6 +1,6 @@
 // Session state. Plain JSON data: no classes, maps, sets or dates (engineering spec, 6.1).
 import type { CanvasMap } from '@lab02/content-schema'
-import type { AckData, AvatarId, ColumnId, ErrorCode, InboxItem, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
+import type { AckData, AvatarId, ColumnId, ErrorCode, InboxItem, Kind, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
 import type { Missed, NoteId, Running } from './canvas.ts'
 
 export type PlayerId = string
@@ -70,7 +70,11 @@ export type DevelopmentState = {
 }
 
 /** An action that finished. `started` and `done`: the reports the player held then (0 for an action of Phase 2). */
-export type MaintainingAction = { id: string; atMs: GameMs; started: number; done: number }
+export type MaintainingAction = {
+  id: string; atMs: GameMs; started: number; done: number
+  /** The event this run of a look action found (`finds` of the pack). Absent when it found nothing. */
+  found?: string
+}
 
 /** One map of the list of Phase 3: a validation of Phase 2 or 3, or a reference map that was taken. */
 export type MaintainingValidation = {
@@ -165,6 +169,8 @@ export type MaintainingState = {
   deployedAtMs: GameMs | null
   /** The rounds whose grants and news this player has: 1 up to this number. */
   roundsOpened: number
+  /** The events an investigation of this player has found. What waits for a finding appears then. */
+  found: string[]
   result: MaintainingResult | null
 }
 
@@ -190,6 +196,10 @@ export type PlayerState = {
   inbox: InboxItem[]
   /** Dialogue lines that have fired for this player (each fires once). */
   said: string[]
+  /** The phase that was in play when the player joined: they wait until it closes (section 6.4). */
+  waitingFor?: PhaseId | null
+  /** The phases that closed before the player was in the game. They score 0. */
+  missed?: PhaseId[]
 }
 
 export type BoardState = {
@@ -217,6 +227,8 @@ export type SessionState = {
   code: string
   label: string
   mode: Mode
+  /** Absent in a state saved before single-player games existed: a session with a facilitator. */
+  kind?: Kind
   contentHash: string
   /** Health systems in play, in pack order. */
   systems: string[]
@@ -237,6 +249,8 @@ export type SessionState = {
   closed: boolean
   /** How often the host started a phase or the game again. A browser drops what it kept for the run before. */
   run?: number
+  /** The slides that were on show so far, by their index in the deck, in the order they first came up. */
+  shown?: number[]
 }
 
 export type EngineEvent =

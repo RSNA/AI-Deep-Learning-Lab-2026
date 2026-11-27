@@ -8,30 +8,31 @@ import { fromPackMap, rushFactors, type CanvasMap, type CanvasTables } from '@la
 import { evaluate, type Evaluation } from './canvas.ts'
 import type { EventLoss, PeriodScore, RiskEntry } from './state.ts'
 
+/** A factor: a number, or a list by periods since the event began (the last one holds). */
+export type Factor = number | readonly number[]
 /** A change to the tables while it holds. The pack schema checks the shape of each. */
 export type TablePatch =
   | { op: 'weights'; cases: Readonly<Record<string, number>> }
   | { op: 'fetch_as'; effort: string; as: string; factor: number }
-  | { op: 'worker'; worker: string; fetch?: Readonly<Record<string, number>>; decide?: Readonly<Record<string, number>>; catch?: number }
+  | { op: 'worker'; worker: string; fetch?: Readonly<Record<string, Factor>>; decide?: Readonly<Record<string, Factor>>; catch?: Factor }
   | { op: 'knows'; fact: string; factor: number; workers: readonly string[] }
   | { op: 'gives'; source: string; fact: string; factor: number; unless_through?: string }
   | { op: 'compute'; compute: string; run_fixed?: number; price_factor?: number }
-  | { op: 'model'; model: string; run: number }
+  | { op: 'model'; model: string; run?: Factor; fetch?: Readonly<Record<string, Factor>>; decide?: Readonly<Record<string, Factor>>; catch?: Factor }
 
 export type EventRule = {
   id: string
   from: number
   to?: number
-  needs?: { workers?: readonly string[]; sources?: readonly string[]; compute?: readonly string[]; flag?: string }
+  needs?: { workers?: readonly string[]; sources?: readonly string[]; compute?: readonly string[]; models?: readonly string[]; flag?: string }
   patches?: readonly TablePatch[]
-  risks?: readonly { sources?: readonly string[]; line?: number; behind_connector?: number; workers?: readonly string[]; tile?: number; all?: number }[]
+  risks?: readonly { sources?: readonly string[]; line?: number; behind_connector?: number; workers?: readonly string[]; models?: readonly string[]; tile?: number; all?: number }[]
   fine?: number
   repaired_by?: readonly string[]
 }
 
 /** Everything of a maintain.yaml that the scoring reads. A `MaintainFile` is one, and so is the toy year of the vectors. */
 export type MaintainRules = {
-  periods: readonly unknown[]
   baseline: { map: Parameters<typeof fromPackMap>[0] }
   score: { cost_per_point: number; pool: string; extra_look?: number; rushed?: number }
   reliability: {
@@ -74,6 +75,7 @@ export function touches(e: EventRule, m: CanvasMap, t3: CanvasTables): boolean {
   if (need.workers?.length && m.tiles.some((t) => need.workers!.includes(t.kind))) return true
   if (need.sources?.length && m.lines.some((l) => need.sources!.includes(l.from))) return true
   if (need.compute?.length && m.tiles.some((t) => t.runsOn !== null && need.compute!.includes(t.runsOn))) return true
+  if (need.models?.length && m.tiles.some((t) => t.model !== null && need.models!.includes(t.model))) return true
   if (need.flag) {
     const key = FLAG[need.flag]
     if (key && evaluate(m, t3).flags[key].length > 0) return true
@@ -83,9 +85,9 @@ export function touches(e: EventRule, m: CanvasMap, t3: CanvasTables): boolean {
 
 /** The events that act on a player in period `p`: in their window, not repaired, with a part of the map to act on. */
 export function actingEvents(t3: CanvasTables, rules: MaintainRules, p: number, m: CanvasMap, actions: readonly HeldAction[]): EventRule[] {
-  const last = rules.periods.length
+  // An event with no end holds for good, also in the periods that added time brings after the planned year.
   return (rules.events ?? []).filter((e) =>
-    e.from <= p && p <= (e.to ?? last)
+    e.from <= p && p <= (e.to ?? Infinity)
     && !counts(actions, e.repaired_by ?? [], p, e.from)
     && touches(e, m, t3))
 }
@@ -129,7 +131,17 @@ function copyTables(t: CanvasTables): MutableTables {
 
 const qualities = (w: MutableTables['workers'][number]): Q[] => [...(w.quality ? [w.quality] : []), ...Object.values(w.by_model ?? {})]
 
-function applyPatch(t: MutableTables, patch: TablePatch, m: CanvasMap): void {
+/** The factor of a patch at `step` periods since its event began. */
+const at = (x: Factor, step: number): number => (typeof x === 'number' ? x : x[Math.min(step, x.length - 1)]!)
+
+/** Multiplies the numbers of one quality by the factors of a patch of a worker or a model. */
+function scaleQ(q: Q, patch: { fetch?: Readonly<Record<string, Factor>>; decide?: Readonly<Record<string, Factor>>; catch?: Factor }, step: number): void {
+  for (const [key, x] of Object.entries(patch.fetch ?? {})) for (const name of Object.keys(q.fetch)) if (key === '*' || key === name) q.fetch[name] = q.fetch[name]! * at(x, step)
+  for (const [key, x] of Object.entries(patch.decide ?? {})) for (const name of ['plain', 'hard'] as const) if (key === '*' || key === name) q.decide[name] = q.decide[name] * at(x, step)
+  if (patch.catch !== undefined && q.catch !== undefined) q.catch = q.catch * at(patch.catch, step)
+}
+
+function applyPatch(t: MutableTables, patch: TablePatch, m: CanvasMap, step = 0): void {
   switch (patch.op) {
     case 'weights':
       for (const c of t.cases) { const n = patch.cases[c.id]; if (n !== undefined) c.weight = n }
@@ -141,14 +153,7 @@ function applyPatch(t: MutableTables, patch: TablePatch, m: CanvasMap): void {
       }
       return
     case 'worker':
-      for (const w of t.workers) {
-        if (w.id !== patch.worker) continue
-        for (const q of qualities(w)) {
-          for (const [key, x] of Object.entries(patch.fetch ?? {})) for (const name of Object.keys(q.fetch)) if (key === '*' || key === name) q.fetch[name] = q.fetch[name]! * x
-          for (const [key, x] of Object.entries(patch.decide ?? {})) for (const name of ['plain', 'hard'] as const) if (key === '*' || key === name) q.decide[name] = q.decide[name] * x
-          if (patch.catch !== undefined && q.catch !== undefined) q.catch = q.catch * patch.catch
-        }
-      }
+      for (const w of t.workers) if (w.id === patch.worker) for (const q of qualities(w)) scaleQ(q, patch, step)
       return
     case 'knows':
       for (const w of t.workers) {
@@ -174,18 +179,23 @@ function applyPatch(t: MutableTables, patch: TablePatch, m: CanvasMap): void {
       }
       return
     case 'model':
-      for (const x of t.models) if (x.id === patch.model) x.run = (x.run ?? 0) * patch.run
+      if (patch.run !== undefined) for (const x of t.models) if (x.id === patch.model) x.run = (x.run ?? 0) * at(patch.run, step)
+      // What every worker does with that model: the same shape as the patch of a worker.
+      for (const w of t.workers) { const q = w.by_model?.[patch.model]; if (q) scaleQ(q, patch, step) }
       return
   }
 }
 
-/** The tables of a period: `world`, then the patches of every acting event, in file order. */
-export function tablesFor(t3: CanvasTables, rules: MaintainRules, m: CanvasMap, acting: readonly EventRule[], skip: string | null = null): CanvasTables {
+/**
+ * The tables of period `p`: `world`, then the patches of every acting event, in file order. A
+ * factor given as a list is read at the number of periods since its event began.
+ */
+export function tablesFor(t3: CanvasTables, rules: MaintainRules, m: CanvasMap, acting: readonly EventRule[], p: number, skip: string | null = null): CanvasTables {
   const t = copyTables(t3)
   for (const patch of rules.world ?? []) applyPatch(t, patch, m)
   for (const e of acting) {
     if (e.id === skip) continue
-    for (const patch of e.patches ?? []) applyPatch(t, patch, m)
+    for (const patch of e.patches ?? []) applyPatch(t, patch, m, Math.max(0, p - e.from))
   }
   return t
 }
@@ -207,7 +217,10 @@ export function riskList(t3: CanvasTables, rules: MaintainRules, p: number, m: C
     let base = R.workers?.[kind] ?? R.default_worker ?? 0
     for (const h of R.hardening ?? []) if (counts(actions, [h.action], p) && (!h.workers?.length || h.workers.includes(kind))) base = base * h.factor
     add({ part: 'worker', id: kind, tile: tile.id, risk: base, event: null })
-    for (const e of acting) for (const r of e.risks ?? []) if (r.workers?.includes(kind)) add({ part: 'worker', id: kind, tile: tile.id, risk: r.tile ?? 0, event: e.id })
+    // A risk of an event on kinds of worker, or on the tiles that carry one of some models.
+    for (const e of acting) for (const r of e.risks ?? []) {
+      if (r.workers?.includes(kind) || (tile.model !== null && r.models?.includes(tile.model))) add({ part: 'worker', id: kind, tile: tile.id, risk: r.tile ?? 0, event: e.id })
+    }
   }
   const handoffs: RiskEntry[] = []
   for (const ln of m.lines) {
@@ -284,7 +297,7 @@ export function period(
   if (m === null) {
     const base = baselineMap(rules)
     const acting = actingEvents(t3, rules, p, base, []).filter((e) => (e.patches?.length ?? 0) > 0)
-    const ev = evaluate(base, tablesFor(t3, rules, base, acting), shownCases, shownNotes)
+    const ev = evaluate(base, tablesFor(t3, rules, base, acting, p), shownCases, shownNotes)
     return {
       noMap: true, validity: ev.accuracy, test: evaluate(base, t3).accuracy,
       reliability: 1, interruptions: 0, off: 0, poolTiles: 0, hurry: 1,
@@ -294,7 +307,7 @@ export function period(
     }
   }
   const acting = actingEvents(t3, rules, p, m, actions)
-  const tables = tablesFor(t3, rules, m, acting)
+  const tables = tablesFor(t3, rules, m, acting, p)
   const ev = evaluate(m, tables, shownCases, shownNotes)
   const validity = ev.accuracy
   const risks = riskList(t3, rules, p, m, actions, acting, newMap)
@@ -307,7 +320,7 @@ export function period(
     // What the period would have been without this event: validity, reliability, running cost.
     let vLoss = 0, cLoss = 0
     if (e.patches?.length) {
-      const wo = evaluate(m, tablesFor(t3, rules, m, acting, e.id))
+      const wo = evaluate(m, tablesFor(t3, rules, m, acting, p, e.id))
       vLoss = wo.accuracy - validity
       cLoss = 2 * (ev.running.money - wo.running.money)
     }
@@ -366,7 +379,7 @@ export function validation(
   const p = seen + 1
   const fresh = lensHeld(rules, 'fresh_test_set', actions, p)
   const acting = actingEvents(t3, rules, p, m, actions)
-  const ev = evaluate(m, fresh ? tablesFor(t3, rules, m, acting) : t3, shownCases, shownNotes)
+  const ev = evaluate(m, fresh ? tablesFor(t3, rules, m, acting, p) : t3, shownCases, shownNotes)
   const reliability = lensHeld(rules, 'dry_run', actions, p) ? reliabilityOf(riskList(t3, rules, p, m, actions, acting, newMap)) : null
   return { accuracy: ev.accuracy, unhurried: ev.unhurried, fresh, reliability, missed: ev.missed, note: ev.note, running: ev.running, flags: ev.flags }
 }

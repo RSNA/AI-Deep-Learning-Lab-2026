@@ -306,8 +306,8 @@ type Game = {
     practice_name: { min_chars: number; max_chars: number; unique_per_session: true;
                      filter_profanity: boolean; host_can_rename: boolean; host_can_remove: boolean }
     reconnect: 'token'
-    late_join: { open_until: { phase: PhaseId; round?: number }; missed_phase_points: 0;
-                 mid_phase: 'full_budget_remaining_clock' }   // round: the last round of Phase 3 to join in
+    late_join: { open_until: { phase: PhaseId }; missed_phase_points: 0;
+                 mid_phase: 'wait_for_next_phase' }   // open_until: the last phase a newcomer may enter (6.4)
   }
   clock: { time_scale_default: number; warnings_seconds_left: number[]; idle_seconds?: number;
            auto_submit_at_zero: true; pause_freezes: 'all' }
@@ -391,8 +391,9 @@ type DevelopmentRules = {
 }
 type MaintainingRules = {
   label: Text; reveal_seconds: number
-  rounds: number; round_seconds: number           // the play time is rounds × round_seconds
-  play_seconds?: number                           // when given, it must equal that product
+  rounds: number; round_seconds: number           // the planned rounds, and the length of each
+  play_seconds?: number                           // the play time. Absent: rounds × round_seconds. Given: at
+                                                  // least that and less than one round more (the last round takes it)
   action_groups?: { id: string; label: Text }[]   // shown after the groups of development
   live_leaderboard: { metric?: 'year_score_so_far'; label: Text }
 }
@@ -636,7 +637,8 @@ loader can check the reference map with them. The scoring is `evaluate` in
 
 ```ts
 type Maintain = {
-  periods: { id: string; label: Text; short: Text }[]     // rounds + 1, in order
+  periods: { id: string; label: Text; short: Text }[]     // rounds + 1, in order: the planned year
+  calendar?: { cycle: number; first_year: number }        // how the periods repeat, for reports after the listed ones
   grants?: { round: number; money: number }[]             // round 1 is the start of the phase
   validate: { runs: number; seconds: number }             // the validations of Phase 3, a count of its own
   baseline: { public: { label: Text }; map: PackMap }     // a practice with no deployed map
@@ -920,7 +922,7 @@ lobby → intro
 | Stage | Length | Ends |
 | --- | --- | --- |
 | `planning.play`, `development.play` | `play_seconds` of that phase | By itself at zero, or on `end_now` |
-| `maintaining.year` | `rounds` × `round_seconds` | By itself at zero, or on `end_now` |
+| `maintaining.year` | `play_seconds`, or `rounds` × `round_seconds` | By itself at zero, or on `end_now` |
 | Every other stage | Untimed for the engine | On the host command `next` |
 
 The untimed stages show a guide countdown to the host: `reveal_seconds` for a reveal, and the
@@ -929,7 +931,7 @@ player has, computes every score of that phase, the leaderboard and the room sta
 moves to the reveal.
 
 Host commands: `next`, `pause`, `resume`, `extend` (30, 60 or 300 seconds, added to the current timed
-stage; in `maintaining.year` this lengthens the round in progress, section 6.7), `end_now`, `rename_player`,
+stage; in `maintaining.year` every whole round of added time ends with one more report, section 6.7), `end_now`, `rename_player`,
 `remove_player`, `reset_stage`, `restart_game` and `close`. Pause and resume act on the clock,
 not on the engine. The commands of the projector and the deck are in section 6.13. Only the
 controlling host console may send a command that changes the session (section 7.10).
@@ -993,12 +995,27 @@ interface names `intro` "Intro slides" and never "Starting soon".
   the same one. A missing or unknown id is replaced by one picked from the list by a hash of
   the player id, so a bot can join without choosing. The avatar is display only and never
   enters a score.
-- Joining stays open until `join.late_join.open_until`. A player who joins during a play stage
-  gets the full budget of that phase and the time that is left. A phase that ended before the
-  player joined scores 0. In Phase 3 `open_until.round` names the last round in which a
-  player may still join. A player who joins during the year holds, for every period that ended
-  before, the report of a practice with no map (section 6.7), and has the budget of the build
-  file and the grants so far.
+- **Nobody enters a phase in play.** Joining is open until the play stage of
+  `join.late_join.open_until.phase` starts: with `maintaining`, until Phase 3 starts. A phase
+  that ended before the player joined scores 0 and is listed in the player's `missed`. A
+  player who joins during a play stage gets no state for that phase: `waitingFor` names it,
+  no command of the phase is accepted (`wrong_stage`), no timer and no idle line run for
+  them. When the phase closes it scores 0, joins `missed`, and the wait is over. The player
+  enters when the next phase opens, with everyone else.
+- **The waiting room.** While the phase on stage (its play stage, its reveal and the break
+  after it) is one the player waits out or missed, the player view carries `waiting`: the
+  phase and every slide that was on show so far. The session keeps those slide indexes in
+  `shown`, in the order they first came up, whenever the projector shows the slides. The
+  standing of such a player holds ten rows a column instead of three, because the
+  leaderboard is their screen. A mirrored slide reaches them like everyone else.
+- **Entering Phase 3 without Phase 2.** A player who was not in Phase 2 starts the year as
+  somebody who built the first reference map of the pack: the map is in their list as `r1`
+  and in service, what it needs is done, its price counts as money of Phase 2, and the
+  account holds the budget of the build file less that price, plus the grants. Their first
+  report is the report of that map.
+- **A new name for the session.** `rename_session {label}` is a host command that the engine
+  accepts in the lobby only. The name stands on the join page and on every result, so it is
+  fixed while the game runs. The server renames an ended session itself (section 7.2).
 
 ### 6.5 Phase 1: Planning
 
@@ -1394,6 +1411,34 @@ and their state as inputs and do not know which phase shows them, so Phase 3 can
 At the start of Phase 3 a player may take the reference map of the health system in place of
 their own.
 
+#### What is on the board
+
+A player sees what their practice has, and nothing of what it does not have yet.
+
+- **Actions.** An action whose `requires` are not all done is not on the player's list: it is
+  not in the content, and `act` refuses it with `requires_action`. It comes onto the list when
+  the last action it requires finishes. An action that was started stays. In the demo pack the
+  GPU server waits for the free model, and writing skills for the agents waits for the guide
+  on skills.
+- **Items.** A worker kind, a model, a place to run and a prompt that no done action has
+  unlocked is not shown in the toolbox, on a shelf or in a chooser. The content carries its
+  names (`label`, `short`, `icon`, `kind`) and none of its words: `description` is empty, and
+  `task`, `costLine` and the samples are absent. The names stay because a map drawn for the
+  player (a reference map, a map at the reveal) may hold such a tile.
+- **Sources** are the problem itself. They are always shown, and a locked one says which
+  action opens it.
+- **`board`.** The content of a phase is made for its player. It carries `board`, a number
+  that grows whenever more comes onto the board (the items unlocked plus the actions on the
+  list). The view carries the same number. A browser whose content has another number asks for
+  the content again.
+- **`rules.more`** says where more can still come: the groups of the toolbox and of the
+  actions that hold something not shown yet through `requires` or an unlock, and whether a
+  shelf or the prompts will hold more. It never says what, and never how many.
+
+Skills for agents are an example of an action that changes no accuracy: the demo pack lists
+its action in `build.yaml`, and `reliability.hardening` of `maintain.yaml` names it, so that
+it counts from the first period of Phase 3 when it was done in Phase 2.
+
 ### 6.7 Phase 3: Maintaining
 
 Phase 3 is Phase 2 played on. The board, the map, the actions and the validations work as in
@@ -1402,17 +1447,30 @@ section 6.6, on the **build file of Phase 3**: `build.yaml` with the `workers`, 
 unchanged. What is new is time: a year in periods, one map that is deployed, a report on every
 period, and events that change the tables `evaluate` reads and the risk of the parts.
 
-**The year.** `maintain.yaml` lists `rounds + 1` periods. The map a player chose in Phase 2 has
-been running since the first. The phase has one play stage, `maintaining.year`, of `rounds`
-rounds of `round_seconds`. Report 1 is made when the stage opens. A *round* is the time to act
-before the next report: when round `r` ends, report `r + 1` is made. The last report is made
-when the stage closes.
+**The year.** `maintain.yaml` lists `rounds + 1` periods, the planned year. The map a player
+chose in Phase 2 has been running since the first. The phase has one play stage,
+`maintaining.year`. Report 1 is made when the stage opens. A *round* is the time to act before
+the next report: when round `r` ends, report `r + 1` is made. The last report is made when the
+stage closes.
 
-- The end of round `r` is `stage end − (rounds − r) × round_seconds`. An extension by the host
-  therefore lengthens the round in progress and moves every later boundary with it. A boundary
-  that has passed never moves. A pause freezes everything.
-- `k`, the *reports held*, is the number of reports a player has (1 to `rounds` during play).
-  The period in progress is `k + 1`.
+- Rounds are counted from the start of the stage. The year has
+  `floor((stage end − stage start) / round_seconds)` rounds as its clock stands, and never
+  fewer than one (`roundsNow`). Round `r` ends `r × round_seconds` after the start. The last
+  round ends with the stage and takes what is left over. A pause freezes everything.
+- **Added time makes the year longer.** `extend` moves the end of the stage, so every whole
+  round of added time is a round of its own and ends with a report, past the planned year.
+  Less than a whole round lengthens the last round. A boundary that the last round had already
+  passed when more time came is reported at the next tick. No report is dropped, and there is
+  no upper limit to the periods.
+- A period after the listed ones is named by `periodName` from `calendar`: the months of the
+  cycle and the year they fall in ("January and February 2032", "Jan-Feb ’32"). Without a
+  calendar it is "Period 9". An event with no `to` holds in every later period, and a factor
+  given as a list holds its last number.
+- A stage that ends early (`end_now`) closes the round in progress with a report, and then
+  reports every period that is left of the planned year from the same state. A year that was
+  given more time keeps every report it has.
+- `k`, the *reports held*, is the number of reports a player has. The period in progress is
+  `k + 1`.
 - Every action records `started` and `done`: the reports held when it started and when it
   finished. An action of Phase 2 has both at 0. An action **counts for report `p`** when
   `done < p`.
@@ -1440,7 +1498,7 @@ map, at any moment of a round.
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `maintaining.set_map {map}` | As `development.set_map`, on the build file of Phase 3 and what is unlocked | Replaces the draft. Refuses `invalid_map`, or `line_refused` with the line and the rule's words |
-| `maintaining.act {id}` | The action exists (`unknown_action`). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the money is there (`not_enough_money`) and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
+| `maintaining.act {id}` | The action exists and has appeared (`unknown_action`, see "A year that grows"). It is not running, and was not done before unless it is a `repeat` action (`action_taken`). Its `requires` are done (`requires_action`), the money is there (`not_enough_money`) and the developers are free (`developers_busy`) | As `development.act`. An action of `build.yaml` that was done in Phase 2 stays done. A `repeat` action is paid for every time |
 | `maintaining.validate {}` | No validation runs (`validation_running`), one is left of the count of `maintain.yaml` (`no_validations_left`), the draft is ready (`not_ready`) | After `validate.seconds` the copy of the draft joins the list with its result (below) |
 | `maintaining.adopt {id}` | `id` is a reference map of the pack (`unknown_id`) that this player has not taken (`action_taken`) | The map joins the list with its accuracy on the test set, and is deployed. Every action of its `needs_actions` that is neither done nor running is marked done (`started = done = k`), so its items are unlocked at once. Their price is not taken from the account: it is added to the money spent. It costs no validation and no wait. When the player's canvas is empty, the map is put on the canvas too, and a draft with a tile on it is never replaced |
 | `maintaining.deploy {id or null}` | `id` is a map of the list (`unknown_validation`), or null | That map, or no map, runs from now on |
@@ -1558,6 +1616,40 @@ actions it needs and nothing else) and of a practice with no map, and the letter
 **The reference scorer.** `tools/maintain_scoring.py` of the private folder is the executable
 definition of the scoring of a period, a validation and a year. The engine's
 `packages/engine/src/maintain.ts` must match it within 1e-9 (section 12.2).
+
+#### A year that grows (2026-11-27)
+
+- **A factor by the period.** In a patch of `op: worker` and `op: model`, a factor is a number
+  or a list. A list is read at the number of periods since the event's `from`, and its last
+  entry holds: a change that grows for as long as it is left alone. `tablesFor` takes the
+  period for this. The loader refuses a list in `world`.
+- **`op: model`** multiplies the price of a model (`run`) and, with `fetch`, `decide` and
+  `catch`, what every worker does with that model (its entry of `by_model`).
+- **Models of Phase 3.** `maintain.yaml` `models` join the shelf of the build file of Phase 3.
+  `by_worker` gives the numbers of each kind of worker that may carry the model, on the test
+  set. What the model does in service is an event that needs it.
+- **`needs.models`, and a risk on models.** An event touches a map that has a tile with one
+  of the models it names. A risk `{models, tile}` adds `tile` to every tile that carries one of
+  them, as an entry of the part `worker` with the event's id.
+- **`appears`.** An action or a model of `maintain.yaml` with `appears: {round, requires,
+  found}` is not on a player's board until that round has opened for them, the actions named
+  are done, and an investigation of theirs has found the events named. Until then nothing of
+  it is in the content, `act` refuses it with `unknown_action`, and `set_map` refuses a map
+  that carries the model with `invalid_map`.
+- **A look that finds.** An action with `finds: [{event, insight}]` finds the first event of
+  the list that has shown in a report the player holds (`from <= reports held`), is not
+  repaired and touches the map in service. The event joins `found` of the player's state, the
+  finished action carries `found`, and its card is that entry's `insight`. With nothing to
+  find, the card is the action's own `insight`. A player holds one card per action, that of
+  its last run.
+- **A cause without a lens** (`cause: {text}`) is shown with the symptom once the event is in
+  the player's `found`.
+- **A letter for those concerned.** A news item with `if_event` goes to a player at the first
+  round from its `round` on at which the report just made lists that event as acting on them.
+
+In the demo pack: the rule goes wrong more every period once the request form changes, a look
+names it and brings the repair, Pine 2 comes with the fourth round, and Acorn doubles its
+prices in the last period.
 
 ### 6.8 Scores, points and bands
 
@@ -1843,6 +1935,29 @@ the current slide and the next one, with their notes and whether each is a place
 go to host consoles only. The help slides discuss the answers of the phase that just closed, so
 a slide counts as protected text until it is shown (section 9.2).
 
+### 6.14 A single-player game
+
+A session has a `kind`: `multi`, played by a room with a facilitator, or `solo`, played by one
+person alone. A state saved before kinds existed is `multi`.
+
+- A solo session takes one player: once it has one, joining is closed. Its mode is
+  `rehearsal`, so the game runs at real speed.
+- **Its player moves it on.** Three player commands exist for it, and each stands for one
+  host command that the engine then applies: `solo.next` for `next` in an untimed stage,
+  `solo.end_now` for `end_now` in a timed one, and `solo.slide {delta}` for `slide`, inside
+  the section of the stage only (the last slide is left with `solo.next`). In a `multi`
+  session each is refused with `not_solo`. Anything else a facilitator can do does not exist
+  in a solo game: no reset, no restart, no pause, no change of speed.
+- The slides of a section are mirrored to the player as in a room, since the projector
+  follows the game. The player view carries `solo`: the stage that `solo.next` leads to (null
+  in a timed stage and at the end), whether a phase is in play, and where the slide on show
+  stands in its section.
+- **No facilitator in it, at all.** A console cannot connect to a solo session, it has no
+  projector, no export and no deck for a host, and nobody can look at its player. The console
+  lists solo games only to delete them (section 10.8).
+- **The clock stands while the player is away.** The server pauses the clock of a solo
+  session when its player has no connection and resumes it when they are back (section 7.4).
+
 ---
 
 ## 7. Server
@@ -1850,7 +1965,7 @@ a slide counts as protected text until it is shown (section 9.2).
 ### 7.1 Process
 
 One Node process. On start it loads and validates the pack, opens the database, restores every
-open session (section 7.6), and listens. It handles `SIGTERM` by writing a snapshot of every
+open session with a facilitator (section 7.6), and listens. It handles `SIGTERM` by writing a snapshot of every
 session and closing.
 
 ### 7.2 HTTP
@@ -1858,27 +1973,37 @@ session and closing.
 | Route | Who | Does |
 | --- | --- | --- |
 | `GET /` and client routes | Anyone | The client application. `index.html` is never cached. Assets have hashed names and are cached for a year |
-| `GET /api/session/:code` | Anyone | Label, title, mode, stage, whether joining is open, players per health system, and `pickSystem`: the health systems (id, index, name, setting) when a player may pick one in this session, else null |
-| `GET /api/open?after=<code>` | Anyone | `{session}`: the code, label and title of the newest session that is not closed, or null. With `after`, only a session created later than that one counts. A browser whose game has ended asks with its own code, so it is led to the next game and never to an older session that was left open |
+| `GET /api/session/:code` | Anyone | Label, title, mode, kind, stage, whether joining is open (`joinOpen`), whether a phase is in play so that who joins now waits (`joinWaits`), players per health system, and `pickSystem`: the health systems (id, index, name, setting) when a player may pick one in this session, else null |
+| `GET /api/open?after=<code>` | Anyone | `{session, solo, title, nameRule}`. `session`: the code, label and title of the session with a facilitator that is open, or null. With `after`, only a session created later than that one counts, so a browser whose game has ended is led to the next game. `solo`: whether single-player games are switched on. `title` and `nameRule` let the start page offer one |
+| `GET /api/board/:code` | Anyone | `{board}`: ten rows of each column of the leaderboard of a session with a facilitator, for someone who stands outside it once the last phase is in play (section 6.4). Never cached |
+| `POST /api/solo` `{name, avatar?}` | Anyone | Starts a single-player game (section 6.14) and joins its one player. Returns what a join returns. 403 `solo_off` while the switch is off, 400 `name_invalid`, 503 `solo_full` when `SOLO_MAX` games are in memory, 429 `rate_limited` above 120 a minute for the whole server or `SOLO_PER_ADDRESS` in ten minutes from one address |
+| `POST /api/results` `{games: [{session, rejoinCode}]}` | Anyone | `{games}`: of up to 40 games a browser kept, the ones the server still holds, each with its kind, label, start time, stage, whether its practice can go back in (`open`), the practice name, the report card (null before a phase is scored) and whether its phases can be looked at again. A game that was deleted, a wrong code and a removed practice are left out. Never cached |
+| `POST /api/review` `{session, rejoinCode}` | Anyone | `{card, review}`: a game to look at again (section 7.5), asked like a result and under the same limit. A session in memory answers from its state, any other from the `result` table. 404 `not_found` before a phase is scored and for every wrong question |
 | `POST /api/join` `{code, name, avatar?, system?}` | Anyone | Creates a player. Returns `{playerId, token, rejoinCode}`. Answers 409 `name_taken` when a practice of the session has that name. `system` is honored only where section 6.4 allows a pick, is ignored elsewhere, and gives 400 `unknown_system` for an id the session does not hold |
 | `POST /api/rejoin` `{code, rejoinCode}` | Anyone | Returns a new token for that player, in any stage of an open session. The old token stops working |
-| `POST /api/result` `{session, rejoinCode}` | Anyone | `{card}`: the report card of a practice (section 6.12). `session` is the code of the session or its label, without regard to case, and `rejoinCode` the rejoin code of the practice. A session in memory answers from its state once a phase is scored. A session that is closed and no longer in memory, or one the server cannot resume, answers from the `result` table. 404 `not_found` for a wrong session, a wrong code, a removed practice and a session with no scored phase, always the same answer. At most 60 lookups a minute for the whole server, then 429 `rate_limited`. Never cached |
+| `POST /api/result` `{session, rejoinCode}` | Anyone | `{card}`: the report card of a practice (section 6.12). `session` is the code of the session or its label, without regard to case, and `rejoinCode` the rejoin code of the practice. A session in memory answers from its state once a phase is scored. A session that is closed and no longer in memory, or one the server cannot resume, answers from the `result` table. 404 `not_found` for a wrong session, a wrong code, a removed practice and a session with no scored phase, always the same answer. At most 600 lookups a minute for the whole server (with `POST /api/review`), which is room for a whole room at the end of a session, then 429 `rate_limited`. Never cached |
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
-| `POST /api/host/session` `{label, mode, code?}` | Host | Creates a session. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates |
-| `GET /api/host/sessions` | Host | Lists sessions, open and closed, each with `closed` and, for a session the server cannot resume, the reason. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
+| `POST /api/host/session` `{label, mode, code?, by?, replace?}` | Host | Creates a session with a facilitator. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. `by` is the name of the facilitator who opens it. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates. **One such session is open at a time:** while another runs the answer is 409 `{error: 'session_running', running}`, where `running` says its code, label, mode, stage, players, when and by whom it was opened, and whether ending it needs its code (`needsCode`: an event session with players). With `replace: {code?, confirm?}` the session that runs is ended first and its results are kept. `replace.code` names the session the facilitator was warned about: when another one runs by now, the answer is `session_running` again. When `needsCode` holds, `replace.confirm` must be the code of that session, else 409 `confirm_mismatch` |
+| `PATCH /api/host/session/:code` `{label}` | Host | A new name for a session with a facilitator, in the lobby (through the engine's `rename_session`) or after it has ended (the row, the state if it is in memory, and the stored cards). 409 `rename_running` in between |
+| `GET /api/host/sessions` | Host | Lists the sessions with a facilitator, open and closed, each with `closed`, who opened it, how many results it keeps and, for a session the server cannot resume, the reason. `solo`: the switch, how many single-player games exist, finished, unfinished and in memory, the cap, and the newest fifty with their code, practice name, start time and whether they are over or in memory, and nothing about how they go. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
+| `POST /api/host/solo` `{enabled}` | Host | Switches single-player games on or off for the whole server. The setting is kept in the database and is on in a new one |
+| `POST /api/host/solo/delete-all` `{confirm: 'DELETE'}` | Host | Deletes every single-player game with everything stored for it, also the ones in play, and returns `{deleted}`. 409 `confirm_delete` without the word |
 | `POST /api/host/session/:code/end` `{name?}` | Host | Ends an open test or rehearsal session from the list of sessions, without a console that holds control: the engine's `close`, logged as a host command and as the event `ended_from_list` with the host's name. Answers 409 `wrong_stage` for a session that has ended and 409 `event_session` for an event session, which is ended from its own console by the host in charge |
-| `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session that is still open |
-| `GET /api/host/export/:code` | Host | `what`: `results`, `cards`, `commands` or `timing`, as JSON or CSV. `results` has one row per practice with the raw score, the points, the band and the rank of each phase. `cards` has what each report card shows. A closed session that is no longer in memory answers both from its kept cards |
+| `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session with a facilitator that is still open. A single-player game is deleted in any state: one in play ends at once for its player |
+| `GET /api/host/export/:code` | Host | Of a session with a facilitator. `what`: `results`, `cards`, `commands` or `timing`, as JSON or CSV. `results` has one row per practice with the raw score, the points, the band and the rank of each phase. `cards` has what each report card shows. A closed session that is no longer in memory answers both from its kept cards |
 | `POST /api/host/screen-link` `{code}` | Host | Mints a screen token and returns `/screen#<token>`. The token sits in the fragment, so it never reaches a log. Typing `/screen` without it shows one line that says to open the big screen from the host console |
 | `POST /api/host/key-ticket` | Host | A ticket valid for 5 minutes. The host token is enough: the console opens the key with one press (section 10.8). The ticket exists because the key opens in a window of its own, which cannot send the token |
 | `GET /api/host/deck/:code` | Host | Every slide of the deck as a `SlideView`, with its notes, its placeholder mark and the id of its section, for a host who looks through the deck alone (section 10.8). Never cached. A player token and a screen token are refused |
 | `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
-| `GET /healthz` | Anyone | Build id, uptime, and for each open session its stage and its number of players. Never a join code, a label or a name, because anyone can read this address |
+| `POST /api/host/guide-ticket`, `GET /api/host/guide?ticket=` | Host, then a valid ticket | The facilitator guide, a second private page served the same way, from the file in `FACILITATOR_GUIDE_FILE`. Without the file: 404 `no_guide`, and the console shows no button for it (`guide` of the host view and of the pack info is false) |
+| `GET /healthz` | Anyone | Build id, uptime, for each open session with a facilitator its stage and its number of players, and the number of single-player games in memory. Never a join code, a label or a name, because anyone can read this address |
 
-The root URL sends a visitor to the join page of the newest open session. The QR code holds
-`PUBLIC_URL/j/<code>`.
+The root URL sends a visitor to the join page of the open session with a facilitator. Without
+one it serves the start page (section 10.2), which `/home` always does. The QR code holds
+`PUBLIC_URL/j/<code>`. The screen link, the deck and the export of a single-player game do not
+exist (404), and a console that names one in its `hello` is refused.
 
 ### 7.3 WebSocket
 
@@ -1923,13 +2048,15 @@ SQLite, one file under `DATA_DIR`, WAL mode.
 
 | Table | Holds |
 | --- | --- |
-| `session` | Code, label, mode, content hash, created, closed |
+| `session` | Code, label, mode, content hash, created, closed, kind, who opened it (`created_by`: the facilitator, or the practice of a single-player game) and the stage it is at |
 | `clock` | Per session: game time, running, scale. Written every second while running |
 | `command` | Every accepted command in order: sequence number, session, actor, game time, wall time, type, payload |
 | `snapshot` | Session state as JSON, with the sequence number and game time it reflects |
 | `auth` | Hashes of player and host tokens, the rejoin code of each player in readable form, the role and player each belongs to |
 | `event_log` | What the engine announced, with game and wall time. Feeds the export and the timing report. Never used to rebuild state |
-| `result` | The report card of every practice of a session, as JSON (section 6.12). Written at every stage change once a phase is scored, and when a practice is renamed or removed after that. Emptied when the game starts again |
+| `result` | The report card of every practice of a session, as JSON (section 6.12). Written at every stage change once a phase is scored, and when a practice is renamed or removed after that. Emptied when the game starts again. Beside the card: `review`, the practice's own part of its game to look at again, and `base`, the hash of the shared part |
+| `review_base` | The part of a game to look at again that the practices of a health system share, once per session and hash |
+| `setting` | What a facilitator sets for the whole server: whether single-player games are on |
 
 - A command is written in the same turn in which it is applied.
 - A snapshot is written every 10 seconds when anything changed, at every stage change, and at
@@ -1939,12 +2066,31 @@ SQLite, one file under `DATA_DIR`, WAL mode.
   host deletes it (`DELETE /api/host/session/:code`), which is the only thing that removes
   them. A card is complete in itself, so it can be read after a restart, when the closed
   session is no longer loaded, and after the content has changed.
+- **A game to look at again.** For every practice the server keeps what the result page needs
+  to show each phase as the practice saw it at its reveal: the player view and the standing
+  (its own part), and the session info, the health system, the ladder, the art and the
+  content of the phases that opened (the shared part, stored once per session for all
+  practices that share it). Both are gzipped JSON. They are written when a phase is scored,
+  at the winners and when the session closes, eight practices a tick, so that a full room
+  never holds the server up, and all at once before a session leaves the memory. The view is
+  stored without its mirrored slide, its waiting room and its solo controls. Nothing in it is
+  more than the browser of that player already received.
+- A column that a later release added is added to an older database at start.
+- A single-player game that has ended keeps one snapshot.
 
 ### 7.6 Recovery
 
 An ended session is not loaded at start. Its rows stay in the database for the downloads, the
 list of the host console and the report cards of its players (`POST /api/result`), and a
 browser that still holds one of its tokens is told that the game is gone (section 7.7).
+
+**A single-player game is in memory only while somebody plays it.** It is not loaded at
+start. It is loaded, by the same steps as below, when its player comes back: a socket with its
+token, a rejoin, or a request for the content of a phase. Its clock stays stopped until the
+player is connected. Every `soloSweepMs` (5 s) the server takes out of memory a solo game that
+has ended, once its results and its game to look at again are stored, and a solo game whose
+player has had no connection for `SOLO_IDLE_MINUTES`: that one stays open in the database and
+can be gone back into for as long as the content is the same.
 
 For each open session at start:
 
@@ -1991,18 +2137,24 @@ returns the player to the stage the room is in, with all of it.
   page shows the `closed` stage (section 10.7). After a restart of the server the socket is
   refused with 4004 and the page says that the game is no longer on the server. Both pages ask
   `GET /api/open?after=<own code>` every 8 seconds and show a button to join the next game as
-  soon as the host has opened one. In a test or a rehearsal, the page of a game that is still
-  open asks the same question outside the play stages, and the join page of such a game asks it
-  too: both lead to the newer game with one button, and the player's practice stays in the older
-  one. An event session never asks, so no player leaves the event by a slip. The browser keeps a small record of its last game in local
+  soon as the host has opened one. A game that is still open has no later game beside it, since
+  one session with a facilitator is open at a time (section 7.2): opening the next one ends it,
+  and its players are led over by the page of the ended game. The browser keeps a small record of its last game in local
   storage: the session, the practice's name, character and health system, the points of each
   phase and the rank. It holds no answer. The page of a game that is gone shows this record,
   and the join page of another game shows it as "Your last game in this browser" and starts
   with that name and character filled in.
-- **A result to come back to.** Once a card has been on its screen, the browser keeps the
-  session, its label, the name of the practice and its rejoin code (`lab02.results`, the
-  newest ten games). `/result/<session code>` shows that card again, in that browser with no
-  question, days later and after later games. In another browser the same link asks for the
+- **The games of a browser.** From the moment it joins a game, the browser keeps the session,
+  its label, its kind, the name of the practice, its rejoin code, the token and when it joined
+  (`lab02.results`, the newest thirty games). The start page lists them with what
+  `POST /api/results` says about each: its result, and "Continue" for a game that is still
+  open, which puts the kept token back in charge and opens the game. A game the server no
+  longer holds is dropped from the list. So a single-player game that was left unfinished is
+  gone back into from this list, also after it has left the server's memory (section 7.6).
+- **The clock of a single-player game** stands while its player has no connection and runs
+  again when they are back (section 6.14). In a session with a facilitator it keeps running.
+- **A result to come back to.** `/result/<session code>` shows the card of a kept game again,
+  in that browser with no question, days later and after later games. In another browser the same link asks for the
   rejoin code, and `/result` asks for the session (its code or its name) and the rejoin code.
   A rejoin code belongs to one session, so the result of an earlier game stays reachable
   after later games were played (section 10.7).
@@ -2022,7 +2174,8 @@ returns the player to the stage the room is in, with all of it.
 | Messages per connection | 20 in any 5 seconds. More are refused with `rate_limited` |
 | Joins | 300 a minute per server. There is no limit per address, because a whole room shares one |
 | Wrong host passcodes | Each one delays the next attempt by a second more, up to 30. No lockout |
-| Rejoin attempts | 60 a minute per server, which is far too few to guess a code |
+| Rejoin attempts | 300 a minute per server, as many as the joins, so that a room whose network failed can come back on other devices. Far too few to guess a code |
+| Report card and review lookups | 600 a minute per server together. Far too few to guess a code |
 
 Logs are JSON lines on standard output. They never hold a token, a passcode or key content.
 
@@ -2045,10 +2198,14 @@ the room.
 | `ALLOW_WEAK_PASSCODE` | `1` lets a production server start with a passcode shorter than 16 characters, for development weeks on the event server (Step 5, at the lab director's request). The server logs a warning at start. Never set at the event | unset |
 | `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
+| `FACILITATOR_GUIDE_FILE` | The generated facilitator guide page: the game for the people who run it, with its answers. `scripts/deploy.sh --content` ships it from `review/facilitator-guide.html` beside the content folder | none |
 | `LOG_LEVEL` | Log detail | `info` |
 | `SYSTEMS` | Load only these health systems, comma separated. For play checks while the pack is incomplete | all |
 | `CLIENT_DIR` | The client build to serve. The bundled server finds `../client` next to itself | none |
 | `BUILD_ID` | Set at build time by `deploy.sh`. The browser and the server compare it | `dev` |
+| `SOLO_MAX` | Single-player games held in memory at once. One more is refused with `solo_full` | 150 |
+| `SOLO_IDLE_MINUTES` | A single-player game whose player has been away this long leaves the memory and stays resumable | 15 |
+| `SOLO_PER_ADDRESS` | Single-player games one address may start in ten minutes | 20 |
 
 `npm run dev` runs the game server on port 3100, because 3000 is often taken on a laptop, and the
 client's dev server on 5173.
@@ -2274,13 +2431,17 @@ type MaintainingContent = Omit<DevelopmentContent, 'phase' | 'actions'> & {
     repeat: boolean                               // it may be done again after it finished
     upkeep: number                                // money a month once it finished
   })[]
-  year: { periods: { id: string; label: Text; short: Text }[]     // rounds + 1
-          rounds: number; roundSeconds: number
-          baselineLabel: Text                     // what a practice with no deployed map is called
+  year: { baselineLabel: Text                     // what a practice with no deployed map is called
           costPerPoint: number }                  // money that takes one point off the score of the year
   references: ReferenceMap[]
 }
 ```
+
+**The content of a board is made for its player.** `GET /api/content/development` and
+`/maintaining` answer with what is on that player's board (section 6.6, "What is on the
+board"): `board`, `rules.more`, every item with its names, the words of the items that are
+unlocked, and the actions on the list. The view of the phase carries `board` too. The browser
+keeps the content it has and asks again when the number of the view differs.
 
 ### 8.4 The player view
 
@@ -2417,7 +2578,10 @@ type MaintainingView = {
                  fresh: boolean                    // scored on the cases of the period in progress
                  reliability: number | null }[]    // with the lens dryRun
   deployed: string | null                          // the map that runs now. Null: no map
-  round: { index: number; of: number; endsAtMs: GameMs | null }
+  round: { index: number; of: number; endsAtMs: GameMs | null }   // `of` grows when time is added
+  slots: { tick: Text; mark: Text | null }[]       // one slot of the chart for every period of the year as its clock
+                                                   // stands: the months, and the calendar year where one begins
+  next: { label: Text; short: Text } | null        // the period that the round in progress ends with
   seen: number                                     // the reports held
   reports: MaintainingReport[]
   adopted: string[]                                // ids of the reference maps taken
@@ -2638,6 +2802,13 @@ that slide is shown for the first time, and from then on it may appear on any so
 of a slide are protected for the whole session on every player and screen socket. Banter and
 click lines are sent at join, so they are not protected, and a pack keeps answers out of them.
 
+**The board.** The title and the teaser of an action reach a player when the action is on
+their list. The description, the cost line, the task and the samples of a tool, a model, a
+place to run and a prompt reach them when it is unlocked. A model of Phase 3 reaches them,
+names and all, when it has appeared. What a look action found reaches them when it has found
+it. The leak scan holds every message and every content response to this, per player
+(`boardTexts`).
+
 ### 9.3 Accepted limits
 
 A player can join twice on two devices and so see more tiles than one budget buys. Neighbours
@@ -2739,6 +2910,25 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
 from with one already picked, one field for the practice name with its length limits, and a
 Join button. When the pack has no title yet, the session label stands alone. A refusal appears
 under the field as a sentence of section 8.2. A link opens "Rejoin with a code".
+
+**The start page** (`/` when no session with a facilitator is open, and `/home` always). The
+session that is open, with "Join the session", or a line that none is. "Play on your own":
+what a single-player game is in three sentences, the row of characters, the practice name and
+"Start a single-player game", or one line that single-player games are switched off. "Your
+games in this browser" (section 7.7): each game with its name (a single-player game by the
+date and the time it started, in the visitor's time zone), its kind, the practice, its points
+or "In progress", and "Continue" or "See the result". Under them the field for a session
+code. The join page links here with "Your games and single player".
+
+**Joining late** (section 6.4). While a phase is in play the join page says, above the button,
+that who joins now waits with the leaderboard and the slides and starts with the next phase,
+and that the phase in play counts 0 points. After joining, the player's screen is the waiting
+room: one panel that says which phase is in play (or has ended) and with which phase they
+start, the leaderboard with ten rows a column, the slides shown so far as small pictures that
+open large with a way to step through them, and "Who you are". Once the last phase is in
+play the join page has no form. It says that nobody can join any more, shows the leaderboard
+of the room, refreshed every 15 seconds, and, while single-player games are on, a button to
+the start page.
 
 A browser that played before starts with the name and the character of its last practice, and
 shows that game under the form as "Your last game in this browser" (section 7.7). The link of a
@@ -3508,6 +3698,14 @@ does now.
   projector the winners stand in one panel. The chart `flagship_by_system` is titled "Found the
   agent project". Two health systems or more work as before.
 
+**What is on the board.** The toolbox, the shelves, the choosers of a tile and the list of
+actions show only what the player has. A group of the toolbox or of the actions that will hold
+more says so in one quiet line under its rows, and a shelf with the words "more to come". When
+something comes onto the board, a toast names it ("New on your board: ..."), and its row or
+chip carries the word "New" and a coloured edge until the player points at it, presses it or
+starts it. A source keeps its lock and says which action opens it. The tour of each phase says
+that what the practice learns, builds and buys puts more on the board.
+
 ### 10.6 Phase 3 screens
 
 Phase 3 is Phase 2 played on, so its screen is the board of section 10.5 with what a year in
@@ -3518,8 +3716,9 @@ pass their own panels and words. Nothing of the board is copied.
 
 - **The timer.** The top bar counts down to the next report, not to the end of the stage:
   "01:42", and beside it "Phase 3 · Round 2 of 5" over "until the report on March and April".
-  The end of the round is the end of the stage less the rounds still to come (section 6.7), read
-  from the clock, so an extension by the host moves it at once and a pause stops it. Under
+  The end of the round and the number of rounds come with the view (section 6.7): when the
+  facilitator adds time every player gets a new view at once, with more rounds. A pause stops
+  the countdown. Under
   1280 px the same line stands above the tabs. After the last report it says that the year is
   over. The money and the developers stand beside it as in Phase 2.
 - **The opening.** In this order, each waiting for the one before: the opening letter, the
@@ -3538,7 +3737,7 @@ pass their own panels and words. Nothing of the board is copied.
   case), and the money: what the two months cost, a fine, the money spent so far, the score of
   the year so far and the rank.
 - **The year.** One cell across both columns under the map, above the list of maps and the
-  letters: on the left the chart (six slots, one for each period, with validity, reliability and
+  letters: on the left the chart (one slot for each period of the year as its clock stands: more slots when time is added, with a label left out where slots get narrow, and the calendar year marked where one begins; with validity, reliability and
   the score of every period that has a report, the test-set accuracy of that period's map as a
   dashed mark, an axis that starts a ten under the lowest number and never above 50) and under
   it the year in numbers, one row for each report. On the right the reports, one at a time,
@@ -3570,7 +3769,7 @@ pass their own panels and words. Nothing of the board is copied.
   under "Letters and insights", the newest first, before the opening letter. Its arrival is said
   in a toast with "Show", and money that arrives is said in a toast of its own. Nothing covers
   the board.
-- **The reveal.** The annual review beside the score: the mean of the six periods, the money
+- **The reveal.** The annual review beside the score: the mean of the periods, the money
   spent with its parts and the rate at which it takes points off, the score of the year, the
   points and the band. Then the year (the chart and every report, read-only), the player's year
   beside each reference map left alone and beside a practice with no system (one row each, six
@@ -3641,8 +3840,23 @@ pass their own panels and words. Nothing of the board is copied.
   long enough. A lookup that finds nothing says "No result was found for that session and
   that code. Check both and try again. A result exists once the first phase of a game is
   scored.", too many lookups "Too many tries from here just now. Wait a minute and try
-  again.". Other games this browser kept stand under "Your games in this browser", one button
-  each. "Look up another result" opens the form again and "Go to the game" leads to `/`.
+  again.". Other games this browser kept stand under "Your other games in this browser", as
+  on the start page. "Look up another result" opens the form again and "Back to the start
+  page" leads to `/home`.
+- **Each phase, again.** Above the card the result page has "Look at each phase again", with
+  one button for every phase the practice played and that was scored. A button opens the
+  reveal of that phase (sections 10.4 to 10.6) exactly as the game showed it, from what the
+  server kept (`POST /api/review`, section 7.5), under a strip with "Back to your result".
+  The page fills the player's state from the kept game and empties it on the way out, so the
+  screens of the phases are the same components the game uses, and no command leaves them.
+- **A single-player game** (section 6.14). Under the top bar a strip marked "Single player"
+  says what the stage waits for and holds the controls: "Start" in the lobby, "Back" and
+  "Next slide" with "Slide 3 of 5" on a slide and the name of what comes next on the last one
+  of a section ("Start Phase 1"), "Continue" at a reveal, "End this phase now" in a phase
+  (after a question, since the phase is then scored as it stands), and "Finish the game" at
+  the end. The top bar has no rank. The card of such a game shows no rank. When the game has
+  ended the page goes to its result. The menu has "Leave this game", which keeps the game in
+  the list of the start page.
 
 ### 10.8 Host console
 
@@ -3659,7 +3873,21 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | --- | --- |
 | Content | What the server has loaded, in plain words: "Content loaded: Phase 1, two health systems", with the game title when the pack has one. When the anchors are estimates a second line says "Scores are not calibrated yet, so only test and rehearsal sessions can be opened." When the deck has placeholders a third says "The deck has 14 placeholder slides." A small detail line under them holds the fingerprint of the content |
 | New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Link name (optional)", the end of the join link, which nobody has to type (see below), with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
-| Sessions | The open sessions, each with its join code, label, mode, stage and "1 player" or "42 players", and Open. Closed sessions are hidden behind "Show closed sessions (3)" |
+| Sessions | The open sessions, each with its join code, label, mode, stage, "1 player" or "42 players" and who opened it when, and Open. Closed sessions are hidden behind "Show closed sessions (3)" |
+| Single player | The switch (On, Off) with what it means, the numbers (games, finished, not finished, in play now, the cap), "Show the newest 50" and "Delete all single-player games" |
+
+- **One session with a facilitator at a time** (lab director, 2026-11-27). The label of a new
+  session starts as the date and the time. While another session runs, Create opens a dialog:
+  which session runs, who started it and when, its stage and its players, and that going on
+  ends it for everyone in it, with its results kept. "End it and start the new session" does
+  both. For an event session with players the dialog asks for its code typed out first.
+- **Rename.** A session in the lobby and a session that has ended have "Rename" in their row.
+  While a session is being played the button is off and its hover says why.
+- **Delete** says how many practices lose their result, and that those players can no longer
+  open their report card or look at their phases again.
+- **Single-player games have no console.** Nobody watches such a game or helps in it. The list
+  names the practice, when the game started and whether it is finished, in play now or left
+  open, and has Delete for one game. Deleting all of them asks for the word DELETE.
 
 - **The session code names the session in its link and is never asked of a player** (lab
   director, round 11). Players scan the QR code or open the link, and the bare address of the
@@ -4220,7 +4448,9 @@ repository. The checks run on the Mac before each merge.
   ready, with four sets of actions, by sending requests to the scorer.
 - **Phase 3 rules** (`maintaining.test.ts`). What a player carries from Phase 2 and the first
   report. A report at every round boundary and the last one with the stage, a grant at the
-  start of its round, an extension, a stage ended early, path independence, an action that
+  start of its round, added time that makes more rounds and reports past the planned year, a
+  last round that takes what is left over, a stage ended early, the names of later periods,
+  path independence, an action that
   finishes at the very moment a round ends. Every refusal of the five commands, a repeat
   action, the count of validations, a validation with the lenses, a reference map taken (its
   price, its items, its deployment, no action paid twice), deploying a map and no map. A silent
@@ -4349,7 +4579,20 @@ repository. The checks run on the Mac before each merge.
   session is closed and after a restart from the database, the code of a later session opens
   nothing of an earlier one, the downloads of the closed session hold the cards, and deleting
   the session removes them. A rename and a removal reach the kept cards, a game that starts
-  again has none, and the sixty-first lookup of a minute is refused.
+  again has none, and the lookup after the six hundredth of a minute is refused.
+- **Sessions** (`packages/server/test/sessions.test.ts`). A second session with a facilitator
+  is refused with what runs, a `replace` that names another session is asked again, and the
+  right one ends the session that runs. An event session with players needs its code. A name
+  changes in the lobby and after the end, also after a restart, and not in between. A
+  single-player game: the switch, a bad name, the limits per address and in memory, no second
+  player, no console, no projector, no export, the three commands refused in a session with
+  a facilitator, the clock that stands while the player is away, the game set aside and
+  brought back as it was, the room gone from memory once it ended, the kept games of a
+  browser, the game to look at again from the database, the list of the console and both
+  ways to delete. A late joiner waits, sees the slides shown so far and the leaderboard,
+  scores 0 for the phase and enters the next, and nobody joins once the last phase runs. The
+  games to look at again of eleven practices are stored a few at a time and answer after a
+  restart on other content.
 - **Error sentences.** A unit test of the client walks every name of `ErrorCode` and every
   name an HTTP route can answer with, and fails when the copy file has no sentence for one. A
   browser test triggers a refusal on the join page, on the new session form and on the Phase 1
@@ -4500,12 +4743,25 @@ the layout is proven without the private pack. Step 5 ran its first checks on th
 1440 × 900 and 390 × 844 in both themes with a script kept outside the repository. The
 full-size fixture is still to be written.
 
+`e2e/sessions.spec.ts`: a single-player game from the start page through every stage to its
+report card, each phase looked at again, the games of the browser with a second game left and
+continued; the single-player panel of the console with its switch and its cleanup; the warning
+before a session is replaced, and a name changed in the lobby and after the end; a late joiner
+in the waiting room who starts with the next phase, and the join page once the last phase runs.
+
 ### 12.7 Load and timing
 
-- **Load.** 150 bot clients on the event server play a full game at time scale 1 and again at
-  4. Pass when no client is lost, the server's handling time per command stays under 20 ms at
-  the 95th percentile, the ack arrives within 300 ms at the 95th percentile from the Mac, and a
-  restart in the middle returns every client.
+- **Load.** `npm run loadtest` (`scripts/loadtest.ts`) opens a rehearsal session on the server
+  in `BASE` and plays a whole game in it with bot clients, the bots of the server tests
+  (`packages/server/test/bots.ts`): 150 players by default, late players who join while Phases
+  1 and 2 are played, players who drop their connection in the middle of every phase and come
+  back, one player who sends 40 commands at once, time added in Phase 3 (`EXTEND`), a pause in
+  which the server can be restarted (`HOLD`), and beside the session any number of
+  single-player games (`SOLO`). It times every command from the moment it is sent to its
+  answer and prints the median, the 95th and 99th percentile, the refusals by command, the
+  reconnects and whether the server restarted. It ends and deletes its session. Pass when no
+  client is lost, every player holds a result of Phase 3, every single-player game reaches its
+  report card, and the answer arrives within 300 ms at the 95th percentile.
 - **Timing.** The export gives, per player and stage: time to the first command, time between
   commands, the longest idle time, and whether the player finished before the timer. A fast
   test run and a real rehearsal use the same export.

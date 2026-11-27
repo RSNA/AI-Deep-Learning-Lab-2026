@@ -7,16 +7,18 @@ const listOf = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, 
 const players = (n: number) => `${n} ${n === 1 ? 'player' : 'players'}`
 
 export const H = {
-  title: 'Host console',
-  manual: 'Host manual',
+  title: 'Facilitator console',
+  manual: 'Console manual',
+  guide: 'Facilitator guide',
+  guideLine: 'The game for the people who run it: each phase, how it is scored, what every option is for and what to say. It holds answers. Keep it off the projector.',
   manualWindow: 'Open in its own window',
   close: 'Close',
   signOut: 'Sign out',
   signIn: 'Sign in',
-  passcode: 'Host passcode',
+  passcode: 'Facilitator passcode',
   yourName: 'Your name',
   yourNameExample: 'Maya',
-  yourNameHint: 'The other hosts see who is in charge by this name.',
+  yourNameHint: 'The other facilitators see who is in charge by this name.',
   connecting: 'Connecting…',
 
   // First page
@@ -60,15 +62,50 @@ export const H = {
   endKeep: 'End, keep the results',
   endDelete: 'End and delete for good',
   endEventWhy: (label: string) =>
-    `"${label}" is an event session. It is ended from its own console, by the host in charge, who types the session code. Open it to end it.`,
+    `"${label}" is an event session. It is ended from its own console, by the facilitator in charge, who types the session code. Open it to end it.`,
   openConsole: 'Open its console',
   showClosed: (n: number) => `Show closed sessions (${n})`,
   hideClosed: 'Hide closed sessions',
   deleteTitle: (code: string) => `Delete session ${code}`,
-  deleteText: (label: string, n: number) =>
-    `"${label}" goes for good, with ${n === 1 ? 'its 1 player' : `its ${n} players`}, their results and the logs. Download them first if you need them.`,
+  deleteText: (label: string, results: number) =>
+    `"${label}" goes for good, with its logs${results ? ` and the results of ${results === 1 ? '1 practice' : `${results} practices`}. Those players can no longer open their report card or look at their phases again` : ''}. Download what you need first.`,
   deleteNow: 'Delete for good',
   cancel: 'Cancel',
+  sessionNameHint: 'Players see it on the join page and on their report card. It starts as the date and the time.',
+  openedBy: (by: string, at: string) => (by ? `Opened by ${by}, ${at}` : `Opened ${at}`),
+  renameSession: (code: string) => `Rename session ${code}`,
+  renameLine: 'A session is renamed before it starts or after it has ended. While it is being played its name stays as it is.',
+  renameNow: 'Save the name',
+  renameWhy: 'Rename it in the lobby, or after it has ended',
+  // One session with a facilitator at a time
+  runningTitle: 'Another session is running',
+  runningText: (label: string, code: string, by: string, at: string, stage: string, n: number) =>
+    `"${label}" (${code}) is open${by ? `, started by ${by}` : ''} on ${at}. It is at ${stage}, with ${players(n)}. Only one session with a facilitator is open at a time.`,
+  runningWarn: 'If you go on, that session ends for everyone in it, and its results are kept. Nobody can play it any more.',
+  runningCode: (code: string) => `This is an event session with players in it. Type its code, ${code}, to end it.`,
+  runningGo: 'End it and start the new session',
+  // Single-player games
+  solo: 'Single player',
+  soloLine: 'While this is on, anyone who opens the site can play the whole game alone, with no facilitator. Nobody can watch such a game or help in it: this page only lists the games, so that they can be deleted. Switch it off before a session with a room, so that the answers of the game cannot be seen ahead of it.',
+  soloOn: 'On',
+  soloOff: 'Off',
+  soloSwitch: 'Single-player games',
+  soloCounts: (total: number, finished: number, unfinished: number, live: number, cap: number) =>
+    total === 0 ? 'No single-player game has been started.'
+      : `${total} ${total === 1 ? 'game' : 'games'}: ${finished} finished, ${unfinished} not finished. ${live} in play right now (at most ${cap} at once).`,
+  soloShowList: (n: number) => `Show the newest ${n}`,
+  soloHideList: 'Hide the list',
+  soloFinished: 'Finished',
+  soloPlayedNow: 'In play now',
+  soloPaused: 'Left open',
+  soloDeleteTitle: 'Delete this single-player game',
+  soloDeleteText: (name: string, at: string, live: boolean) =>
+    `The game of "${name}" from ${at} goes for good, with its result. ${live ? 'It is being played right now and ends at once for its player.' : 'Its player can no longer open the report card or look at the phases again.'}`,
+  soloDeleteAll: 'Delete all single-player games',
+  soloDeleteAllTitle: 'Delete all single-player games',
+  soloDeleteAllText: (total: number, live: number) =>
+    `${total} single-player ${total === 1 ? 'game goes' : 'games go'} for good, with ${total === 1 ? 'its result' : 'their results'}${live ? `. ${live} ${live === 1 ? 'is' : 'are'} being played right now and ${live === 1 ? 'ends' : 'end'} at once` : ''}. Sessions with a facilitator are not touched.`,
+  soloDeleteAllType: 'Type DELETE to confirm',
 
   // Session bar and control
   allSessions: 'All sessions',
@@ -78,15 +115,15 @@ export const H = {
   nobodyChip: 'Nobody is in charge',
   controlledFrom: (name: string) =>
     `${name} is in charge of the stage, the projector and the shared slides. You can still open the answer key, look at any player and go through the slides for yourself.`,
-  reconnecting: 'The host in charge lost the connection and is coming back. You can take charge if they do not.',
-  nobody: 'Nobody is in charge. One host has to take charge before the game can move.',
+  reconnecting: 'The facilitator in charge lost the connection and is coming back. You can take charge if they do not.',
+  nobody: 'Nobody is in charge. One facilitator has to take charge before the game can move.',
   takeControl: 'Take charge',
   takeTitle: (holder: string | null) => (holder ? `Take charge from ${holder}?` : 'Take charge?'),
   takeText: (holder: string | null) =>
     holder
       ? `You will drive the stage, the projector and the shared slides. ${holder} goes to watching at once and is told that you took charge. They can take it back the same way.`
       : 'You will drive the stage, the projector and the shared slides.',
-  takePass: 'Host passcode, to confirm',
+  takePass: 'Facilitator passcode, to confirm',
   tookControl: (name: string) => `${name} took charge. You are watching now.`,
   watchers: (names: string[]) => `Also here: ${names.join(', ')}`,
   speedBadge: (x: number) => `Game speed ${x}×`,
@@ -133,7 +170,7 @@ export const H = {
   showOnScreen: 'Spotlight on the big screen',
   spotlightOn: 'The big screen shows this player now.',
   // One player beside the key
-  inspectLine: 'Only hosts see this page. It shows the key, so keep it off the projector.',
+  inspectLine: 'Only facilitators see this page. It shows the key, so keep it off the projector.',
   onlineNow: 'online',
   offlineNow: 'offline',
   phaseTab: (n: number) => `Phase ${n}`,
@@ -280,7 +317,7 @@ export const H = {
   dlTiming: 'Timing table (CSV)',
   dlTimingLine: 'When each stage started and ended against the schedule, and how fast players acted.',
   dlCommands: 'Full activity log (JSON)',
-  dlCommandsLine: 'Everything players and hosts did, for replay and for finding a fault.',
+  dlCommandsLine: 'Everything players and facilitators did, for replay and for finding a fault.',
   rehearsalTools: 'Rehearsal tools',
   gameSpeed: 'Game speed',
   speedLine: 'Rehearsal only. 10× runs a ten-minute phase in one minute.',
@@ -385,7 +422,7 @@ export const H = {
   lookHere: 'This is the slide the room sees. It moves with Back and Next above.',
   lookAway: (shown: number) => `The room still sees slide ${shown}.`,
   lookNotOnSlides: (shown: number) => `The projector is not on the slides now. Its deck stands at slide ${shown}, and Show this slide moves it there.`,
-  lookNotInCharge: 'Only the host in charge can show a slide.',
+  lookNotInCharge: 'Only the facilitator in charge can show a slide.',
   lookNoDeck: 'The deck could not be loaded. Only the shown slide can be seen.',
   lookRetry: 'Try again',
   stripLabel: (i: number, shown: boolean) => `Look at slide ${i}${shown ? ', the shown slide' : ''}`,

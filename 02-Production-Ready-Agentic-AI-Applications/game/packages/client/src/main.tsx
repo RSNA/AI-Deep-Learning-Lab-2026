@@ -9,13 +9,13 @@ import './styles/phase3.css'
 import './styles/slides.css'
 import './styles/card.css'
 import { initTheme } from './lib/theme.ts'
-import { store } from './lib/storage.ts'
 import { HostPage } from './pages/Host.tsx'
 import { ManualPage } from './pages/Manual.tsx'
-import { JoinPage, NoSessionPage } from './pages/Join.tsx'
+import { JoinPage } from './pages/Join.tsx'
 import { PlayPage } from './pages/Play.tsx'
 import { ResultPage } from './pages/Result.tsx'
 import { ScreenPage } from './pages/Screen.tsx'
+import { StartPage } from './pages/Start.tsx'
 
 initTheme()
 
@@ -39,9 +39,8 @@ function App() {
   if (pathname === '/screen') return <ScreenPage />
   const res = /^\/result(?:\/([A-Za-z0-9]{4,8}))?\/?$/.exec(pathname)
   if (res) return <ResultPage key={res[1] ?? ''} code={res[1] ?? null} go={go} />
-  const saved = store.player()
-  if (saved) return <JoinPage key={saved.session} code={saved.session} go={go} />
-  return <NoSessionPage go={go} />
+  // The address without a path and `/home`. The server sends the first to the open session when there is one.
+  return <StartPage go={go} />
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

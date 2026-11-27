@@ -155,7 +155,7 @@ describe('the report card of a practice', () => {
     let wall = 1_000_000
     const srv = await server(undefined, () => wall)
     cleanups.push(srv.cleanup)
-    for (let i = 0; i < 60; i++) expect((await post(srv, { session: 'NOPE99', rejoinCode: 'ABCDEF' })).status).toBe(404)
+    for (let i = 0; i < 600; i++) expect((await post(srv, { session: 'NOPE99', rejoinCode: 'ABCDEF' })).status).toBe(404)
     const limited = await post(srv, { session: 'NOPE99', rejoinCode: 'ABCDEF' })
     expect(limited.status).toBe(429)
     expect(await limited.json()).toEqual({ error: 'rate_limited' })

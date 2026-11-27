@@ -11,7 +11,7 @@ const PASS = 'e2e-passcode-0123'
 
 async function setup(page: Page, label: string, scale = 1) {
   const token = (await (await page.request.post('/api/host/login', { data: { passcode: PASS } })).json()).token as string
-  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal' }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
+  const code = (await (await page.request.post('/api/host/session', { data: { label, mode: 'rehearsal', replace: {} }, headers: { authorization: `Bearer ${token}` } })).json()).code as string
   const base = new URL(`http://127.0.0.1:${process.env.E2E_PORT ?? 3200}`)
   const ws = new WebSocket(`ws://${base.host}/ws`, { headers: { origin: base.origin } })
   await new Promise<void>((resolve) => {
@@ -197,8 +197,8 @@ test('Validate always says why, and every refused placement or line says why at 
   await page.keyboard.press('Escape')
   await page.locator('.csource', { hasText: 'Partner mailbox' }).click()
   await expect(note).toContainText('Partner mailbox is locked. Do “Connect the partner mailbox” in Actions to open it.')
-  await tool(page, 'Card reader').click({ force: true })
-  await expect(page.locator('.tb-told')).toContainText('Do “Scan the old card files” in Actions')
+  // A tool the practice does not have is not in the toolbox, so there is nothing to refuse.
+  await expect(tool(page, 'Card reader')).toHaveCount(0)
 
   // A line that a rule of the pack refuses: the server's words, at the place of the line.
   await page.locator('.arow[data-action="rb-a-cards"]').getByRole('button', { name: 'Start' }).click()

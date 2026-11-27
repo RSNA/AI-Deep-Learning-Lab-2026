@@ -10,9 +10,10 @@ import { live, period, validation, year, type HeldAction, type MaintainRules } f
 import { expectPeriod, type PeriodExpect, type ValidationExpect, type YearExpect } from './maintain-expect.ts'
 
 type PackMap = Parameters<typeof fromPackMap>[0]
+type Quality = NonNullable<CanvasTables['workers'][number]['quality']>
 type Base = { name: string; actions: HeldAction[]; new_map: boolean; map: PackMap | null; shown_cases: string[]; shown_notes: string[] }
 type File = {
-  tolerance: number; build: CanvasTables; maintain: MaintainRules & { workers?: CanvasTables['workers']; line_rules?: CanvasTables['line_rules']; actions?: { id: string; run?: number; unlocks?: string[] }[] }
+  tolerance: number; build: CanvasTables; maintain: MaintainRules & { workers?: CanvasTables['workers']; line_rules?: CanvasTables['line_rules']; actions?: { id: string; run?: number; unlocks?: string[] }[]; models?: (NonNullable<CanvasTables['models']>[number] & { by_worker: Record<string, Quality> })[] }
   periods: (Base & { period: number; actions_set: string; expect: PeriodExpect })[]
   validations: (Base & { seen: number; actions_set: string; map: PackMap; expect: ValidationExpect })[]
   years: { name: string; paid: number; periods: { map: PackMap | null; actions: HeldAction[]; new_map: boolean }[]; expect: YearExpect }[]
@@ -22,9 +23,15 @@ const tol = file.tolerance
 const close = (a: number, b: number) => Math.abs(a - b) <= tol
 const mt = file.maintain
 // The tables of Phase 3: the toy pack with what the toy year adds.
+const newModels = mt.models ?? []
 const t3: CanvasTables = {
   ...file.build,
-  workers: [...file.build.workers, ...(mt.workers ?? [])],
+  // A model of the toy year joins the shelf, and every worker it names can carry it.
+  workers: [...file.build.workers, ...(mt.workers ?? [])].map((w) => ({
+    ...w,
+    ...(w.by_model ? { by_model: { ...w.by_model, ...Object.fromEntries(newModels.filter((mo) => mo.by_worker[w.id]).map((mo) => [mo.id, mo.by_worker[w.id]!])) } } : {}),
+  })),
+  models: [...(file.build.models ?? []), ...newModels.map((mo) => ({ id: mo.id, run: mo.run, runs_on: mo.runs_on }))],
   line_rules: [...(file.build.line_rules ?? []), ...(mt.line_rules ?? [])],
   actions: [...(file.build.actions ?? []), ...(mt.actions ?? [])],
 }
@@ -41,6 +48,12 @@ describe('parity: a period of Phase 3', () => {
     expect(file.periods.some((v) => v.expect.components.some((c) => c.part === 'new_map'))).toBe(true)
     expect(file.periods.some((v) => v.expect.events.some((x) => x.cost_loss > 0))).toBe(true)
     for (const op of ['weights', 'fetch_as', 'worker', 'knows', 'gives', 'compute', 'model']) expect([...(mt.world ?? []), ...(mt.events ?? []).flatMap((e) => e.patches ?? [])].some((p) => p.op === op)).toBe(true)
+    // The rules of 2026-11-27: a factor that grows by the period, a model of the toy year, a
+    // risk on the tiles that carry a model, an event that needs a model.
+    const events = mt.events ?? []
+    expect(events.some((e) => (e.patches ?? []).some((p) => p.op === 'worker' && Object.values(p.fetch ?? {}).some(Array.isArray)))).toBe(true)
+    expect(events.some((e) => e.needs?.models?.length) && events.some((e) => (e.risks ?? []).some((r) => r.models?.length))).toBe(true)
+    expect(file.periods.some((v) => v.map?.tiles.some((t) => newModels.some((mo) => mo.id === t.model)))).toBe(true)
     expect(file.validations.some((v) => v.expect.fresh && v.expect.reliability !== null)).toBe(true)
     expect(file.years.length).toBeGreaterThan(3)
   })

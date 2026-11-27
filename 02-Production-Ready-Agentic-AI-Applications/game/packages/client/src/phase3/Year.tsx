@@ -6,17 +6,18 @@ import type { MaintainingContent, MaintainingView } from '@lab02/protocol'
 import { Sheet } from '../components/ui.tsx'
 import { gameNow, useTick } from '../lib/clock.ts'
 import { usePlayer } from '../lib/player.ts'
+import { useNarrow } from '../phase1/Phase1.tsx'
 import { YearChart } from './Chart.tsx'
 import { P3 } from './copy.ts'
-import { chartPoints, gapOf, nextPeriod, roundEndMs, type Report } from './model.ts'
+import { chartPoints, gapOf, type Report } from './model.ts'
 
 export const SPENT_PARTS = ['phase2', 'actions', 'adoption', 'running', 'fines'] as const
 
 /** Seconds until the report that ends the round in progress, or null when the year is over. */
-export function useRoundLeft(mv: MaintainingView, content: MaintainingContent): number | null {
+export function useRoundLeft(mv: MaintainingView): number | null {
   useTick(250)
   const clock = usePlayer((s) => s.clock)
-  const end = roundEndMs(clock?.clock.stageEndsAtMs ?? null, mv.round, content.year.roundSeconds)
+  const end = mv.round.endsAtMs
   if (end === null || !clock) return null
   return Math.max(0, (end - gameNow(clock)) / 1000)
 }
@@ -25,10 +26,10 @@ export function useRoundLeft(mv: MaintainingView, content: MaintainingContent): 
  * The timer on top: the time until the next report, the two months it will cover, and the round.
  * `bar`: in the top bar of a laptop. `strip`: one line above the tabs of a phone.
  */
-export function RoundTimer({ mv, content, variant }: { mv: MaintainingView; content: MaintainingContent; variant: 'bar' | 'strip' }) {
-  const left = useRoundLeft(mv, content)
+export function RoundTimer({ mv, variant }: { mv: MaintainingView; variant: 'bar' | 'strip' }) {
+  const left = useRoundLeft(mv)
   const clock = usePlayer((s) => s.clock)
-  const next = nextPeriod(content, mv.seen)
+  const next = mv.next
   const paused = clock && !clock.clock.running
   const late = left !== null && left <= 20
   const t = left === null ? '--:--' : `${String(Math.floor(Math.ceil(left) / 60)).padStart(2, '0')}:${String(Math.ceil(left) % 60).padStart(2, '0')}`
@@ -155,7 +156,7 @@ export function ReportSheet({ r, mapName, fresh, onClose }: { r: Report; mapName
  * one for each period that has ended, to step through.
  */
 export function YearPanel({ mv, content, names, onOpen, readOnly = false }: {
-  mv: Pick<MaintainingView, 'reports' | 'spent' | 'score'>; content: MaintainingContent; names: Map<string, string>
+  mv: Pick<MaintainingView, 'reports' | 'slots' | 'spent' | 'score'>; content: MaintainingContent; names: Map<string, string>
   /** Open a report as a card over the board. */
   onOpen?: (period: number) => void
   readOnly?: boolean
@@ -165,13 +166,13 @@ export function YearPanel({ mv, content, names, onOpen, readOnly = false }: {
   // A new report is the one shown, until the player steps away from it.
   useEffect(() => { setAt(Math.max(0, n - 1)) }, [n])
   const r = mv.reports[Math.min(at, n - 1)]
-  const slots = content.year.periods.map((p) => p.short)
+  const narrow = useNarrow(700)
   return (
     <section className="panel p3year" id="p3-year">
-      <div className="panel-head go"><span>{P3.yearTitle}</span><span className="sub">{P3.yearSub(n, slots.length)}</span></div>
+      <div className="panel-head go"><span>{P3.yearTitle}</span><span className="sub">{P3.yearSub(n, mv.slots.length)}</span></div>
       <div className="panel-body p3year-body">
         <div className="p3chart" data-tour="p3-chart">
-          <YearChart slots={slots} points={chartPoints(mv.reports)} selected={r ? Math.min(at, n - 1) : null} onSelect={setAt} />
+          <YearChart compact={narrow} slots={mv.slots} names={mv.reports.map((x) => x.short)} points={chartPoints(mv.reports)} selected={r ? Math.min(at, n - 1) : null} onSelect={setAt} />
           {n > 0 && (
             <div className="p3rows" role="group" aria-label={P3.chartTitle}>
               <div className="p3rows-h" aria-hidden="true"><span>{P3.periodsHead}</span><span>{P3.mapHead}</span><span>{P3.validity}</span><span>{P3.reliability}</span><span>{P3.scoreShort}</span></div>

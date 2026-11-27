@@ -33,6 +33,18 @@ export function developersFree(pack: Pack, p: PlayerState): number {
   return b.budget.developers - held
 }
 
+/**
+ * The actions on a player's list in Phase 2: an action that requires another is not shown, and
+ * cannot be started, until that one is done (section 6.6, "What is on the board"). An action
+ * that was started stays.
+ */
+export function shownActions(pack: Pack, p: PlayerState): BuildFile['actions'] {
+  const st = p.development
+  const done = new Set(st?.actionsDone.map((d) => d.id) ?? [])
+  const running = new Set(st?.actionsRunning.map((r) => r.id) ?? [])
+  return buildOf(pack, p).actions.filter((a) => done.has(a.id) || running.has(a.id) || a.requires.every((r) => done.has(r)))
+}
+
 /** A plain copy of a map, so that nothing of a command's payload is kept by reference. */
 export function copyMap(m: CanvasMap): CanvasMap {
   return {

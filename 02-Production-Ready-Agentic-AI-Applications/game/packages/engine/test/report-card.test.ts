@@ -39,7 +39,7 @@ describe('the report card', () => {
     const v = project.playerView(s, pack, 'p1', 'ABC234', 1_700_000_000_000)
     expect(PlayerView.safeParse(v).success).toBe(true)
     expect(v.reportCard).not.toBeNull()
-    expect(v.reportCard!.session).toEqual({ code: 'TEST01', label: 'Test', title: pack.game.game.title, playedAtMs: 1_700_000_000_000 })
+    expect(v.reportCard!.session).toEqual({ code: 'TEST01', label: 'Test', title: pack.game.game.title, playedAtMs: 1_700_000_000_000, kind: 'multi' })
     toStage(s, 'closed', 950_000)
     expect(project.playerView(s, pack, 'p1', 'ABC234').reportCard).not.toBeNull()
   })

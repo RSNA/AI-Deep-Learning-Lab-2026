@@ -3,9 +3,14 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import type { Mode } from '@lab02/protocol'
+import type { Kind, Mode, StageId } from '@lab02/protocol'
 
-export type SessionRow = { code: string; label: string; mode: Mode; content_hash: string; created: number; closed: number | null }
+/** `created_by`: the facilitator who opened a session, or the practice of a single-player game. */
+export type SessionRow = {
+  code: string; label: string; mode: Mode; content_hash: string; created: number; closed: number | null
+  kind: Kind; created_by: string; stage: StageId
+}
+export type ResultRow = { player_id: string; card: string; review: Uint8Array | null; base: string | null }
 export type ClockRow = { code: string; game_ms: number; running: number; scale: number }
 export type CommandRow = {
   seq: number; code: string; actor: string; player_id: string | null; cid: string | null
@@ -13,6 +18,8 @@ export type CommandRow = {
 }
 export type SnapshotRow = { id: number; code: string; seq: number; game_ms: number; state: string; stage_change: number }
 export type AuthRow = { token_hash: string; role: 'player' | 'host' | 'screen'; code: string | null; player_id: string | null; rejoin_code: string | null; created: number }
+
+const SESSION_TABLES = ['command', 'snapshot', 'event_log', 'clock', 'auth', 'result', 'review_base', 'session'] as const
 
 export class Storage {
   readonly db: DatabaseSync
@@ -58,7 +65,24 @@ export class Storage {
         code TEXT NOT NULL, player_id TEXT NOT NULL, card TEXT NOT NULL, updated INTEGER NOT NULL,
         PRIMARY KEY (code, player_id)
       );
+      CREATE TABLE IF NOT EXISTS review_base (
+        code TEXT NOT NULL, hash TEXT NOT NULL, data BLOB NOT NULL,
+        PRIMARY KEY (code, hash)
+      );
+      CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     `)
+    // Columns added after the first release. A database made before them gets them here.
+    this.addColumn('session', 'kind', "TEXT NOT NULL DEFAULT 'multi'")
+    this.addColumn('session', 'created_by', "TEXT NOT NULL DEFAULT ''")
+    this.addColumn('session', 'stage', "TEXT NOT NULL DEFAULT 'lobby'")
+    this.addColumn('result', 'review', 'BLOB')
+    this.addColumn('result', 'base', 'TEXT')
+    this.db.exec('CREATE INDEX IF NOT EXISTS session_kind ON session (kind, created)')
+  }
+
+  private addColumn(table: string, column: string, type: string): void {
+    const cols = this.db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+    if (!cols.some((c) => c.name === column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
   }
 
   close(): void {
@@ -67,11 +91,26 @@ export class Storage {
 
   // Sessions -------------------------------------------------------------------------------
   insertSession(r: SessionRow): void {
-    this.db.prepare('INSERT INTO session (code, label, mode, content_hash, created, closed) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(r.code, r.label, r.mode, r.content_hash, r.created, r.closed)
+    this.db.prepare('INSERT INTO session (code, label, mode, content_hash, created, closed, kind, created_by, stage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(r.code, r.label, r.mode, r.content_hash, r.created, r.closed, r.kind, r.created_by, r.stage)
   }
-  sessions(): SessionRow[] {
-    return this.db.prepare('SELECT * FROM session ORDER BY created').all() as unknown as SessionRow[]
+  /** The sessions of one kind, oldest first. */
+  sessions(kind: Kind = 'multi'): SessionRow[] {
+    return this.db.prepare('SELECT * FROM session WHERE kind = ? ORDER BY created').all(kind) as unknown as SessionRow[]
+  }
+  /** The newest single-player games, and how many there are: all, and those that ended. */
+  soloRecent(limit: number): SessionRow[] {
+    return this.db.prepare("SELECT * FROM session WHERE kind = 'solo' ORDER BY created DESC LIMIT ?").all(limit) as unknown as SessionRow[]
+  }
+  soloCounts(): { total: number; finished: number } {
+    const r = this.db.prepare("SELECT COUNT(*) AS total, COUNT(closed) AS finished FROM session WHERE kind = 'solo'").get() as { total: number; finished: number }
+    return { total: Number(r.total), finished: Number(r.finished) }
+  }
+  setStage(code: string, stage: StageId): void {
+    this.db.prepare('UPDATE session SET stage = ? WHERE code = ?').run(stage, code)
+  }
+  renameSession(code: string, label: string): void {
+    this.db.prepare('UPDATE session SET label = ? WHERE code = ?').run(label, code)
   }
   session(code: string): SessionRow | undefined {
     return this.db.prepare('SELECT * FROM session WHERE code = ?').get(code) as unknown as SessionRow | undefined
@@ -82,26 +121,43 @@ export class Storage {
   /** Remove a session and everything stored for it. */
   deleteSession(code: string): void {
     this.transaction(() => {
-      for (const t of ['command', 'snapshot', 'event_log', 'clock', 'auth', 'result', 'session']) this.db.prepare(`DELETE FROM ${t} WHERE code = ?`).run(code)
+      for (const t of SESSION_TABLES) this.db.prepare(`DELETE FROM ${t} WHERE code = ?`).run(code)
+    })
+  }
+  /** Remove every single-player game and everything stored for them. Returns how many there were. */
+  deleteSolo(): number {
+    return this.transaction(() => {
+      const n = this.soloCounts().total
+      for (const t of SESSION_TABLES.filter((x) => x !== 'session')) this.db.prepare(`DELETE FROM ${t} WHERE code IN (SELECT code FROM session WHERE kind = 'solo')`).run()
+      this.db.prepare("DELETE FROM session WHERE kind = 'solo'").run()
+      return n
     })
   }
 
   /**
-   * The sessions a player may mean by what they typed: the one with that code, and every one
-   * with that label (letter case and outer spaces aside), newest first.
+   * The sessions a player may mean by what they typed: the one with that code, and every
+   * session with a facilitator that has that label (letter case and outer spaces aside), newest
+   * first. Single-player games all carry one label, so they are found by their code.
    */
   sessionsNamed(code: string, label: string): SessionRow[] {
-    return this.db.prepare('SELECT * FROM session WHERE code = ? OR trim(label) = trim(?) COLLATE NOCASE ORDER BY created DESC')
+    return this.db.prepare("SELECT * FROM session WHERE code = ? OR (kind = 'multi' AND trim(label) = trim(?) COLLATE NOCASE) ORDER BY created DESC")
       .all(code, label) as unknown as SessionRow[]
   }
 
   // Results (section 7.5): the report card of every practice, kept after the session is closed ---
-  /** Replace the stored cards of a session by `cards` (player id to JSON). An empty set clears them. */
+  /**
+   * Make the stored cards of a session equal to `cards` (player id to JSON). A practice that is
+   * no longer in the set loses its row, and an empty set clears the session. A card that is
+   * written again keeps the game to look at again that is stored beside it.
+   */
   writeResults(code: string, cards: Map<string, string>, wall: number): void {
     this.transaction(() => {
-      this.db.prepare('DELETE FROM result WHERE code = ?').run(code)
-      const ins = this.db.prepare('INSERT INTO result (code, player_id, card, updated) VALUES (?, ?, ?, ?)')
-      for (const [id, card] of cards) ins.run(code, id, card, wall)
+      const had = this.db.prepare('SELECT player_id FROM result WHERE code = ?').all(code) as { player_id: string }[]
+      const del = this.db.prepare('DELETE FROM result WHERE code = ? AND player_id = ?')
+      for (const r of had) if (!cards.has(r.player_id)) del.run(code, r.player_id)
+      const put = this.db.prepare('INSERT INTO result (code, player_id, card, updated) VALUES (?, ?, ?, ?) ON CONFLICT(code, player_id) DO UPDATE SET card = excluded.card, updated = excluded.updated')
+      for (const [id, card] of cards) put.run(code, id, card, wall)
+      if (!cards.size) this.db.prepare('DELETE FROM review_base WHERE code = ?').run(code)
     })
   }
   result(code: string, playerId: string): string | undefined {
@@ -110,6 +166,53 @@ export class Storage {
   }
   results(code: string): { player_id: string; card: string }[] {
     return this.db.prepare('SELECT player_id, card FROM result WHERE code = ? ORDER BY rowid').all(code) as unknown as { player_id: string; card: string }[]
+  }
+  /** How many practices have a stored result, for every session that has any. */
+  resultCounts(): Map<string, number> {
+    const rows = this.db.prepare('SELECT code, COUNT(*) AS n FROM result GROUP BY code').all() as { code: string; n: number }[]
+    return new Map(rows.map((r) => [r.code, Number(r.n)]))
+  }
+  /** Put the label of a session into its stored cards, after the session was renamed. */
+  relabelResults(code: string, label: string): void {
+    this.transaction(() => {
+      const put = this.db.prepare('UPDATE result SET card = ? WHERE code = ? AND player_id = ?')
+      for (const r of this.results(code)) {
+        try {
+          const card = JSON.parse(r.card) as { session?: { label?: string } }
+          if (card.session) { card.session.label = label; put.run(JSON.stringify(card), code, r.player_id) }
+        } catch { /* a card that does not parse is left as it is */ }
+      }
+    })
+  }
+
+  // Games to look at again (section 7.5): beside a card, the practice's own part, and once per
+  // session the part that every practice of a health system shares. Both are gzipped JSON.
+  writeReview(code: string, playerId: string, base: { hash: string; data: Uint8Array }, review: Uint8Array): void {
+    this.transaction(() => {
+      // Empty data: the caller stored this shared part with the practice before.
+      if (base.data.length) this.db.prepare('INSERT OR IGNORE INTO review_base (code, hash, data) VALUES (?, ?, ?)').run(code, base.hash, base.data)
+      this.db.prepare('UPDATE result SET review = ?, base = ? WHERE code = ? AND player_id = ?').run(review, base.hash, code, playerId)
+      // The shared part grows with every phase that opens. One that no practice points to any more goes.
+      this.db.prepare('DELETE FROM review_base WHERE code = ? AND hash NOT IN (SELECT base FROM result WHERE code = ? AND base IS NOT NULL)').run(code, code)
+    })
+  }
+  review(code: string, playerId: string): { review: Uint8Array; base: Uint8Array } | undefined {
+    const r = this.db.prepare('SELECT review, base FROM result WHERE code = ? AND player_id = ?').get(code, playerId) as { review: Uint8Array | null; base: string | null } | undefined
+    if (!r?.review || !r.base) return undefined
+    const b = this.db.prepare('SELECT data FROM review_base WHERE code = ? AND hash = ?').get(code, r.base) as { data: Uint8Array } | undefined
+    return b ? { review: r.review, base: b.data } : undefined
+  }
+  hasReview(code: string, playerId: string): boolean {
+    const r = this.db.prepare('SELECT review IS NOT NULL AS has FROM result WHERE code = ? AND player_id = ?').get(code, playerId) as { has: number } | undefined
+    return !!r?.has
+  }
+
+  // Settings of the server that a facilitator changes in the console -----------------------
+  setting(key: string): string | undefined {
+    return (this.db.prepare('SELECT value FROM setting WHERE key = ?').get(key) as { value: string } | undefined)?.value
+  }
+  setSetting(key: string, value: string): void {
+    this.db.prepare('INSERT INTO setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value)
   }
 
   // Clock ----------------------------------------------------------------------------------
@@ -142,6 +245,10 @@ export class Storage {
     // Keep the newest five, plus the one of each stage change.
     this.db.prepare(`DELETE FROM snapshot WHERE code = ? AND stage_change = 0 AND id NOT IN
       (SELECT id FROM snapshot WHERE code = ? ORDER BY id DESC LIMIT 5)`).run(code, code)
+  }
+  /** Keep only the newest snapshot of a session that has ended and will not be opened again. */
+  pruneSnapshots(code: string): void {
+    this.db.prepare('DELETE FROM snapshot WHERE code = ? AND id NOT IN (SELECT id FROM snapshot WHERE code = ? ORDER BY id DESC LIMIT 1)').run(code, code)
   }
   latestSnapshot(code: string): SnapshotRow | undefined {
     return this.db.prepare('SELECT * FROM snapshot WHERE code = ? ORDER BY id DESC LIMIT 1').get(code) as unknown as SnapshotRow | undefined

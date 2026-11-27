@@ -22,6 +22,10 @@ export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('maintaining.validate'), payload: S({}) }),
   S({ type: z.literal('maintaining.adopt'), payload: S({ id: z.string().max(80) }) }),
   S({ type: z.literal('maintaining.deploy'), payload: S({ id: z.string().max(16).nullable() }) }),
+  // A single-player game has no facilitator: its player moves it on (section 6.14). Refused in any other session.
+  S({ type: z.literal('solo.next'), payload: S({}) }),
+  S({ type: z.literal('solo.slide'), payload: S({ delta: z.union([z.literal(1), z.literal(-1)]) }) }),
+  S({ type: z.literal('solo.end_now'), payload: S({}) }),
 ])
 export type PlayerCommand = z.infer<typeof PlayerCommand>
 export type PlayerCommandType = PlayerCommand['type']

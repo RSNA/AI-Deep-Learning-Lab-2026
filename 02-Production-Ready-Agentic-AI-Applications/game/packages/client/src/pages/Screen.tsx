@@ -477,8 +477,8 @@ export function ScreenPage() {
   useEffect(() => { forceTheme(v?.theme ?? null) }, [v?.theme])
   useEffect(() => () => forceTheme(null), [])
 
-  if (!token) return <div style={{ padding: 40 }}><h2>Open the big screen from the host console.</h2></div>
-  if (!v) return <div className="banner">{status === 'unauthorized' ? 'This big screen link is no longer valid. Open it again from the host console.' : status === 'ended' ? 'This session has ended. Open the big screen of the next session from its host console.' : COPY.reconnecting}</div>
+  if (!token) return <div style={{ padding: 40 }}><h2>Open the big screen from the facilitator console.</h2></div>
+  if (!v) return <div className="banner">{status === 'unauthorized' ? 'This big screen link is no longer valid. Open it again from the facilitator console.' : status === 'ended' ? 'This session has ended. Open the big screen of the next session from its facilitator console.' : COPY.reconnecting}</div>
   return (
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ position: 'absolute', left: (window.innerWidth - 1920 * scale) / 2, top: (window.innerHeight - 1080 * scale) / 2 }}>

@@ -29,6 +29,11 @@ export const MODES = ['test', 'rehearsal', 'event'] as const
 export const Mode = z.enum(MODES)
 export type Mode = z.infer<typeof Mode>
 
+/** A session is played by a room with a facilitator (`multi`), or by one person alone (`solo`). */
+export const KINDS = ['multi', 'solo'] as const
+export const Kind = z.enum(KINDS)
+export type Kind = z.infer<typeof Kind>
+
 /** The characters a practice can pick at join. Display only. */
 export const AVATARS = ['av01', 'av02', 'av03', 'av04', 'av05', 'av06', 'av07', 'av08', 'av09', 'av10', 'av11', 'av12'] as const
 export const AvatarId = z.enum(AVATARS)
@@ -45,6 +50,8 @@ export const ERROR_CODES = [
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
   // Host console
   'not_in_control', 'wrong_passcode', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
+  // A single-player game (section 6.14)
+  'not_solo',
 ] as const
 export const ErrorCode = z.enum(ERROR_CODES)
 export type ErrorCode = z.infer<typeof ErrorCode>

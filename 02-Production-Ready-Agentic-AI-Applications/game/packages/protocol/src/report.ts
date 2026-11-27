@@ -3,7 +3,7 @@
 // player can come back to it. It is complete in itself: the page that shows it needs nothing
 // else from the server, and nothing in it is more than the reveals already sent.
 import { z } from 'zod'
-import { AvatarId, PhaseId } from './ids.ts'
+import { AvatarId, Kind, PhaseId } from './ids.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Text = z.string()
@@ -25,7 +25,8 @@ export const ReportCardPhase = S({
 export type ReportCardPhase = z.infer<typeof ReportCardPhase>
 
 export const ReportCard = S({
-  session: S({ code: z.string(), label: Text, title: Text.nullable(), playedAtMs: z.number().nullable() }),
+  // `kind` is absent on a card that was stored before single-player games existed.
+  session: S({ code: z.string(), label: Text, title: Text.nullable(), playedAtMs: z.number().nullable(), kind: Kind.optional() }),
   practice: S({ name: Text, avatar: AvatarId, system: Text, rejoinCode: z.string() }),
   final: z.boolean(),               // every phase is scored. Otherwise the card says "so far"
   total: Int, maxTotal: Int,

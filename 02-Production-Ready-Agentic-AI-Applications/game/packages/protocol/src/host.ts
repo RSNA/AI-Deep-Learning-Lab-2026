@@ -31,6 +31,8 @@ export const HostCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('set_scale'), payload: S({ scale: z.number().positive().max(100) }) }),
   // A console takes charge. The passcode is asked again when another console holds control.
   S({ type: z.literal('take_control'), payload: S({ passcode: z.string().max(200).optional() }) }),
+  // A new name for the session, while it waits in the lobby (section 6.4).
+  S({ type: z.literal('rename_session'), payload: S({ label: z.string().min(1).max(80) }) }),
 ])
 export type HostCommand = z.infer<typeof HostCommand>
 
@@ -88,6 +90,7 @@ export const HostView = S({
     watchers: z.array(Text),                          // the names of the other consoles that watch
   }),
   answerKey: z.boolean(),
+  guide: z.boolean(),                // the server has a facilitator guide to open
   phaseLive: PhaseId.nullable(),
   pickModes: z.array(Mode),         // session modes in which a player may pick the health system
 })
@@ -215,9 +218,34 @@ export const CreateSessionBody = S({
   label: z.string().min(1).max(80),
   mode: Mode,
   code: z.string().regex(/^[A-Za-z0-9]{4,8}$/).optional(),
+  by: z.string().max(40).optional(),          // the facilitator who opens it
+  // One session with a facilitator is open at a time (section 7.2). `replace` ends the one that
+  // runs: `code` names the session the facilitator was warned about, and `confirm` is its code
+  // typed out, which an event session with players asks for.
+  replace: S({ code: z.string().max(16).optional(), confirm: z.string().max(16).optional() }).optional(),
 })
 export type CreateSessionBody = z.infer<typeof CreateSessionBody>
+export const RenameSessionBody = S({ label: z.string().min(1).max(80) })
 export const SessionSummary = S({
   code: z.string(), label: Text, mode: Mode, stage: StageId, players: Int, closed: z.boolean(), createdAt: z.number(),
+  createdBy: Text,                  // the facilitator who opened it, or ''
+  results: Int,                     // practices whose result is kept
 })
 export type SessionSummary = z.infer<typeof SessionSummary>
+/** What a refused `POST /api/host/session` says about the session that runs. */
+export const SessionRunning = S({
+  code: z.string(), label: Text, mode: Mode, stage: StageId, players: Int, createdAt: z.number(), createdBy: Text,
+  needsCode: z.boolean(),           // ending it asks for its code typed out
+})
+export type SessionRunning = z.infer<typeof SessionRunning>
+/**
+ * One single-player game in the facilitator's list. The list is there to delete games, so it
+ * says whose game it is and whether it is over, and nothing about how it goes.
+ */
+export const SoloSummary = S({ code: z.string(), name: Text, createdAt: z.number(), closed: z.boolean(), live: z.boolean() })
+export type SoloSummary = z.infer<typeof SoloSummary>
+export const SoloOverview = S({
+  enabled: z.boolean(), total: Int, finished: Int, unfinished: Int, live: Int, cap: Int,
+  recent: z.array(SoloSummary),     // the newest fifty
+})
+export type SoloOverview = z.infer<typeof SoloOverview>

@@ -9,12 +9,13 @@ import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { loadPack, type Pack } from '@lab02/content-schema'
-import { canPickSystem, joinOpen, project } from '@lab02/engine'
+import { gunzipSync } from 'node:zlib'
+import { canPickSystem, checkName, joinOpen, joinWaitsFor, kindOf, project } from '@lab02/engine'
 import {
-  CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, ReportCard, ResultBody, normalizeCode,
-  type OpenSession, type PhaseId, type SessionPublic,
+  CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, ReportCard, ResultBody, ResultsBody, Review, SoloBody, normalizeCode,
+  type GameSummary, type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
-import { CreateSessionBody, HostCmdEnvelope, HostDeck, type SessionSummary } from '@lab02/protocol/host'
+import { CreateSessionBody, HostCmdEnvelope, HostDeck, RenameSessionBody, type SessionSummary, type SoloOverview } from '@lab02/protocol/host'
 import { hashToken, newToken, samePasscode } from './auth.ts'
 import { configFromEnv, type Config } from './config.ts'
 import { Storage } from './db.ts'
@@ -103,8 +104,8 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
     const rule = pack.game.join.practice_name
     return {
-      code: s.code, label: s.label, title: pack.game.game.title, mode: s.mode, stage: s.stage,
-      joinOpen: joinOpen(s, pack, room.now()),
+      code: s.code, label: s.label, title: pack.game.game.title, mode: s.mode, kind: kindOf(s), stage: s.stage,
+      joinOpen: joinOpen(s, pack), joinWaits: joinOpen(s, pack) && joinWaitsFor(s) !== null,
       systems: project.systemRefs(s, pack).map((r) => ({ ...r, players: active.filter((p) => p.system === r.id).length })),
       nameRule: { min: rule.min_chars, max: rule.max_chars },
       pickSystem: canPickSystem(s, pack)
@@ -125,7 +126,20 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   fastify.get<{ Querystring: { after?: string } }>('/api/open', async (req): Promise<OpenSession> => {
     const after = typeof req.query.after === 'string' && /^[A-Za-z0-9]{4,8}$/.test(req.query.after) ? req.query.after : undefined
     const room = manager.newestOpen(after)
-    return { session: room ? { code: room.code, label: room.state.label, title: pack.game.game.title } : null }
+    const rule = pack.game.join.practice_name
+    return {
+      session: room ? { code: room.code, label: room.state.label, title: pack.game.game.title } : null,
+      solo: manager.soloEnabled(), title: pack.game.game.title, nameRule: { min: rule.min_chars, max: rule.max_chars },
+    }
+  })
+
+  // The leaderboard of a session, for someone who stands outside it: the last phase is in play
+  // and joining is closed (section 6.4). It says what the projector says, and nothing else.
+  fastify.get<{ Params: { code: string } }>('/api/board/:code', async (req, reply) => {
+    const room = manager.get(normalizeCode(req.params.code))
+    if (!room || room.kind !== 'multi') return bad(reply, 404, 'unknown_session')
+    reply.header('cache-control', 'no-store')
+    return { board: project.boardView(room.state, pack, { system: null, rows: 10 }) }
   })
 
   const joinLimit = minuteLimiter(300, config.wallNow)
@@ -143,22 +157,123 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: room.code }
   })
 
-  const rejoinLimit = minuteLimiter(60, config.wallNow)
+  // As many as the joins: a room whose network failed may come back on other devices together.
+  const rejoinLimit = minuteLimiter(300, config.wallNow)
   fastify.post('/api/rejoin', async (req, reply) => {
     const body = RejoinBody.safeParse(req.body)
     if (!body.success) return bad(reply, 400, 'bad_message')
     if (!rejoinLimit()) return bad(reply, 429, 'rate_limited')
-    const room = manager.get(normalizeCode(body.data.code))
+    const room = manager.wake(normalizeCode(body.data.code))
     if (!room || room.state.closed) return bad(reply, 404, 'unknown_session')
     const r = room.rejoin(body.data.rejoinCode)
     if (!r.ok) return bad(reply, r.error === 'removed' ? 403 : 404, r.error === 'unknown_player' ? 'not_found' : r.error)
     return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: room.code }
   })
 
+  // A single-player game (section 6.14): a session of its own for one practice, with no
+  // facilitator. Refused while the switch is off, while too many are being played, and for an
+  // address that starts them faster than a person would.
+  const soloLimit = minuteLimiter(120, config.wallNow)
+  const soloByAddress = new Map<string, number[]>()
+  const addressAllowed = (address: string): boolean => {
+    const now = config.wallNow()
+    for (const [a, times] of soloByAddress) if (!times.length || now - times.at(-1)! > 600_000) soloByAddress.delete(a)
+    const times = (soloByAddress.get(address) ?? []).filter((t) => now - t <= 600_000)
+    if (times.length >= config.soloPerAddress) return false
+    soloByAddress.set(address, [...times, now])
+    return true
+  }
+  fastify.post('/api/solo', async (req, reply) => {
+    const body = SoloBody.safeParse(req.body)
+    if (!body.success) return bad(reply, 400, 'bad_message')
+    if (!manager.soloEnabled()) return bad(reply, 403, 'solo_off')
+    const named = checkName(body.data.name, pack.game.join.practice_name, () => false)
+    if (!named.ok) return bad(reply, 400, named.error)
+    if (!soloLimit() || !addressAllowed(req.ip)) return bad(reply, 429, 'rate_limited')
+    const made = manager.createSolo(named.name)
+    if (!made.ok) return bad(reply, 503, made.error)
+    const r = made.room.join(named.name, body.data.avatar)
+    if (!r.ok) {
+      manager.remove(made.room.code)
+      return bad(reply, 400, r.error)
+    }
+    return { playerId: r.playerId, token: r.token, rejoinCode: r.rejoinCode, session: made.room.code }
+  })
+
+  // The games a browser kept (section 7.7), each named by its session code and the rejoin code
+  // of its practice. A game the server no longer holds is left out of the reply.
+  const resultsLimit = minuteLimiter(240, config.wallNow)
+  fastify.post('/api/results', async (req, reply) => {
+    const body = ResultsBody.safeParse(req.body)
+    if (!body.success) return bad(reply, 400, 'bad_message')
+    if (!resultsLimit()) return bad(reply, 429, 'rate_limited')
+    const games: GameSummary[] = []
+    for (const g of body.data.games) {
+      const row = db.session(normalizeCode(g.session))
+      const auth = row ? db.authByRejoin(row.code, normalizeCode(g.rejoinCode)) : undefined
+      if (!row || !auth?.player_id) continue
+      const room = manager.get(row.code)
+      let card: unknown = room ? room.reportCard(auth.player_id) : null
+      const stored = room ? undefined : db.result(row.code, auth.player_id)
+      if (stored) { try { card = JSON.parse(stored) } catch { card = null } }
+      const checked = ReportCard.safeParse(card)
+      const p = room?.state.players[auth.player_id]
+      if (p?.removed) continue
+      // Open: its practice can go back in. A single-player game that was set aside counts, unless the content changed since.
+      const open = row.closed === null && (room ? !room.state.closed : row.kind === 'solo' && row.content_hash === pack.hash)
+      games.push({
+        session: row.code, label: row.label, kind: row.kind, startedAtMs: row.created, open,
+        stage: room ? room.state.stage : row.closed !== null ? 'closed' : row.stage,
+        name: p?.name ?? (checked.success ? checked.data.practice.name : row.kind === 'solo' ? row.created_by : ''),
+        card: checked.success ? checked.data : null,
+        review: room ? room.state.closedPhases.length > 0 : db.hasReview(row.code, auth.player_id),
+      })
+    }
+    reply.header('cache-control', 'no-store')
+    return { games }
+  })
+
+  // A game to look at again (section 7.5): the report card and every phase as the practice saw
+  // it at its reveal. Asked like a result. A session in memory answers from its state.
+  fastify.post('/api/review', async (req, reply) => {
+    const body = ResultBody.safeParse(req.body)
+    if (!body.success) return bad(reply, 400, 'bad_message')
+    if (!resultLimit()) return bad(reply, 429, 'rate_limited')
+    const rejoin = normalizeCode(body.data.rejoinCode)
+    for (const row of db.sessionsNamed(normalizeCode(body.data.session), body.data.session)) {
+      const auth = rejoin ? db.authByRejoin(row.code, rejoin) : undefined
+      if (!auth?.player_id) continue
+      const room = manager.get(row.code)
+      let review: unknown = null
+      let card: unknown = null
+      if (room) {
+        const r = room.review(auth.player_id)
+        review = r ? { ...r.base, ...r.mine } : null
+        card = room.reportCard(auth.player_id)
+      } else {
+        const kept = db.review(row.code, auth.player_id)
+        const stored = db.result(row.code, auth.player_id)
+        try {
+          if (kept) review = { ...(JSON.parse(gunzipSync(kept.base).toString()) as object), ...(JSON.parse(gunzipSync(kept.review).toString()) as object) }
+          if (stored) card = JSON.parse(stored)
+        } catch { review = null }
+      }
+      const checked = Review.safeParse(review)
+      if (review && !checked.success) log.error('review refused by its schema', { code: row.code, issue: checked.error.issues[0]?.path.join('.') })
+      if (!checked.success) continue
+      const cardOk = ReportCard.safeParse(card)
+      reply.header('cache-control', 'no-store')
+      return { card: cardOk.success ? cardOk.data : null, review: checked.data }
+    }
+    return bad(reply, 404, 'not_found')
+  })
+
   // A player's report card, during the game once a phase is scored and for as long as the
   // session is kept (section 7.2). The session is named by its code or its label, the practice
-  // by its rejoin code. A wrong session and a wrong code get the same answer.
-  const resultLimit = minuteLimiter(60, config.wallNow)
+  // by its rejoin code. A wrong session and a wrong code get the same answer. The limit leaves
+  // room for a whole room that opens its report cards and looks at the phases again in the same
+  // minute, and is still far too low to guess a code.
+  const resultLimit = minuteLimiter(600, config.wallNow)
   fastify.post('/api/result', async (req, reply) => {
     const body = ResultBody.safeParse(req.body)
     if (!body.success) return bad(reply, 400, 'bad_message')
@@ -191,7 +306,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     const token = bearer(req)
     const row = token ? db.auth(hashToken(token)) : undefined
     if (!row || row.role !== 'player' || !row.code || !row.player_id) return bad(reply, 401, 'unauthorized')
-    const room = manager.get(row.code)
+    const room = manager.wake(row.code)
     const phase = req.params.phase as PhaseId
     if (!room || !(PHASES as readonly string[]).includes(phase)) return bad(reply, 404, 'not_found')
     const p = room.state.players[row.player_id]
@@ -229,7 +344,8 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     build: config.build,
     uptime: Math.round((config.wallNow() - startedAt) / 1000),
     content: pack.hash.slice(0, 12),
-    sessions: [...manager.rooms.values()].filter((r) => !r.state.closed).map((r) => ({ stage: r.state.stage, players: r.state.order.length })),
+    sessions: manager.running().map((r) => ({ stage: r.state.stage, players: r.state.order.length })),
+    solo: manager.soloLive(),
   }))
 
   // ----------------------------------------------------------------------------------------
@@ -263,24 +379,35 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
 
   fastify.get('/api/host/sessions', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
-    const out: (SessionSummary & { broken?: string })[] = db.sessions().reverse().map((row) => {
+    const kept = db.resultCounts()
+    const out: (SessionSummary & { broken?: string })[] = db.sessions('multi').reverse().map((row) => {
       const room = manager.get(row.code)
       const summary: SessionSummary & { broken?: string } = {
         code: row.code, label: row.label, mode: row.mode, stage: room?.state.stage ?? 'closed',
         players: room ? room.state.order.length : 0, closed: row.closed !== null || !room, createdAt: row.created,
+        createdBy: row.created_by, results: kept.get(row.code) ?? 0,
       }
       const reason = manager.broken.get(row.code)
       if (reason) summary.broken = reason
       return summary
     })
+    // Single-player games are many, so the console gets their numbers and the newest fifty.
+    const counts = db.soloCounts()
+    const solo: SoloOverview = {
+      enabled: manager.soloEnabled(), total: counts.total, finished: counts.finished, unfinished: counts.total - counts.finished,
+      live: manager.soloLive(), cap: config.soloMax,
+      recent: db.soloRecent(50).map((row) => ({ code: row.code, name: row.created_by, createdAt: row.created, closed: row.closed !== null, live: !!manager.get(row.code) })),
+    }
     return {
       sessions: out,
+      solo,
       pack: {
         title: pack.game.game.title, hash: pack.hash.slice(0, 12), systems: pack.systemIds,
         systemNames: pack.systemIds.map((id) => pack.systems[id]!.system.public.name),
         placeholders: (pack.deck?.sections ?? []).reduce((n, sec) => n + sec.slides.filter((sl) => sl.placeholder).length, 0),
         phasesAvailable: pack.phasesAvailable, provisional: pack.provisional,
         pickModes: pack.game.join.choose_system_in_modes ?? [],
+        guide: !!config.facilitatorGuideFile && existsSync(config.facilitatorGuideFile),
       },
     }
   })
@@ -293,9 +420,35 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
       const field = body.error.issues[0]?.path[0]
       return bad(reply, 400, field === 'code' ? 'code_invalid' : 'bad_message')
     }
-    const r = manager.create(body.data.label, body.data.mode, body.data.code)
+    const r = manager.create(body.data.label, body.data.mode, { code: body.data.code, by: body.data.by, replace: body.data.replace })
+    // One session with a facilitator at a time: the refusal says what runs, so the console can ask.
+    if (!r.ok && r.error === 'session_running') return reply.code(409).send({ error: r.error, running: r.running })
     if (!r.ok) return bad(reply, 409, r.error)
     return { code: r.room.code }
+  })
+
+  fastify.patch<{ Params: { code: string } }>('/api/host/session/:code', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const body = RenameSessionBody.safeParse(req.body)
+    if (!body.success || !body.data.label.trim()) return bad(reply, 400, 'bad_message')
+    const r = manager.rename(normalizeCode(req.params.code), body.data.label.trim())
+    if (r === 'unknown_session') return bad(reply, 404, r)
+    if (r !== 'ok') return bad(reply, 409, 'rename_running')
+    return { ok: true }
+  })
+
+  // Single-player games: the switch, and the cleanup of all of them at once (section 7.2).
+  fastify.post('/api/host/solo', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const enabled = (req.body as { enabled?: unknown } | null)?.enabled
+    if (typeof enabled !== 'boolean') return bad(reply, 400, 'bad_message')
+    manager.setSoloEnabled(enabled)
+    return { enabled }
+  })
+  fastify.post('/api/host/solo/delete-all', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    if ((req.body as { confirm?: unknown } | null)?.confirm !== 'DELETE') return bad(reply, 409, 'confirm_delete')
+    return { deleted: manager.removeAllSolo() }
   })
 
   fastify.post<{ Params: { code: string } }>('/api/host/session/:code/end', async (req, reply) => {
@@ -318,39 +471,44 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   fastify.post('/api/host/screen-link', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const code = normalizeCode(String((req.body as { code?: unknown } | null)?.code ?? ''))
-    if (!manager.get(code)) return bad(reply, 404, 'unknown_session')
+    // A single-player game has no projector.
+    if (manager.get(code)?.kind !== 'multi') return bad(reply, 404, 'unknown_session')
     const token = newToken()
     db.insertAuth({ token_hash: hashToken(token), role: 'screen', code, player_id: null, rejoin_code: null, created: config.wallNow() })
     return { path: `/screen#${token}` }
   })
 
-  // The answer key: to any signed-in host, with one press (section 7.2). The page opens in a
-  // window of its own, which cannot send the host token, so the console first asks for a
-  // ticket that is valid for five minutes.
-  const tickets = new Map<string, number>()
-  fastify.post('/api/host/key-ticket', async (req, reply) => {
-    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
-    if (!config.answerKeyFile || !existsSync(config.answerKeyFile)) return bad(reply, 404, 'no_answer_key')
-    for (const [t, until] of tickets) if (until < config.wallNow()) tickets.delete(t)
-    const ticket = randomBytes(24).toString('base64url')
-    tickets.set(ticket, config.wallNow() + 5 * 60_000)
-    return { ticket }
-  })
-  fastify.get<{ Querystring: { ticket?: string } }>('/api/host/key', async (req, reply) => {
-    const t = req.query.ticket ?? ''
-    const until = tickets.get(t)
-    if (!until || until < config.wallNow() || !config.answerKeyFile || !existsSync(config.answerKeyFile)) return bad(reply, 401, 'unauthorized')
-    reply.header('cache-control', 'no-store')
-    // The key page carries its own inline styles and scripts.
-    reply.header('content-security-policy-override', '1')
-    return reply.type('text/html; charset=utf-8').send(readFileSync(config.answerKeyFile))
-  })
+  // The two private pages, the answer key and the facilitator guide: to any signed-in host, with
+  // one press (section 7.2). A page opens in a window of its own, which cannot send the host
+  // token, so the console first asks for a ticket that is valid for five minutes.
+  const tickets = new Map<string, { until: number; file: string }>()
+  const privatePage = (name: 'key' | 'guide', file: () => string | null, missing: 'no_answer_key' | 'no_guide') => {
+    fastify.post(`/api/host/${name}-ticket`, async (req, reply) => {
+      if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+      const path = file()
+      if (!path || !existsSync(path)) return bad(reply, 404, missing)
+      for (const [t, x] of tickets) if (x.until < config.wallNow()) tickets.delete(t)
+      const ticket = randomBytes(24).toString('base64url')
+      tickets.set(ticket, { until: config.wallNow() + 5 * 60_000, file: path })
+      return { ticket }
+    })
+    fastify.get<{ Querystring: { ticket?: string } }>(`/api/host/${name}`, async (req, reply) => {
+      const x = tickets.get(req.query.ticket ?? '')
+      if (!x || x.until < config.wallNow() || x.file !== file() || !existsSync(x.file)) return bad(reply, 401, 'unauthorized')
+      reply.header('cache-control', 'no-store')
+      // A private page carries its own inline styles and scripts.
+      reply.header('content-security-policy-override', '1')
+      return reply.type('text/html; charset=utf-8').send(readFileSync(x.file))
+    })
+  }
+  privatePage('key', () => config.answerKeyFile, 'no_answer_key')
+  privatePage('guide', () => config.facilitatorGuideFile, 'no_guide')
 
   // The whole deck with its notes, for a host who looks through the slides alone (section 10.8).
   fastify.get<{ Params: { code: string } }>('/api/host/deck/:code', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const room = manager.get(normalizeCode(req.params.code))
-    if (!room) return bad(reply, 404, 'unknown_session')
+    if (!room || room.kind !== 'multi') return bad(reply, 404, 'unknown_session')
     const deck = room.hostDeck()
     const checked = HostDeck.safeParse(deck)
     if (!checked.success) {
@@ -364,7 +522,8 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   fastify.get<{ Params: { code: string }; Querystring: { what?: string; format?: string } }>('/api/host/export/:code', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const room = manager.get(normalizeCode(req.params.code))
-    if (!db.session(normalizeCode(req.params.code))) return bad(reply, 404, 'unknown_session')
+    // A single-player game has no facilitator, and nothing of it is handed to one (section 6.14).
+    if (db.session(normalizeCode(req.params.code))?.kind !== 'multi') return bad(reply, 404, 'unknown_session')
     const out = exportSession(db, room ?? null, normalizeCode(req.params.code), req.query.what ?? 'results', req.query.format ?? 'json')
     reply.header('content-disposition', `attachment; filename="${out.filename}"`)
     return reply.type(out.type).send(out.body)
@@ -393,7 +552,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (room) return reply.redirect(`/j/${room.code}`)
     return sendIndex(reply)
   })
-  for (const route of ['/j/:code', '/play', '/host', '/host/manual', '/screen', '/rejoin', '/result', '/result/:code']) fastify.get(route, async (_req, reply) => sendIndex(reply))
+  for (const route of ['/j/:code', '/home', '/play', '/host', '/host/manual', '/screen', '/rejoin', '/result', '/result/:code']) fastify.get(route, async (_req, reply) => sendIndex(reply))
 
   // The key page keeps its own scripts, so it gets a looser policy than the game.
   fastify.addHook('onSend', async (_req, reply, payload) => {
@@ -471,13 +630,14 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
         const row = db.auth(hashToken(h.token))
         if (!row) return refuse(CLOSE.unauthorized, 'unauthorized')
         if (row.role === 'host') {
+          // A single-player game has no console: nobody watches it or helps in it.
           const room = h.session ? manager.get(h.session) : undefined
-          if (!room) return refuse(CLOSE.closed, 'unknown_session')
+          if (!room || room.kind !== 'multi') return refuse(CLOSE.closed, 'unknown_session')
           conn.room = room
           room.attachHost(sock, h.name ?? '', h.console ?? '')
           return
         }
-        const room = row.code ? manager.get(row.code) : undefined
+        const room = row.code ? manager.wake(row.code) : undefined
         if (!room) return refuse(CLOSE.closed, 'unknown_session')
         if (row.role === 'screen') {
           conn.room = room

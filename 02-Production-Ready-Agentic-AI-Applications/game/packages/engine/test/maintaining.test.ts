@@ -3,7 +3,7 @@
 // reference map taken, repairs and lenses, a host who extends or ends the stage, a late player,
 // the score of the year, and what a view may and may not say.
 import { describe, expect, it } from 'vitest'
-import { fromPackMap, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
+import { fromPackMap, periodName, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
 import { advance, project, type SessionState } from '../src/index.ts'
 import { live, period } from '../src/maintain.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
@@ -96,7 +96,9 @@ describe('the year opens', () => {
     expect(v.validations[0]).toMatchObject({ id: 'v1', origin: 'phase2', fresh: false, reliability: null, label: null })
     expect(v.validationsLeft).toBe(M.validate.runs)
     const c = project.maintainingContent(s, pack, 'p1')
-    expect(c.year.periods).toHaveLength(ROUNDS + 1)
+    expect(v.slots.map((x) => x.tick)).toEqual(M.periods.map((x) => x.short))
+    expect(v.slots.map((x) => x.mark)).toEqual(['2031', null, null, null, null, null])
+    expect(v.next).toEqual({ label: 'March and April', short: 'Mar-Apr' })
     expect(c.workers.map((w) => w.id)).toContain('rb-w-gateway')
     expect(c.actions.find((a) => a.id === 'rb-a-retrain')).toMatchObject({ repeat: true, group: 'maintain' })
     expect(c.actions.find((a) => a.id === 'rb-a-monitor')!.upkeep).toBe(0.5)
@@ -133,17 +135,82 @@ describe('rounds and reports', () => {
     advance(s, pack, boundary(t0, 2))
     expect(st(s).money).toBe(before + M.grants.find((g) => g.round === 3)!.money)
   })
-  it('an extension lengthens the round in progress and moves the later ones, and never a past one', () => {
+  it('time that the facilitator adds makes more rounds, each closed by a report, past the planned year', () => {
     const { s, t0 } = year()
     advance(s, pack, boundary(t0, 1))
-    expect(host(s, 'extend', { seconds: 30 }, boundary(t0, 1) + 5000).ok).toBe(true)
-    advance(s, pack, boundary(t0, 2) + 29_999)
-    expect(st(s).reports).toHaveLength(2)
-    advance(s, pack, boundary(t0, 2) + 30_000)
-    expect(st(s).reports).toHaveLength(3)
-    expect(st(s).reports[1]!.atMs).toBe(boundary(t0, 1))
-    advance(s, pack, boundary(t0, 5) + 30_000)
+    expect(host(s, 'extend', { seconds: 60 }, boundary(t0, 1) + 5000).ok).toBe(true)
+    // The round in progress ends when it would have, and the year has two rounds more.
+    let v = view(s)
+    expect(v.round).toEqual({ index: 2, of: ROUNDS + 2, endsAtMs: boundary(t0, 2) })
+    expect(v.slots).toHaveLength(ROUNDS + 3)
+    expect(v.slots.at(-2)).toEqual({ tick: 'Jan-Feb', mark: '2032' })
+    advance(s, pack, boundary(t0, ROUNDS))
+    expect(s.stage).toBe('maintaining.year')
+    expect(st(s).reports).toHaveLength(ROUNDS + 1)
+    expect(view(s).next).toEqual({ label: 'January and February 2032', short: 'Jan-Feb ’32' })
+    advance(s, pack, boundary(t0, ROUNDS + 1))
+    v = view(s)
+    expect(v.reports.at(-1)).toMatchObject({ period: ROUNDS + 2, label: 'January and February 2032', short: 'Jan-Feb ’32' })
+    expect(v.round).toEqual({ index: ROUNDS + 2, of: ROUNDS + 2, endsAtMs: boundary(t0, ROUNDS + 2) })
+    advance(s, pack, boundary(t0, ROUNDS + 2))
     expect(s.stage).toBe('maintaining.reveal')
+    expect(st(s).reports.map((r) => r.period)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    // The reveal and the report card carry every period, and the score is the mean of all of them.
+    v = view(s)
+    expect(v.round).toEqual({ index: ROUNDS + 2, of: ROUNDS + 2, endsAtMs: null })
+    expect(v.next).toBeNull()
+    expect(v.slots).toHaveLength(8)
+    expect(v.reveal!.values).toHaveLength(8)
+    expect(v.reveal!.references.every((r) => r.values.length === 8)).toBe(true)
+    expect(v.reveal!.baseline.values).toHaveLength(8)
+    expect(st(s).result!.mean).toBeCloseTo(st(s).reports.reduce((sum, r) => sum + r.value, 0) / 8, 9)
+    const card = project.reportCard(s, pack, 'p1', 'ABC234')!
+    expect(card.phases.find((x) => x.phase === 'maintaining')!.periods.map((x) => x.label).slice(-2)).toEqual(['Jan-Feb ’32', 'Mar-Apr ’32'])
+  })
+  it('an event with no end goes on acting in the periods after the planned year', () => {
+    const { s, t0 } = year((x, t) => { cmd(x, 'p1', 'development.set_map', { map: CARDS }, t); cmd(x, 'p1', 'development.validate', {}, t) })
+    expect(host(s, 'extend', { seconds: 60 }, t0 + 1000).ok).toBe(true)
+    advance(s, pack, boundary(t0, ROUNDS + 2))
+    const hit = (n: number) => st(s).reports[n - 1]!.events.filter((e) => e.hit).map((e) => e.id)
+    expect(hit(6).length).toBeGreaterThan(0)
+    expect(hit(8)).toEqual(hit(6))
+  })
+  it('the last round takes what the play time leaves over, and a boundary that it left behind is reported at once when more time comes', () => {
+    const { s, t0 } = year()
+    // A pack whose play time is 15 seconds more than its five rounds.
+    s.stageEndsAtMs! += 15_000
+    expect(view(s).round.of).toBe(ROUNDS)
+    advance(s, pack, boundary(t0, ROUNDS) + 5000)
+    expect(s.stage).toBe('maintaining.year')
+    expect(st(s).reports).toHaveLength(ROUNDS)
+    expect(view(s).round).toEqual({ index: ROUNDS, of: ROUNDS, endsAtMs: boundary(t0, ROUNDS) + 15_000 })
+    // One round more: the boundary of round 5 now stands behind us, and its report comes at once.
+    expect(host(s, 'extend', { seconds: 30 }, boundary(t0, ROUNDS) + 5000).ok).toBe(true)
+    advance(s, pack, boundary(t0, ROUNDS) + 5001)
+    expect(st(s).reports).toHaveLength(ROUNDS + 1)
+    expect(view(s).round).toEqual({ index: ROUNDS + 1, of: ROUNDS + 1, endsAtMs: boundary(t0, ROUNDS + 1) + 15_000 })
+    advance(s, pack, boundary(t0, ROUNDS + 1) + 15_000)
+    expect(s.stage).toBe('maintaining.reveal')
+    expect(st(s).reports).toHaveLength(ROUNDS + 2)
+  })
+  it('a stage that was given more time and is then ended early keeps every report and closes the round in progress', () => {
+    const { s, t0 } = year()
+    expect(host(s, 'extend', { seconds: 60 }, t0 + 1000).ok).toBe(true)
+    expect(host(s, 'extend', { seconds: 60 }, t0 + 2000).ok).toBe(true)
+    advance(s, pack, boundary(t0, ROUNDS + 1) + 1000)
+    expect(st(s).reports).toHaveLength(ROUNDS + 2)
+    host(s, 'end_now', {}, boundary(t0, ROUNDS + 1) + 2000)
+    expect(s.stage).toBe('maintaining.reveal')
+    expect(st(s).reports).toHaveLength(ROUNDS + 3)
+  })
+  it('a period is named by the list, then by the calendar, and without a calendar by its number', () => {
+    expect(periodName(M, 1)).toEqual({ label: 'January and February', short: 'Jan-Feb', tick: 'Jan-Feb', mark: '2031' })
+    expect(periodName(M, 6)).toEqual({ label: 'November and December', short: 'Nov-Dec', tick: 'Nov-Dec', mark: null })
+    expect(periodName(M, 7)).toEqual({ label: 'January and February 2032', short: 'Jan-Feb ’32', tick: 'Jan-Feb', mark: '2032' })
+    expect(periodName(M, 14)).toEqual({ label: 'March and April 2033', short: 'Mar-Apr ’33', tick: 'Mar-Apr', mark: null })
+    const bare = { periods: M.periods }
+    expect(periodName(bare, 2)).toEqual({ label: 'March and April', short: 'Mar-Apr', tick: 'Mar-Apr', mark: null })
+    expect(periodName(bare, 9)).toEqual({ label: 'Period 9', short: 'P9', tick: 'P9', mark: null })
   })
   it('a host who ends the stage early gets every report that is left, from the same state', () => {
     const { s, t0 } = year()
@@ -423,17 +490,34 @@ describe('the score of the year', () => {
 })
 
 describe('a late player', () => {
-  it('holds the report of a practice with no map for every period that ended, and the grants and news so far', () => {
-    const { s, t0 } = year()
-    advance(s, pack, boundary(t0, 1) + 10)
-    expect(join(s, 'late', 'Late Branch', boundary(t0, 1) + 10).ok).toBe(true)
+  it('who was not in Phase 2 starts the year from the first reference map, as somebody who built it', () => {
+    // Joined while Phase 2 was in play: waited it out and enters with Phase 3.
+    const { s } = year((s2, t) => { expect(join(s2, 'late', 'Late Branch', t).ok).toBe(true) })
+    const p = s.players.late!
+    expect(p.development).toBeNull()
+    expect(p.results.development).toMatchObject({ points: 0 })
     const m = st(s, 'late')
-    expect(m.reports.map((r) => [r.period, r.noMap])).toEqual([[1, true], [2, true]])
-    expect(m.money).toBe(pack.systems[s.players.late!.system]!.build!.budget.money + 20)
-    expect(m.roundsOpened).toBe(2)
-    advance(s, pack, boundary(t0, 2))
-    expect(m.reports).toHaveLength(3)
-    expect(join(s, 'later', 'Later Branch', boundary(t0, 2) + 10).ok).toBe(false)   // open_until round 2
+    const sys = pack.systems[p.system]!
+    const ref = referenceMaps(sys.build!)[0]!
+    const price = ref.needsActions.reduce((sum, id) => sum + (sys.build!.actions.find((a) => a.id === id)?.money ?? 0), 0)
+    expect(m.validations.map((v) => [v.id, v.origin, v.reference])).toEqual([['r1', 'reference', ref.id]])
+    expect(m.deployed).toBe('r1')
+    expect(m.adopted).toEqual([ref.id])
+    expect(m.map).toEqual(ref.map)
+    expect(m.actionsDone.map((a) => a.id).sort()).toEqual([...ref.needsActions].sort())
+    expect(m.paidPhase2).toBe(price)
+    expect(m.paidAdoption).toBe(0)
+    const grant = sys.maintain!.grants.filter((g) => g.round === 1).reduce((n, g) => n + g.money, 0)
+    expect(m.money).toBe(sys.build!.budget.money - price + grant)
+    // The first report is the report of that map, not of a practice with no system.
+    expect(m.reports.map((r) => [r.period, r.noMap])).toEqual([[1, false]])
+    // Taking the same reference map again is refused, like for anybody who holds it.
+    expect(err(cmd(s, 'late', 'maintaining.adopt', { id: ref.id }, s.stageStartedMs + 10))).toBe('action_taken')
+  })
+
+  it('cannot join once the year runs', () => {
+    const { s, t0 } = year()
+    expect(join(s, 'later', 'Later Branch', t0 + 10)).toMatchObject({ ok: false, error: 'join_closed' })
   })
 })
 
@@ -480,5 +564,142 @@ describe('the reference maps of the demo pack', () => {
     expect(ys).toHaveLength(3)
     expect(new Set(ys.map((v) => v.reduce((a, b) => a + b, 0).toFixed(6))).size).toBe(3)
     expect(fromPackMap(M.baseline.map).tiles).toHaveLength(2)
+  })
+})
+
+// What is on a player's board (sections 6.6 and 6.7): an action that waits for another, for a
+// round or for a finding is not on the list, an item that is not unlocked comes without its
+// words, a model of Phase 3 does not come at all before it appears.
+describe('what is on the board', () => {
+  /** The first map with a rule in front of the agent: the map that the new request form acts on. */
+  const RULED: CanvasMap = {
+    tiles: [...SMALL.tiles, T('t3', 'rb-w-rule', 1, 1)],
+    lines: [...SMALL.lines, ...L(['rb-s-form', 't3'], ['t3', 't1'])],
+  }
+  const ruled = () => year((s, t) => {
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: RULED }, t))).toBe('ok')
+    expect(err(cmd(s, 'p1', 'development.validate', {}, t))).toBe('ok')
+    advance(s, pack, t + 6_000)
+    expect(err(cmd(s, 'p1', 'development.choose', { id: 'v2' }, t + 6_000))).toBe('ok')
+    expect(err(cmd(s, 'p1', 'development.act', { id: 'rb-a-download' }, t + 6_000))).toBe('ok')
+  })
+  const content = (s: SessionState, id = 'p1') => project.maintainingContent(s, pack, id)
+  const wording = M.events.find((e) => e.id === 'rb-e-wording')!
+
+  it('in Phase 2 an action that requires another is not on the list until that one is done', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    host(s, 'next', {}, 100); host(s, 'next', {}, 200); host(s, 'end_now', {}, 300); host(s, 'next', {}, 400); host(s, 'next', {}, 10_000)
+    const c0 = project.developmentContent(s, pack, 'p1')
+    const v0 = project.playerView(s, pack, 'p1', 'CODE').development!
+    expect(c0.actions.map((a) => a.id)).not.toContain('rb-a-skills')
+    expect(c0.actions.map((a) => a.id)).not.toContain('rb-a-server')
+    expect(c0.rules.more.actions.sort()).toEqual(['build', 'buy'])
+    expect(c0.board).toBe(v0.board)
+    expect(err(cmd(s, 'p1', 'development.act', { id: 'rb-a-skills' }, 10_000))).toBe('requires_action')
+    expect(err(cmd(s, 'p1', 'development.act', { id: 'rb-a-guide' }, 10_000))).toBe('ok')
+    advance(s, pack, 19_000)
+    const c1 = project.developmentContent(s, pack, 'p1')
+    expect(c1.actions.map((a) => a.id)).toContain('rb-a-skills')
+    expect(c1.rules.more.actions).toEqual(['buy'])
+    expect(c1.board).toBeGreaterThan(c0.board)
+    expect(project.playerView(s, pack, 'p1', 'CODE').development!.board).toBe(c1.board)
+  })
+  it('an item that is not unlocked comes with its names and none of its words', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    host(s, 'next', {}, 100); host(s, 'next', {}, 200); host(s, 'end_now', {}, 300); host(s, 'next', {}, 400); host(s, 'next', {}, 10_000)
+    const reader = () => project.developmentContent(s, pack, 'p1').workers.find((w) => w.id === 'rb-w-reader')!
+    const words = B.workers.find((w) => w.id === 'rb-w-reader')!.public
+    expect(reader()).toMatchObject({ label: words.label, description: '', task: null, costLine: null })
+    expect(project.developmentContent(s, pack, 'p1').rules.more).toMatchObject({ toolbox: ['tools'], models: true, compute: true, prompts: true })
+    cmd(s, 'p1', 'development.act', { id: 'rb-a-cards' }, 10_000)
+    advance(s, pack, 25_000)
+    expect(reader()).toMatchObject({ description: words.description, task: words.task })
+    expect(project.developmentContent(s, pack, 'p1').rules.more.toolbox).toEqual([])
+  })
+  it('what waits for a round or a finding is not in the content, and cannot be started', () => {
+    const { s, t0 } = ruled()
+    const c = content(s)
+    expect(c.actions.map((a) => a.id)).not.toContain('rb-a-rules')
+    expect(c.actions.map((a) => a.id)).not.toContain('rb-a-compare')
+    // A model of Phase 3 that has not appeared: not on the shelf, and no worker names it.
+    expect(JSON.stringify(c)).not.toContain('rb-m-open2')
+    expect(view(s).unlocked).not.toContain('rb-m-open2')
+    // The groups of Phase 3 do not say that something waits there: it would give the year away.
+    expect(c.rules.more.actions).not.toContain('maintain')
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-rules' }, t0 + 10))).toBe('unknown_action')
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-compare' }, t0 + 10))).toBe('unknown_action')
+    const open2: CanvasMap = { tiles: RULED.tiles.map((x) => (x.id === 't1' ? { ...x, model: 'rb-m-open2', runsOn: 'rb-c-rented' } : x)), lines: RULED.lines }
+    expect(err(cmd(s, 'p1', 'maintaining.set_map', { map: open2 }, t0 + 10))).toBe('invalid_map')
+  })
+  it('a look before the change has shown finds nothing, and after it names the cause and brings the repair', () => {
+    const { s, t0 } = ruled()
+    expect(st(s).deployed).toBe('v2')
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-look' }, t0 + 10))).toBe('ok')
+    advance(s, pack, t0 + 9_000)
+    expect(st(s).found).toEqual([])
+    const nothing = M.actions.find((a) => a.id === 'rb-a-look')!.insight!
+    expect(view(s).insights.find((x) => x.action === 'rb-a-look')!.tile.headline).toBe(nothing.headline)
+    expect(content(s).actions.map((a) => a.id)).not.toContain('rb-a-rules')
+    // The letter goes to the branch whose map has the rule, in the round the change first shows.
+    advance(s, pack, boundary(t0, 2))
+    expect(st(s).reports[2]!.events.map((x) => x.id)).toContain(wording.id)
+    expect(s.players.p1!.inbox.map((x) => x.id)).toContain('news:rb-n-wording')
+    expect(s.players.p3!.inbox.map((x) => x.id)).not.toContain('news:rb-n-wording')
+    // The report shows the symptom and not the cause.
+    expect(JSON.stringify(view(s))).not.toContain(wording.cause!.text)
+    const before = content(s).board
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-look' }, boundary(t0, 2) + 10))).toBe('ok')
+    advance(s, pack, boundary(t0, 2) + 9_000)
+    expect(st(s).found).toEqual([wording.id])
+    expect(st(s).actionsDone.at(-1)).toMatchObject({ id: 'rb-a-look', found: wording.id })
+    const finding = M.actions.find((a) => a.id === 'rb-a-look')!.finds![0]!.insight
+    expect(view(s).insights.filter((x) => x.action === 'rb-a-look')).toHaveLength(1)
+    expect(view(s).insights.find((x) => x.action === 'rb-a-look')!.tile.headline).toBe(finding.headline)
+    expect(content(s).actions.map((a) => a.id)).toContain('rb-a-rules')
+    expect(content(s).board).toBe(before + 1)
+    expect(view(s).board).toBe(before + 1)
+    // The repair counts for the next report, and the change has not grown in between.
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-rules' }, boundary(t0, 2) + 9_000))).toBe('ok')
+    advance(s, pack, boundary(t0, 3))
+    expect(st(s).reports[3]!.events.map((x) => x.id)).not.toContain(wording.id)
+  })
+  it('a change that is left alone costs more with every report, and its cause is shown once it is found', () => {
+    // A rule that decides, checked by a librarian: what the rule gets wrong shows in the answers.
+    const plain: CanvasMap = { tiles: [T('t1', 'rb-w-rule', 2, 2), T('t2', 'rb-w-librarian', 4, 2)], lines: L(['rb-s-form', 't1'], ['rb-s-catalog', 't1'], ['t1', 't2'], ['t2', 'rb-result']) }
+    const { s, t0 } = year((x, t) => {
+      expect(err(cmd(x, 'p1', 'development.set_map', { map: plain }, t))).toBe('ok')
+      expect(err(cmd(x, 'p1', 'development.validate', {}, t))).toBe('ok')
+      advance(x, pack, t + 6_000)
+      expect(err(cmd(x, 'p1', 'development.choose', { id: 'v2' }, t + 6_000))).toBe('ok')
+    })
+    // The direct lines are repaired after the upgrade, so that the report of the fifth period names this change.
+    advance(s, pack, boundary(t0, 3))
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-reconnect' }, boundary(t0, 3) + 10))).toBe('ok')
+    advance(s, pack, boundary(t0, 4))
+    const loss = (i: number) => st(s).reports[i]!.events.find((x) => x.id === wording.id)!.validityLoss
+    expect(loss(2)).toBeGreaterThan(0)
+    expect(loss(3)).toBeGreaterThan(loss(2))
+    expect(loss(4)).toBeGreaterThan(loss(3))
+    expect(view(s).reports.every((r) => (r.worstChange?.cause ?? null) === null)).toBe(true)
+    cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-look' }, boundary(t0, 4) + 10)
+    advance(s, pack, boundary(t0, 4) + 9_000)
+    const named = view(s).reports.filter((r) => r.worstChange?.symptom === wording.symptom)
+    expect(named.length).toBeGreaterThan(0)
+    expect(named.every((r) => r.worstChange!.cause === wording.cause!.text)).toBe(true)
+  })
+  it('a model of Phase 3 comes with its round, for a practice that has what it requires', () => {
+    const { s, t0 } = ruled()
+    advance(s, pack, boundary(t0, 3))
+    expect(st(s).roundsOpened).toBe(4)
+    expect(content(s).actions.map((a) => a.id)).toContain('rb-a-compare')
+    expect(view(s).unlocked).toContain('rb-m-open2')
+    expect(content(s).models.find((m) => m.id === 'rb-m-open2')).toMatchObject({ label: 'Pine 2', runsOn: ['rb-c-rented', 'rb-c-owned'] })
+    expect(content(s).workers.find((w) => w.id === 'rb-w-agent')!.models).toContain('rb-m-open2')
+    // p3 never set up the free model: the action is there, the model is not.
+    expect(content(s, 'p3').actions.map((a) => a.id)).toContain('rb-a-compare')
+    expect(JSON.stringify(content(s, 'p3'))).not.toContain('rb-m-open2')
+    expect(view(s, 'p3').unlocked).not.toContain('rb-m-open2')
   })
 })

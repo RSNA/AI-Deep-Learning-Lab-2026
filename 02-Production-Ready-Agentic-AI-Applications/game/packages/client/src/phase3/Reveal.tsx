@@ -18,7 +18,8 @@ export function YearReveal({ w, content, mv, inBreak, onSlides }: { w: Welcome; 
   const from = fromIdx >= 0 ? w.system.cast[fromIdx] : undefined
   const pts = view.points.maintaining
   const names = mapNames(mv.validations)
-  const periods = content.year.periods
+  // One column for every report of the year, however long the facilitator let it run.
+  const periods = mv.reports.map((r) => ({ id: r.period, short: r.short }))
   const short = (p: number) => periods[p - 1]?.short ?? String(p)
   const rows = [
     { key: 'you', label: P3.yours, values: rv.values, score: rv.score, me: true },

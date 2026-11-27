@@ -3,9 +3,9 @@
 // The scan fails if a protected string of the pack appears before its moment.
 // `npm run test:leak` runs it on the pack in CONTENT_DIR (with SYSTEMS if set).
 import { describe, expect, it } from 'vitest'
-import { loadPack, maintainTexts, perPlayerTexts, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
+import { boardTexts, loadPack, maintainTexts, perPlayerTexts, protectedStrings, type Pack, type Tile } from '@lab02/content-schema'
 import { STAGES, type StageId } from '@lab02/protocol'
-import { deckSlides, shownScene, slidesMirrored } from '@lab02/engine'
+import { deckSlides, shownActions, shownActionsIn3, shownScene, slidesMirrored, unlockedIn3, unlockedOf } from '@lab02/engine'
 import { DEMO, attach, hostConn, hostToken, joinBot, playDevelopment, playMaintaining, playPlanning, startServer, step, until, type Bot } from './helpers.ts'
 import type { Room } from '../src/room.ts'
 
@@ -118,7 +118,8 @@ function maintainForbiddenFor(room: Room, pack: Pack, playerId: string): string[
       if (e?.symptom) allowed.add(e.symptom)
     }
     const cause = r.worstEvent ? t.events[r.worstEvent]?.cause : null
-    if (cause && held(cause.lens)) allowed.add(cause.text)
+    // A cause with no lens is shown once an investigation of the player has found the event.
+    if (cause && (cause.lens !== null ? held(cause.lens) : st!.found.includes(r.worstEvent!))) allowed.add(cause.text)
     if (worst && worst.event === null) {
       const inc = m.incidents
       const text = worst.part === 'worker' ? inc.workers[worst.id ?? ''] ?? inc.default_worker
@@ -136,6 +137,27 @@ function maintainForbiddenFor(room: Room, pack: Pack, playerId: string): string[
     ...t.incidents, ...t.report,
   ]
   return all.filter((x) => !allowed.has(x))
+}
+
+/**
+ * Texts of the board that must not have reached this player yet: the words of an action that is
+ * not on their list, of an item that is not unlocked, and of a finding they have not made.
+ */
+function boardForbiddenFor(room: Room, pack: Pack, playerId: string, open: Set<string>): string[] {
+  const p = room.state.players[playerId]
+  if (!p || !pack.systems[p.system]?.build) return []
+  const t = boardTexts(pack, p.system)
+  const allowed = new Set<string>()
+  const inYear = p.maintaining !== null
+  const listed = new Set((inYear ? shownActionsIn3(pack, p) : p.development ? shownActions(pack, p) : []).map((a) => a.id))
+  const unlocked = inYear ? unlockedIn3(pack, p) : p.development ? unlockedOf(pack, p) : new Set<string>()
+  // What Phase 2 showed stays shown, also when Phase 3 does not list it.
+  if (p.development) { for (const a of shownActions(pack, p)) listed.add(a.id); for (const id of unlockedOf(pack, p)) unlocked.add(id) }
+  for (const [id, texts] of Object.entries(t.actions)) if (listed.has(id)) texts.forEach((x) => allowed.add(x))
+  for (const [id, texts] of Object.entries(t.items)) if (unlocked.has(id)) texts.forEach((x) => allowed.add(x))
+  for (const d of p.maintaining?.actionsDone ?? []) if (d.found !== undefined) t.findings[`${d.id}:${d.found}`]?.forEach((x) => allowed.add(x))
+  const all = [...Object.values(t.actions), ...Object.values(t.items), ...Object.values(t.findings)].flat()
+  return all.filter((x) => !allowed.has(x) && !open.has(x))
 }
 
 const usePrivate = process.env.LEAK_PACK === '1'
@@ -169,6 +191,7 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
       const devLeaks: string[] = []
       let yearSeen = 0
       const yearLeaks: string[] = []
+      const boardLeaks: string[] = []
       const token = await hostToken(srv.url)
       const host = hostConn(srv.ws, token, code)
       await until(() => host.status === 'open')
@@ -187,6 +210,9 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
           if (text.includes('"development":{') || text.includes('"phase":"development"')) devSeen++
           for (const x of devForbiddenFor(room, loaded.pack, b.playerId)) {
             if (text.includes(JSON.stringify(x).slice(1, -1))) { devLeaks.push(`a Phase 2 text reached ${b.playerId} during ${room.state.stage} before it was theirs: ${x.slice(0, 24)}`); break }
+          }
+          for (const x of boardForbiddenFor(room, loaded.pack, b.playerId, open)) {
+            if (text.includes(JSON.stringify(x).slice(1, -1))) { boardLeaks.push(`a text of the board reached ${b.playerId} during ${room.state.stage} before it was on their board: ${x.slice(0, 24)}`); break }
           }
           if (text.includes('"maintaining":{') || text.includes('"phase":"maintaining"')) yearSeen++
           for (const x of maintainForbiddenFor(room, loaded.pack, b.playerId)) {
@@ -225,6 +251,10 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
             const res = await fetch(`${srv.url}/api/content/${phase}`, { headers: { authorization: `Bearer ${b.token}` } })
             const text = await res.text()
             records.push({ stage: room.state.stage, text, slide: visible(true) })
+            // The content of a phase is made for its player: it holds nothing that is not on their board.
+            for (const x of boardForbiddenFor(room, loaded.pack, b.playerId, open)) {
+              if (text.includes(JSON.stringify(x).slice(1, -1))) { boardLeaks.push(`the content of ${phase} held a text that is not on the board of ${b.playerId} during ${room.state.stage}: ${x.slice(0, 24)}`); break }
+            }
             // The words of a line rule or a required worker are never in the static content.
             for (const x of perPlayerTexts(loaded.pack, room.state.players[b.playerId]!.system).rules) {
               if (text.includes(JSON.stringify(x).slice(1, -1))) devLeaks.push(`the words of a rule are in the static content of ${phase}: ${x.slice(0, 24)}`)
@@ -308,6 +338,7 @@ describe(`leak scan on ${usePrivate ? 'CONTENT_DIR' : 'the demo pack'}`, () => {
         expect(Object.values(room.state.players).some((p) => (p.development?.validations.length ?? 0) > 0)).toBe(true)
       }
       expect(yearLeaks).toEqual([])
+      expect(boardLeaks).toEqual([])
       if (loaded.pack.phasesAvailable.maintaining) {
         expect(yearSeen).toBeGreaterThan(0)
         // The bots ran the year: every one holds every report, and some took a reference map.

@@ -112,7 +112,7 @@ function YearPlay({ w, content }: { w: Welcome; content: MaintainingContent }) {
       letters={letters} freshLetters={freshLetters}
       held={pending !== null || open !== null || refs !== null || offerRefs}
       tabCounts={{ year: latest ? P3.out100(latest.value) : '', results: `${mv.validations.length}` }}
-      strip={<RoundTimer mv={mv} content={content} variant="strip" />}
+      strip={<RoundTimer mv={mv} variant="strip" />}
       status={() => <NowLine mv={mv} names={names} onOpen={(period) => setOpen({ period, fresh: false })} />}
       above={() => <YearPanel mv={mv} content={content} names={names} onOpen={(period) => setOpen({ period, fresh: false })} />}
       results={(api) => (

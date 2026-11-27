@@ -3,7 +3,7 @@
 // event reaches a player only as the symptom of a report it acted in, its cause only with the
 // lens it asks for, and its lesson at the reveal.
 import {
-  overPools, phase3Build, readyDetails, readyReasons, referenceMaps, ruledLines, tileMinutes,
+  overPools, periodName, phase3Build, readyDetails, readyReasons, referenceMaps, ruledLines, tileMinutes,
   type BuildFile, type MaintainFile, type Pack,
 } from '@lab02/content-schema'
 import type { MaintainingContent, MaintainingReport as ReportView, MaintainingSpent, MaintainingView } from '@lab02/protocol'
@@ -11,10 +11,10 @@ import type { HostInspect } from '@lab02/protocol/host'
 import { running as runningOf } from '../canvas.ts'
 import { counts, lensHeld, year, type HeldAction } from '../maintain.ts'
 import {
-  developersFreeIn3, heldActions, paidOf, roundEndMs, runsUsed, scoreSoFar, unlockedIn3,
+  developersFreeIn3, heldActions, paidOf, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
 } from '../phases/maintaining.ts'
 import type { MaintainingReport, MaintainingState, PlayerState, RiskEntry, SessionState } from '../state.ts'
-import { actionView, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
+import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
 
 type Files = { b: BuildFile; mt: MaintainFile; b3: BuildFile }
 
@@ -24,22 +24,26 @@ function filesOf(pack: Pack, p: PlayerState): Files | null {
   return { b: sp.build, mt: sp.maintain, b3: phase3Build(sp.build, sp.maintain) }
 }
 
+/** What of the board of Phase 3 this player has. */
+function boardShown(pack: Pack, p: PlayerState): Omit<BoardShown, 'actions'> & { actions: BuildFile['actions'] } {
+  return { unlocked: unlockedIn3(pack, p), actions: shownActionsIn3(pack, p), unseen: unseenModels(pack, p) }
+}
+
 export function maintainingContent(s: SessionState, pack: Pack, playerId: string): MaintainingContent {
   const p = s.players[playerId]!
   const sp = pack.systems[p.system]!
   const { b, mt, b3 } = filesOf(pack, p)!
   const rules = pack.game.phases.maintaining
   const own = new Map(mt.actions.map((a) => [a.id, a]))
+  const shown = boardShown(pack, p)
   return {
     phase: 'maintaining',
     ...canvasContent(pack, sp, b3, {
       brief: sp.story?.briefs?.maintaining, validations: mt.validate.runs, validateSeconds: mt.validate.seconds,
       actionGroups: [...(pack.game.phases.development.action_groups ?? []), ...rules.action_groups],
-    }),
-    actions: b3.actions.map((a) => ({ ...actionView(a), repeat: !!own.get(a.id)?.repeat, upkeep: own.get(a.id)?.run ?? 0 })),
+    }, shown),
+    actions: shown.actions.map((a) => ({ ...actionView(a), repeat: !!own.get(a.id)?.repeat, upkeep: own.get(a.id)?.run ?? 0 })),
     year: {
-      periods: mt.periods.map((x) => ({ id: x.id, label: x.label, short: x.short })),
-      rounds: rules.rounds, roundSeconds: rules.round_seconds,
       baselineLabel: mt.baseline.public.label,
       costPerPoint: mt.score.cost_per_point,
     },
@@ -93,9 +97,9 @@ function partsView(b3: BuildFile, r: MaintainingReport): { label: string; share:
   return [...groups.values()].sort((x, y) => y.share - x.share)
 }
 
-function reportView(f: Files, held: readonly HeldAction[], r: MaintainingReport, before: MaintainingReport | undefined, rank: { rank: number | null; of: number }): ReportView {
+function reportView(f: Files, held: readonly HeldAction[], found: readonly string[], r: MaintainingReport, before: MaintainingReport | undefined, rank: { rank: number | null; of: number }): ReportView {
   const { mt, b3 } = f
-  const label = mt.periods[r.period - 1]
+  const label = periodName(mt, r.period)
   const lens = (name: string) => lensHeld(mt, name, held, r.period)
   const worst = r.worstPart === null ? undefined : r.components[r.worstPart]
   const worstText = worst ? partText(mt, worst) : null
@@ -120,7 +124,7 @@ function reportView(f: Files, held: readonly HeldAction[], r: MaintainingReport,
     missed: missedView(b3, r.missed),
     note: r.note ? b3.notes.find((n) => n.id === r.note)?.text ?? null : null,
     worstPart: worst && worstText !== null ? { label: partLabel(b3, worst), text: worstText } : null,
-    worstChange: event?.symptom !== undefined ? { symptom: event.symptom, cause: event.cause && lens(event.cause.lens) ? event.cause.text : null } : null,
+    worstChange: event?.symptom !== undefined ? { symptom: event.symptom, cause: event.cause && (event.cause.lens !== undefined ? lens(event.cause.lens) : found.includes(event.id)) ? event.cause.text : null } : null,
     parts: !r.noMap && lens('incident_log') ? partsView(b3, r) : null,
     kinds: lens('case_mix') ? b3.cases.map((k) => ({ title: k.public.title, solved: r.perCase[k.id] ?? 0 })) : null,
   }
@@ -150,13 +154,14 @@ function spentView(st: MaintainingState): MaintainingSpent {
 // The reveal: the year of each reference map left alone, and of a practice with no map
 // ------------------------------------------------------------------------------------------
 type RevealYears = { references: NonNullable<MaintainingView['reveal']>['references']; baseline: NonNullable<MaintainingView['reveal']>['baseline'] }
-const years = new WeakMap<MaintainFile, RevealYears>()
+const years = new WeakMap<MaintainFile, Map<number, RevealYears>>()
 
-/** The same for every player of a health system, so it is worked out once per pack. */
-function revealYears(f: Files): RevealYears {
-  const cached = years.get(f.mt)
+/** Over `n` periods, as many as the year of the session had. The same for every player of a health system, so it is worked out once. */
+function revealYears(f: Files, n: number): RevealYears {
+  const byLength = years.get(f.mt) ?? new Map<number, RevealYears>()
+  years.set(f.mt, byLength)
+  const cached = byLength.get(n)
   if (cached) return cached
-  const n = f.mt.periods.length
   const references = referenceMaps(f.b).map((ref) => {
     // Left alone: the map runs all year with the actions it needed, and nothing else is done.
     const actions = ref.needsActions.map((id) => ({ id, started: 0, done: 0 }))
@@ -166,7 +171,7 @@ function revealYears(f: Files): RevealYears {
   })
   const none = year(f.b3, f.mt, Array.from({ length: n }, () => ({ map: null, actions: [], newMap: false })), 0)
   const out: RevealYears = { references, baseline: { label: f.mt.baseline.public.label, values: none.values, score: none.score } }
-  years.set(f.mt, out)
+  byLength.set(n, out)
   return out
 }
 
@@ -180,20 +185,29 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
   const { b, mt, b3 } = f
   const show = pack.game.phases.development.show_running ?? true
   const closed = s.closedPhases.includes('maintaining')
-  const rounds = pack.game.phases.maintaining.rounds
   const seen = st.reports.length
+  // A year that is over had one round less than it has reports. One that runs has the rounds of its clock.
+  const rounds = closed ? Math.max(1, seen - 1) : roundsNow(s, pack)
+  const total = Math.max(seen, rounds + 1)
   const held = heldActions(st)
   const reasons = readyReasons(st.map, b3)
   const run = runningOf(st.map, b3)
   const refLabel = new Map(referenceMaps(b).map((r) => [r.id, r.label]))
   const insights: MaintainingView['insights'] = []
+  // One card per action: that of its last run. A look action that found something shows what it found.
   for (const d of st.actionsDone) {
     const a = b3.actions.find((x) => x.id === d.id)
-    if (a?.insight && !insights.some((x) => x.action === a.id)) insights.push({ action: a.id, tile: tileView(a.insight) })
+    const found = d.found === undefined ? undefined : mt.actions.find((x) => x.id === d.id)?.finds?.find((x) => x.event === d.found)?.insight
+    const tile = found ?? a?.insight
+    if (!a || !tile) continue
+    // The card of a later run takes the place of the earlier one, at the end of the list.
+    const at = insights.findIndex((x) => x.action === a.id)
+    if (at >= 0) insights.splice(at, 1)
+    insights.push({ action: a.id, tile: tileView(tile) })
   }
   let reveal: MaintainingView['reveal'] = null
   if (closed && st.result) {
-    const y = revealYears(f)
+    const y = revealYears(f, seen)
     reveal = {
       score: st.result.score, raw: st.result.raw, mean: st.result.mean,
       values: st.reports.map((r) => r.value),
@@ -212,6 +226,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
   return {
     money: st.money,
     developers: { total: b3.budget.developers, free: developersFreeIn3(pack, p) },
+    board: boardNumber(boardShown(pack, p)),
     unlocked: [...unlockedIn3(pack, p)].sort(),
     actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs, phase: d.started === 0 ? 'development' as const : 'maintaining' as const })),
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
@@ -238,8 +253,10 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     })),
     deployed: st.deployed,
     round: { index: Math.max(1, Math.min(rounds, seen)), of: rounds, endsAtMs: roundEnd },
+    slots: Array.from({ length: total }, (_x, i) => { const name = periodName(mt, i + 1); return { tick: name.tick, mark: name.mark } }),
+    next: closed || seen >= total ? null : { label: periodName(mt, seen + 1).label, short: periodName(mt, seen + 1).short },
     seen,
-    reports: st.reports.map((r, i) => reportView(f, held, r, st.reports[i - 1], reportRank(s, p, i))),
+    reports: st.reports.map((r, i) => reportView(f, held, st.found, r, st.reports[i - 1], reportRank(s, p, i))),
     adopted: [...st.adopted],
     lenses: { freshTestSet: lens('fresh_test_set'), dryRun: lens('dry_run'), incidentLog: lens('incident_log'), caseMix: lens('case_mix'), driftAlarm: lens('drift_alarm') },
     spent: spentView(st),
@@ -254,7 +271,7 @@ export function maintainingStatus(pack: Pack, p: PlayerState): string {
   const f = filesOf(pack, p)
   if (!st || !f) return 'Running the year'
   const last = st.reports.at(-1)
-  const parts = [`report ${st.reports.length} of ${f.mt.periods.length}`]
+  const parts = [`report ${st.reports.length} of ${Math.max(st.reports.length, f.mt.periods.length)}`]
   if (last) parts.push(last.noMap ? 'no map runs' : `${Math.round(100 * last.validity)}% right · ${Math.round(100 * last.reliability)}% of the time`)
   parts.push(`score ${Math.max(0, Math.round(10 * scoreSoFar(pack, p)) / 10)}`)
   if (st.actionsRunning.length) parts.push(`${st.actionsRunning.length} running`)
@@ -323,9 +340,10 @@ export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState):
     ...Object.entries(mt.key?.guide ?? {}).map(([id, g]) => ({ id, best: g.best, wrong: g.wrong })),
     ...Object.entries(b.key.guide ?? {}).filter(([id]) => onMap.has(id)).map(([id, g]) => ({ id, best: g.best, wrong: g.wrong })),
   ]
-  const rounds = pack.game.phases.maintaining.rounds
+  const closed = s.closedPhases.includes('maintaining')
+  const rounds = closed ? Math.max(1, st.reports.length - 1) : roundsNow(s, pack)
   return {
-    status: s.closedPhases.includes('maintaining') ? 'closed' : 'playing',
+    status: closed ? 'closed' : 'playing',
     money: st.money,
     developers: { total: b3.budget.developers, free: developersFreeIn3(pack, p) },
     legend: canvasLegend(b3),
@@ -339,7 +357,7 @@ export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState):
     reports: st.reports.map((r) => {
       const worst = r.worstPart === null ? undefined : r.components[r.worstPart]
       return {
-        period: r.period, short: mt.periods[r.period - 1]?.short ?? '', map: r.map,
+        period: r.period, short: periodName(mt, r.period).short, map: r.map,
         validity: r.validity, test: r.test, reliability: r.reliability, interruptions: r.interruptions,
         value: r.value, off: r.off, runCost: r.runCost, fine: r.fine, score: r.score,
         worstPart: worst ? partLabel(b3, worst) : null,

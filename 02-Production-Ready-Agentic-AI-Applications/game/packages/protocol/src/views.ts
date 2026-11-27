@@ -1,7 +1,7 @@
 // Everything a browser may receive (engineering spec, sections 8.3, 8.4 and 9.2).
 // Every schema is strict: an unknown field stops the message before it is sent.
 import { z } from 'zod'
-import { AvatarId, Method, Mode, PhaseId, ProgrammeShow, SceneId, StageId, Theme } from './ids.ts'
+import { AvatarId, Kind, Method, Mode, PhaseId, ProgrammeShow, SceneId, StageId, Theme } from './ids.ts'
 import { ReportCard } from './report.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
@@ -146,6 +146,12 @@ const CanvasAction = {
 }
 /** What Phases 2 and 3 both send about the board: the rules, and the public part of everything on it. */
 const CanvasContent = {
+  // What is on this player's board (section 6.6, "What is on the board"). An item that is not
+  // unlocked yet comes with its names only, so that a map drawn for the player can name it, and
+  // is not shown in the toolbox or on a shelf. An action that waits for another, for a round or
+  // for a finding is not in `actions` at all. `board` changes whenever more comes onto the
+  // board: the view carries the same number, and a browser whose content is behind asks again.
+  board: Int,
   brief: Brief,
   problem: S({ id: z.string(), title: Text, description: Text }),
   rules: S({
@@ -156,6 +162,10 @@ const CanvasContent = {
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actionGroups: z.array(S({ id: z.string(), label: Text })),
     toolboxGroups: z.array(S({ id: z.string(), label: Text })),   // empty: the toolbox is one list
+    // Where more can still come onto the board through what the practice learns, builds and
+    // buys: the groups of the toolbox and of the actions that hold something hidden, and the
+    // shelves. Never what, and never how many.
+    more: S({ toolbox: z.array(z.string()), actions: z.array(z.string()), models: z.boolean(), compute: z.boolean(), prompts: z.boolean() }),
   }),
   sources: z.array(S({ id: z.string(), label: Text, description: Text, icon: z.string(), privateData: z.boolean() })),
   result: S({ id: z.string(), label: Text, description: Text }),
@@ -188,7 +198,8 @@ export type ReferenceMap = z.infer<typeof ReferenceMap>
 
 /**
  * Phase 3 (section 6.7): the board of Phase 2 with what Phase 3 adds (tools, actions, groups of
- * actions), the year in periods and rounds, and the reference maps a player may take.
+ * actions) and the reference maps a player may take. The periods and rounds of the year are
+ * in the view, because time that the facilitator adds makes more of them.
  */
 export const MaintainingContent = S({
   phase: z.literal('maintaining'),
@@ -197,8 +208,6 @@ export const MaintainingContent = S({
   // period after it finished, counted in the money spent.
   actions: z.array(S({ ...CanvasAction, repeat: z.boolean(), upkeep: z.number() })),
   year: S({
-    periods: z.array(S({ id: z.string(), label: Text, short: Text })),   // rounds + 1, in order
-    rounds: Int, roundSeconds: z.number(),
     baselineLabel: Text,              // what a practice with no deployed map is called
     costPerPoint: z.number(),         // money that takes one point off the score of the year
   }),
@@ -278,6 +287,7 @@ export type ReadyDetail = z.infer<typeof ReadyDetail>
 export const DevelopmentView = S({
   money: z.number(),
   developers: S({ total: Int, free: Int }),
+  board: Int,                                       // the `board` of the content this view goes with
   unlocked: z.array(z.string()),
   actionsDone: z.array(S({ id: z.string(), atMs: Ms })),
   actionsRunning: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms })),
@@ -369,6 +379,7 @@ export const MaintainingView = S({
   // The draft, the actions and the validations, as in Phase 2.
   money: z.number(),
   developers: S({ total: Int, free: Int }),
+  board: Int,                       // the `board` of the content this view goes with
   unlocked: z.array(z.string()),
   // Every action that finished, those of Phase 2 too (`phase` tells them apart). A `repeat`
   // action is listed once for every time it finished.
@@ -399,7 +410,12 @@ export const MaintainingView = S({
   })),
   deployed: z.string().nullable(),  // the map that runs in the period in progress. Null: no map
   // The round in progress, 1 to `of`, and when it ends. After the last report `endsAtMs` is null.
+  // `of` grows when the facilitator adds time: every whole round more ends with a report.
   round: S({ index: Int, of: Int, endsAtMs: Ms.nullable() }),
+  // One slot of the chart for every period of the year as its clock stands, in order: the
+  // months under the slot, and the calendar year where one begins.
+  slots: z.array(S({ tick: Text, mark: Text.nullable() })),
+  next: S({ label: Text, short: Text }).nullable(),   // the period that the round in progress ends with. Null when the year is over
   seen: Int,                        // the reports held
   reports: z.array(MaintainingReport),
   adopted: z.array(z.string()),     // ids of the reference maps taken
@@ -442,6 +458,16 @@ export const PlayerView = S({
   inbox: z.array(InboxItem),
   reportCard: ReportCard.nullable(),   // at `winners` and after the session is closed (report.ts)
   slide: SlideView.nullable(),      // the slide the host mirrors to every player, outside play
+  // A player who joined while a phase was in play has no board for it (section 6.4): they wait
+  // with the leaderboard and the slides shown so far, and enter when the next phase starts.
+  waiting: S({ phase: PhaseId, slides: z.array(SlideView) }).nullable(),
+  // A single-player game (section 6.14): what its player may do to move it on. Null in a session
+  // with a facilitator. `slide`: where the slide on show stands in its section.
+  solo: S({
+    next: StageId.nullable(),       // the stage `solo.next` leads to, or null in a timed stage and at the end
+    timed: z.boolean(),             // a phase is in play: `solo.end_now` ends it
+    slide: S({ first: z.boolean(), last: z.boolean() }).nullable(),
+  }).nullable(),
 })
 export type PlayerView = z.infer<typeof PlayerView>
 
@@ -494,7 +520,7 @@ export const Clock = S({
 export type Clock = z.infer<typeof Clock>
 
 export const SessionInfo = S({
-  code: z.string(), label: Text, title: Text.nullable(), mode: Mode,
+  code: z.string(), label: Text, title: Text.nullable(), mode: Mode, kind: Kind,
   systems: z.array(SystemRef),
   joinUrl: z.string(),
   phaseLabels: S({ planning: Text, development: Text, maintaining: Text }),

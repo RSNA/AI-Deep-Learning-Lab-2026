@@ -120,7 +120,9 @@ export class GameConnection {
     const ws = new Impl(this.opts.url)
     this.ws = ws
     this.welcomed = false
+    let opened = false
     ws.onopen = () => {
+      opened = true
       const hello: Record<string, unknown> = { t: 'hello', token: this.opts.token, build: this.opts.build }
       if (this.opts.session) hello.session = this.opts.session
       if (this.opts.name) hello.name = this.opts.name
@@ -151,21 +153,24 @@ export class GameConnection {
       }
       this.emit(msg)
     }
-    ws.onerror = () => { /* onclose follows */ }
-    ws.onclose = (ev) => {
+    const lost = (code: number) => {
       if (this.ws !== ws) return
       this.ws = null
       if (this.stopped) return
-      if (ev.code === CLOSE.superseded) return this.stop('superseded')
-      if (ev.code === CLOSE.removed) return this.stop('removed')
-      if (ev.code === CLOSE.unauthorized) return this.stop('unauthorized')
-      if (ev.code === CLOSE.closed) return this.stop('ended')
+      if (code === CLOSE.superseded) return this.stop('superseded')
+      if (code === CLOSE.removed) return this.stop('removed')
+      if (code === CLOSE.unauthorized) return this.stop('unauthorized')
+      if (code === CLOSE.closed) return this.stop('ended')
       this.setStatus('reconnecting')
       const base = Math.min(this.opts.maxDelayMs, this.opts.minDelayMs * 2 ** this.attempt)
       this.attempt++
       const delay = base * (0.5 + this.opts.random() * 0.5)
       this.timer = setTimeout(() => this.connect(), delay)
     }
+    // A browser closes a socket after every error. The WebSocket of Node does not when the
+    // server cannot be reached at all, so a connection that never opened is lost on its error.
+    ws.onerror = () => { if (!opened) lost(1006) }
+    ws.onclose = (ev) => lost(ev.code)
   }
 
   private stop(s: ConnStatus) {

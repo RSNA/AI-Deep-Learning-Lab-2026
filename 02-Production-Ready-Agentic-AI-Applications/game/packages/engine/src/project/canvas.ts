@@ -70,17 +70,33 @@ export function actionView(x: BuildFile['actions'][number]): DevelopmentContent[
   }
 }
 
+/** What of the board a player has: the items that are unlocked, the actions on the list, and the models that do not exist yet. */
+export type BoardShown = { unlocked: ReadonlySet<string>; actions: readonly { id: string }[]; unseen?: ReadonlySet<string> }
+
+/** The number a view and its content share: it grows whenever more comes onto the board. */
+export function boardNumber(shown: BoardShown): number {
+  return shown.unlocked.size + shown.actions.length
+}
+
 /**
  * What Phases 2 and 3 both send about the board, for the build file `b` (that of Phase 3 holds
  * what Phase 3 adds). The phase gives its own brief, number of validations and groups of actions.
+ * `shown` is what this player has on the board: an item that is not unlocked comes with its
+ * names and none of its words, and a model that does not exist yet does not come at all.
  */
 export function canvasContent(
   pack: Pack, sp: SystemPack, b: BuildFile,
   own: { brief: { from: string; title: string; text: string } | undefined; validations: number; validateSeconds: number; actionGroups: readonly { id: string; label: string }[] },
+  shown: BoardShown,
 ): Omit<DevelopmentContent, 'phase' | 'actions'> {
   const rules = pack.game.phases.development
   const problem = sp.problems?.find((x) => x.id === b.problem)
+  const open = (id: string) => shown.unlocked.has(id)
+  const exists = (id: string) => !shown.unseen?.has(id)
+  const listed = new Set(shown.actions.map((a) => a.id))
+  const models = b.models.filter((x) => exists(x.id))
   return {
+    board: boardNumber(shown),
     brief: own.brief ? { from: own.brief.from, title: own.brief.title, text: own.brief.text } : null,
     problem: { id: b.problem, title: problem?.public.title ?? '', description: problem?.public.description ?? '' },
     rules: {
@@ -91,24 +107,32 @@ export function canvasContent(
       pools: b.pools.map((x) => ({ id: x.id, label: x.public.label, max: x.max })),
       actionGroups: own.actionGroups.map((g) => ({ id: g.id, label: g.label })),
       toolboxGroups: b.toolbox_groups.map((g) => ({ id: g.id, label: g.label })),
+      more: {
+        toolbox: [...new Set(b.workers.filter((x) => !open(x.id)).map((x) => x.group ?? ''))],
+        // Only what another action opens: an action that waits for a round or a finding is a surprise.
+        actions: [...new Set(b.actions.filter((a) => !listed.has(a.id) && a.requires.length > 0).map((a) => a.group))],
+        models: models.some((x) => !open(x.id)),
+        compute: b.compute.some((x) => !open(x.id)),
+        prompts: b.prompts.some((x) => !open(x.id)),
+      },
     },
     sources: b.sources.map((x) => ({ id: x.id, label: x.public.label, description: x.public.description, icon: x.public.icon, privateData: x.private_data })),
     result: { id: b.result.id, label: b.result.public.label, description: b.result.public.description },
     workers: b.workers.map((x) => ({
-      id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, description: x.public.description, icon: x.public.icon,
-      task: x.public.task ?? null, group: x.group ?? null,
-      costLine: x.public.cost_line ?? null, needsModel: x.needs_model,
-      models: Object.keys(x.by_model ?? {}),
+      id: x.id, kind: x.kind, label: x.public.label, short: x.public.short, description: open(x.id) ? x.public.description : '', icon: x.public.icon,
+      task: open(x.id) ? x.public.task ?? null : null, group: x.group ?? null,
+      costLine: open(x.id) ? x.public.cost_line ?? null : null, needsModel: x.needs_model,
+      models: Object.keys(x.by_model ?? {}).filter(exists),
       pool: x.pool ?? null,
       // `per_line` stays here: its keys are the efforts, which say which source asks for what.
       minutes: x.minutes ? { decide: x.minutes.decide, check: x.minutes.check } : null,
     })),
-    models: b.models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, runsOn: [...x.runs_on] })),
-    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: x.public.description, costLine: x.public.cost_line ?? null, protectsPrivateData: x.protects_private_data })),
+    models: models.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: open(x.id) ? x.public.description : '', costLine: open(x.id) ? x.public.cost_line ?? null : null, runsOn: [...x.runs_on] })),
+    compute: b.compute.map((x) => ({ id: x.id, label: x.public.label, short: x.public.short, description: open(x.id) ? x.public.description : '', costLine: open(x.id) ? x.public.cost_line ?? null : null, protectsPrivateData: x.protects_private_data })),
     prompts: b.prompts.map((x) => ({
-      id: x.id, label: x.public.label, short: x.public.short ?? null, description: x.public.description,
-      sample: x.public.samples ? null : x.public.sample ?? null,
-      samples: (x.public.samples ?? []).map((y) => ({ label: y.label, text: y.text })),
+      id: x.id, label: x.public.label, short: x.public.short ?? null, description: open(x.id) ? x.public.description : '',
+      sample: !open(x.id) || x.public.samples ? null : x.public.sample ?? null,
+      samples: open(x.id) ? (x.public.samples ?? []).map((y) => ({ label: y.label, text: y.text })) : [],
     })),
   }
 }

@@ -9,6 +9,8 @@ periods:
   - {id: p4, label: July and August, short: Jul-Aug}
   - {id: p5, label: September and October, short: Sep-Oct}
   - {id: p6, label: November and December, short: Nov-Dec}
+# Reports that added time brings after December are named from this: the same months, a year on.
+calendar: {cycle: 6, first_year: 2031}
 
 grants:
   - {round: 1, money: 20}
