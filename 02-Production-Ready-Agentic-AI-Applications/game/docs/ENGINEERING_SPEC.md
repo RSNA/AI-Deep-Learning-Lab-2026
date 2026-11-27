@@ -4759,7 +4759,12 @@ in the waiting room who starts with the next phase, and the join page once the l
   which the server can be restarted (`HOLD`), and beside the session any number of
   single-player games (`SOLO`). It times every command from the moment it is sent to its
   answer and prints the median, the 95th and 99th percentile, the refusals by command, the
-  reconnects and whether the server restarted. It ends and deletes its session. Pass when no
+  reconnects, whether the server restarted, and how much the server sent by kind of message
+  (a view is about 27 kB, up to 80 kB late in Phase 3, and a whole room gets one at every
+  report). `BASE` may list several addresses of one server, for example several SSH tunnels, and
+  the players are spread over them: all the players of a room on one tunnel measure the tunnel
+  and not the server. `PROBE=n` leaves the last address to n players, and the answer times are
+  printed by address. It ends and deletes its session. Pass when no
   client is lost, every player holds a result of Phase 3, every single-player game reaches its
   report card, and the answer arrives within 300 ms at the 95th percentile.
 - **Timing.** The export gives, per player and stage: time to the first command, time between

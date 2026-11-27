@@ -5,6 +5,12 @@
 //
 //   BASE=http://127.0.0.1:3000 PASS=<facilitator passcode> npm run loadtest
 //
+// BASE may name several addresses of the same server, separated by commas (several SSH tunnels,
+// for example). The players are spread over them, so that one tunnel does not carry every
+// connection and its delays are not counted as the server's. With PROBE=n the last address
+// carries only the first n players: when their answers are fast while the others are slow, the
+// delay is in the crowded tunnels and not in the server. The answer times are printed by address.
+//
 // Settings, all from the environment:
 //   CLIENTS   players who join in the lobby (150)
 //   LATE      players who join while Phase 1 and Phase 2 are played, half in each (10)
@@ -24,14 +30,24 @@ import { GameConnection, playerApi } from '@lab02/protocol'
 import { attach, hostConn, playDevelopment, playMaintaining, playPlanning, type Bot } from '../packages/server/test/bots.ts'
 
 const env = process.env
-const BASE = (env.BASE ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+const BASES = (env.BASE ?? 'http://127.0.0.1:3000').split(',').map((x) => x.trim().replace(/\/$/, '')).filter(Boolean)
+const BASE = BASES[0]!
 const PASS = env.PASS ?? ''
 const num = (name: string, fallback: number) => (env[name] === undefined ? fallback : Number(env[name]))
 const CLIENTS = num('CLIENTS', 150), LATE = num('LATE', 10), REFRESH = num('REFRESH', 10), SOLO = num('SOLO', 0)
 const SCALE = num('SCALE', 10), EXTEND = num('EXTEND', 0), HOLD = num('HOLD', 0)
 const ACK_P95_MS = num('ACK_P95_MS', 300)
-const WS = `${BASE.replace(/^http/, 'ws')}/ws`
+const wsOf = (base: string) => `${base.replace(/^http/, 'ws')}/ws`
+const WS = wsOf(BASE)
 const api = playerApi(BASE)
+const PROBE = BASES.length > 1 ? Number(env.PROBE ?? 0) : 0
+let spread = 0
+/** The address of the next player: each in turn, or the last address for the first few (PROBE). */
+function nextBase(): string {
+  const n = spread++
+  if (!PROBE) return BASES[n % BASES.length]!
+  return n < PROBE ? BASES.at(-1)! : BASES[(n - PROBE) % (BASES.length - 1)]!
+}
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a)
 if (!PASS) { console.error('PASS is not set: the facilitator passcode of the server.'); process.exit(1) }
@@ -40,16 +56,21 @@ if (!PASS) { console.error('PASS is not set: the facilitator passcode of the ser
 // What is measured
 // ------------------------------------------------------------------------------------------
 const acks: number[] = []
+const acksBy = new Map<string, number[]>()
 const refusals = new Map<string, number>()
 const turnedAway = new Map<string, number>()
+const received = new Map<string, { count: number; bytes: number; largest: number }>()
 let commands = 0, reconnects = 0
 /** Every command of a connection is timed from the moment it is sent to its answer. */
-function timed(conn: GameConnection): void {
+function timed(conn: GameConnection, base: string): void {
   const send = conn.command.bind(conn)
+  const mine = acksBy.get(base) ?? []
+  acksBy.set(base, mine)
   conn.command = async (type: string, payload?: unknown) => {
     const t0 = performance.now()
     const r = await send(type, payload)
     acks.push(performance.now() - t0)
+    mine.push(performance.now() - t0)
     commands++
     if (!r.ok) { const key = `${type} ${r.error ?? 'unknown'}`; refusals.set(key, (refusals.get(key) ?? 0) + 1) }
     return r
@@ -76,11 +97,21 @@ const stageOf = async (code: string): Promise<string | null> => { const r = awai
 
 /** A bot with the three players of the phases attached, so that it plays whatever stage it is in. */
 function player(token: string, extra: Partial<Bot> = {}): Bot {
-  const bot = attach(WS, token, extra)
-  timed(bot.conn)
-  playPlanning(bot, BASE, bots.length + 1)
-  playDevelopment(bot, BASE)
-  playMaintaining(bot, BASE, bots.length % 2 === 0)
+  const base = nextBase()
+  const bot = attach(wsOf(base), token, extra)
+  timed(bot.conn, base)
+  // What the server sends, by kind of message: a room on one wireless network shares this volume.
+  bot.conn.on('*', (m) => {
+    const size = JSON.stringify(m).length
+    const got = received.get(m.t) ?? { count: 0, bytes: 0, largest: 0 }
+    received.set(m.t, { count: got.count + 1, bytes: got.bytes + size, largest: Math.max(got.largest, size) })
+  })
+  // The tests keep every message of a bot. A long game of many bots would fill the memory.
+  bot.messages.length = 0
+  bot.conn.on('*', () => { bot.messages.length = 0 })
+  playPlanning(bot, base, bots.length + 1)
+  playDevelopment(bot, base)
+  playMaintaining(bot, base, bots.length % 2 === 0)
   return bot
 }
 const bots: Bot[] = []
@@ -98,7 +129,7 @@ async function room(): Promise<{ code: string; lost: number; unscored: number }>
   const code = made.data.code
   if (!code) throw new Error(`The server did not open a session (${made.status}).`)
   const host = hostConn(WS, token, code)
-  timed(host)
+  timed(host, 'the console')
   /** A command of the facilitator. A console that came back after a restart takes charge again first. */
   const drive = async (type: string, payload: unknown = {}) => {
     let r = await host.command(type, payload)
@@ -193,7 +224,7 @@ async function solo(n: number): Promise<'done' | string> {
 const t0 = Date.now()
 const health = async () => (await fetch(`${BASE}/healthz`).then((r) => r.json()).catch(() => null)) as { build?: string; content?: string; uptime?: number } | null
 const before = await health()
-log(`server ${BASE}: build ${before?.build}, content ${before?.content}. ${CLIENTS} players, ${LATE} late, ${REFRESH} refresh, ${SOLO} single-player games, speed ${SCALE}`)
+log(`server ${BASES.join(', ')}: build ${before?.build}, content ${before?.content}. ${CLIENTS} players, ${LATE} late, ${REFRESH} refresh, ${SOLO} single-player games, speed ${SCALE}`)
 const [game, solos] = await Promise.all([
   CLIENTS > 0 ? room() : Promise.resolve({ code: '', lost: 0, unscored: 0 }),
   Promise.all(Array.from({ length: SOLO }, async (_x, i) => { await sleep(i * 250); return solo(i + 1).catch((e: unknown) => `failed: ${String(e).slice(0, 80)}`) })),
@@ -206,6 +237,11 @@ console.log(`time                 ${Math.round((Date.now() - t0) / 1000)} s`)
 console.log(`players              ${bots.length} (${game.lost} lost, ${game.unscored} without a result of Phase 3)`)
 console.log(`single-player games  ${SOLO} (${soloBad.length} not finished${soloBad.length ? `: ${[...new Set(soloBad)].slice(0, 4).join('; ')}` : ''})`)
 console.log(`commands             ${commands}, answered in ${pct(acks, 50).toFixed(0)} ms (median), ${p95.toFixed(0)} ms (95th), ${pct(acks, 99).toFixed(0)} ms (99th), ${Math.max(0, ...acks).toFixed(0)} ms (slowest)`)
+if (BASES.length > 1) for (const [base, xs] of acksBy) console.log(`  ${base.padEnd(24)} ${String(xs.length).padStart(5)} commands, ${pct(xs, 50).toFixed(0)} ms (median), ${pct(xs, 95).toFixed(0)} ms (95th)`)
+const seconds = (Date.now() - t0) / 1000
+const total = [...received.values()].reduce((n, x) => n + x.bytes, 0)
+console.log(`received             ${(total / 1e6).toFixed(1)} MB by all players, ${((8 * total) / 1e6 / seconds).toFixed(2)} Mbit/s on average at this game speed`)
+for (const [t, x] of [...received].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, 5)) console.log(`  ${t.padEnd(12)} ${String(x.count).padStart(7)} messages, ${(x.bytes / 1e6).toFixed(1)} MB, ${(x.bytes / x.count / 1000).toFixed(1)} kB each, the largest ${(x.largest / 1000).toFixed(1)} kB`)
 console.log(`refused              ${[...refusals].map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`)
 console.log(`reconnects           ${reconnects}${turnedAway.size ? `, turned away: ${[...turnedAway].map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}`)
 // A server that was up for the whole run has aged by the length of the run.
