@@ -333,7 +333,7 @@ type Game = {
     projector?: {                        // what "Follow the game" shows while a phase is played (6.13)
       feed_rows: number                  // lines of room activity on the screen
       cards: number                      // how many practices the loop looks at, one per round
-      programme: { show: 'activity' | 'phase_board' | 'player'; seconds: number }[]
+      programme: { show: 'activity' | 'phase_board' | 'player' | 'news'; seconds: number }[]
     }
   }
   text_limits?: Record<string, number>   // words. Over the limit gives a warning. The loader
@@ -1836,6 +1836,7 @@ Each entry names a view and how many seconds it stays.
 | `activity` | The activity list: what practices just started, finished or sent, newest first, with the counts of the room beside it |
 | `phase_board` | The leaderboard of the running phase, the health systems side by side |
 | `player` | One practice at work. Each round of the loop shows the next of up to `cards` practices that acted in the phase |
+| `news` | A practice that got a letter of its own in the running phase: a letter with `if_event`, which goes only to a practice it concerns. Its card carries who wrote the letter and its title, in the place of what the practice works on, under the heading "A letter just came in". The newest letters first, up to `cards` practices (`ScreenView.newsCards`), also one that has done nothing in the phase. The text of a letter is never on the projector. With no such practice the turn shows another practice at work, half the list away from the one the `player` turn showed. Phases 1 and 2 have no such letters |
 
 The engine resolves `auto` to `play` as before and adds `programme` to the screen view. A screen
 that receives a programme draws the entry whose turn it is. The turn comes from the session
@@ -4221,7 +4222,7 @@ in its window changes anything.
 | --- | --- |
 | Lobby | The QR code, the join link in large type, one line ("Scan the code with your phone, or type the link on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
 | Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
-| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work. In Phase 2 the practice at work is shown as its map, large, beside its name, what runs and its counts |
+| Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work, a practice that got a letter of its own. The name of a practice beside its map takes up to two lines. In Phase 2 the practice at work is shown as its map, large, beside its name, what runs and its counts |
 | Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
 | Reveal | The results of the phase for the room: the points of the players who played, in steps of 100, and per health system the mean points and, after Phase 1, the share that found the flagship (`ScreenView.reveal`) |
 | Slides | The current slide of the deck |

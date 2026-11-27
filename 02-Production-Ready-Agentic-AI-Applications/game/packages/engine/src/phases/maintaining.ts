@@ -384,6 +384,13 @@ export const maintaining: PhaseModule = {
     if (st.deployedAtMs !== null) out.push({ kind: 'deployed', text: null, atMs: st.deployedAtMs })
     return out
   },
+  letter(_s, pack, p) {
+    if (!p.maintaining) return null
+    // Only a letter with `if_event` is a practice's own: the others go to the whole room.
+    const own = new Set(maintainOf(pack, p).news.filter((n) => n.if_event !== undefined).map((n) => `news:${n.id}`))
+    const last = p.inbox.filter((m) => own.has(m.id) && m.title !== undefined).sort((a, b) => b.atMs - a.atMs)[0]
+    return last ? { from: last.from, title: last.title!, atMs: last.atMs } : null
+  },
   card(_s, pack, p) {
     const st = p.maintaining
     if (!st) return { now: [], facts: [], map: null }

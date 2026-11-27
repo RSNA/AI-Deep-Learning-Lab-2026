@@ -65,7 +65,8 @@ export const Theme = z.enum(THEMES)
 export type Theme = z.infer<typeof Theme>
 
 /** What "Follow the game" rotates through on the projector while a phase is played (section 6.13). */
-export const PROGRAMME_SHOWS = ['activity', 'phase_board', 'player'] as const
+/** `news`: a practice that got a letter of its own in the phase, with the title of the letter. */
+export const PROGRAMME_SHOWS = ['activity', 'phase_board', 'player', 'news'] as const
 export const ProgrammeShow = z.enum(PROGRAMME_SHOWS)
 export type ProgrammeShow = z.infer<typeof ProgrammeShow>
 

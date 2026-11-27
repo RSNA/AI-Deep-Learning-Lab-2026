@@ -538,6 +538,16 @@ export type SessionInfo = z.infer<typeof SessionInfo>
 // ------------------------------------------------------------------------------------------
 // The big screen
 // ------------------------------------------------------------------------------------------
+/** One practice on the projector. `news`: the letter of its own that it got last, by its title and who wrote it. */
+export const PracticeCard = S({
+  name: Text, avatar: AvatarId, system: z.string(),
+  now: z.array(Text),               // what runs at this moment
+  facts: z.array(S({ label: Text, value: Text })),
+  map: CanvasMap.nullable(),        // Phase 2 and 3: the practice's map, drawn with the legend of its system
+  news: S({ from: Text, title: Text }).nullable(),
+})
+export type PracticeCard = z.infer<typeof PracticeCard>
+
 export const ScreenView = S({
   session: SessionInfo,
   stage: StageId,
@@ -569,12 +579,10 @@ export const ScreenView = S({
   }).nullable(),
   // Practices the rotation looks at, one per round: what they work on and how far they are.
   // Counts only. A card never shows a class or an insight.
-  cards: z.array(S({
-    name: Text, avatar: AvatarId, system: z.string(),
-    now: z.array(Text),             // what runs at this moment
-    facts: z.array(S({ label: Text, value: Text })),
-    map: CanvasMap.nullable(),      // Phase 2: the practice's draft, drawn with the legend of its system
-  })),
+  cards: z.array(PracticeCard),
+  // Practices that got a letter of their own in the running phase (one that goes only to a
+  // practice it concerns), the newest first, for the `news` turn of the programme.
+  newsCards: z.array(PracticeCard),
   legends: z.array(S({ system: z.string(), legend: CanvasLegend })),   // for the maps of the cards
   winners: S({
     final: z.boolean(),             // every phase is scored. Before that: the standings so far, no podium

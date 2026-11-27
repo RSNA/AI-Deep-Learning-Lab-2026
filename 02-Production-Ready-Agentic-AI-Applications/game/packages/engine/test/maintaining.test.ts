@@ -706,6 +706,17 @@ describe('what is on the board', () => {
     expect(st(s).reports[2]!.events.map((x) => x.id)).toContain(wording.id)
     expect(s.players.p1!.inbox.map((x) => x.id)).toContain('news:rb-n-wording')
     expect(s.players.p3!.inbox.map((x) => x.id)).not.toContain('news:rb-n-wording')
+    // The projector's `news` turn shows that branch with the title of its letter and who wrote it,
+    // and never one that only got the letters of the whole room.
+    const sv = project.screenView(s, pack, 'http://x')
+    const letter = M.news.find((n) => n.id === 'rb-n-wording')!
+    const tom = pack.characters.find((c) => c.id === letter.from)!
+    expect(sv.programme!.map((x) => x.show)).toContain('news')
+    expect(sv.newsCards.map((c) => c.name)).toEqual([s.players.p1!.name])
+    expect(tom.public.name.length).toBeGreaterThan(2)
+    expect(sv.newsCards[0]!.news).toEqual({ from: `${tom.public.name}, ${tom.public.role}`, title: letter.title })
+    expect(sv.cards.every((c) => c.news === null)).toBe(true)
+    expect(JSON.stringify(sv.newsCards)).not.toContain(letter.text)
     // The report shows the symptom and not the cause.
     expect(JSON.stringify(view(s))).not.toContain(wording.cause!.text)
     const before = content(s).board

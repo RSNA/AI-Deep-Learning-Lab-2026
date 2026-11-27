@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { COLUMNS, phaseOfStage, type Clock, type ScreenView } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, players } from '../copy.ts'
 import { gameNow, useTick, type ClockRef } from '../lib/clock.ts'
-import { ago, programmeSlot } from '../lib/programme.ts'
+import { ago, practiceTurn, programmeSlot } from '../lib/programme.ts'
 import { connect, reloadForNewBuild } from '../lib/net.ts'
 import { store } from '../lib/storage.ts'
 import { forceTheme } from '../lib/theme.ts'
@@ -191,9 +191,15 @@ function PhaseBoard({ v }: { v: ScreenView }) {
 }
 
 /** One practice at work: what runs and how far it is. Counts only, never a class or an insight. */
-function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
-  const c = v.cards.length ? v.cards[round % v.cards.length]! : null
-  if (!c) return null
+function PracticeCard({ v, c }: { v: ScreenView; c: ScreenView['cards'][number] }) {
+  // A practice that just got a letter of its own: the letter stands where its work stands on other cards.
+  const heading = c.news ? 'A LETTER JUST CAME IN' : 'ONE PRACTICE AT WORK'
+  const letter = (big: boolean) => c.news && (
+    <div className="panel screen-letter" style={{ borderWidth: 4, padding: big ? '14px 22px' : '10px 18px', gap: big ? 6 : 4, boxShadow: '6px 6px 0 var(--shade)' }}>
+      <div style={{ fontSize: big ? 22 : 20, fontWeight: 800 }}>{c.news.from ? `From ${c.news.from}` : 'A letter'}</div>
+      <div className="face" style={{ fontSize: big ? 44 : 30, lineHeight: 1.1 }}>{c.news.title}</div>
+    </div>
+  )
   const ref = v.session.systems.find((x) => x.id === c.system)
   const legend = c.map ? v.legends.find((l) => l.system === c.system)?.legend : undefined
   // Phase 2: the practice at work is shown as its map (section 6.13).
@@ -201,15 +207,17 @@ function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
     return (
       <div style={{ flexGrow: 1, minHeight: 0, padding: '22px 40px', display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 36, alignItems: 'stretch' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-          <div className="muted" style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>ONE PRACTICE AT WORK</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}><Avatar id={c.avatar} size={96} /><div className="face" style={{ fontSize: 56, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.name}</div></div>
+          <div className="muted" style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>{heading}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}><Avatar id={c.avatar} size={96} /><div className="face screen-name" style={{ fontSize: 44, lineHeight: 1.05, minWidth: 0 }}>{c.name}</div></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 26, fontWeight: 800 }}><SystemShape index={ref?.index ?? 0} size={24} />{ref?.name}</div>
-          <div className="panel" style={{ borderWidth: 4, padding: '10px 18px', gap: 4, boxShadow: '6px 6px 0 var(--shade)' }}>
-            <div className="muted" style={{ fontSize: 20, fontWeight: 800 }}>Working on now</div>
-            {c.now.length
-              ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 26, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
-              : <div style={{ fontSize: 26, fontWeight: 700 }}>{v.stage === 'maintaining.year' ? 'Keeping the system running' : 'Building the map'}</div>}
-          </div>
+          {letter(false) || (
+            <div className="panel" style={{ borderWidth: 4, padding: '10px 18px', gap: 4, boxShadow: '6px 6px 0 var(--shade)' }}>
+              <div className="muted" style={{ fontSize: 20, fontWeight: 800 }}>Working on now</div>
+              {c.now.length
+                ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 26, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
+                : <div style={{ fontSize: 26, fontWeight: 700 }}>{v.stage === 'maintaining.year' ? 'Keeping the system running' : 'Building the map'}</div>}
+            </div>
+          )}
           {c.facts.map((f) => (
             <div key={f.label} className="panel" style={{ borderWidth: 4, padding: '8px 18px', boxShadow: '6px 6px 0 var(--shade)' }}>
               <div className="face" style={{ fontSize: 40, lineHeight: 1.05 }}>{f.value}</div>
@@ -229,15 +237,17 @@ function PracticeCard({ v, round }: { v: ScreenView; round: number }) {
         <Avatar id={c.avatar} size={256} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
-        <div className="muted" style={{ fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>ONE PRACTICE AT WORK</div>
+        <div className="muted" style={{ fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>{heading}</div>
         <div className="face" style={{ fontSize: 96, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 32, fontWeight: 800 }}><SystemShape index={ref?.index ?? 0} size={28} />{ref?.name}</div>
-        <div className="panel" style={{ borderWidth: 4, padding: '14px 22px', gap: 6, boxShadow: '6px 6px 0 var(--shade)' }}>
-          <div className="muted" style={{ fontSize: 22, fontWeight: 800 }}>Working on now</div>
-          {c.now.length
-            ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 32, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
-            : <div style={{ fontSize: 32, fontWeight: 700 }}>Reading the evidence and deciding</div>}
-        </div>
+        {letter(true) || (
+          <div className="panel" style={{ borderWidth: 4, padding: '14px 22px', gap: 6, boxShadow: '6px 6px 0 var(--shade)' }}>
+            <div className="muted" style={{ fontSize: 22, fontWeight: 800 }}>Working on now</div>
+            {c.now.length
+              ? c.now.slice(0, 3).map((t) => <div key={t} style={{ fontSize: 32, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</div>)
+              : <div style={{ fontSize: 32, fontWeight: 700 }}>Reading the evidence and deciding</div>}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, c.facts.length)}, minmax(0, 1fr))`, gap: 20 }}>
           {c.facts.map((f) => (
             <div key={f.label} className="panel" style={{ borderWidth: 4, padding: '12px 20px', boxShadow: '6px 6px 0 var(--shade)' }}>
@@ -258,7 +268,8 @@ function Follow({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
   const t = clock ? gameNow(clock) / (clock.clock.scale || 1) / 1000 : 0
   const slot = programmeSlot(v.programme ?? [], t)
   if (slot.show === 'phase_board' && v.phaseBoard) return <PhaseBoard v={v} />
-  if (slot.show === 'player' && v.cards.length) return <PracticeCard v={v} round={slot.round} />
+  const card = practiceTurn(slot.show, slot.round, v.cards, v.newsCards)
+  if (card) return <PracticeCard v={v} c={card} />
   return <Feed v={v} clock={clock} />
 }
 

@@ -20,6 +20,19 @@ export function programmeSlot(programme: readonly ProgrammeItem[], t: number): {
   return { show: programme[programme.length - 1]!.show, index: programme.length - 1, round }
 }
 
+/**
+ * The practice a turn of the programme shows, or null when the turn shows something else or has
+ * nobody. `player`: one practice at work, the next one each time the loop comes round. `news`:
+ * a practice that got a letter of its own, and with no such practice another one at work, half
+ * the list away from the one the `player` turn just showed.
+ */
+export function practiceTurn<T>(show: ProgrammeShow, round: number, cards: readonly T[], newsCards: readonly T[]): T | null {
+  if (show === 'player') return cards.length ? cards[round % cards.length]! : null
+  if (show !== 'news') return null
+  if (newsCards.length) return newsCards[round % newsCards.length]!
+  return cards.length ? cards[(round + Math.ceil(cards.length / 2)) % cards.length]! : null
+}
+
 /** How long ago something happened, in the words of the activity list. */
 export function ago(seconds: number): string {
   if (seconds < 5) return 'now'
