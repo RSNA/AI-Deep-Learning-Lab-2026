@@ -430,7 +430,8 @@ export const BuildFile = W({
     key: K({}).optional(),
   })).default([]),
   compute: z.array(W({
-    id: Id, public: PartPublic,
+    // `bill_line`: what the fixed cost of the place is called on a bill of Phase 3, such as "rent".
+    id: Id, public: PartPublic.extend({ bill_line: Text.optional() }),
     protects_private_data: z.boolean(),
     price_factor: NonNeg.optional(),
     run_fixed: NonNeg.optional(),

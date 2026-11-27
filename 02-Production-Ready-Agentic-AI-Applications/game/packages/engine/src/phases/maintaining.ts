@@ -99,6 +99,11 @@ export function scoreSoFar(pack: Pack, p: PlayerState): number {
   return st ? live(maintainOf(pack, p), st.reports, paidOf(st)).score : 0
 }
 
+/** Whether the account pays a price. What costs nothing can always be had, also by an account below zero. */
+export function affords(st: MaintainingState, price: number): boolean {
+  return price <= 0 || price <= st.money + 1e-9
+}
+
 /** The validations of Phase 3 that count against its number of runs. */
 export function runsUsed(st: MaintainingState): number {
   return st.validations.filter((v) => v.origin === 'phase3').length + (st.validating ? 1 : 0)
@@ -128,14 +133,13 @@ export function roundEndMs(s: SessionState, pack: Pack, r: number): GameMs | nul
 // ------------------------------------------------------------------------------------------
 // Rounds and reports
 // ------------------------------------------------------------------------------------------
-/** A round starts for a player: its grants land in the account and its news in the inbox. */
+/** A round starts for a player: its news lands in the inbox. Its grants came with the report before it. */
 function openRound(pack: Pack, p: PlayerState, round: number, at: GameMs): EngineEvent[] {
   const st = p.maintaining!
   const mt = maintainOf(pack, p)
   const events: EngineEvent[] = []
   if (round <= st.roundsOpened) return events
   st.roundsOpened = round
-  for (const g of mt.grants) if (g.round === round) st.money += g.money
   // A letter with `if_event` goes only to a practice on whose map in service that event acted
   // in the report just made, at the first round from its own on at which it did.
   const acted = new Set(st.reports.at(-1)?.events.map((x) => x.id) ?? [])
@@ -149,7 +153,11 @@ function openRound(pack: Pack, p: PlayerState, round: number, at: GameMs): Engin
   return events
 }
 
-/** The report of the next period, from what is deployed and what has finished at this moment. */
+/**
+ * The report of the next period, from what is deployed and what has finished at this moment.
+ * The grants of the round it opens land in the account, and the bill of the period is taken
+ * from it. The account may go below zero: nothing can then be bought until it is positive again.
+ */
 function makeReport(pack: Pack, p: PlayerState, at: GameMs): MaintainingReport {
   const st = p.maintaining!
   const mt = maintainOf(pack, p)
@@ -161,7 +169,9 @@ function makeReport(pack: Pack, p: PlayerState, at: GameMs): MaintainingReport {
   if (ps.note && !st.shownNotes.includes(ps.note)) st.shownNotes.push(ps.note)
   const paid = paidOf(st)
   const sofar = live(mt, [...st.reports, ps], paid)
-  const report: MaintainingReport = { ...ps, period: n, atMs: at, map: v?.id ?? null, paid, spent: sofar.spent, score: sofar.score }
+  const granted = mt.grants.reduce((sum, g) => sum + (g.round === n ? g.money : 0), 0)
+  st.money += granted - ps.runCost - ps.fine
+  const report: MaintainingReport = { ...ps, period: n, atMs: at, map: v?.id ?? null, paid, spent: sofar.spent, score: sofar.score, granted, account: st.money }
   st.reports.push(report)
   return report
 }
@@ -278,7 +288,7 @@ function startFromReference(pack: Pack, p: PlayerState, now: GameMs): void {
 /**
  * What taking a reference map would buy for this player now: the actions it needs that are
  * neither done nor running, and their price. The account pays all of it, so a player whose
- * account holds less cannot take the map: nobody is left with nothing for the year.
+ * account holds less cannot take the map.
  */
 export function referenceOffer(pack: Pack, p: PlayerState, ref: ReferenceEntry): { needs: { id: string; title: string; money: number }[]; price: number } {
   const st = p.maintaining!
@@ -438,7 +448,7 @@ export const maintaining: PhaseModule = {
       const again = !!maintainOf(pack, p).actions.find((x) => x.id === id)?.repeat
       if (st.actionsRunning.some((r) => r.id === id) || (!again && st.actionsDone.some((d) => d.id === id))) return fail('action_taken')
       if (a.requires.some((r) => !st.actionsDone.some((d) => d.id === r))) return fail('requires_action')
-      if (a.money > st.money + 1e-9) return fail('not_enough_money')
+      if (!affords(st, a.money)) return fail('not_enough_money')
       if (a.developers > developersFreeIn3(pack, p)) return fail('developers_busy')
       st.money -= a.money
       st.paidActions += a.money
@@ -472,7 +482,7 @@ export const maintaining: PhaseModule = {
       // from the account. A player who cannot pay for all of it does not get the map.
       const seen = st.reports.length
       const offer = referenceOffer(pack, p, ref)
-      if (offer.price > st.money + 1e-9) return fail('not_enough_money')
+      if (!affords(st, offer.price)) return fail('not_enough_money')
       for (const need of offer.needs) st.actionsDone.push({ id: need.id, atMs: now, started: seen, done: seen })
       st.money -= offer.price
       st.paidAdoption += offer.price

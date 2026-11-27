@@ -122,7 +122,7 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
   const taken = mv.adopted.includes(r.id)
   const offer = mv.offers.find((x) => x.id === r.id)
   // A map that costs more than the account holds cannot be taken, and the sheet says why.
-  const tooDear = !!offer && offer.price > mv.money + 1e-9
+  const tooDear = !!offer && offer.price > 0 && offer.price > mv.money + 1e-9
   const take = () => {
     setBusy(true)
     setRefused(null)

@@ -17,7 +17,9 @@ export const entry = (id: string, origin: Entry['origin'], over: Partial<Entry> 
 
 export const report = (period: number, over: Partial<Report> = {}): Report => ({
   period, label: `Months ${2 * period - 1} and ${2 * period}`, short: `P${period}`, atMs: 0, map: 'v1',
-  validity: 0.9, test: 0.94, reliability: 0.85, interruptions: 6, value: 76.5, off: 0, runCost: 4.4, fine: 0, spent: 66.4, score: 73.2,
+  validity: 0.9, test: 0.94, reliability: 0.85, interruptions: 6, value: 76.5, off: 0, runCost: 4.4, fine: 0,
+  bill: [{ label: 'Reading room link: model calls', money: 2.4 }, { label: 'Reading room link: monthly fee', money: 2 }], granted: 0, account: 37.6,
+  spent: 66.4, score: 73.2,
   rank: 3, of: 40,
   sentences: { validity: 'Most loans came back on the right shelf.', reliability: 'The desk was closed on six days.', gap: null, people: 'The librarians are content.', steady: null, noMap: null },
   missed: { title: 'A book lent twice', text: 'Two readers held the same copy.', why: 'The shelf list was never read.' }, note: null,

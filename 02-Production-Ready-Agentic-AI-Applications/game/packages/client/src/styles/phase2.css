@@ -26,6 +26,9 @@
 .purse .devs i { display: block; width: 10px; height: 15px; border: 2px solid currentColor; }
 .purse .devs i.held { background: var(--sun); }
 .topbar .purse { margin-left: 4px; padding-left: 14px; border-left: 2px solid var(--bar-muted); }
+/* An account below zero (Phase 3). The bar is dark in both themes, so it takes the light red. */
+.purse .pf.below { color: var(--bad); }
+.topbar .purse .pf.below { color: #ff8a80; }
 .purse-col { flex-shrink: 0; padding: 7px 12px 6px; border-bottom: 3px solid var(--line); background: var(--inset); }
 .purse-col .bwline, .bwline.pad { font-size: 12.5px; color: var(--muted); font-weight: 700; }
 .bwline.pad { padding: 4px 4px 8px; }

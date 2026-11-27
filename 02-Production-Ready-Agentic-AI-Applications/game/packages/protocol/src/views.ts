@@ -355,6 +355,12 @@ export const MaintainingReport = S({
   value: z.number(),                // the score of the period
   off: z.number(),                  // points the people's part took off
   runCost: z.number(), fine: z.number(),
+  // The bill of the period, line by line (running costs and fines, adding up to `runCost` +
+  // `fine`), the money that arrived with the report, and the account after the bill was paid.
+  // The account may be below zero: nothing can then be bought until it is positive again.
+  bill: z.array(S({ label: Text, money: z.number() })),
+  granted: z.number(),
+  account: z.number(),
   spent: z.number(),                // everything spent up to this report
   score: z.number(),                // the score of the year after this report
   rank: Int.nullable(), of: Int,    // among the practices that hold this report

@@ -134,9 +134,13 @@ export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }
         </div>
       )}
       <div className="p3money">
-        <div className="kv"><span>{P3.costTwoMonths}</span><span className="v">{P3.sum(r.runCost)}</span></div>
-        {r.fine > 0 && <div className="kv"><span>{P3.fine}</span><span className="v">{P3.sum(r.fine)}</span></div>}
-        <div className="kv"><span>{P3.spentSoFar}</span><span className="v">{P3.sum(r.spent)}</span></div>
+        <div className="eyebrow">{P3.billTitle}</div>
+        {r.bill.length === 0 && <p className="muted">{P3.billNothing}</p>}
+        {r.bill.map((x, i) => <div key={i} className="kv part"><span>{x.label}</span><span className="v">{P3.sum(x.money)}</span></div>)}
+        {r.bill.length > 0 && <div className="kv sum"><span>{P3.billTotal}</span><span className="v">{P3.sum(r.runCost + r.fine)}</span></div>}
+        {r.granted > 0 && <div className="kv"><span>{P3.granted}</span><span className="v">+{P3.sum(r.granted)}</span></div>}
+        <div className={`kv sum${r.account < 0 ? ' below' : ''}`}><span>{P3.accountLeft}</span><span className="v">{P3.sum(r.account)}</span></div>
+        {r.account < 0 && <p className="p3below">{P3.accountBelow}</p>}
         <div className="kv total"><span>{P3.scoreYear}</span><span className="v">{P3.out100(r.score)}{r.rank !== null && <span className="p3rank"> · {P3.rank(r.rank, r.of)}</span>}</span></div>
       </div>
     </div>

@@ -1205,6 +1205,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1323,6 +1337,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1441,6 +1469,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1559,6 +1601,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1683,6 +1739,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1801,6 +1871,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -1919,6 +2003,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2047,6 +2145,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2203,6 +2315,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2302,6 +2428,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2401,6 +2541,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2500,6 +2654,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2605,6 +2773,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2704,6 +2886,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2803,6 +2999,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -2912,6 +3122,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3049,6 +3273,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3199,6 +3449,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3349,6 +3625,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3499,6 +3801,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3655,6 +3983,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -3835,6 +4189,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -4015,6 +4395,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -4213,6 +4619,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -4439,6 +4871,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -4655,6 +5125,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -4882,6 +5390,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -5109,6 +5655,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -5325,6 +5909,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -5541,6 +6163,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -5774,6 +6434,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -6001,6 +6699,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -6217,6 +6953,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -6474,6 +7248,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -6720,6 +7532,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -6977,6 +7827,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -7223,6 +8111,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -7498,6 +8424,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -7762,6 +8726,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -8065,6 +9067,44 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -8357,6 +9397,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -8442,6 +9496,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -8527,6 +9595,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -8612,6 +9694,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -8704,6 +9800,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -8799,6 +9909,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -8894,6 +10018,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -8998,6 +10136,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -9120,6 +10272,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9193,6 +10346,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9266,6 +10420,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9339,6 +10494,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [
      {
       "event": null,
@@ -9419,6 +10575,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9492,6 +10649,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9565,6 +10723,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -9638,6 +10797,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [
      {
@@ -9730,6 +10890,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -9845,6 +11019,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -9971,6 +11159,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10097,6 +11299,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10238,6 +11454,20 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10359,6 +11589,20 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10485,6 +11729,20 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10600,6 +11858,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10715,6 +11987,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10847,6 +12133,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -10973,6 +12273,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11114,6 +12428,26 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11235,6 +12569,20 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11361,6 +12709,20 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11476,6 +12838,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11622,6 +12998,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11783,6 +13173,26 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -11924,6 +13334,20 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12070,6 +13494,20 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12205,6 +13643,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12351,6 +13803,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12512,6 +13978,26 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12653,6 +14139,20 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12799,6 +14299,20 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -12934,6 +14448,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13104,6 +14638,26 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13289,6 +14843,32 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13454,6 +15034,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13624,6 +15224,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13783,6 +15403,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -13966,6 +15600,20 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14164,6 +15812,26 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14342,6 +16010,20 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14525,6 +16207,20 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14697,6 +16393,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14836,6 +16558,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -14975,6 +16723,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -15124,6 +16898,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -15279,6 +17079,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -15447,6 +17273,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -15615,6 +17467,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -15801,6 +17679,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16015,6 +17919,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16188,6 +18112,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16361,6 +18305,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16544,6 +18508,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16733,6 +18717,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -16916,6 +18920,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17099,6 +19123,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17291,6 +19335,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17511,6 +19575,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17654,6 +19738,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17803,6 +19907,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -17952,6 +20076,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18095,6 +20239,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18248,6 +20412,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18413,6 +20597,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18572,6 +20776,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18725,6 +20949,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -18884,6 +21128,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19033,6 +21297,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19186,6 +21470,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19345,6 +21649,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19494,6 +21818,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19647,6 +21991,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19815,6 +22179,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -19974,6 +22358,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20136,6 +22540,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20332,6 +22756,26 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20519,6 +22963,26 @@
    ],
    "actions_set": "fixed_too_early",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20709,6 +23173,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20827,6 +23299,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -20945,6 +23425,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21073,6 +23561,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21207,6 +23703,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21335,6 +23839,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21463,6 +23975,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21591,6 +24111,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21737,6 +24265,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -21910,6 +24464,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -22089,6 +24669,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -22268,6 +24874,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -22447,6 +25079,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -22646,6 +25304,32 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -22819,6 +25503,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -23011,6 +25721,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -23215,6 +25951,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -23413,6 +26175,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -23611,6 +26399,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -23829,6 +26643,38 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -24021,6 +26867,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -24219,6 +27091,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -24417,6 +27315,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -24615,6 +27539,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -24824,6 +27774,38 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -25016,6 +27998,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -25223,6 +28231,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -25430,6 +28464,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -25637,6 +28697,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -25855,6 +28941,38 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -26056,6 +29174,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -26272,6 +29416,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -26470,6 +29640,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -26686,6 +29882,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -26913,6 +30135,38 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -27123,6 +30377,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -27367,6 +30647,32 @@
    ],
    "actions_set": "retrained_after_4",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -27593,6 +30899,32 @@
    ],
    "actions_set": "retrained_across_a_report",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -27819,6 +31151,32 @@
    ],
    "actions_set": "retrained_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -28074,6 +31432,38 @@
    ],
    "actions_set": "every_lens",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     },
+     {
+      "count": 1,
+      "id": "a-watch",
+      "kind": "action",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -28312,6 +31702,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -28491,6 +31913,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -28670,6 +32124,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -28859,6 +32345,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -29054,6 +32572,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -29272,6 +32822,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -29490,6 +33072,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -29726,6 +33340,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -29990,6 +33636,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30143,6 +33809,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30302,6 +33988,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30466,6 +34172,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30619,6 +34345,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30772,6 +34518,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -30937,6 +34703,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31101,6 +34887,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31254,6 +35060,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31432,6 +35258,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31615,6 +35461,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31787,6 +35653,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -31974,6 +35860,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -32166,6 +36072,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -32347,6 +36273,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -32534,6 +36480,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -32726,6 +36692,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -32907,6 +36893,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33122,6 +37128,26 @@
    ],
    "actions_set": "skilled",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33342,6 +37368,26 @@
    ],
    "actions_set": "skilled_and_hardened",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33551,6 +37597,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33687,6 +37753,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33823,6 +37909,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -33959,6 +38065,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34101,6 +38227,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 24.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34257,6 +38403,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34422,6 +38588,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34587,6 +38773,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34780,6 +38986,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -34872,7 +39104,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.8864852924787551,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 50.477496976144295,
@@ -34937,6 +39169,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35029,7 +39287,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.8864852924787551,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 50.477496976144295,
@@ -35094,6 +39352,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35186,7 +39470,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.8864852924787551,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 50.477496976144295,
@@ -35251,6 +39535,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35349,7 +39659,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.86875558662918,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 49.46794703662141,
@@ -35414,6 +39724,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35536,7 +39872,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.7832984044342279,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 44.6019163281211,
@@ -35601,6 +39937,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35723,7 +40085,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.7832984044342279,
-    "run_cost": 53.8,
+    "run_cost": 49.800000000000004,
     "test": 0.588766017,
     "validity": 0.5694115559999999,
     "value": 44.6019163281211,
@@ -35788,6 +40150,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -35890,7 +40278,7 @@
       "validity_loss": 0.10103023839999997
      },
      {
-      "cost_loss": 20.80000000000001,
+      "cost_loss": 20.800000000000004,
       "fine": 0.0,
       "hit": true,
       "id": "e-tariff",
@@ -35928,7 +40316,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.7832984044342279,
-    "run_cost": 74.60000000000001,
+    "run_cost": 70.60000000000001,
     "test": 0.588766017,
     "validity": 0.46838131759999996,
     "value": 36.68823387428813,
@@ -35993,6 +40381,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -36123,7 +40537,7 @@
       "validity_loss": 0.0
      },
      {
-      "cost_loss": 20.80000000000001,
+      "cost_loss": 20.800000000000004,
       "fine": 0.0,
       "hit": true,
       "id": "e-tariff",
@@ -36161,7 +40575,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.751966468256859,
-    "run_cost": 74.60000000000001,
+    "run_cost": 70.60000000000001,
     "test": 0.588766017,
     "validity": 0.46838131759999996,
     "value": 35.22070451931661,
@@ -36226,6 +40640,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -36383,6 +40829,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -36540,6 +41018,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -36697,6 +41207,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -36860,6 +41402,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37047,6 +41621,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37234,6 +41840,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37439,6 +42077,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37672,6 +42342,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37771,6 +42455,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37870,6 +42568,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -37969,6 +42681,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38074,6 +42800,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38190,6 +42930,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 10.4
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38306,6 +43060,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38415,6 +43183,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38552,6 +43334,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38732,6 +43540,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -38918,6 +43752,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -39109,6 +43969,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -39300,6 +44186,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -39491,6 +44403,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -39671,6 +44609,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -39851,6 +44815,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -40043,6 +45033,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -40234,6 +45250,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -40425,6 +45467,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -40616,6 +45684,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -40796,6 +45890,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -41012,6 +46132,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -41233,6 +46379,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -41454,6 +46626,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -41664,6 +46862,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -41880,6 +47104,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -42101,6 +47351,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -42292,6 +47568,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -42502,6 +47804,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -42736,6 +48064,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -42975,6 +48329,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -43185,6 +48565,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -43413,6 +48819,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -43665,6 +49097,32 @@
    ],
    "actions_set": "fixed_after_2",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -43922,6 +49380,32 @@
    ],
    "actions_set": "fixed_after_3",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -44150,6 +49634,32 @@
    ],
    "actions_set": "hardened_and_staged",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -44396,6 +49906,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -44548,6 +50078,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -44700,6 +50250,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -44852,6 +50422,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45010,6 +50600,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45182,6 +50792,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45354,6 +50984,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45535,6 +51185,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45734,6 +51404,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -45907,6 +51597,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -46080,6 +51790,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -46263,6 +51993,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -46452,6 +52202,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -46635,6 +52405,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -46818,6 +52608,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -47010,6 +52820,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -47230,6 +53060,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -47425,6 +53287,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -47620,6 +53514,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -47825,6 +53751,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -48036,6 +53994,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -48270,6 +54260,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -48504,6 +54526,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -48756,6 +54810,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49026,6 +55112,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49138,6 +55232,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49250,6 +55352,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49362,6 +55472,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49480,6 +55598,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49592,6 +55718,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 8.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49704,6 +55838,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "e-audit",
+      "kind": "fine",
+      "money": 10.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49841,6 +55989,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -49991,6 +56147,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -50147,6 +56317,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -50303,6 +56487,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -50440,6 +56638,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -50577,6 +56789,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -50803,6 +57041,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -51029,6 +57293,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -51321,6 +57623,44 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "calls",
+      "money": 1.6
+     },
+     {
+      "count": 1,
+      "id": "c-owned",
+      "kind": "place",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -51613,6 +57953,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -51735,6 +58089,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [],
     "events": [
      {
@@ -51857,6 +58225,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [
      {
@@ -51949,6 +58318,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [
      {
@@ -52041,6 +58411,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -52213,6 +58597,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -52385,6 +58783,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -52599,6 +59023,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -52813,6 +59263,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53033,6 +59503,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53253,6 +59743,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53443,6 +59953,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53633,6 +60163,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53779,6 +60317,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -53925,6 +60471,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -54163,6 +60735,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -54401,6 +60999,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -54665,6 +61295,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -54929,6 +61591,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -55138,6 +61820,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -55347,6 +62049,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -55540,6 +62262,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "calls",
+      "money": 8.0
+     },
+     {
+      "count": 1,
+      "id": "c-rented",
+      "kind": "place",
+      "money": 36.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -55733,6 +62475,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -55863,7 +62631,7 @@
       "validity_loss": 0.0
      },
      {
-      "cost_loss": 20.80000000000001,
+      "cost_loss": 20.800000000000004,
       "fine": 0.0,
       "hit": true,
       "id": "e-tariff",
@@ -55901,7 +62669,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.751966468256859,
-    "run_cost": 74.60000000000001,
+    "run_cost": 70.60000000000001,
     "test": 0.588766017,
     "validity": 0.46838131759999996,
     "value": 35.22070451931661,
@@ -55966,6 +62734,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -56096,7 +62890,7 @@
       "validity_loss": 0.0
      },
      {
-      "cost_loss": 20.80000000000001,
+      "cost_loss": 20.800000000000004,
       "fine": 0.0,
       "hit": true,
       "id": "e-tariff",
@@ -56134,7 +62928,7 @@
     },
     "pool_tiles": 0,
     "reliability": 0.751966468256859,
-    "run_cost": 74.60000000000001,
+    "run_cost": 70.60000000000001,
     "test": 0.588766017,
     "validity": 0.46838131759999996,
     "value": 35.22070451931661,
@@ -56199,6 +62993,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -56432,6 +63258,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "scan",
+      "kind": "worker",
+      "money": 0.2
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -56665,6 +63523,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -56802,6 +63674,20 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 15.600000000000001
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -56939,6 +63825,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -57185,6 +64097,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -57431,6 +64369,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -57630,6 +64588,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -57829,6 +64807,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -58049,6 +65047,26 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 2,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.8
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -58269,6 +65287,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -58539,6 +65589,38 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 62.400000000000006
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "s-shelf",
+      "kind": "source",
+      "money": 2.0
+     },
+     {
+      "count": 1,
+      "id": "s-depot",
+      "kind": "source",
+      "money": 4.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -58809,6 +65891,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -58959,6 +66049,14 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-open-api",
+      "kind": "calls",
+      "money": 12.0
+     }
+    ],
     "components": [
      {
       "event": null,
@@ -59109,6 +66207,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59160,6 +66259,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59211,6 +66311,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59262,6 +66363,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59313,6 +66415,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59364,6 +66467,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59415,6 +66519,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59466,6 +66571,7 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [],
     "components": [],
     "events": [],
     "fine": 0.0,
@@ -59517,6 +66623,32 @@
    "actions": [],
    "actions_set": "none",
    "expect": {
+    "bill": [
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "calls",
+      "money": 41.6
+     },
+     {
+      "count": 1,
+      "id": "c-private",
+      "kind": "place",
+      "money": 4.0
+     },
+     {
+      "count": 1,
+      "id": "prep",
+      "kind": "worker",
+      "money": 0.4
+     },
+     {
+      "count": 1,
+      "id": "reader",
+      "kind": "worker",
+      "money": 1.0
+     }
+    ],
     "components": [
      {
       "event": null,

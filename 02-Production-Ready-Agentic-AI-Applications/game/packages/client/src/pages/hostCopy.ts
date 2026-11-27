@@ -219,7 +219,7 @@ export const H = {
   // Phase 2 beside the key (section 10.8)
   dev: {
     playing: 'Still building', closed: 'Scored',
-    money: (n: number) => `${Math.round(n * 10) / 10} money left`,
+    money: (n: number) => (n < 0 ? `Account below zero: ${Math.round(n * 10) / 10}` : `${Math.round(n * 10) / 10} money left`),
     devs: (free: number, total: number) => `${free} of ${total} developers free`,
     draft: 'Their draft map now',
     ready: (acc: number) => `Ready. It would score ${Math.round(100 * acc)}% if validated now.`,

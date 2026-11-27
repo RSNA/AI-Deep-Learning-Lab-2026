@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import { loadPack, type CanvasMap } from '@lab02/content-schema'
 import { boardError, scoreBoard } from '../src/phases/planning.ts'
+import { expectBill, type BillExpect } from './maintain-expect.ts'
 
 const on = process.env.PARITY_PACK === '1'
 
@@ -99,13 +100,14 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
       const req = maps.map((m) => ({ map: { tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runs_on: t.runsOn, prompt: t.prompt })), lines: m.lines }, unlocked: null }))
       const file = join(process.env.CONTENT_DIR!, sp.folder, 'build.yaml')
       const out = execFileSync('python3', [process.env.CANVAS_SCORER!, '--score', file], { input: JSON.stringify(req), maxBuffer: 64 * 1024 * 1024 })
-      const ref = JSON.parse(out.toString()) as { accuracy: number; per_case: Record<string, number>; run_month: number; complexity: number; missed: unknown; note: unknown; flags: Record<string, string[]> }[]
+      const ref = JSON.parse(out.toString()) as { accuracy: number; per_case: Record<string, number>; run_month: number; bill: BillExpect[]; complexity: number; missed: unknown; note: unknown; flags: Record<string, string[]> }[]
       maps.forEach((m, i) => {
         const e = evaluate(m, b)
         const r = ref[i]!
         expect(Math.abs(e.accuracy - r.accuracy)).toBeLessThan(1e-9)
         for (const k of Object.keys(r.per_case)) expect(Math.abs(e.perCase[k]! - r.per_case[k]!)).toBeLessThan(1e-9)
         expect(Math.abs(e.running.money - r.run_month)).toBeLessThan(1e-9)
+        expectBill(e.bill, r.bill, (x, y) => Math.abs(x - y) < 1e-9)
         expect(e.running.complexity).toBe(r.complexity)
         expect(e.missed).toEqual(r.missed)
         expect(e.note).toEqual(r.note)
