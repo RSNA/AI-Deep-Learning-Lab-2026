@@ -17,6 +17,11 @@ export function secondsLeft(c: ClockRef | null, guide = false): number | null {
   return Math.max(0, (end - gameNow(c)) / 1000)
 }
 
+/** The timer of a timed stage stands at zero: in a single-player game the phase then waits for its player. */
+export function timeIsUp(c: ClockRef | null): boolean {
+  return secondsLeft(c) === 0
+}
+
 export function useTick(ms = 250): number {
   const [n, setN] = useState(0)
   useEffect(() => {

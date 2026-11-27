@@ -179,7 +179,9 @@ export function advance(s: SessionState, pack: Pack, now: GameMs): Outcome {
   const out: Outcome = { dirty: [], events: [] }
   const beatMs = pack.game.leaderboards.refresh_seconds * 1000
   for (let guard = 0; guard < 100_000; guard++) {
-    const stageDue = s.stageEndsAtMs !== null && s.stageEndsAtMs <= now ? s.stageEndsAtMs : null
+    // In a single-player game the clock closes nothing: a phase stays open past its time until
+    // its player ends it (section 6.14).
+    const stageDue = kindOf(s) !== 'solo' && s.stageEndsAtMs !== null && s.stageEndsAtMs <= now ? s.stageEndsAtMs : null
     const beatDue = s.nextBeatMs <= now ? s.nextBeatMs : null
     const pd = s.closed ? null : playerDue(s, pack)
     const pDue = pd && pd.at <= now ? pd : null

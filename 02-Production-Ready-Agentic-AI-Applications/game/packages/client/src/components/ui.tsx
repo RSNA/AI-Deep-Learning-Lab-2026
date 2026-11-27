@@ -88,7 +88,8 @@ export function ThemeButton({ plain = false }: { plain?: boolean }) {
 // ------------------------------------------------------------------------------------------
 // Countdown
 // ------------------------------------------------------------------------------------------
-export function Countdown({ clock, big = false, guide = false }: { clock: ClockRef | null; big?: boolean; guide?: boolean }) {
+/** `over`: the words beside a timer that stands at zero while its stage stays open (a single-player game). */
+export function Countdown({ clock, big = false, guide = false, over }: { clock: ClockRef | null; big?: boolean; guide?: boolean; over?: string }) {
   useTick(250)
   const left = secondsLeft(clock, guide)
   const warn = clock?.clock.warnings ?? []
@@ -98,7 +99,7 @@ export function Countdown({ clock, big = false, guide = false }: { clock: ClockR
   const paused = clock && !clock.clock.running
   return (
     <div className={`countdown ${cls}`} style={big ? { fontSize: 64, minWidth: 180 } : undefined} role="timer" aria-live="off">
-      {paused ? '‖ ' : ''}{fmt(left)}
+      {paused ? '‖ ' : ''}{fmt(left)}{over && left === 0 && <span className="overtime">{over}</span>}
     </div>
   )
 }

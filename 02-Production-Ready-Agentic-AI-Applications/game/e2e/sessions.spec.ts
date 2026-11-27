@@ -148,7 +148,7 @@ test('a single-player game from the start page to its report card, and the games
 
   // On to Phase 1, where the phase can be ended early after a question.
   await soloUntil(page, async () => (await bar.getByRole('button', { name: 'End this phase now' }).isVisible().catch(() => false)) && !(await page.locator('.scrim, [role="dialog"]').first().isVisible().catch(() => false)))
-  if (info.project.name === 'laptop') await expect(bar).toContainText('The phase ends when its timer does.')
+  if (info.project.name === 'laptop') await expect(bar).toContainText('The phase stays open until you end it.')
   await bar.getByRole('button', { name: 'End this phase now' }).click()
   await expect(page.getByRole('dialog')).toContainText('The phase is scored as it stands')
   await page.getByRole('dialog').getByRole('button', { name: 'Stay' }).click()

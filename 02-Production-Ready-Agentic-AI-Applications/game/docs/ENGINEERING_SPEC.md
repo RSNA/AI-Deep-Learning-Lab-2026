@@ -1948,6 +1948,11 @@ person alone. A state saved before kinds existed is `multi`.
   the section of the stage only (the last slide is left with `solo.next`). In a `multi`
   session each is refused with `not_solo`. Anything else a facilitator can do does not exist
   in a solo game: no reset, no restart, no pause, no change of speed.
+- **The clock closes nothing.** A timed stage of a solo session does not end when its time is
+  over: `advance` leaves it open, and it ends with `solo.end_now`, before its time or after.
+  `stageEndsAtMs` stays where it was, so the timer of the player stands at zero. In Phase 3
+  the reports of the year come at their times as in a room, and the last round stays open
+  until the player ends the year, which makes the last report.
 - The slides of a section are mirrored to the player as in a room, since the projector
   follows the game. The player view carries `solo`: the stage that `solo.next` leads to (null
   in a timed stage and at the end), whether a phase is in play, and where the slide on show
@@ -3866,7 +3871,11 @@ pass their own panels and words. Nothing of the board is copied.
   "Next slide" with "Slide 3 of 5" on a slide and the name of what comes next on the last one
   of a section ("Start Phase 1"), "Continue" at a reveal, "End this phase now" in a phase
   (after a question, since the phase is then scored as it stands), and "Finish the game" at
-  the end. The top bar has no rank. The card of such a game shows no rank. When the game has
+  the end. A phase stays open when its timer reaches zero: the timer then says "Over time",
+  the strip says that time is up and that the player may take the time they need, and its
+  button ("End this phase") stands out. The notices of the last minutes say that the phase
+  stays open. In Phase 3 the round timer says that the last report comes when the player
+  ends the year (a short form of it in the top bar of a laptop). The top bar has no rank. The card of such a game shows no rank. When the game has
   ended the page goes to its result. The menu has "Leave this game", which keeps the game in
   the list of the start page.
 

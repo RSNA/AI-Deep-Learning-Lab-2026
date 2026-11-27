@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { COLUMNS, PHASES, phaseOfStage, type PhaseId, type SlideView, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, SOLO_NEXT, STAGE_TITLE } from '../copy.ts'
+import { timeIsUp, useTick } from '../lib/clock.ts'
 import { api } from '../lib/net.ts'
 import { usePlayer, forgetPlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
@@ -82,7 +83,7 @@ function TopBar({ w, onMenu, onStandings }: { w: Welcome; onMenu: () => void; on
   const purse = devPlay && view.development && devContent ? <Purse dv={view.development} content={devContent} bar />
     : yearPlay && year ? <Purse dv={year.mv} content={year.content} bar /> : null
   // A phone shows the round in a line above its tabs, so its top bar keeps the plain countdown off.
-  const timer = year ? (yearPlay ? <RoundTimer mv={year.mv} variant="bar" /> : null) : timed ? <Countdown clock={clock} /> : null
+  const timer = year ? (yearPlay ? <RoundTimer mv={year.mv} variant="bar" /> : null) : timed ? <Countdown clock={clock} over={w.session.kind === 'solo' ? COPY.overTime : undefined} /> : null
   const rankBtn = (
     <button className="rankbtn" onClick={onStandings} aria-label={`${COPY.standings}: ${rank ? COPY.rankOf(rank, standing!.ranks.of) : COPY.noRankYet}`}>
       {rank ? <>{COPY.rankWord} <b className="num">{rank}</b> {COPY.ofWord} {standing!.ranks.of}</> : COPY.noRankYet}
@@ -643,6 +644,10 @@ function SoloBar() {
   const [busy, setBusy] = useState(false)
   const [ending, setEnding] = useState(false)
   const solo = view.solo
+  // The timer of a phase stands at zero and the phase stays open: the strip says so and its button stands out.
+  const clock = usePlayer((s) => s.clock)
+  useTick(500)
+  const over = !!solo?.timed && timeIsUp(clock)
   if (!solo || view.stage === 'closed') return null
   const run = async (type: string, payload: unknown = {}) => {
     if (busy) return
@@ -651,16 +656,16 @@ function SoloBar() {
     setBusy(false)
   }
   const onSlide = !!view.slide && !!solo.slide
-  const say = view.stage === 'lobby' ? COPY.soloLobby : solo.timed ? COPY.soloPlaying : onSlide ? COPY.soloSlides : COPY.soloResult
+  const say = view.stage === 'lobby' ? COPY.soloLobby : over ? COPY.soloOver : solo.timed ? COPY.soloPlaying : onSlide ? COPY.soloSlides : COPY.soloResult
   return (
-    <div className="solobar" role="group" aria-label={COPY.soloWord}>
+    <div className={`solobar${over ? ' over' : ''}`} role="group" aria-label={COPY.soloWord}>
       <span className="solo-tag">{COPY.soloWord}</span>
       <span className="solo-say">{say}</span>
       <span className="acts">
         {onSlide && <button type="button" className="btn small text" disabled={busy || solo.slide!.first} onClick={() => void run('solo.slide', { delta: -1 })}>← {COPY.soloBack}</button>}
         {onSlide && !solo.slide!.last && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.slide', { delta: 1 })}>{COPY.soloNextSlide} →</button>}
         {solo.next && (!onSlide || solo.slide!.last) && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.next')}>{SOLO_NEXT[solo.next]} →</button>}
-        {solo.timed && <button type="button" className="btn small text" disabled={busy} onClick={() => setEnding(true)}>{COPY.soloEnd}</button>}
+        {solo.timed && <button type="button" className={`btn small text${over ? ' go' : ''}`} disabled={busy} onClick={() => setEnding(true)}>{over ? `${COPY.soloEndOver} →` : COPY.soloEnd}</button>}
       </span>
       {ending && (
         <Sheet title={COPY.soloEndTitle} head="sun" onClose={() => setEnding(false)}>
