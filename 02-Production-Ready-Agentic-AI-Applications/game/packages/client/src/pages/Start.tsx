@@ -73,10 +73,11 @@ export function GameList({ games, kept, go }: { games: GameSummary[]; kept: Kept
   )
 }
 
-function SoloForm({ rule, go }: { rule: { min: number; max: number }; go: (path: string) => void }) {
+function SoloForm({ rule, go, needsPasscode }: { rule: { min: number; max: number }; go: (path: string) => void; needsPasscode: boolean }) {
   const [last] = useState(() => store.last())
   const [avatar, setAvatar] = useState<string>(() => firstAvatar(last))
   const [name, setName] = useState(() => last?.name ?? '')
+  const [passcode, setPasscode] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const submit = async (e: React.FormEvent) => {
@@ -84,7 +85,7 @@ function SoloForm({ rule, go }: { rule: { min: number; max: number }; go: (path:
     if (busy) return
     setBusy(true)
     setErr(null)
-    const r = await api.solo({ name, avatar })
+    const r = await api.solo({ name, avatar, ...(needsPasscode ? { passcode } : {}) })
     setBusy(false)
     if (!r.ok) { setErr(r.error); return }
     enterGame(r.data, { name: name.trim(), label: COPY.soloWord, kind: 'solo' })
@@ -96,9 +97,18 @@ function SoloForm({ rule, go }: { rule: { min: number; max: number }; go: (path:
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label className="lbl" htmlFor="solo-practice">{COPY.namePractice}</label>
         <input id="solo-practice" className="field" autoComplete="off" maxLength={rule.max + 8} value={name} onChange={(e) => setName(e.target.value)} aria-describedby="solo-err" />
-        {err && <div id="solo-err" className="err" role="alert">{plainError(err, rule)}</div>}
+        {err && err !== 'wrong_passcode' && <div id="solo-err" className="err" role="alert">{plainError(err, rule)}</div>}
       </div>
-      <button className="btn go big startsolo" type="submit" disabled={busy || name.trim().length < rule.min}>{busy ? COPY.soloStarting : COPY.soloStart}</button>
+      {needsPasscode && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label className="lbl" htmlFor="solo-passcode">{COPY.soloPasscode}</label>
+          <input id="solo-passcode" className="field" type="password" autoComplete="off" maxLength={200} value={passcode} onChange={(e) => setPasscode(e.target.value)} aria-describedby="solo-pass-hint solo-pass-err" />
+          <div id="solo-pass-hint" className="hint">{COPY.soloPasscodeHint}</div>
+          {err === 'wrong_passcode' && <div id="solo-pass-err" className="err" role="alert">{COPY.soloPasscodeWrong}</div>}
+        </div>
+      )}
+      <button className="btn go big startsolo" type="submit" disabled={busy || name.trim().length < rule.min || (needsPasscode && !passcode)}
+        title={name.trim().length < rule.min ? COPY.soloNeedsName : needsPasscode && !passcode ? COPY.soloNeedsPasscode : undefined}>{busy ? COPY.soloStarting : COPY.soloStart}</button>
     </form>
   )
 }
@@ -142,7 +152,7 @@ export function StartPage({ go }: { go: (path: string) => void }) {
               {open.solo ? (
                 <>
                   <p style={{ fontSize: 15, lineHeight: 1.45 }}>{COPY.soloLine}</p>
-                  <SoloForm rule={open.nameRule} go={go} />
+                  <SoloForm rule={open.nameRule} go={go} needsPasscode={open.soloPasscode} />
                 </>
               ) : <p className="muted" role="status">{COPY.soloOff}</p>}
             </div>

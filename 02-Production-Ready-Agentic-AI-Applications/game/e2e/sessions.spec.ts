@@ -110,6 +110,12 @@ test('a single-player game from the start page to its report card, and the games
   await expect(start).toBeDisabled()
   await page.getByRole('button', { name: /Character 4/ }).click()
   await page.getByLabel('Name your practice').fill(`Solo ${info.project.name}`)
+  // A single-player game asks for a passcode: the button waits for it, and a wrong one says so.
+  await expect(start).toBeDisabled()
+  await page.getByLabel('Passcode').fill('not the passcode')
+  await start.click()
+  await expect(page.locator('#solo-pass-err')).toContainText('That passcode is not right.')
+  await page.getByLabel('Passcode').fill(PASS)
   await noOverflow(page)
   await start.click()
   await expect(page).toHaveURL(/\/play$/)
@@ -182,6 +188,7 @@ test('a single-player game from the start page to its report card, and the games
   await expect(games.first()).toContainText(/\d+ of 3000 points/)
   await expect(games.first().getByRole('button', { name: 'Continue' })).toHaveCount(0)
   await page.getByLabel('Name your practice').fill(`Again ${info.project.name}`)
+  await page.getByLabel('Passcode').fill(PASS)
   await page.getByRole('button', { name: 'Start a single-player game' }).click()
   await expect(page).toHaveURL(/\/play$/)
   await page.getByRole('button', { name: 'Got it' }).click()
@@ -209,6 +216,7 @@ test('single-player games in the console: the switch, the list and the cleanup',
   const vp = await visitor.newPage()
   await vp.goto('/')
   await vp.getByLabel('Name your practice').fill('Console Branch')
+  await vp.getByLabel('Passcode').fill(PASS)
   await vp.getByRole('button', { name: 'Start a single-player game' }).click()
   await expect(vp).toHaveURL(/\/play$/)
 

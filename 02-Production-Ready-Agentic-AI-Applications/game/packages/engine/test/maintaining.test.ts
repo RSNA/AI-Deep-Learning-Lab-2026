@@ -324,7 +324,7 @@ describe('the five commands', () => {
     const price = referenceMaps(B).find((r) => r.id === 'clerk')!.needsActions
       .filter((id) => !st(s).actionsDone.some((d) => d.id === id)).reduce((sum, id) => sum + B.actions.find((a) => a.id === id)!.money, 0)
     expect(price).toBeGreaterThan(0)
-    expect(offer).toMatchObject({ price, pays: price })
+    expect(offer).toMatchObject({ price })
     expect(offer.buys.map((n) => n.money).reduce((a, b) => a + b, 0)).toBe(price)
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('ok')
     expect(view(s).offers.map((o) => o.id)).not.toContain('clerk')
@@ -348,19 +348,22 @@ describe('the five commands', () => {
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'lean' }, boundary(t0, 1) + 1))).toBe('ok')
     expect(m.paidAdoption).toBe(50)
   })
-  it('a player who cannot pay for a reference map still gets it: the account pays what it holds and never goes below zero', () => {
+  it('a player who cannot pay for a reference map does not get it, and keeps their money', () => {
     const { s, t0 } = year()
     st(s).money = 7
     const offer = view(s).offers.find((o) => o.id === 'clerk')!
     expect(offer.price).toBeGreaterThan(7)
-    expect(offer.pays).toBe(7)
-    expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('ok')
+    const before = JSON.stringify(st(s))
+    expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('not_enough_money')
+    expect(JSON.stringify(st(s))).toBe(before)
+    // With the money for it the same map is taken, and the account pays the whole price.
+    st(s).money = offer.price
+    expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 2))).toBe('ok')
     expect(st(s).money).toBe(0)
-    expect(st(s).paidAdoption).toBe(offer.price)                            // the whole price counts as money spent
     expect(view(s).spent.adoption).toBe(offer.price)
-    // With an empty account an action that costs money is refused, and says why.
+    // With an empty account an action that costs money is refused too, and says why.
     const paid = B3.actions.find((a) => a.money > 0 && !st(s).actionsDone.some((d) => d.id === a.id) && a.requires.every((r) => st(s).actionsDone.some((d) => d.id === r)))!
-    expect(err(cmd(s, 'p1', 'maintaining.act', { id: paid.id }, t0 + 2))).toBe('not_enough_money')
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: paid.id }, t0 + 3))).toBe('not_enough_money')
     expect(st(s).money).toBe(0)
   })
   it('the offer names a purchase that is still hidden by what it gives, and never by the title of a hidden action', () => {

@@ -19,13 +19,15 @@ async function server(config: Partial<Config> = {}, dataDir?: string): Promise<S
   return srv
 }
 
+/** The facilitator passcode of the test server, which a single-player game asks for until a facilitator says otherwise. */
+const PASS = 'test-passcode'
 const json = (token?: string) => ({ 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) })
 const post = (srv: Srv, path: string, body: unknown, token?: string, method = 'POST') =>
   fetch(`${srv.url}${path}`, { method, headers: json(token), body: JSON.stringify(body) })
 const view = (b: Bot) => b.view as unknown as PlayerView
 
 async function solo(srv: Srv, name: string): Promise<Bot> {
-  const r = await srv.api.solo({ name })
+  const r = await srv.api.solo({ passcode: PASS, name })
   if (!r.ok) throw new Error(`solo refused: ${r.error}`)
   const bot = attach(srv.ws, r.data.token, { playerId: r.data.playerId, rejoinCode: r.data.rejoinCode })
   cleanups.push(() => bot.conn.close())
@@ -141,21 +143,52 @@ describe('a single-player game', () => {
     expect(open.ok && open.data).toMatchObject({ session: null, solo: true })
     expect((await post(srv, '/api/host/solo', { enabled: false })).status).toBe(401)
     expect((await post(srv, '/api/host/solo', { enabled: 'no' }, token)).status).toBe(400)
-    expect(await (await post(srv, '/api/host/solo', { enabled: false }, token)).json()).toEqual({ enabled: false })
+    expect(await (await post(srv, '/api/host/solo', { enabled: false }, token)).json()).toEqual({ enabled: false, gate: 'facilitator' })
     const off = await srv.api.open()
     expect(off.ok && off.data.solo).toBe(false)
-    expect(await srv.api.solo({ name: 'Practice One' })).toMatchObject({ ok: false, status: 403, error: 'solo_off' })
+    expect(await srv.api.solo({ passcode: PASS, name: 'Practice One' })).toMatchObject({ ok: false, status: 403, error: 'solo_off' })
     await post(srv, '/api/host/solo', { enabled: true }, token)
-    expect(await srv.api.solo({ name: 'ab' })).toMatchObject({ ok: false, status: 400, error: 'name_invalid' })
+    expect(await srv.api.solo({ passcode: PASS, name: 'ab' })).toMatchObject({ ok: false, status: 400, error: 'name_invalid' })
     // One address starts a few games in ten minutes, and no more.
-    for (let i = 0; i < 3; i++) expect((await srv.api.solo({ name: `Practice ${i}` })).ok).toBe(true)
-    expect(await srv.api.solo({ name: 'Practice Four' })).toMatchObject({ ok: false, status: 429, error: 'rate_limited' })
+    for (let i = 0; i < 3; i++) expect((await srv.api.solo({ passcode: PASS, name: `Practice ${i}` })).ok).toBe(true)
+    expect(await srv.api.solo({ passcode: PASS, name: 'Practice Four' })).toMatchObject({ ok: false, status: 429, error: 'rate_limited' })
   })
+
+  it('asks for a passcode: the facilitator passcode at first, then one of its own, or none', async () => {
+    const srv = await server()
+    const token = await hostToken(srv.url)
+    const gate = async () => ((await (await fetch(`${srv.url}/api/host/sessions`, { headers: json(token) })).json()) as { solo: { gate: string } }).solo.gate
+    const open = async () => { const r = await srv.api.open(); return r.ok && r.data.soloPasscode }
+    // At first the facilitator passcode, and nothing without it.
+    expect(await gate()).toBe('facilitator')
+    expect(await open()).toBe(true)
+    expect(await srv.api.solo({ name: 'Practice One' })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
+    expect(await srv.api.solo({ name: 'Practice One', passcode: 'not this one' })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
+    expect((await srv.api.solo({ name: 'Practice One', passcode: PASS })).ok).toBe(true)
+    // A wrong try here never slows a facilitator's sign-in.
+    const t0 = Date.now()
+    await hostToken(srv.url)
+    expect(Date.now() - t0).toBeLessThan(900)
+    // A passcode of its own: six characters or more, and the facilitator passcode no longer opens a game.
+    expect((await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'abc' }, token)).status).toBe(400)
+    expect((await post(srv, '/api/host/solo', { gate: 'elsewhere' }, token)).status).toBe(400)
+    expect((await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'after the lab' })).status).toBe(401)
+    expect(await (await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'after the lab' }, token)).json()).toEqual({ enabled: true, gate: 'custom' })
+    expect(await gate()).toBe('custom')
+    expect(await srv.api.solo({ name: 'Practice Two', passcode: PASS })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
+    expect((await srv.api.solo({ name: 'Practice Two', passcode: ' after the lab ' })).ok).toBe(true)
+    // Anybody.
+    expect(await (await post(srv, '/api/host/solo', { gate: 'none' }, token)).json()).toEqual({ enabled: true, gate: 'none' })
+    expect(await open()).toBe(false)
+    expect((await srv.api.solo({ name: 'Practice Three' })).ok).toBe(true)
+    // The switch and the passcode are set apart or together.
+    expect(await (await post(srv, '/api/host/solo', { enabled: false, gate: 'facilitator' }, token)).json()).toEqual({ enabled: false, gate: 'facilitator' })
+  }, 30_000)
 
   it('holds a limited number in memory', async () => {
     const srv = await server({ soloMax: 1 })
-    expect((await srv.api.solo({ name: 'Practice One' })).ok).toBe(true)
-    expect(await srv.api.solo({ name: 'Practice Two' })).toMatchObject({ ok: false, status: 503, error: 'solo_full' })
+    expect((await srv.api.solo({ passcode: PASS, name: 'Practice One' })).ok).toBe(true)
+    expect(await srv.api.solo({ passcode: PASS, name: 'Practice Two' })).toMatchObject({ ok: false, status: 503, error: 'solo_full' })
   })
 
   it('is a room of its own with no facilitator, driven by its player from the lobby to the report card', async () => {

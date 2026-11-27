@@ -23,6 +23,8 @@ export type CreateResult =
   | { ok: false; error: 'session_running'; running: SessionRunning }
 
 const SOLO_SETTING = 'solo'
+/** Who may start a single-player game: `facilitator` (the default), `none`, or `custom:` with the hash of a passcode of its own. */
+const SOLO_GATE_SETTING = 'solo_gate'
 const SOLO_LABEL = 'Single player'
 
 export class Manager {
@@ -168,6 +170,23 @@ export class Manager {
   setSoloEnabled(on: boolean): void {
     this.deps.db.setSetting(SOLO_SETTING, on ? 'on' : 'off')
     this.deps.log.info('single player switched', { on })
+  }
+
+  /**
+   * Who may start a single-player game. Until a facilitator says otherwise it takes the
+   * facilitator passcode, so that nobody outside plays before an event. `hash` is the hash of
+   * a passcode of its own.
+   */
+  soloGate(): { mode: 'facilitator' | 'custom' | 'none'; hash: string | null } {
+    const v = this.deps.db.setting(SOLO_GATE_SETTING)
+    if (v === 'none') return { mode: 'none', hash: null }
+    if (v?.startsWith('custom:')) return { mode: 'custom', hash: v.slice(7) }
+    return { mode: 'facilitator', hash: null }
+  }
+
+  setSoloGate(mode: 'facilitator' | 'custom' | 'none', hash: string | null = null): void {
+    this.deps.db.setSetting(SOLO_GATE_SETTING, mode === 'custom' ? `custom:${hash ?? ''}` : mode)
+    this.deps.log.info('single player passcode changed', { mode })
   }
 
   /** The single-player games in memory. */

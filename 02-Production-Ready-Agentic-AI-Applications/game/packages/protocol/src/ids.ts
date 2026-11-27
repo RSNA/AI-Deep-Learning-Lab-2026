@@ -49,7 +49,7 @@ export const ERROR_CODES = [
   // Host and join
   'name_taken', 'name_invalid', 'join_closed', 'session_full', 'unknown_player', 'unknown_system',
   // Host console
-  'not_in_control', 'wrong_passcode', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
+  'not_in_control', 'wrong_passcode', 'passcode_short', 'no_scores_yet', 'no_deck', 'not_during_play', 'confirm_mismatch', 'pause_first',
   // A single-player game (section 6.14)
   'not_solo',
 ] as const

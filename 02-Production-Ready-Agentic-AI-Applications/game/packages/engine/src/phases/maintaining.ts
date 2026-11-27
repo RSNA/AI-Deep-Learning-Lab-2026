@@ -277,18 +277,16 @@ function startFromReference(pack: Pack, p: PlayerState, now: GameMs): void {
 
 /**
  * What taking a reference map would buy for this player now: the actions it needs that are
- * neither done nor running, their price, and what the account pays of it. The account never
- * goes below zero: a player who cannot pay the whole price pays what the account holds, and the
- * whole price counts as money spent all the same.
+ * neither done nor running, and their price. The account pays all of it, so a player whose
+ * account holds less cannot take the map: nobody is left with nothing for the year.
  */
-export function referenceOffer(pack: Pack, p: PlayerState, ref: ReferenceEntry): { needs: { id: string; title: string; money: number }[]; price: number; pays: number } {
+export function referenceOffer(pack: Pack, p: PlayerState, ref: ReferenceEntry): { needs: { id: string; title: string; money: number }[]; price: number } {
   const st = p.maintaining!
   const b3 = build3Of(pack, p)
   const needs = ref.needsActions
     .filter((id) => !st.actionsDone.some((d) => d.id === id) && !st.actionsRunning.some((r) => r.id === id))
     .map((id) => { const a = b3.actions.find((x) => x.id === id); return { id, title: a?.public.title ?? id, money: a?.money ?? 0 } })
-  const price = needs.reduce((sum, n) => sum + n.money, 0)
-  return { needs, price, pays: Math.min(Math.max(0, st.money), price) }
+  return { needs, price: needs.reduce((sum, n) => sum + n.money, 0) }
 }
 
 export const maintaining: PhaseModule = {
@@ -463,12 +461,13 @@ export const maintaining: PhaseModule = {
       const ref = refs[index]
       if (!ref) return fail('unknown_id')
       if (st.adopted.includes(id)) return fail('action_taken')
-      // What the map needs is bought at once, without a wait, as if the player had bought it:
-      // the account pays, as far as it reaches, and the whole price counts as money spent.
+      // What the map needs is bought at once, without a wait, as if the player had bought it,
+      // from the account. A player who cannot pay for all of it does not get the map.
       const seen = st.reports.length
       const offer = referenceOffer(pack, p, ref)
+      if (offer.price > st.money + 1e-9) return fail('not_enough_money')
       for (const need of offer.needs) st.actionsDone.push({ id: need.id, atMs: now, started: seen, done: seen })
-      st.money -= offer.pays
+      st.money -= offer.price
       st.paidAdoption += offer.price
       const ev = evaluate(ref.map, b3)
       const vid = `r${index + 1}`

@@ -25,13 +25,14 @@ export type SessionPublic = z.infer<typeof SessionPublic>
 export const OpenSession = S({
   session: S({ code: z.string(), label: Text, title: Text.nullable() }).nullable(),
   solo: z.boolean(),
+  soloPasscode: z.boolean(),        // a single-player game asks for a passcode
   title: Text.nullable(),
   nameRule: S({ min: z.number().int(), max: z.number().int() }),
 })
 export type OpenSession = z.infer<typeof OpenSession>
 
 /** `POST /api/solo`: a single-player game for this practice. The reply is a join result. */
-export const SoloBody = S({ name: z.string().max(200), avatar: z.string().max(16).optional() })
+export const SoloBody = S({ name: z.string().max(200), avatar: z.string().max(16).optional(), passcode: z.string().max(200).optional() })
 export type SoloBody = z.infer<typeof SoloBody>
 
 /**

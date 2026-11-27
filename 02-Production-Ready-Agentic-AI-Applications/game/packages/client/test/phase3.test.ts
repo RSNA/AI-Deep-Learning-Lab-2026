@@ -15,12 +15,11 @@ describe('the timer of a round', () => {
 })
 
 describe('the price of a reference map', () => {
-  it('says what the account pays, and says so plainly when it cannot pay everything', () => {
+  it('says what the account pays, and says plainly why a map cannot be taken yet', () => {
     setUnit3('k$')
     expect(P3.refPays(6)).toBe('Taking it buys all of this for 6 k$ from your account.')
-    expect(P3.refPaysPart(68, 40)).toContain('Your account holds 40 k$, so it pays that and is empty afterwards.')
-    expect(P3.refPaysPart(68, 40)).toContain('all 68 k$ count as money spent')
-    expect(P3.refPaysPart(68, 0)).toContain('Your account is empty')
+    expect(P3.refTooDear(68, 45)).toContain('costs 68 k$, and your account holds 45 k$')
+    expect(P3.refTooDear(68, 45)).toContain('You cannot take the map yet')
     expect(P3.refTitle(1)).toBe('The reference map')
     expect(P3.refTitle(3)).toBe('Reference maps')
   })

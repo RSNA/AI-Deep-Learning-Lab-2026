@@ -575,3 +575,11 @@ input.field.bad { border-color: var(--bad); }
 .prog-name.now { color: var(--ink); font-weight: 800; }
 .prog-name.now i { background: var(--sun); border-color: var(--line); }
 .menu-who { display: flex; align-items: center; gap: 10px; font-size: 17px; overflow-wrap: anywhere; }
+
+/* Who may start a single-player game, in the console. */
+.sologate { display: flex; flex-direction: column; gap: 6px; }
+.sologate .modes { height: 44px; }
+.sologate-new { display: flex; flex-direction: column; gap: 6px; }
+.sologate-row { display: flex; gap: 8px; align-items: stretch; }
+.sologate-row .field { flex: 1 1 auto; min-width: 0; }
+.sologate-row .btn { flex-shrink: 0; }
