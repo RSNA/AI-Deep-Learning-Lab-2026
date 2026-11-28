@@ -224,7 +224,7 @@ function SoloPanel({ token, solo, reload }: { token: string; solo: SoloOverview;
               <label className="lbl" htmlFor="solo-gate-pass">{H.soloGateNew}</label>
               <div className="sologate-row">
                 <input id="solo-gate-pass" className="field" autoComplete="off" maxLength={200} value={newPass} onChange={(e) => { setNewPass(e.target.value); setSaved(false) }} />
-                <button type="submit" className="btn" disabled={busy || newPass.trim().length < 6} title={newPass.trim().length < 6 ? H.soloGateWhy : undefined}>{H.soloGateSave}</button>
+                <button type="submit" className="btn" disabled={busy || newPass.trim().length < 4} title={newPass.trim().length < 4 ? H.soloGateWhy : undefined}>{H.soloGateSave}</button>
               </div>
               {saved && <div className="good" role="status">{H.soloGateSaved}</div>}
             </form>

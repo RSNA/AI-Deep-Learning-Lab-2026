@@ -786,7 +786,9 @@ type Slide = { id: string; title: Text
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
                figures?: { image?: string; title: Text; caption?: Text; tone?: Tone   // up to 3, one row each
                            mark?: Text }[]                            // the words in the box of a figure without a picture
-               qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
+               qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the address where the room joins
+               solo_passcode?: Text     // a sentence with {passcode}: the server puts the passcode of a
+                                        // single-player game there when it shows the slide (10.9)
                references?: Text[]      // lines to read later
                image?: string           // every picture is a path under art/, ending in .png or .webp
                images?: string[]        // up to two more pictures beside `image`, in one row (layout 'shot')
@@ -1755,9 +1757,12 @@ in its class. Once Phase 1 is scored its bars stand by class, the agentic class 
 colors of the classes. Before that they stand in the order of the pack and in one color, so
 that the chart gives no class away. `flagship_by_system` is
 one bar per health system: the share of its practices that found the agent project. Before
-the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
-in when the phase is scored", so a host who goes through the deck sees that a chart belongs
-on the slide. The others show nothing. Step 11 fixes their exact shapes.
+the phase is scored a number reads "–" and a chart shows its bars empty with the line "It
+fills in when Phase 1 is scored.", so a host who goes through the deck sees that a chart
+belongs on the slide. A chart never keeps that promise open: when the phase is scored and
+nobody played it, the line says so ("Nobody in this session played Phase 1, so there is
+nothing to draw."). In a single-player game the room is its one player, and the chart by class
+is titled "Placed in the right class, in your own game". The others show nothing. Step 11 fixes their exact shapes.
 
 ### 6.11 Story hooks
 
@@ -2019,10 +2024,10 @@ session and closing.
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
-| `POST /api/host/session` `{label, mode, code?, by?, replace?}` | Host | Creates a session with a facilitator. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. `by` is the name of the facilitator who opens it. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates. **One such session is open at a time:** while another runs the answer is 409 `{error: 'session_running', running}`, where `running` says its code, label, mode, stage, players, when and by whom it was opened, and whether ending it needs its code (`needsCode`: an event session with players). With `replace: {code?, confirm?}` the session that runs is ended first and its results are kept. `replace.code` names the session the facilitator was warned about: when another one runs by now, the answer is `session_running` again. When `needsCode` holds, `replace.confirm` must be the code of that session, else 409 `confirm_mismatch` |
+| `POST /api/host/session` `{label, mode, code?, by?, replace?}` | Host | Creates a session with a facilitator. `code` is the session code, a short name that the link `/j/<code>` ends with, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. `by` is the name of the facilitator who opens it. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates. **One such session is open at a time:** while another runs the answer is 409 `{error: 'session_running', running}`, where `running` says its code, label, mode, stage, players, when and by whom it was opened, and whether ending it needs its code (`needsCode`: an event session with players). With `replace: {code?, confirm?}` the session that runs is ended first and its results are kept. `replace.code` names the session the facilitator was warned about: when another one runs by now, the answer is `session_running` again. When `needsCode` holds, `replace.confirm` must be the code of that session, else 409 `confirm_mismatch` |
 | `PATCH /api/host/session/:code` `{label}` | Host | A new name for a session with a facilitator, in the lobby (through the engine's `rename_session`) or after it has ended (the row, the state if it is in memory, and the stored cards). 409 `rename_running` in between |
 | `GET /api/host/sessions` | Host | Lists the sessions with a facilitator, open and closed, each with `closed`, who opened it, how many results it keeps and, for a session the server cannot resume, the reason. `solo`: the switch, how many single-player games exist, finished, unfinished and in memory, the cap, and the newest fifty with their code, practice name, start time and whether they are over or in memory, and nothing about how they go. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
-| `POST /api/host/solo` `{enabled?, gate?, passcode?}` | Host | `enabled` switches single-player games on or off for the whole server. `gate` says who may start one: `facilitator` (whoever has the facilitator passcode, the default, so that nobody outside plays before an event), `custom` with a `passcode` of six characters or more that opens nothing else (400 `passcode_short` otherwise; only its hash is kept), or `none`. Both settings are kept in the database. Returns `{enabled, gate}` |
+| `POST /api/host/solo` `{enabled?, gate?, passcode?}` | Host | `enabled` switches single-player games on or off for the whole server. `gate` says who may start one: `facilitator` (whoever has the facilitator passcode, the default, so that nobody outside plays before an event), `custom` with a `passcode` of four characters or more that opens nothing else (400 `passcode_short` otherwise), or `none`. The settings are kept in the database. A passcode of its own is kept as its hash, which a start is checked against, and as its text, because a closing slide may show the room which passcode to use (`solo_passcode`, section 10.9). Returns `{enabled, gate}` |
 | `POST /api/host/solo/delete-all` `{confirm: 'DELETE'}` | Host | Deletes every single-player game with everything stored for it, also the ones in play, and returns `{deleted}`. 409 `confirm_delete` without the word |
 | `POST /api/host/session/:code/end` `{name?}` | Host | Ends an open test or rehearsal session from the list of sessions, without a console that holds control: the engine's `close`, logged as a host command and as the event `ended_from_list` with the host's name. Answers 409 `wrong_stage` for a session that has ended and 409 `event_session` for an event session, which is ended from its own console by the host in charge |
 | `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session with a facilitator that is still open. A single-player game is deleted in any state: one in play ends at once for its player |
@@ -2035,8 +2040,9 @@ session and closing.
 | `GET /healthz` | Anyone | Build id, uptime, for each open session with a facilitator its stage and its number of players, and the number of single-player games in memory. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the open session with a facilitator. Without
-one it serves the start page (section 10.2), which `/home` always does. The QR code holds
-`PUBLIC_URL/j/<code>`. The screen link, the deck and the export of a single-player game do not
+one it serves the start page (section 10.2), which `/home` always does. The QR code and the
+address on the big screen are `PUBLIC_URL` alone, with no code, so a room reads and types one
+short address (`joinUrl` of the session). `/j/<code>` still opens its session. The screen link, the deck and the export of a single-player game do not
 exist (404), and a console that names one in its `hello` is refused.
 
 ### 7.3 WebSocket
@@ -2230,7 +2236,7 @@ the room.
 | `DATA_DIR` | Database folder | `./data` |
 | `HOST_PASSCODE` | Host passcode, at least 16 characters when `NODE_ENV` is `production`. The server refuses to start in production without one | `demo` in development |
 | `ALLOW_WEAK_PASSCODE` | `1` lets a production server start with a passcode shorter than 16 characters, for development weeks on the event server (Step 5, at the lab director's request). The server logs a warning at start. Never set at the event | unset |
-| `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
+| `PUBLIC_URL` | The address of the site, which the QR code and the big screen show for joining | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
 | `FACILITATOR_GUIDE_FILE` | The generated facilitator guide page: the game for the people who run it, with its answers. `scripts/deploy.sh --content` ships it from `review/facilitator-guide.html` beside the content folder | none |
 | `LOG_LEVEL` | Log detail | `info` |
@@ -2509,12 +2515,15 @@ type SlideView = {
   people: { name: Text; role: Text | null; photo: string | null }[]        // photo: a URL under the pack's art
   figures: { image: string | null; title: Text; caption: Text | null; tone: Tone }[]
   qr: { show: 'join' | 'link'; url: string | null; label: Text | null } | null
-                                                // 'join': the client draws the join link of its session.
+                                                // 'join': the client draws the address where the room joins.
+  passcode: Text | null                         // the sentence that names the passcode of a single-player
+                                                // game, filled in by the server. Null when there is none
                                                 // 'link': its own URL, or null for a frame that waits for one
   references: Text[]
   image: string | null                          // a URL under the pack's art
   stat: { label: Text; value: Text } | null     // a live statistic that is one number, "–" until the room has it
-  charts: { title: Text                         // live statistics that are bars, in percent. A bar has
+  charts: { title: Text; note: Text | null      // live statistics that are bars, in percent. `note` says
+                                                // why a chart without a single value is empty. A bar has
             bars: { label: Text; value: number | null   // no value until its phase is scored
                     note: Text | null; tone: Tone
                     system: number | null }[] }[]       // a bar of one health system
@@ -3971,7 +3980,7 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Area | Holds |
 | --- | --- |
 | Content | What the server has loaded, in plain words: "Content loaded: Phase 1, two health systems", with the game title when the pack has one. When the anchors are estimates a second line says "Scores are not calibrated yet, so only test and rehearsal sessions can be opened." When the deck has placeholders a third says "The deck has 14 placeholder slides." A small detail line under them holds the fingerprint of the content |
-| New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Link name (optional)", the end of the join link, which nobody has to type (see below), with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
+| New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Session code (optional)", a short name for the session, which nobody has to type because the QR code and the address of the site lead to the session that is open, with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
 | Sessions | The open sessions, each with its join code, label, mode, stage, "1 player" or "42 players" and who opened it when, and Open. Closed sessions are hidden behind "Show closed sessions (3)" |
 | Single player | The switch (On, Off) with what it means, the numbers (games, finished, not finished, in play now, the cap), "Show the newest 50" and "Delete all single-player games" |
 
@@ -4297,7 +4306,7 @@ in its window changes anything.
 
 | Scene | Shows |
 | --- | --- |
-| Lobby | The QR code, the join link in large type, one line ("Scan the code with your phone, or type the link on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
+| Lobby | The QR code, the address of the site in large type, one line ("Scan the code with your phone, or type the address on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
 | Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
 | Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work, a practice that got a letter of its own. The name of a practice beside its map takes up to two lines. In Phase 2 the practice at work is shown as its map, large, beside its name, what runs and its counts |
 | Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
@@ -4318,11 +4327,11 @@ slide looks the same wherever it shows. A slide has one of eight layouts:
 | Layout | Shows |
 | --- | --- |
 | `bullets` (the default) | The title, an optional subtitle, the bullets in large body type. Beside them, when the slide has one: a picture, a live number, or a live chart of bars |
-| `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the join link with its label |
+| `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the address where the room joins, with its label and that address |
 | `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
 | `standings` | The leaderboard of the game, from the slide's `standings: {rows, highlight}` (ten rows and three large by default). The first `highlight` players stand side by side as large boxes with their rank, character, name and total points, the winner a little taller, and the others in a list beside them. Before a phase is scored the slide is a frame that says when it fills in, and until the last phase is scored a line says that these are the standings so far. The names come from the board of the session, so a facilitator can call the winners from this slide |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
-| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code A marked word of that subtitle (`**word**`) is an address to go to: it stands on a line of its own, as large as a title |
+| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code, with a line across between them, and all of it starts at one left edge. A marked word of that subtitle (`**word**`) is an address to go to: it stands on a line of its own, as large as a title. `solo_passcode` adds one sentence under it that names the passcode a single-player game asks for at that moment, with the passcode on a colored label: the facilitator passcode, or the passcode of its own once one is set in the "Single player" panel. The pack holds only the sentence with `{passcode}` in it, the server fills it in when it shows the slide, and the sentence is left out while anybody may play. A slide reaches a player only when it is shown, so nobody reads the passcode earlier |
 | `phase` | The opening of a part of the session: the `kicker` as a large tag ("Phase 2"), the title very large, the subtitle under it. Nothing to read through |
 | `shot` | A slide that belongs to its picture, such as a screenshot of the game: a few bullets on the left and the `image` large on the right. With `images` the pictures stand in one row, the first at its full height |
 

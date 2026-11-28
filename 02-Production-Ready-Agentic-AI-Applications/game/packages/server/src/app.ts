@@ -456,15 +456,16 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   })
 
   // Single-player games: the switch, who may start one, and the cleanup of all of them at once
-  // (section 7.2). A passcode of its own has six characters or more, and only its hash is kept.
+  // (section 7.2). A passcode of its own has four characters or more. Its text is kept beside its
+  // hash, because a slide of the deck may show it to the room (`solo_passcode`).
   fastify.post('/api/host/solo', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
     const b = (req.body ?? {}) as { enabled?: unknown; gate?: unknown; passcode?: unknown }
     const gate = b.gate === undefined ? null : SoloGate.safeParse(b.gate)
     if ((b.enabled === undefined && gate === null) || (b.enabled !== undefined && typeof b.enabled !== 'boolean') || (gate !== null && !gate.success)) return bad(reply, 400, 'bad_message')
     if (gate?.success && gate.data === 'custom') {
-      if (typeof b.passcode !== 'string' || b.passcode.trim().length < 6 || b.passcode.length > 200) return bad(reply, 400, 'passcode_short')
-      manager.setSoloGate('custom', hashToken(b.passcode.trim()))
+      if (typeof b.passcode !== 'string' || b.passcode.trim().length < 4 || b.passcode.length > 200) return bad(reply, 400, 'passcode_short')
+      manager.setSoloGate('custom', b.passcode.trim())
     } else if (gate?.success) manager.setSoloGate(gate.data)
     if (typeof b.enabled === 'boolean') manager.setSoloEnabled(b.enabled)
     return { enabled: manager.soloEnabled(), gate: manager.soloGate().mode }

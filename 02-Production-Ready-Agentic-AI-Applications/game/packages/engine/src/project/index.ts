@@ -39,7 +39,9 @@ export function sessionInfo(s: SessionState, pack: Pack, publicUrl: string): Ses
     mode: s.mode,
     kind: kindOf(s),
     systems: systemRefs(s, pack),
-    joinUrl: `${publicUrl.replace(/\/$/, '')}/j/${s.code}`,
+    // The address of the site, with no code: the server sends a visitor from there to the
+    // session that is open (section 7.2), so a room reads and types one short address.
+    joinUrl: publicUrl.replace(/\/$/, ''),
     phaseLabels: { planning: ph.planning.label, development: ph.development.label, maintaining: ph.maintaining.label },
   }
 }
@@ -301,7 +303,7 @@ export function moment(s: SessionState, pack: Pack, playerId: PlayerId, ref: Mom
 // ------------------------------------------------------------------------------------------
 // The player view
 // ------------------------------------------------------------------------------------------
-export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejoinCode: string, playedAtMs: number | null = null): PlayerView {
+export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejoinCode: string, playedAtMs: number | null = null, site: SlideSite = NO_SITE): PlayerView {
   const p = s.players[playerId]!
   const pts = (ph: PhaseId) => {
     const r = p.results[ph]
@@ -325,8 +327,8 @@ export function playerView(s: SessionState, pack: Pack, playerId: PlayerId, rejo
       return item
     }),
     reportCard: reportCardShown(s) ? reportCard(s, pack, playerId, rejoinCode, playedAtMs) : null,
-    slide: slidesMirrored(s, pack) ? slideView(s, pack, s.screen.slide) : null,
-    waiting: waitingView(s, pack, p),
+    slide: slidesMirrored(s, pack) ? slideView(s, pack, s.screen.slide, site) : null,
+    waiting: waitingView(s, pack, p, site),
     solo: soloView(s, pack),
   }
 }
@@ -339,10 +341,10 @@ function sittingOut(s: SessionState, p: PlayerState): PhaseId | null {
 }
 
 /** What a player who sits a phase out looks at: the slides that were shown so far (section 6.4). */
-function waitingView(s: SessionState, pack: Pack, p: PlayerState): PlayerView['waiting'] {
+function waitingView(s: SessionState, pack: Pack, p: PlayerState, site: SlideSite): PlayerView['waiting'] {
   const phase = sittingOut(s, p)
   if (!phase) return null
-  const slides = (s.shown ?? []).map((i) => slideView(s, pack, i)).filter((x): x is SlideView => x !== null)
+  const slides = (s.shown ?? []).map((i) => slideView(s, pack, i, site)).filter((x): x is SlideView => x !== null)
   return { phase, slides }
 }
 
@@ -412,11 +414,20 @@ type Chart = SlideView['charts'][number]
  * ladder down, the share of its problems the room placed right. `flagship_by_system`: per
  * health system, the share of its practices that found the agent project. Before Phase 1 is
  * scored the bars have no value, so a host who looks through the deck sees that a chart
- * belongs on the slide.
+ * belongs on the slide. A chart without a single value says why in one line: the phase is not
+ * scored yet, or it is and nobody played it. In a single-player game the room is one player.
  */
 function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
   const done = planningDone(s)
   const rules = pack.game.phases.planning
+  const solo = kindOf(s) === 'solo'
+  const chart = (title: string, bars: Chart['bars']): Chart => ({
+    title, bars,
+    note: bars.some((b) => b.value !== null) ? null
+      : !s.closedPhases.includes('planning') ? 'It fills in when Phase 1 is scored.'
+        : solo ? 'You did not play Phase 1 in this game, so there is nothing to draw.'
+          : 'Nobody in this session played Phase 1, so there is nothing to draw.',
+  })
   if (name === 'sorting_by_class') {
     const bars = rules.class_order.map((cid, i) => {
       const c = rules.classes.find((x) => x.id === cid)!
@@ -432,7 +443,7 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
       }
       return { label: c.short, value: all ? Math.round((100 * right) / all) : null, note: all ? `${right} of ${all}` : null, tone: CLASS_TONES[i % CLASS_TONES.length]!, system: null }
     }).reverse()
-    return { title: 'Placed in the right class, by the room', bars }
+    return chart(solo ? 'Placed in the right class, in your own game' : 'Placed in the right class, by the room', bars)
   }
   if (name === 'sorting_by_problem') {
     // One bar for every problem of the session's health systems: the share of the room that put
@@ -457,7 +468,7 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
       }
     })
     if (scored) bars.sort((x, y) => y.order - x.order)
-    return { title: 'Placed in the right class, problem by problem', bars: bars.map(({ order: _order, ...bar }) => bar) }
+    return chart('Placed in the right class, problem by problem', bars.map(({ order: _order, ...bar }) => bar))
   }
   if (name === 'flagship_by_system') {
     const bars = s.systems.map((id, i) => {
@@ -468,14 +479,23 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
         note: ps.length ? `${hits} of ${ps.length}` : null, tone: SYSTEM_TONES[i % SYSTEM_TONES.length]!, system: i,
       }
     })
-    return { title: s.systems.length > 1 ? 'Found the agent project, by health system' : 'Found the agent project', bars }
+    return chart(s.systems.length > 1 ? 'Found the agent project, by health system' : 'Found the agent project', bars)
   }
   return null
 }
 
 const SLIDE_TONES = ['sky', 'sun', 'go', 'lav', 'rose'] as const
 
-export function slideView(s: SessionState, pack: Pack, index: number): SlideView | null {
+/**
+ * What a slide may show of the server around the session, which no session state and no pack
+ * holds. `soloPasscode` is the passcode that a single-player game asks for right now, or null
+ * when it asks for none. Only a slide that carries `solo_passcode` shows it, and a slide reaches
+ * a browser only when it is shown.
+ */
+export type SlideSite = { soloPasscode: string | null }
+const NO_SITE: SlideSite = { soloPasscode: null }
+
+export function slideView(s: SessionState, pack: Pack, index: number, site: SlideSite = NO_SITE): SlideView | null {
   const all = deckSlides(pack)
   const x = all[Math.max(0, Math.min(all.length - 1, index))]
   if (!x) return null
@@ -498,6 +518,7 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
     people: (sl.people ?? []).map((p) => ({ name: p.name, role: p.role ?? null, photo: p.photo ? `${art}${p.photo}` : null })),
     figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, mark: f.mark ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
     qr: sl.qr ? { show: sl.qr.show, url: sl.qr.show === 'link' ? sl.qr.url ?? null : null, label: sl.qr.label ?? null } : null,
+    passcode: sl.solo_passcode !== undefined && site.soloPasscode ? sl.solo_passcode.replace('{passcode}', `**${site.soloPasscode}**`) : null,
     references: [...(sl.references ?? [])],
     image: sl.image ? `${art}${sl.image}` : null,
     images: (sl.images ?? []).map((x) => `${art}${x}`),
@@ -514,18 +535,18 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
 }
 
 /** Every slide with its notes, for a host who looks through the deck alone. Never for a player. */
-export function hostDeck(s: SessionState, pack: Pack): HostDeck {
+export function hostDeck(s: SessionState, pack: Pack, site: SlideSite = NO_SITE): HostDeck {
   return {
     slides: deckSlides(pack).map((x) => ({
-      slide: slideView(s, pack, x.index)!, notes: x.slide.notes ?? null, placeholder: !!x.slide.placeholder, section: x.section.id,
+      slide: slideView(s, pack, x.index, site)!, notes: x.slide.notes ?? null, placeholder: !!x.slide.placeholder, section: x.section.id,
     })),
   }
 }
 
-function hostSlide(s: SessionState, pack: Pack, index: number): HostView['deck']['current'] {
+function hostSlide(s: SessionState, pack: Pack, index: number, site: SlideSite): HostView['deck']['current'] {
   const all = deckSlides(pack)
   const x = all[index]
-  const view = x ? slideView(s, pack, index) : null
+  const view = x ? slideView(s, pack, index, site) : null
   if (!x || !view) return null
   return { slide: view, notes: x.slide.notes ?? null, placeholder: !!x.slide.placeholder }
 }
@@ -590,7 +611,7 @@ export function standing(s: SessionState, pack: Pack, playerId: PlayerId): Stand
 // ------------------------------------------------------------------------------------------
 // Big screen
 // ------------------------------------------------------------------------------------------
-export function screenView(s: SessionState, pack: Pack, publicUrl: string): ScreenView {
+export function screenView(s: SessionState, pack: Pack, publicUrl: string, site: SlideSite = NO_SITE): ScreenView {
   const active = s.order.map((id) => s.players[id]!).filter((p) => !p.removed)
   const scene = shownScene(s, pack)
   const rowsN = pack.game.leaderboards.big_screen_rows
@@ -629,7 +650,7 @@ export function screenView(s: SessionState, pack: Pack, publicUrl: string): Scre
       },
       tiles: sp.planning?.done.length ?? 0,
     } : null,
-    slide: scene === 'slides' ? slideView(s, pack, s.screen.slide) : null,
+    slide: scene === 'slides' ? slideView(s, pack, s.screen.slide, site) : null,
     activity: s.stage === 'planning.play' ? {
       players: active.length,
       acted: active.filter((p) => p.acted.planning).length,
@@ -759,6 +780,8 @@ export type HostExtras = {
   clock: { gameMs: GameMs; running: boolean; scale: number }
   connected: (playerId: PlayerId) => boolean
   publicUrl: string
+  /** The passcode a single-player game asks for right now, for the slide that shows it. */
+  soloPasscode?: string | null
   wallNowMs: number
   /** Wall time at which each stage was first entered. */
   stageWall: Partial<Record<StageId, number>>
@@ -984,15 +1007,15 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
       mirror: slidesMirrored(s, pack),
       available: { play: s.opened.length > 0, winners: s.closedPhases.length > 0, slides: deckSlides(pack).length > 0 },
     },
-    preview: screenView(s, pack, x.publicUrl),
+    preview: screenView(s, pack, x.publicUrl, { soloPasscode: x.soloPasscode ?? null }),
     deck: {
       count: deckSlides(pack).length,
       sections: (pack.deck?.sections ?? []).map((sec) => {
         const first = deckSlides(pack).find((d) => d.section.id === sec.id)!
         return { id: sec.id, title: sec.title, stage: sec.stage as StageId, start: first.index, count: sec.slides.length }
       }),
-      current: hostSlide(s, pack, s.screen.slide),
-      next: hostSlide(s, pack, s.screen.slide + 1),
+      current: hostSlide(s, pack, s.screen.slide, { soloPasscode: x.soloPasscode ?? null }),
+      next: hostSlide(s, pack, s.screen.slide + 1, { soloPasscode: x.soloPasscode ?? null }),
     },
     control: { you: false, state: 'free', holder: null, watchers: [] },
     answerKey: x.answerKey,

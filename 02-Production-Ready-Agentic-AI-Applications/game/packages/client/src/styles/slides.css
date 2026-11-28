@@ -147,7 +147,8 @@
 .sl-col:has(> .sl-charts) > .sl-bullets { font-size: calc(36 * var(--u)); gap: 0.4em; }
 .sl.lay-bullets .sl-main:has(.sl-charts) { padding-bottom: 0; }
 .sl-bar { display: grid; grid-template-columns: calc(210 * var(--u)) minmax(0, 1fr) calc(110 * var(--u)); gap: calc(14 * var(--u)); align-items: center; font-size: calc(25 * var(--u)); font-weight: 800; line-height: 1.15; }
-.sl-chart .cn { font-size: calc(21 * var(--u)); font-weight: 700; white-space: nowrap; }
+/* The line of a chart that has no value yet: why it is empty. */
+.sl-chart .cn { font-size: calc(24 * var(--u)); font-weight: 700; color: var(--muted); line-height: 1.25; }
 .sl-bar .track { display: block; height: calc(46 * var(--u)); background: var(--inset); border: calc(3 * var(--u)) solid var(--line); }
 .sl-bar .track i { display: block; height: 100%; background: var(--tone); }
 .sl-bar .v { font-size: calc(42 * var(--u)); text-align: right; line-height: 1; }
@@ -186,6 +187,8 @@
 .sl-chart.many .sl-bar { grid-template-columns: calc(400 * var(--u)) minmax(0, 1fr) calc(96 * var(--u)); font-size: calc(23 * var(--u)); }
 .sl-chart.many .sl-bar .track { height: calc(32 * var(--u)); }
 .sl-chart.many .sl-bar .v { font-size: calc(34 * var(--u)); }
+/* While such a chart is empty its line takes a row, which the bars give back. */
+.sl-chart.many:has(.cn) { gap: calc(5 * var(--u)); }
 /* More than eight bars: thinner again, so that a pack with many problems keeps its chart on the slide. */
 .sl-chart.dense { gap: calc(5 * var(--u)); padding-top: calc(12 * var(--u)); padding-bottom: calc(12 * var(--u)); }
 .sl-chart.dense .sl-bar { font-size: calc(19 * var(--u)); }
@@ -199,6 +202,21 @@
 .sl.lay-closing.bare .sl-sub { font-size: calc(50 * var(--u)); color: var(--ink); max-width: calc(1150 * var(--u)); }
 /* A marked word on the last slide is an address to go to: it stands on a line of its own, as large as a title. */
 .sl.lay-closing.bare .sl-sub b { display: block; margin-top: calc(22 * var(--u)); font-family: var(--face); font-weight: 400; font-size: calc(120 * var(--u)); line-height: 1.05; text-decoration: none; overflow-wrap: anywhere; }
+/* The words of the last slide start at one edge, under each other and over the line: each face
+   keeps a little room left of its letters (about 0.049 em in the pixel face and 0.075 em in the
+   text face), which is taken back here. */
+.sl.lay-closing.bare .sl-title { margin-left: -0.049em; }
+.sl.lay-closing.bare .sl-sub, .sl.lay-closing.bare .sl-pass { margin-left: -0.075em; }
+.sl.lay-closing.bare .sl-sub b { margin-left: -0.018em; }
+/* The line between the title and what the room takes along. */
+.sl-rule { align-self: stretch; margin: 0; border: 0; border-top: calc(6 * var(--u)) solid var(--line); }
+/* The passcode of a single-player game: one sentence, with the passcode on a label that a room can read from the back. */
+.sl-pass { font-size: calc(40 * var(--u)); font-weight: 700; line-height: 1.5; }
+.sl.lay-closing.bare .sl-pass { font-size: calc(46 * var(--u)); }
+.sl-pass b {
+  padding: 0 calc(16 * var(--u)); background: var(--sun); color: #1d2140; border: calc(4 * var(--u)) solid var(--line);
+  font-weight: 900; letter-spacing: 0.04em; text-decoration: none; white-space: nowrap;
+}
 
 /* The welcome slide: a larger title */
 .sl.lay-title .sl-title { font-size: calc(118 * var(--u)); }

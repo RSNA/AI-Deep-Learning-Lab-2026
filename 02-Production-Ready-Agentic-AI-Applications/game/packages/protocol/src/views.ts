@@ -243,16 +243,20 @@ export const SlideView = S({
   people: z.array(S({ name: Text, role: Text.nullable(), photo: z.string().nullable() })),   // photo: URL under the pack's art
   // `mark`: the words in the box that stands in for a picture.
   figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), mark: Text.nullable(), tone: SlideTone })),
-  // A QR code. `join` is the join link of the session, which every client already holds.
+  // A QR code. `join` is the address where the room joins, which every client already holds.
   // `link` carries its own URL, or null for a frame that waits for one.
   qr: S({ show: z.enum(['join', 'link']), url: z.string().nullable(), label: Text.nullable() }).nullable(),
+  // The sentence that names the passcode of a single-player game, with the passcode marked.
+  // Null on every other slide, and while a single-player game asks for none.
+  passcode: Text.nullable(),
   references: z.array(Text),
   image: z.string().nullable(),     // URL under the pack's art
   images: z.array(z.string()),      // more pictures beside it, in one row
   stat: S({ label: Text, value: Text }).nullable(),   // a room statistic that is one number. "–" until the room has it
   // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
-  // behind it is scored: the frame of the chart shows before the numbers do.
-  charts: z.array(S({ title: Text, bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone, system: Int.nullable() })) })),
+  // behind it is scored: the frame of the chart shows before the numbers do. `note` is the line
+  // a chart without a single value carries, which says why it is empty.
+  charts: z.array(S({ title: Text, note: Text.nullable(), bars: z.array(S({ label: Text, value: z.number().nullable(), note: Text.nullable(), tone: SlideTone, system: Int.nullable() })) })),
   // The leaderboard of the game on a slide: the first players by their total points, with the
   // first `highlight` of them drawn large. `final` once every phase is scored. Before any
   // phase is scored there are no rows, and the slide says that it fills in later.

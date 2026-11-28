@@ -25,6 +25,11 @@ const short = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, ''
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')
 const TONES = ['sky', 'sun', 'go', 'lav', 'rose'] as const
 
+/** The sentence that names the passcode of a single-player game. The server fills it in, and leaves it out while there is none. */
+function Passcode({ sl }: { sl: SlideView }) {
+  return sl.passcode ? <div className="sl-pass"><Marks text={sl.passcode} /></div> : null
+}
+
 function QrBox({ sl, joinUrl }: { sl: SlideView; joinUrl: string }) {
   const q = sl.qr
   if (!q) return null
@@ -47,11 +52,12 @@ function Bullets({ items, small = false }: { items: string[]; small?: boolean })
   return <ul className={small ? 'sl-take' : 'sl-bullets'}>{items.map((b, i) => <li key={i}><Marks text={b} /></li>)}</ul>
 }
 
-/** A room statistic as bars. Before its phase is scored the bars are empty and one line says so. */
+/** A room statistic as bars. While no bar has a value the chart carries one line that says why. */
 function Chart({ ch }: { ch: SlideView['charts'][number] }) {
   return (
     <div className={`sl-chart${ch.bars.length > 5 ? ' many' : ''}${ch.bars.length > 8 ? ' dense' : ''}`}>
-      <div className="ct"><span>{ch.title}</span>{ch.bars.every((b) => b.value === null) && <span className="cn">Fills in when the phase is scored</span>}</div>
+      <div className="ct"><span>{ch.title}</span></div>
+      {ch.note && <div className="cn">{ch.note}</div>}
       {ch.bars.map((b) => (
         <div key={b.label} className={`sl-bar st-${b.system === null ? b.tone : `sys${b.system % 4}`}`}>
           <span className="bl">{b.label}</span>
@@ -254,7 +260,8 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
       )
       break
     case 'closing':
-      // With nothing to list, the last slide is its few words, large, beside the code.
+      // With nothing to list, the last slide is its few words, large, beside the code: the
+      // title, a line under it, and what the room should take along.
       if (!sl.bullets.length && !sl.references.length && !sl.people.length) {
         return (
           <div className="sl lay-closing bare" style={style}>
@@ -262,7 +269,9 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
             <div className={`sl-main${sl.qr ? ' with-qr' : ''}`}>
               <div className="sl-col">
                 <h1 className="sl-title">{sl.title}</h1>
+                {(sl.subtitle || sl.passcode) && <hr className="sl-rule" />}
                 {sl.subtitle && <div className="sl-sub"><Marks text={sl.subtitle} /></div>}
+                <Passcode sl={sl} />
               </div>
               <QrBox sl={sl} joinUrl={joinUrl} />
             </div>
@@ -275,6 +284,7 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
             <Bullets items={sl.bullets} small />
             <References sl={sl} />
             <People sl={sl} />
+            <Passcode sl={sl} />
           </div>
           <QrBox sl={sl} joinUrl={joinUrl} />
         </div>

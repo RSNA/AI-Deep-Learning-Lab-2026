@@ -53,6 +53,11 @@ To make a session, give it a name and a mode and press **Create**.
   has the facilitator passcode (the setting of a new server, for the days before an event), a
   passcode of its own that opens nothing else, or anybody. Never give the facilitator passcode
   to players: it opens this console.
+- **The passcode on the last slide.** A closing slide can tell the room which passcode a
+  single-player game asks for, and it always shows the one this panel asks for at that moment.
+  If that is still the facilitator passcode, the room has read it. So after the session, set
+  "A passcode of its own" to the code that was on the slide, and then change the facilitator
+  passcode on the server. While anybody may play, the slide names no passcode.
 
 ## 3. Who is in charge
 

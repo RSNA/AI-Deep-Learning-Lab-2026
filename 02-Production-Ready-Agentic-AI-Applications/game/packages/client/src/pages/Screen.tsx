@@ -322,7 +322,7 @@ function Lobby({ v }: { v: ScreenView }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'flex-start' }}>
         <Qr url={v.session.joinUrl} size={460} />
         <div className="face" style={{ fontSize: 56, lineHeight: 1 }}>{v.session.joinUrl.replace(/^https?:\/\//, '')}</div>
-        <div style={{ fontSize: 28, fontWeight: 700 }} className="muted">Scan the code with your phone, or type the link on a laptop. No account is needed.</div>
+        <div style={{ fontSize: 28, fontWeight: 700 }} className="muted">Scan the code with your phone, or type the address on a laptop. No account is needed.</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${v.counts.bySystem.length}, 1fr)`, gap: 20 }}>

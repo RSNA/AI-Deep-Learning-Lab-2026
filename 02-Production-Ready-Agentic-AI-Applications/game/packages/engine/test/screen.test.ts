@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { PLAY_STAGES, type SlideView } from '@lab02/protocol'
 
 type SlideChart = SlideView['charts'][number]
-import { advance, deckSlides, project, sectionStartFor, shownScene, slidesMirrored } from '../src/index.ts'
+import { advance, createSession, deckSlides, project, sectionStartFor, shownScene, slidesMirrored } from '../src/index.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
 
 const pack = demoPack()
@@ -146,6 +146,30 @@ describe('the screen by stage', () => {
 
 describe('a slide as a browser gets it', () => {
   const at = (id: string) => flat.findIndex((f) => f.slide.id === id)
+  it('says why a chart is empty once the phase is scored and nobody played it', () => {
+    const s = newSession()
+    join(s, 'p1', 'Alpha Branch', 0)
+    host(s, 'next', {}, 500)
+    host(s, 'next', {}, 1000)
+    host(s, 'end_now', {}, 2000)
+    const charts = project.slideView(s, pack, at('planning-2'))!.charts
+    expect(charts.every((c) => c.bars.every((b) => b.value === null))).toBe(true)
+    expect(charts.map((c) => c.note)).toEqual(charts.map(() => 'Nobody in this session played Phase 1, so there is nothing to draw.'))
+    // A single-player game is a room of one, and its chart says so.
+    const solo = createSession(pack, { code: 'SOLO01', label: 'Single player', mode: 'rehearsal', kind: 'solo' })
+    const own = project.slideView(solo, pack, at('planning-2'))!.charts
+    expect(own[0]!.title).toBe('Placed in the right class, in your own game')
+  })
+  it('names the passcode of a single-player game only on the slide that asks for it, and only when the server gives one', () => {
+    const s = newSession()
+    const closing = at('closing-2')
+    expect(project.slideView(s, pack, closing)!.passcode).toBeNull()
+    expect(project.slideView(s, pack, closing, { soloPasscode: null })!.passcode).toBeNull()
+    expect(project.slideView(s, pack, closing, { soloPasscode: 'lab2' })!.passcode).toBe('To play alone later, use the passcode **lab2**.')
+    expect(flat.filter((f) => project.slideView(s, pack, f.index, { soloPasscode: 'lab2' })!.passcode !== null).map((f) => f.slide.id)).toEqual(['closing-2'])
+    // The address where the room joins is the site itself, with no session code.
+    expect(project.sessionInfo(s, pack, 'https://example.org/').joinUrl).toBe('https://example.org')
+  })
   it('carries its layout and its parts, with a color for every box and the photo as a URL', () => {
     const s = newSession()
     const title = project.slideView(s, pack, at('welcome-1'))!
@@ -185,6 +209,8 @@ describe('a slide as a browser gets it', () => {
     const before = [...project.slideView(s, pack, i)!.charts, systemChart()]
     expect(before.map((c) => c.bars.length)).toEqual([pack.game.phases.planning.class_order.length, every.length, s.systems.length])
     expect(before.every((c) => c.bars.every((b) => b.value === null && b.note === null))).toBe(true)
+    // An empty chart says why it is empty.
+    expect(before.every((c) => c.note === 'It fills in when Phase 1 is scored.')).toBe(true)
     expect(project.slideView(s, pack, at('planning-1'))!.stat).toEqual({ label: 'of the room found the agent project', value: '–' })
     // The chart problem by problem stands in the order of the pack and in one color, so that it gives no class away.
     expect(before[1]!.bars.map((b) => b.label)).toEqual(every.map((k) => k.public.title))
@@ -203,6 +229,7 @@ describe('a slide as a browser gets it', () => {
     expect(chart.bars.map((b) => b.label)).toEqual(order.map((id) => pack.game.phases.planning.classes.find((c) => c.id === id)!.short))
     // Half of the room placed each class right: every bar is at 50 percent.
     expect(chart.bars.every((b) => b.value === 50)).toBe(true)
+    expect([chart.note, byProblem.note, chart.title]).toEqual([null, null, 'Placed in the right class, by the room'])
     // The practice that sorted everything found the big project, the other did not: one system at 100, one at 0.
     expect(bySystem.bars.map((b) => b.label)).toEqual(s.systems.map((id) => pack.systems[id]!.system.public.name))
     expect(bySystem.bars.map((b) => b.system)).toEqual(s.systems.map((_, i) => i))

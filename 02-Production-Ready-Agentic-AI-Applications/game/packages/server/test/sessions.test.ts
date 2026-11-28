@@ -164,12 +164,17 @@ describe('a single-player game', () => {
     expect(await open()).toBe(true)
     expect(await srv.api.solo({ name: 'Practice One' })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
     expect(await srv.api.solo({ name: 'Practice One', passcode: 'not this one' })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
-    expect((await srv.api.solo({ name: 'Practice One', passcode: PASS })).ok).toBe(true)
+    const first = await srv.api.solo({ name: 'Practice One', passcode: PASS })
+    expect(first.ok).toBe(true)
+    // The closing slide of the deck names the passcode that is asked for right now.
+    const room = srv.app.manager.get(first.ok ? first.data.session : '')!
+    const named = () => room.hostDeck().slides.find((x) => x.slide.id === 'closing-2')!.slide.passcode
+    expect(named()).toBe(`To play alone later, use the passcode **${PASS}**.`)
     // A wrong try here never slows a facilitator's sign-in.
     const t0 = Date.now()
     await hostToken(srv.url)
     expect(Date.now() - t0).toBeLessThan(900)
-    // A passcode of its own: six characters or more, and the facilitator passcode no longer opens a game.
+    // A passcode of its own: four characters or more, and the facilitator passcode no longer opens a game.
     expect((await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'abc' }, token)).status).toBe(400)
     expect((await post(srv, '/api/host/solo', { gate: 'elsewhere' }, token)).status).toBe(400)
     expect((await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'after the lab' })).status).toBe(401)
@@ -177,13 +182,72 @@ describe('a single-player game', () => {
     expect(await gate()).toBe('custom')
     expect(await srv.api.solo({ name: 'Practice Two', passcode: PASS })).toMatchObject({ ok: false, status: 401, error: 'wrong_passcode' })
     expect((await srv.api.solo({ name: 'Practice Two', passcode: ' after the lab ' })).ok).toBe(true)
-    // Anybody.
+    expect(named()).toBe('To play alone later, use the passcode **after the lab**.')
+    expect((await post(srv, '/api/host/solo', { gate: 'custom', passcode: 'lab2' }, token)).status).toBe(200)
+    expect(named()).toBe('To play alone later, use the passcode **lab2**.')
+    // Anybody: no passcode is asked for, and the slide names none.
     expect(await (await post(srv, '/api/host/solo', { gate: 'none' }, token)).json()).toEqual({ enabled: true, gate: 'none' })
     expect(await open()).toBe(false)
+    expect(named()).toBeNull()
     expect((await srv.api.solo({ name: 'Practice Three' })).ok).toBe(true)
     // The switch and the passcode are set apart or together.
     expect(await (await post(srv, '/api/host/solo', { enabled: false, gate: 'facilitator' }, token)).json()).toEqual({ enabled: false, gate: 'facilitator' })
   }, 30_000)
+
+  it('draws the sorting of its one player on the charts of the deck, and says so when nothing was sorted', async () => {
+    const srv = await server()
+    const chartsOf = async (bot: Bot) => {
+      await soloTo(bot, 'break.planning')
+      for (let i = 0; i < 20 && view(bot).slide?.id !== 'planning-2'; i++) {
+        const before = view(bot).slide?.index
+        expect((await bot.conn.command('solo.slide', { delta: 1 })).ok).toBe(true)
+        await until(() => view(bot).slide?.index !== before, 5000, 'the next slide')
+      }
+      return view(bot).slide!.charts
+    }
+    // One player puts every problem in its class: every bar that has a problem behind it is full.
+    const sorter = await solo(srv, 'Sorting Branch')
+    await soloTo(sorter, 'planning.play')
+    const room = srv.app.manager.get(codeOf(sorter))!
+    const keys = srv.app.pack.systems[room.state.players[sorter.playerId]!.system]!.problems!
+    expect((await sorter.conn.command('planning.set_report', { picks: Object.fromEntries(keys.map((k) => [k.id, k.key.class])) })).ok).toBe(true)
+    const full = await chartsOf(sorter)
+    expect(full.map((c) => c.title)).toEqual(['Placed in the right class, in your own game', 'Placed in the right class, problem by problem'])
+    // A class or a problem that is not this practice's own keeps an empty bar.
+    expect(full.every((c) => c.note === null && c.bars.some((b) => b.value === 100) && c.bars.every((b) => b.value === 100 || b.value === null))).toBe(true)
+    // Another one leaves Phase 1 without a move: the charts stay empty and say why.
+    const idle = await solo(srv, 'Idle Branch')
+    const empty = await chartsOf(idle)
+    expect(empty.every((c) => c.bars.every((b) => b.value === null))).toBe(true)
+    expect(empty.map((c) => c.note)).toEqual(empty.map(() => 'You did not play Phase 1 in this game, so there is nothing to draw.'))
+  }, 30_000)
+
+  it('has its passcode named on the closing slide, which no player and no projector gets before it is shown', async () => {
+    const srv = await server()
+    const token = await hostToken(srv.url)
+    expect((await post(srv, '/api/host/session', { label: 'Morning', code: 'SLIDE1', mode: 'rehearsal' }, token)).status).toBe(200)
+    const bot = await joinBot(srv, 'SLIDE1', 'Practice One')
+    cleanups.push(() => bot.conn.close())
+    const host = hostConn(srv.ws, token, 'SLIDE1')
+    cleanups.push(() => host.close())
+    const room = srv.app.manager.get('SLIDE1')!
+    // The intro, with the slides on the projector and on the player's page.
+    expect((await host.command('next')).ok).toBe(true)
+    expect((await host.command('screen_mirror', { mirror: true })).ok).toBe(true)
+    await until(() => !!view(bot).slide, 5000, 'the first slide')
+    const sent = () => bot.messages.map((m) => m.raw).join('\n')
+    expect(sent()).not.toContain(PASS)
+    expect(JSON.stringify(room.screenView())).not.toContain(PASS)
+    // The closing slide is shown: now both carry the sentence with the passcode.
+    const closing = room.hostDeck().slides.findIndex((x) => x.slide.id === 'closing-2')
+    expect((await host.command('slide_to', { index: closing })).ok).toBe(true)
+    await until(() => view(bot).slide?.id === 'closing-2', 5000, 'the closing slide')
+    expect(view(bot).slide!.passcode).toBe(`To play alone later, use the passcode **${PASS}**.`)
+    expect(room.screenView().slide!.passcode).toBe(view(bot).slide!.passcode)
+    // A change in the console reaches the slide that is on show.
+    expect((await post(srv, '/api/host/solo', { gate: 'none' }, token)).status).toBe(200)
+    await until(() => view(bot).slide?.passcode === null, 5000, 'the slide without a passcode')
+  })
 
   it('holds a limited number in memory', async () => {
     const srv = await server({ soloMax: 1 })
