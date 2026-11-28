@@ -168,8 +168,10 @@ export function Tour({ phase, steps, doneKey, autoStart, onTab, onEnd, words }: 
 }
 
 /** The help panel of a phase: the words of its tour as a list, and what the marks on the screen mean. */
-export function HelpSheet({ phase, title, steps, intro, children, tourLabel }: {
+export function HelpSheet({ phase, title, steps, intro, children, tourLabel, more }: {
   phase: PhaseId; title: string; steps: TourStep[]; intro?: string; children?: ReactNode; tourLabel: string
+  /** One more button beside the one that starts the tour. */
+  more?: ReactNode
 }) {
   const help = useTour((s) => s.help)
   const close = useTour((s) => s.closeHelp)
@@ -184,6 +186,7 @@ export function HelpSheet({ phase, title, steps, intro, children, tourLabel }: {
       {children}
       <div className="sheet-actions">
         <button type="button" className="btn small" onClick={() => start(phase)}>{tourLabel}</button>
+        {more}
       </div>
     </Sheet>
   )

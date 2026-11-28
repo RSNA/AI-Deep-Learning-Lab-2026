@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CanvasMap, DevelopmentContent, DevelopmentView, InboxItem, LineSide, Welcome } from '@lab02/protocol'
 import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setLineSide, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
 import { PopLayer, type PopInfo } from '../canvas/Pop.tsx'
 import { ClampCard } from '../components/Clamp.tsx'
@@ -23,6 +23,7 @@ import { TileBody } from '../phase1/Cards.tsx'
 import { BriefSheet, useNarrow, useWarnings, type BriefWords } from '../phase1/Phase1.tsx'
 import { P2, money, setMoneyUnit } from './copy.ts'
 import { guideOf, lineRefusal, type Guide } from './guide.ts'
+import { lineEnds } from './lineEnds.ts'
 import { useMap } from './useMap.ts'
 
 // ------------------------------------------------------------------------------------------
@@ -118,7 +119,7 @@ function RunningLine({ dv, content }: { dv: BoardView; content: BoardContent }) 
  * do (and how many more follow), a press says it again and marks its tile, and before the first
  * validation the same line guides through the first map.
  */
-function ValidateButton({ dv, guide, first, onValidate, onWhy, refused, ready }: { dv: BoardView; guide: Guide; first: boolean; onValidate: () => void; onWhy: () => void; refused: string | null; ready: string }) {
+function ValidateButton({ dv, guide, first, free, onValidate, onWhy, refused, ready }: { dv: BoardView; guide: Guide; first: boolean; free: boolean; onValidate: () => void; onWhy: () => void; refused: string | null; ready: string }) {
   useTick(250)
   const clock = usePlayer((s) => s.clock)
   const now = clock ? gameNow(clock) : 0
@@ -147,7 +148,7 @@ function ValidateButton({ dv, guide, first, onValidate, onWhy, refused, ready }:
         </span>
       )}
       <button type="button" className={`btn go vbtn${why ? ' off' : ''}`} aria-disabled={why ? true : undefined} aria-describedby={line ? 'p2-vwhy' : undefined}
-        title={why?.text} onClick={() => { if (why) { setFlash((n) => n + 1); onWhy() } else onValidate() }}>{P2.validateLeft(dv.validationsLeft)}</button>
+        title={why?.text} onClick={() => { if (why) { setFlash((n) => n + 1); onWhy() } else onValidate() }}>{free ? P2.validateFree : P2.validateLeft(dv.validationsLeft)}</button>
     </div>
   )
 }
@@ -156,6 +157,9 @@ function ValidateButton({ dv, guide, first, onValidate, onWhy, refused, ready }:
  * The letters and the insights of the phase: the opening letter first, then the letters and memos
  * that arrived since (Phase 3), the newest first, then a card per action that brought an insight.
  */
+/** The bar of a card that is opened in a window takes the color of the group of its action. */
+const POP_HEAD: Record<string, string> = { learn: 'sky', build: '', buy: 'sun', negotiate: 'lav' }
+
 export function InsightsPanel({ w, content, dv, fresh, phase = 'development', letters = [], title = P2.insights, freshLetters }: {
   w: Welcome; content: BoardContent; dv: Pick<BoardView, 'insights'>; fresh: Set<string>
   phase?: BoardPhase
@@ -179,6 +183,7 @@ export function InsightsPanel({ w, content, dv, fresh, phase = 'development', le
             const p = person(m.from)
             return (
               <ClampCard key={m.id} className={`card letter${freshLetters?.has(m.id) ? ' fresh' : ''}`} bodyClass="cbody" data-letter={m.id} words={{ more: P2.showMore, less: P2.showLess }}
+                pop={{ title: `${m.kind === 'announcement' ? P2.memoCard : P2.letterCard}${p ? ` · ${p.c.role}` : ''}`, head: m.kind === 'announcement' ? 'sky' : 'sun', close: P2.close }}
                 head={<div className={`chead ${m.kind === 'announcement' ? 'h-memo' : 'h-letter'}`}><span className="src">{m.kind === 'announcement' ? P2.memoCard : P2.letterCard}{p ? ` · ${p.c.role}` : ''}</span></div>}>
                 {m.title && <h3>{m.title}</h3>}
                 {p && <div className="speaker"><Portrait c={p.c} cast={w.system.cast} index={p.i} size={48} /><div><div className="nm">{p.c.name}</div><div className="rl">{p.c.role}</div></div></div>}
@@ -187,7 +192,7 @@ export function InsightsPanel({ w, content, dv, fresh, phase = 'development', le
             )
           })}
           {b && (
-            <ClampCard className="card letter" bodyClass="cbody" words={{ more: P2.showMore, less: P2.showLess }}
+            <ClampCard className="card letter" bodyClass="cbody" words={{ more: P2.showMore, less: P2.showLess }} pop={{ title: `${P2.letterCard}${from ? ` · ${from.role}` : ''}`, head: 'sun', close: P2.close }}
               head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
               <h3>{b.title}</h3>
               {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
@@ -198,6 +203,7 @@ export function InsightsPanel({ w, content, dv, fresh, phase = 'development', le
             const a = content.actions.find((y) => y.id === x.action)
             return (
               <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
+                pop={{ title: P2.fromAction(a?.title ?? ''), head: POP_HEAD[a?.group ?? 'learn'] ?? 'sky', close: P2.close }}
                 head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
                 <h3>{x.tile.headline}</h3>
                 <TileBody tile={x.tile} cast={w.system.cast} />
@@ -264,7 +270,7 @@ export const P2_BOARD_WORDS: BoardWords = {
   tab: { ...P2.tab, year: '' }, insightsTitle: P2.insights,
 }
 
-export function MapBoard({ w, phase, content, dv, words, results, above, status, strip, overlays, letters, freshLetters, held = false, spendWord = false, sameAs, tabCounts }: {
+export function MapBoard({ w, phase, content, dv, words, results, above, status, strip, overlays, letters, freshLetters, held = false, spendWord = false, sameAs, tabCounts, helpMore }: {
   w: Welcome; phase: BoardPhase; content: BoardContent; dv: BoardView; words: BoardWords
   /** Under the map, on the left of the letters and insights: what the phase keeps of its validations. */
   results: (api: BoardApi) => ReactNode
@@ -286,6 +292,8 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   sameAs: (map: CanvasMap) => string | null
   /** What a tab of a phone shows beside its name, where the phase knows better than the board. */
   tabCounts?: Partial<Record<BoardTab, string>>
+  /** One more button at the foot of the help panel. */
+  helpMore?: ReactNode
 }) {
   useTick(500)
   const view = usePlayer((s) => s.view)!
@@ -412,8 +420,11 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     if (replaced) say(P2.replaced)
     setMode({ kind: 'idle' })
   }
+  // An end of a line that was picked up, or a node that is clicked while a line is selected.
+  const ends = lineEnds({ map, v, mode, sel, unlocked, lockedBy, nodeLabel, commit, refuse, say, setMode, setSel })
   const onNode = (id: string, side?: LineSide) => {
     const src = content.sources.find((x) => x.id === id)
+    if (ends.onNode(id, side)) return
     if (mode.kind === 'join') { if (id === mode.from) { setMode({ kind: 'idle' }); setNote(null) } else join(mode.from, id, { from: mode.side, to: side }); return }
     // A locked source says which action opens it.
     if (src) { if (!unlocked.has(id)) refuse(id, P2.refuse.locked(src.label, lockedBy[id] ?? null)); return }
@@ -430,8 +441,6 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     setNote(null)
     setMode((m) => (m.kind === 'join' && m.from === id && m.side === side ? { kind: 'idle' } : { kind: 'join', from: id, ...(side ? { side } : {}) }))
   }
-  // A dot of an end tile of the selected line moves that end there. The line stays selected.
-  const onMoveEnd = (key: string, end: 'from' | 'to', side: LineSide) => commit(setLineSide(map, key, end, side))
   const remove = () => {
     if (sel?.kind === 'tile') commit(removeTile(map, sel.id))
     else if (sel?.kind === 'line') commit(removeLine(map, sel.key))
@@ -532,8 +541,9 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   if (mode.kind === 'place') hint = P2.hint.place(workerLabel(mode.worker))
   else if (mode.kind === 'move') hint = P2.hint.move(nodeLabel(mode.tile))
   else if (mode.kind === 'join') hint = P2.hint.join(nodeLabel(mode.from))
+  else if (ends.hint) hint = ends.hint
   else if (selTile) hint = P2.hint.tile(nodeLabel(selTile.id))
-  else if (selLine) hint = P2.hint.line(nodeLabel(selLine.from), nodeLabel(selLine.to))
+  else if (selLine) hint = P2.hint.line
   const bar = (
     <div className="mapbar">
       <span className={`mhint${msg || draft.error ? ' msg' : ''}`} role="status">{msg ?? draft.error ?? hint}</span>
@@ -602,7 +612,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     toast: (text, onShow) => setToast({ text, show: onShow }),
   }
 
-  const targets = mode.kind === 'join' ? targetsOf(map, v, mode.from) : undefined
+  const targets = mode.kind === 'join' ? targetsOf(map, v, mode.from) : ends.targets
   const grid = (
     <Grid v={v} map={map} flags={{ stray: noLineOut, incomplete: dv.flags.incomplete, privateData: dv.flags.privateData }}
       popOf={phone ? undefined : popOfNode}
@@ -614,7 +624,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
         if (it) setSheet({ kind: 'item', item: { id: it.id, label: it.label, description: it.description }, more: nodeMore(id), state: !!src })
       }}
       unlocked={unlocked} lockedBy={lockedBy} mode={mode} selection={sel} targets={targets} label={P2.map}
-      onCell={onCell} onNode={onNode} onPort={onPort} onMoveEnd={onMoveEnd}
+      onCell={onCell} onNode={onNode} onPort={onPort} onPickEnd={ends.onPickEnd} onDropEnd={ends.onDropEnd}
       onLine={(key) => { if (mode.kind === 'idle') setSel((s) => (s?.kind === 'line' && s.key === key ? null : { kind: 'line', key })) }}
       onPart={(tile, part) => { reset(); setSheet({ kind: 'part', tile, part }) }}
       onDropKind={(kind, col, row) => { if (!tileAt(map, col, row)) { const r = placeTile(map, kind, col, row); commit(r.map); setSel({ kind: 'tile', id: r.id }); setMode({ kind: 'idle' }) } }}
@@ -631,7 +641,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       <RunningLine dv={dv} content={content} />
       <div className="footrow">
         {dv.flags.privateData.length > 0 && <span className="pwarn"><span className="cmark warn" aria-hidden="true">!</span> {P2.privateWarn}</span>}
-        <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} onValidate={validate} onWhy={showWhy} refused={refusedValidate} ready={words.whyReady} />
+        <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} free={dv.validations.length < content.rules.freeValidations} onValidate={validate} onWhy={showWhy} refused={refusedValidate} ready={words.whyReady} />
       </div>
     </div>
   )
@@ -738,7 +748,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       {warning && <div className="toast warnbar" role="status">{warning}</div>}
       {briefOpen && <BriefSheet w={w} phase={phase} onClose={closeBrief} words={words.brief} />}
       <Tour phase={phase} steps={words.tour} doneKey={`tour-${phase}-${view.me.id}-${view.run}`} autoStart={!briefOpen && !held} onTab={(t) => setTab(t as BoardTab)} onEnd={() => setTab('map')} words={COPY.tour} />
-      <HelpSheet phase={phase} title={words.helpTitle} intro={words.helpIntro} steps={words.tour} tourLabel={COPY.takeTour}>
+      <HelpSheet phase={phase} title={words.helpTitle} intro={words.helpIntro} steps={words.tour} tourLabel={COPY.takeTour} more={helpMore}>
         <div className="eyebrow">{P2.helpMarks}</div>
         <div className="help-marks">
           <div className="hm"><LineLegend words={P2.legend} /><span /></div>

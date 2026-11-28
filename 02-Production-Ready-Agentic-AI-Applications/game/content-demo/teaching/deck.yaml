@@ -3,6 +3,9 @@
 # (section 5.5 of the spec): plain bullets, a title slide with the people and the join code,
 # boxes side by side (a box may carry a few points under its text), pictures in rows, or a
 # closing slide with a QR code and references. A slide may show one or two room statistics.
+# Two more layouts: `phase` opens a part of the session with a few large words under a short
+# line (`kicker`), and `shot` gives most of the slide to its picture (`image`, and up to two
+# more in `images`). A word between two pairs of stars is marked on the slide.
 sections:
   - id: welcome
     title: Welcome
@@ -45,22 +48,23 @@ sections:
         bullets:
           - Most requests were smaller than they sounded.
           - Only one needed a system that plans its own steps.
-        live_stat: flagship_hit_rate
+        live_stat: [flagship_hit_rate, flagship_by_system]
         notes: Ask one player who found the big project to say what gave it away.
       - id: planning-2
         title: Counts beat complaints
         bullets:
           - A loud complaint is one data point.
           - A tally of a month is many.
-        live_stat: [sorting_by_class, flagship_by_system]
+        live_stat: [sorting_by_class, sorting_by_problem]
   - id: after-development
     title: After Phase 2
     stage: break.development
     slides:
       - id: development-1
+        layout: phase
+        kicker: Season 2
         title: Trials before trust
-        bullets:
-          - Every design was tried on a week of requests.
+        subtitle: Every design was tried on a **week** of requests.
         placeholder: true
   - id: after-maintaining
     title: After Phase 3
@@ -86,7 +90,7 @@ sections:
         layout: figures
         title: Two books behind this game
         figures:
-          - {title: The Quiet Catalogue, caption: A sample title}
+          - {title: The Quiet Catalogue, caption: A sample title, mark: In print}
           - {title: Shelves That Count, caption: Another sample title}
         notes: Say where the two sample books can be found.
       - id: closing-2

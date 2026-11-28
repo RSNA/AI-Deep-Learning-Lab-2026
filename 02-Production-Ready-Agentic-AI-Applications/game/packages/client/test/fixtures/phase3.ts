@@ -22,7 +22,7 @@ export const report = (period: number, over: Partial<Report> = {}): Report => ({
   spent: 66.4, score: 73.2,
   rank: 3, of: 40,
   sentences: { validity: 'Most loans came back on the right shelf.', reliability: 'The desk was closed on six days.', gap: null, people: 'The librarians are content.', steady: null, noMap: null },
-  missed: { title: 'A book lent twice', text: 'Two readers held the same copy.', why: 'The shelf list was never read.' }, note: null,
+  missed: { title: 'A book lent twice', text: 'Two readers held the same copy.', why: 'The shelf list was never read.', hint: 'Nothing on this map reads the shelf list. Give it a line to a tile that can read it.' }, note: null,
   worstPart: { label: 'Sorting agent', text: 'It looped on a cart of forty returns and timed out.' },
   worstChange: null, parts: null, kinds: null, ...over,
 })

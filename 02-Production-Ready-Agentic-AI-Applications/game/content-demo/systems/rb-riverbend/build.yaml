@@ -19,7 +19,7 @@ toolbox_groups:
   - {id: operators, label: Operators}
   - {id: tools, label: Tools}
 budget: {money: 100, developers: 3}
-validate: {runs: 6, seconds: 6}
+validate: {runs: 6, seconds: 6, free: 1}   # the first validation is free: the guided first build ends with it
 pools:
   - {id: librarian, public: {label: Librarian minutes}, max: 4}
   - {id: desk, public: {label: Desk staff minutes}, max: 12}
@@ -343,6 +343,7 @@ actions:
     developers: 0
     seconds: 25
     unlocks: [rb-c-private]
+    moves: {rb-c-api: rb-c-private}
     insight:
       type: stat
       headline: The private link is signed

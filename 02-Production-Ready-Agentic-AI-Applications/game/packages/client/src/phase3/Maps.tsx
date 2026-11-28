@@ -44,6 +44,9 @@ export function MapsPanel({ mv, content, names, current, send, onLoad, onRefs, r
   const n = mv.validations.length
   const newest = [...mv.validations].reverse()
   const lastOwn = newest.find((v) => v.origin === 'phase3')
+  // The map in service shows a patient that the last report lost, with what would have helped.
+  const lastReport = mv.reports.at(-1)
+  const inService = lastReport && lastReport.map === mv.deployed ? lastReport.missed : null
   return (
     <section className="panel p2results p3maps" id="p2-results" data-tour="p3-maps">
       <div className="panel-head sky"><span>{P3.mapsTitle}</span><span className="sub">{P3.validationsLeft(mv.validationsLeft, content.rules.validations)}</span></div>
@@ -62,8 +65,10 @@ export function MapsPanel({ mv, content, names, current, send, onLoad, onRefs, r
                 <div className="p3map-t">
                   <div className="p3map-n">{name}</div>
                   <Tags v={v} />
-                  {v === lastOwn && v.missed && (
-                    <div className="vmiss"><div className="eyebrow">{P2.missedOne}</div><p><b>{v.missed.title}.</b> {v.missed.text} <span className="why">{v.missed.why}</span></p></div>
+                  {on && inService ? (
+                    <div className="vmiss"><div className="eyebrow">{P3.missedInService}</div><p><b>{inService.title}.</b> {inService.text} <span className="why">{inService.why}</span></p><p className="vhint"><b>{P2.hintLabel}</b> {inService.hint}</p></div>
+                  ) : v === lastOwn && v.missed && (
+                    <div className="vmiss"><div className="eyebrow">{P2.missedOne}</div><p><b>{v.missed.title}.</b> {v.missed.text} <span className="why">{v.missed.why}</span></p><p className="vhint"><b>{P2.hintLabel}</b> {v.missed.hint}</p></div>
                   )}
                   {v === lastOwn && v.unhurried !== null && <div className="vnote rush"><p>{P2.rushedPlain}</p><p>{P2.unhurried(v.unhurried)}</p></div>}
                   {v === lastOwn && v.note && <div className="vnote"><b>{P2.note}:</b> {v.note}</div>}

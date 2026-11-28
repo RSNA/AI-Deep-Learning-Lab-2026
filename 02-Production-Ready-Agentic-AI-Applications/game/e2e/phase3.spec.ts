@@ -47,6 +47,7 @@ async function toMaintaining(page: Page, s: Awaited<ReturnType<typeof setup>>) {
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
+  await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await s.host('pause')
   await expect(page.getByText('Phase 3 has started.')).toBeVisible()
@@ -61,6 +62,14 @@ async function noErrorNames(page: Page) {
   expect(names).toEqual([])
 }
 const mapRow = (page: Page, name: string | RegExp) => page.locator('.p3map', { has: page.locator('.p3map-n', { hasText: name }) })
+
+/** Close every letter and memo that opened in a window of its own. */
+async function closeLetters(page: Page): Promise<void> {
+  const got = page.getByRole('dialog', { name: /^A (letter|memo) for you$/ }).getByRole('button', { name: 'Got it' })
+  for (let i = 0; i < 4; i++) {
+    try { await got.click({ timeout: 1500 }) } catch { return }
+  }
+}
 
 test('the laptop: the first report, a reference map, the tour, validate and deploy, an action, the next report, the reveal', async ({ page }, info) => {
   test.skip(info.project.name !== 'laptop', 'laptop only')
@@ -77,12 +86,17 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   // No map came out of Phase 2, so nothing ran: the report says so.
   await expect(first).toContainText('No map ran')
   // The bill: nothing ran, so nothing was paid, and the report says what the account holds.
-  await expect(first.locator('.p3money')).toContainText('Nothing to pay. No system ran.')
+  await expect(first.locator('.p3money')).toContainText('There is nothing to pay, because no system ran.')
   await expect(first.locator('.p3money')).toContainText('Left in your account')
   await first.getByRole('button', { name: 'Back to the board' }).click()
+  // A memo of the first round opens in a window of its own, after the report.
+  const memo = page.getByRole('dialog', { name: /^A (letter|memo) for you$/ })
+  await expect(memo).toBeVisible()
+  await expect(memo).toContainText('You can read it again under Letters and insights.')
+  await memo.getByRole('button', { name: 'Got it' }).click()
   const refs = page.getByRole('dialog', { name: 'Reference maps' })
   await expect(refs).toBeVisible()
-  await expect(refs).toContainText('You can go back to your own map at any time')
+  await expect(refs).toContainText('You can switch back to your own map at any point')
   await expect(refs.getByRole('tab')).toHaveCount(3)
   await refs.getByRole('tab', { name: /Map B/ }).click()
   await expect(refs.locator('.ctile').first()).toBeVisible()
@@ -144,13 +158,19 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await expect(second).toContainText('New report')
   await expect(second).toContainText('Ran: Validation 1')
   await expect(second).toContainText('On the test set this map scored')
-  await expect(second).toContainText('Every part that failed')
+  // The sheet holds the numbers and the bill, and nothing else.
+  await expect(second.locator('.p3block')).toHaveCount(0)
+  await expect(second).not.toContainText('Every part that failed')
   // A map ran these two months: its bill is listed line by line and paid from the account.
   await expect(second.locator('.p3money .kv.part').first()).toBeVisible()
   await expect(second.locator('.p3money')).toContainText('Paid from your account')
   await noErrorNames(page)
   await second.getByRole('button', { name: 'Back to the board' }).click()
+  await closeLetters(page)
   await expect(page.locator('.topbar .p3timer')).toContainText('Round 2 of 5')
+  // What the tracing adds is one press away, in the panel of the year.
+  await page.locator('#p3-year').getByRole('button', { name: 'More about these two months' }).click()
+  await expect(page.locator('#p3-year')).toContainText('Every part that failed')
   // The year: two reports in the chart, and a step back to the first.
   await expect(page.locator('#p3-year .panel-head')).toContainText('2 of 6 reports')
   await expect(page.locator('#p3-year .ydot.score')).toHaveCount(2)
@@ -187,6 +207,7 @@ test('the reveal of Phase 2 steps through the reference maps', async ({ page }, 
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
+  await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   await s.host('end_now')
   const tabs = page.locator('.refseg button')
   await expect(tabs).toHaveCount(3)
@@ -207,6 +228,7 @@ test('the phone: five tabs that stay on screen, the timer above them, the year a
   await toMaintaining(page, s)
   await page.getByRole('button', { name: 'Start the year' }).click()
   await page.getByRole('dialog', { name: 'Report on January and February' }).getByRole('button', { name: 'Back to the board' }).click()
+  await page.getByRole('dialog', { name: /^A (letter|memo) for you$/ }).getByRole('button', { name: 'Got it' }).click()
   const refs = page.getByRole('dialog', { name: 'Reference maps' })
   await refs.getByRole('button', { name: 'Take this map' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()

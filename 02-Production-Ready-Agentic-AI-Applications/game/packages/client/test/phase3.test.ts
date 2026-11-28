@@ -89,7 +89,6 @@ describe('a report in words', () => {
     setUnit3('k$')
     expect(P3.sum(40)).toBe('40 k$')
     expect(P3.sum(4.4)).toBe('4.4 k$')
-    expect(P3.grantToast(40)).toBe('40 k$ arrived in your account.')
     expect(P3.sum(-6)).toBe('−6 k$')
     expect(P3.sum(-5.26)).toBe('−5.3 k$')
     expect(P3.sum(10.8)).toBe('10.8 k$')
@@ -103,9 +102,9 @@ describe('the letters of the year', () => {
     const inbox = [{ id: 'development:brief' }, { id: 'maintaining:brief' }, { id: 'news:n1' }, { id: 'news:alarm:e1' }, { id: 'maintaining:letter' }]
     expect(lettersOf(inbox).map((m) => m.id)).toEqual(['news:alarm:e1', 'news:n1'])
   })
-  it('says that something arrived, with its title when it has one', () => {
-    expect(P3.newsToast('A little more money')).toBe('New in your letters: A little more money')
-    expect(P3.newsToast('')).toBe('A new memo is in your letters.')
+  it('names a letter and a memo in the window that opens when one arrives', () => {
+    expect(P3.letterTitle).toBe('A letter for you')
+    expect(P3.memoTitle).toBe('A memo for you')
   })
 })
 

@@ -516,7 +516,8 @@ type Build = {
   efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
-  validate: { runs: number; seconds: number }
+  validate: { runs: number; seconds: number
+              free?: number }                 // the first validations of Phase 2 that do not count against `runs` (default 0)
   pools?: { id: PoolId; public: { label: Text }; max: number      // minutes per case the people can give
             over?: 'refuse' | 'rush' }[]    // a map that asks more: it cannot be validated (the
                                             // default), or these people rush (section 6.6)
@@ -560,6 +561,8 @@ type Build = {
               seconds: number
               requires?: ActionId[]         // actions that must be done first
               unlocks?: ItemId[]            // an item that no action unlocks is open from the start
+              moves?: Record<ComputeId, ComputeId>   // once done, every tile on the first place runs on the second, on every
+                                            // map the player holds, and the first place leaves the shelf
               insight?: Tile | null         // a tile in the format of insights.yaml
               story_time?: Text; key?: object }[]
   cases: { id: CaseId; weight: number
@@ -772,7 +775,8 @@ type DeckSection = {
   slides: Slide[]                 // one or more
 }
 type Slide = { id: string; title: Text
-               layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'   // 'bullets' when absent (10.9)
+               layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing' | 'standings' | 'phase' | 'shot'   // 'bullets' when absent (10.9)
+               kicker?: Text            // a short line over the title, such as "Phase 2"
                subtitle?: Text
                bullets?: Text[]         // none is allowed on a slide that has other parts
                cards?: { title: Text; text?: Text; points?: Text[]   // up to 4 boxes side by side, each with up
@@ -780,10 +784,12 @@ type Slide = { id: string; title: Text
                          system?: SystemId }[]                        // a box of one health system: it takes that
                                                                       // system's color and shape (10.9)
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
-               figures?: { image?: string; title: Text; caption?: Text; tone?: Tone }[]   // up to 3, one row each
+               figures?: { image?: string; title: Text; caption?: Text; tone?: Tone   // up to 3, one row each
+                           mark?: Text }[]                            // the words in the box of a figure without a picture
                qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
                references?: Text[]      // lines to read later
                image?: string           // every picture is a path under art/, ending in .png or .webp
+               images?: string[]        // up to two more pictures beside `image`, in one row (layout 'shot')
                live_stat?: RoomStatId | RoomStatId[]   // one room statistic, or two (6.10)
                notes?: Text             // for the host console only
                placeholder?: boolean }  // a slide whose text is still to be written
@@ -1196,8 +1202,8 @@ actions. Validation ids are `v1`, `v2` and so on.
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `development.set_map {map}` | Stage is `development.play`. The map passes every rule below | Replaces the draft |
-| `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled |
-| `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft |
+| `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled. When an action with `moves` is done (also in Phase 3, and when a reference map buys it), every tile that runs on a place it moves from runs on the place it moves to, on the draft, on the map being validated and on every validated map, with what they cost to run. The validation in service keeps its id, so it is not a new map. The place moved from leaves the shelf, and a map that still names it is refused (`invalid_map`) |
+| `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft. The first `validate.free` validations of a player are free: they do not count against `validate.runs`, so `validationsLeft` stays where it was, and the view marks them (`free`) |
 | `development.choose {id or null}` | Stage is `development.play`. The validation is the player's own and finished | Marks the map to submit. `null` returns to the default |
 
 Refusals: `wrong_stage`, `invalid_map`, `unknown_action`, `action_taken`, `requires_action`,
@@ -1662,6 +1668,8 @@ definition of the scoring of a period, a validation and a year. The engine's
   the player's `found`.
 - **A letter for those concerned.** A news item with `if_event` goes to a player at the first
   round from its `round` on at which the report just made lists that event as acting on them.
+  An event that only adds risks must have added some for that player (a risk on lines that a
+  connector tile takes away concerns nobody behind the connector).
 
 In the demo pack: the rule goes wrong more every period once the request form changes, a look
 names it and brings the repair, Pine 2 comes with the fourth round, and Acorn doubles its
@@ -1738,10 +1746,14 @@ put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
 `live_stat`, or two in a list. Each is a small typed object that the big screen knows how to
-draw. Three are drawn so far. `flagship_hit_rate` is one number, the share of the room that
+draw. Four are drawn so far. `flagship_hit_rate` is one number, the share of the room that
 found the agent project. `sorting_by_class` is a set of bars, one per class from the agentic
 class down to the class of problems that are not real: the share of the problems of that
-class that the room put in it, both health systems counted together. `flagship_by_system` is
+class that the room put in it, both health systems counted together. `sorting_by_problem` is
+one bar for every problem of the session's health systems: the share of the room that put it
+in its class. Once Phase 1 is scored its bars stand by class, the agentic class first, in the
+colors of the classes. Before that they stand in the order of the pack and in one color, so
+that the chart gives no class away. `flagship_by_system` is
 one bar per health system: the share of its practices that found the agent project. Before
 the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
 in when the phase is scored", so a host who goes through the deck sees that a chart belongs
@@ -2406,7 +2418,8 @@ type DevelopmentContent = {
   problem: { id: ProblemId; title: Text; description: Text }
   rules: { cols: number; rows: number; money: number; developers: number
            columns: { label: Text; hint: Text }[] | null   // the stages of the columns, or numbers
-           validations: number; validateSeconds: number; showRunning: boolean
+           validations: number; freeValidations: number   // those that count, and the first ones of Phase 2 that do not
+           validateSeconds: number; showRunning: boolean
            moneyUnit: Text | null              // money_unit, written after every sum of money
            pools: { id: PoolId; label: Text; max: number }[]
            actionGroups: { id: string; label: Text }[]
@@ -2556,7 +2569,8 @@ type DevelopmentView = {
   validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
                  unhurried: number | null               // set when people rushed: the accuracy with the time
                  rank: number | null; of: number        // the rank in the live column right after it
-                 missed: { title: Text; text: Text; why: Text } | null
+                 free: boolean                          // it did not count against the validations of the phase
+                 missed: { title: Text; text: Text; why: Text; hint: Text } | null
                  note: Text | null
                  running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null }[]
   submitId: string | null                               // what would be submitted now, or was
@@ -2585,7 +2599,7 @@ type MaintainingReport = {
   rank: number | null; of: number                 // among the practices that hold this report
   sentences: { validity: Text | null; reliability: Text | null; gap: Text | null
                people: Text | null; steady: Text | null; noMap: Text | null }
-  missed: { title: Text; text: Text; why: Text } | null
+  missed: { title: Text; text: Text; why: Text; hint: Text } | null
   note: Text | null
   worstPart: { label: Text; text: Text } | null   // the part that failed most, and what happened
   worstChange: { symptom: Text; cause: Text | null } | null   // the cause only with its lens
@@ -3516,9 +3530,22 @@ as dashed boxes.
   line that would run backward after a move is removed, and the title bar says so.
 - **Join**: click a port, then a lit tile or the lit result. Only the tiles further right that the
   origin does not reach yet, and the result for a tile, are lit, and every other line fades. A
-  drag from a port draws the line under the pointer and joins where it is let go. A second line
-  into the result replaces the first, and the title bar says so. Clicking the port again or
-  pressing Escape cancels.
+  drag from a port, with a mouse or a finger, draws the line under the pointer and joins where
+  it is let go. Where the grid is wider than its frame (a phone), the frame scrolls while the
+  pointer is held near its left or right edge. A second line into the result replaces the
+  first, and the title bar says so. Clicking the port again or pressing Escape cancels.
+- **Move an end of a line**: a selected line shows a handle at each of its two ends, large
+  enough for a finger. A drag of a handle takes that end along and drops it on another tile, on
+  a dot of a tile (the end then stands on that side), on another source (the start only) or on
+  the result (the arrow end only). A press on a handle picks the end up, the nodes that can
+  take it are lit, and a press on one of them moves it. While a line is selected and nothing
+  is picked up, a click on another tile points the arrow at that tile, a click on the result
+  does the same, and a click on an open source moves the start there, so a click never starts
+  a second line by accident. A move that the rules of the map do not allow (a loop, a line
+  that exists, a source as an end, a locked source, both ends on one tile) changes nothing and
+  says why at the node. A move to another node is one step of undo and ends the selection. A
+  move to another side of the same tile keeps the line selected. The edits are
+  `moveLineEnd` and `endTargets` of `canvas/model.ts`.
 - **Remove**: select a tile or a line (a line has a wide invisible edge to click), then Remove or
   the Delete key. A removed tile takes its lines with it.
 - **Parts**: a click on a part box opens its chooser. The model chooser lists every model. One the
@@ -3669,9 +3696,26 @@ does now.
 - *Clear map*, beside Undo and Redo, with a question, undoable.
 - *A word on money* once, after the fourth action a player starts, and one line in the tour.
 - *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
-  a longer text is cut with "Show more".
+  a longer text is cut with "Show more". On an insight card, a letter or a memo, "Show more"
+  opens the whole card in a window in the middle of the screen (a sheet with a close button,
+  Escape and a click beside it), in Phase 2 and Phase 3 and on every size of screen, and the
+  card in its row never grows. A prompt card already stands in a window and opens in place.
 - *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
   result is waiting when the person who signs opens the case.
+- *The guided first build* (`phase2/FirstBuild.tsx`) follows the tour of Phase 2, once for each
+  player in a browser, and the help panel starts it again. It is hands-on, like the first minutes
+  of a video game: one part of the screen has a ring around it, a card says in a sentence or two
+  what to do there, and the next step comes only when the player has done it. The rest of the
+  screen is dimmed and stays usable, so nothing is blocked. The steps are read off the pack and
+  the state, never off clicks, so a player who does a later step on their own is caught up with:
+  start the first action that costs nothing and returns a card, and open that card; put the AI
+  operator that needs a model on the map; choose its model, where it runs and, when the pack
+  has prompts, its prompt (the card says how many choices there are now and that more will
+  come); join a source to it; put the person the pack requires behind it and join the two; join
+  that person to the result; press Validate. When that validation is done the card says that
+  it was free and how many are left. "Skip the tutorial" ends it at any step. On a phone it
+  shows the tab that holds the step. Where the first validation is free (`validate.free`), the
+  button, the list of validations and the purse say so.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
 - *A notice* (a validation is done, an insight has arrived) stands over the head of the left
   column on a laptop and above the tab bar on a phone, never over the line beside Validate or
@@ -3704,9 +3748,11 @@ does now.
   selected line. A press on a dot starts a line that leaves on that side (`fromSide`). While a
   line looks for its end, a press on a dot of a target ends it on that side (`toSide`), and a
   press on the tile itself, the Join button or the keyboard leaves the side open. A drag from
-  a dot that is dropped on a dot does both. With a line selected, a press on a dot of either
-  end tile moves that end there, one step of undo each, and the line stays selected. An end
-  without a side is drawn on the side that faces the other tile, as before. A line whose sides
+  a dot that is dropped on a dot does both. An end of the selected line that was picked up by
+  its handle goes to another side of its tile by a press on that dot, or by a drop on it, one
+  step of undo each, and the line stays selected (until the version with handles a press on a
+  dot of either end tile did this without a handle, which kept a new line from being started
+  there). An end without a side is drawn on the side that faces the other tile, as before. A line whose sides
   do not face each other reaches further out before it bends. The sides are part of the map
   that is saved and of every map that is drawn (the list of validations, the host's view, the
   reveal, the reference map). They change no score, and two maps that differ only in sides are
@@ -3762,15 +3808,26 @@ pass their own panels and words. Nothing of the board is copied.
 - **A report** shows what the server sent for that period and works nothing out: validity and
   reliability out of 100 and the score of the two months, each in a box of its own color. Under
   the validity stands what the same map scored on the test set and how far the validity lies
-  under it. Under the reliability the number of interruptions. Then the map that ran, the
-  sentences of the pack, the worst change as a symptom (its cause only when the view carries
-  it, and otherwise one line that some actions make reports say more), the part that failed
-  most, one failed case, what the people who check say with the points they take off, a note,
-  the tables of the lenses when the view carries them (every part that failed, every kind of
-  case), and the money: the bill of the two months line by line (`bill`), what was paid from
-  the account, money that arrived with the report, what is left in the account, the score of
-  the year so far and the rank. An account below zero is red, and a sentence under it says
-  that nothing can be bought until it is positive again and that the system keeps running.
+  under it. Under the reliability the number of interruptions. Then the map that ran, and
+  the money: the bill of the two months line by line (`bill`), what was paid from the
+  account, money that arrived with the report, what is left in the account, the score of the
+  year so far and the rank. An account below zero is red, and a sentence under it says that
+  nothing can be bought until it is positive again and that the system keeps running. **The
+  sheet of a report holds nothing else.** What else is known of the two months (the sentences
+  of the pack, the worst change as a symptom with its cause when the view carries it, the part
+  that failed most, what the people who check say, a note, the tables of the lenses) is one
+  press away in the panel of the year ("More about these two months").
+- **Letters and memos.** Every letter and memo of the year (`news:` in the inbox, an alarm
+  included) opens once in a window of its own, the oldest first, after the report it came
+  with is closed and before the reference maps are offered: who writes, with the portrait,
+  the title, the text, and one button. It then stays as a card under "Letters and insights".
+  What was opened is kept in the browser. Money that arrives is said by the letter that
+  brings it and by the report, and by no toast.
+- **A lost patient, with a hint.** A lost case (`missed`) carries `hint`, a sentence or two on
+  what would have saved it: the source it needed and how to reach or read it better. It names
+  a tool or an action only when that is on the player's board, and otherwise says that more
+  will show up. In Phase 2 it stands under the validation, in Phase 3 under the map in
+  service (the case of the last report) or under the newest validation.
 - **The year.** One cell across both columns under the map, above the list of maps and the
   letters: on the left the chart (one slot for each period of the year as its clock stands: more slots when time is added, with a label left out where slots get narrow, and the calendar year marked where one begins; with validity, reliability and
   the score of every period that has a report, the test-set accuracy of that period's map as a
@@ -4256,7 +4313,7 @@ in the box that holds the count of players in every other scene ("SLIDE 7 of 19"
 anyone in the room can ask about a slide by its number. The projector never shows the notes and
 never marks a placeholder. One component draws a slide everywhere (the projector, a player's
 screen, the previews of the console), always at 1920 × 820 px and scaled as one block, so a
-slide looks the same wherever it shows. A slide has one of five layouts:
+slide looks the same wherever it shows. A slide has one of eight layouts:
 
 | Layout | Shows |
 | --- | --- |
@@ -4265,7 +4322,15 @@ slide looks the same wherever it shows. A slide has one of five layouts:
 | `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
 | `standings` | The leaderboard of the game, from the slide's `standings: {rows, highlight}` (ten rows and three large by default). The first `highlight` players stand side by side as large boxes with their rank, character, name and total points, the winner a little taller, and the others in a list beside them. Before a phase is scored the slide is a frame that says when it fills in, and until the last phase is scored a line says that these are the standings so far. The names come from the board of the session, so a facilitator can call the winners from this slide |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
-| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here" |
+| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code |
+| `phase` | The opening of a part of the session: the `kicker` as a large tag ("Phase 2"), the title very large, the subtitle under it. Nothing to read through |
+| `shot` | A slide that belongs to its picture, such as a screenshot of the game: a few bullets on the left and the `image` large on the right. With `images` the pictures stand in one row, the first at its full height |
+
+On every layout a `kicker` stands as a small tag over the title, and a figure without a picture
+shows its `mark` in the colored box and its caption beside the title. **A word between two
+pairs of stars is marked** (`**money**`): it is drawn heavier on a thick underline in bullets,
+subtitles and the text and points of a box. A chart with more than five bars takes a wide
+column for the names and thinner bars.
 
 **A slide uses its whole height** (lab director, round 11). Boxes grow down to the strip at
 the foot of the slide, the bullets of a plain slide stand in the middle of the area, and two

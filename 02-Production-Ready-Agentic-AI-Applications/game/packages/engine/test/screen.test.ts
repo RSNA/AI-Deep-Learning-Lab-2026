@@ -163,25 +163,32 @@ describe('a slide as a browser gets it', () => {
     expect(nets.cards.map((c) => c.system)).toEqual([s.systems.indexOf('rb'), s.systems.indexOf('ls')])
     expect(cards.cards.every((c) => c.system === null)).toBe(true)
     // A plain slide of the pack has the default layout and no part it did not ask for.
-    expect(project.slideView(s, pack, at('planning-1'))).toMatchObject({ layout: 'bullets', subtitle: null, qr: null, people: [], figures: [], charts: [] })
+    expect(project.slideView(s, pack, at('planning-2'))).toMatchObject({ layout: 'bullets', kicker: null, subtitle: null, qr: null, people: [], figures: [], image: null, images: [] })
+    // The slide that opens a part of the session carries its short line, and marks stay in the text for the screen to draw.
+    expect(project.slideView(s, pack, at('development-1'))).toMatchObject({ layout: 'phase', kicker: 'Season 2', subtitle: 'Every design was tried on a **week** of requests.' })
     const closing = project.slideView(s, pack, at('closing-2'))!
     expect(closing.qr).toEqual({ show: 'link', url: null, label: 'Tell us how it went' })
     expect(closing.references.length).toBe(2)
-    expect(project.slideView(s, pack, at('closing-1'))!.figures.map((f) => f.image)).toEqual([null, null])
+    expect(project.slideView(s, pack, at('closing-1'))!.figures.map((f) => [f.image, f.mark])).toEqual([[null, 'In print'], [null, null]])
   })
 
-  it('draws how the room sorted each class and who found the big project once Phase 1 is scored, and empty frames before', () => {
+  it('draws how the room sorted each class and each problem, and who found the big project, once Phase 1 is scored, and empty frames before', () => {
     const s = newSession()
     join(s, 'p1', 'Alpha Branch', 0)
     join(s, 'p2', 'Beta Works', 1)
     host(s, 'next', {}, 500)
     host(s, 'next', {}, 1000)
     const i = at('planning-2')
-    // Before the phase is scored the two charts are there without a number, and the one number reads as a dash.
-    const before = project.slideView(s, pack, i)!.charts
-    expect(before.map((c) => c.bars.length)).toEqual([pack.game.phases.planning.class_order.length, s.systems.length])
+    const every = s.systems.flatMap((id) => pack.systems[id]!.problems!)
+    const systemChart = () => project.slideView(s, pack, at('planning-1'))!.charts[0]!
+    // Before the phase is scored the charts are there without a number, and the one number reads as a dash.
+    const before = [...project.slideView(s, pack, i)!.charts, systemChart()]
+    expect(before.map((c) => c.bars.length)).toEqual([pack.game.phases.planning.class_order.length, every.length, s.systems.length])
     expect(before.every((c) => c.bars.every((b) => b.value === null && b.note === null))).toBe(true)
     expect(project.slideView(s, pack, at('planning-1'))!.stat).toEqual({ label: 'of the room found the agent project', value: '–' })
+    // The chart problem by problem stands in the order of the pack and in one color, so that it gives no class away.
+    expect(before[1]!.bars.map((b) => b.label)).toEqual(every.map((k) => k.public.title))
+    expect(new Set(before[1]!.bars.map((b) => b.tone)).size).toBe(1)
     // One practice puts every problem in its true class, the other sorts nothing.
     const keys = pack.systems[s.players.p1!.system]!.problems!
     const picks = Object.fromEntries(keys.map((k) => [k.id, k.key.class]))
@@ -190,7 +197,8 @@ describe('a slide as a browser gets it', () => {
     const wrong = pack.game.phases.planning.class_order.find((c) => c !== other.key.class)!
     expect(run(s, { actor: 'player', playerId: 'p2', type: 'planning.set_report', payload: { picks: { [other.id]: wrong } } }, 1600).ok).toBe(true)
     host(s, 'end_now', {}, 2000)
-    const [chart, bySystem] = project.slideView(s, pack, i)!.charts as [SlideChart, SlideChart]
+    const [chart, byProblem] = project.slideView(s, pack, i)!.charts as [SlideChart, SlideChart]
+    const bySystem = systemChart()
     const order = [...pack.game.phases.planning.class_order].reverse()
     expect(chart.bars.map((b) => b.label)).toEqual(order.map((id) => pack.game.phases.planning.classes.find((c) => c.id === id)!.short))
     // Half of the room placed each class right: every bar is at 50 percent.
@@ -202,6 +210,14 @@ describe('a slide as a browser gets it', () => {
     expect(bySystem.bars.find((b) => b.label === pack.systems[s.players.p1!.system]!.system.public.name)).toMatchObject({ value: 100, note: '1 of 1' })
     expect(bySystem.bars.find((b) => b.label === pack.systems[s.players.p2!.system]!.system.public.name)).toMatchObject({ value: 0, note: '0 of 1' })
     expect(project.slideView(s, pack, at('planning-1'))!.stat!.value).toBe('50%')
+    // Problem by problem: every problem of the practice that sorted all of them is at 100, the one the other
+    // practice placed wrong is at 0, and the bars now stand by class, the agentic class first, in the colors of the classes.
+    for (const k of keys) expect(byProblem.bars.find((b) => b.label === k.public.title)).toMatchObject({ value: 100, note: '1 of 1' })
+    expect(byProblem.bars.find((b) => b.label === other.public.title)).toMatchObject({ value: 0, note: '0 of 1' })
+    const classOf = new Map(every.map((k) => [k.public.title, pack.game.phases.planning.class_order.indexOf(k.key.class)]))
+    const ranks = byProblem.bars.map((b) => classOf.get(b.label)!)
+    expect(ranks).toEqual([...ranks].sort((x, y) => y - x))
+    expect(new Set(byProblem.bars.map((b) => b.tone)).size).toBeGreaterThan(1)
   })
 
   it('gives a host the whole deck with the notes, and one player beside the key', () => {

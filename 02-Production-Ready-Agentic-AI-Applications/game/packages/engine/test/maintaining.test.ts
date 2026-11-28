@@ -3,8 +3,8 @@
 // reference map taken, repairs and lenses, a host who extends or ends the stage, a late player,
 // the score of the year, and what a view may and may not say.
 import { describe, expect, it } from 'vitest'
-import { fromPackMap, periodName, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
-import { advance, project, type SessionState } from '../src/index.ts'
+import { fromPackMap, movedMap, movedPlaces, periodName, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
+import { advance, evaluate, project, type SessionState } from '../src/index.ts'
 import { live, period } from '../src/maintain.ts'
 import { offerTitle } from '../src/project/maintaining.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
@@ -149,6 +149,33 @@ describe('rounds and reports', () => {
     expect(shown.bill.length).toBeGreaterThan(0)
     expect(shown.bill.every((x) => x.label.length > 0 && x.money > 0)).toBe(true)
     expect(shown).toMatchObject({ granted: third.granted, account: third.account })
+  })
+  it('a contract that moves the models covers every map by itself, and the suspension of a leaking map ends', () => {
+    const { s, t0 } = year()
+    // SMALL runs its agent on the open API. The contract moves every tile on it to the private link.
+    const contract = B3.actions.find((a) => a.moves?.['rb-c-api'] === 'rb-c-private')!
+    expect(st(s).validations[0]!.map.tiles[0]!.runsOn).toBe('rb-c-api')
+    st(s).money = 500
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: contract.id }, t0 + 1))).toBe('ok')
+    advance(s, pack, t0 + 1 + contract.seconds * 1000)
+    const m = st(s)
+    expect(m.actionsDone.some((d) => d.id === contract.id)).toBe(true)
+    // The draft and the validated map that is in service follow, with what they cost to run.
+    expect(m.map.tiles[0]!.runsOn).toBe('rb-c-private')
+    expect(m.validations[0]!.map.tiles[0]!.runsOn).toBe('rb-c-private')
+    expect(m.validations[0]!.running.money).toBeCloseTo(evaluate(m.validations[0]!.map, B3).running.money, 9)
+    expect(m.deployed).toBe('v1')
+    // The open API is off the shelf, the private link is on it, and a map on the old place is refused.
+    expect(view(s).unlocked).toContain('rb-c-private')
+    expect(view(s).unlocked).not.toContain('rb-c-api')
+    expect(err(cmd(s, 'p1', 'maintaining.set_map', { map: SMALL }, t0 + 60_000))).toBe('invalid_map')
+    // The next report is made from the moved map: no private data leaves unprotected, and it is not a new map.
+    advance(s, pack, boundary(t0, 1))
+    const r = m.reports[1]!
+    expect(r.map).toBe('v1')
+    expect(r.components.some((c) => c.part === 'new_map')).toBe(false)
+    expect(r.bill.some((x) => x.kind === 'place' && x.id === 'rb-c-private')).toBe(true)
+    expect(r.bill.some((x) => x.id === 'rb-c-api')).toBe(false)
   })
   it('an account below zero buys nothing, and the system keeps running', () => {
     const { s, t0 } = year()
@@ -413,9 +440,10 @@ describe('the five commands', () => {
     const ref = referenceMaps(B).find((r) => r.id === 'clerk')!
     const draft = st(s).map
     if (draft.tiles.length) {
-      // The player brought a map: taking a reference map leaves their draft alone.
+      // The player brought a map: taking a reference map leaves their draft alone, apart from the
+      // place its models run on, which the contract that the reference map needs moves.
       expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'clerk' }, t0 + 1))).toBe('ok')
-      expect(st(s).map).toEqual(draft)
+      expect(st(s).map).toEqual(movedMap(draft, movedPlaces(B3, st(s).actionsDone.map((d) => d.id))))
     }
     expect(err(cmd(s, 'p1', 'maintaining.set_map', { map: { tiles: [], lines: [] } }, t0 + 2))).toBe('ok')
     expect(err(cmd(s, 'p1', 'maintaining.adopt', { id: 'lean' }, t0 + 3))).toBe('ok')

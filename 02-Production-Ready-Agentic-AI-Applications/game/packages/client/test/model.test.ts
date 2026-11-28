@@ -3,7 +3,7 @@
 // tile that moves keeps its lines.
 import { describe, expect, it } from 'vitest'
 import type { CanvasMap } from '@lab02/protocol'
-import { addLine, hasLoop, lineKey, mapProblem, moveTile, reaches, sameLayout, setLineSide, targetsOf, type Vocabulary } from '../src/canvas/model.ts'
+import { addLine, endTargets, hasLoop, lineKey, mapProblem, moveLineEnd, moveTile, reaches, sameLayout, setLineSide, targetsOf, type Vocabulary } from '../src/canvas/model.ts'
 
 const v = {
   cols: 5, rows: 5,
@@ -67,5 +67,50 @@ describe('a line on the dot the player picked', () => {
     expect(setLineSide(m, lineKey(m.lines[0]!), 'from', 'top')).toBe(m)
     // A side changes how a line is drawn, not which map it is: the same map is not validated twice for it.
     expect(sameLayout(m, moved)).toBe(true)
+  })
+})
+
+describe('an end of a line that moves to another node', () => {
+  // A second source, so that the start of a line has somewhere else to go.
+  const v2 = { ...v, sources: [{ id: 's1' }, { id: 's2' }] } as unknown as Vocabulary
+  // The case of the play check: the agent (t1) hands to the result, and a radiologist (t2) was placed afterwards.
+  const m: CanvasMap = { tiles, lines: [{ from: 's1', to: 't1' }, { from: 't1', to: 'res', fromSide: 'bottom' }] }
+  it('points the arrow at another tile and keeps the start with its side', () => {
+    const r = moveLineEnd(m, v2, 't1>res', 'to', 't2', 'top')!
+    expect(r.key).toBe('t1>t2')
+    expect(r.map.lines).toEqual([{ from: 's1', to: 't1' }, { from: 't1', to: 't2', fromSide: 'bottom', toSide: 'top' }])
+    expect(mapProblem(r.map, v2, new Set(['s1', 's2', 'tool']))).toBeNull()
+  })
+  it('moves the start to another source or tile and keeps the arrow end', () => {
+    expect(moveLineEnd(m, v2, 's1>t1', 'from', 's2')!.map.lines).toContainEqual({ from: 's2', to: 't1' })
+    const r = moveLineEnd(m, v2, 't1>res', 'from', 't2')!
+    expect(r.key).toBe('t2>res')
+    // The side of the old start is not carried to the new tile.
+    expect(r.map.lines).toContainEqual({ from: 't2', to: 'res' })
+  })
+  it('on the same tile it only changes the side, and without a side it changes nothing', () => {
+    expect(moveLineEnd(m, v2, 't1>res', 'from', 't1', 'top')!.map.lines[1]).toEqual({ from: 't1', to: 'res', fromSide: 'top' })
+    expect(moveLineEnd(m, v2, 't1>res', 'from', 't1')!.map).toBe(m)
+  })
+  it('refuses a loop, a second line between the same two nodes, a source as an end and the result as a start', () => {
+    const chain: CanvasMap = { tiles, lines: [{ from: 't1', to: 't2' }, { from: 't2', to: 't3' }, { from: 's1', to: 't3' }] }
+    expect(moveLineEnd(chain, v2, 't2>t3', 'to', 't1')).toBeNull()         // t1 already hands to t2
+    expect(moveLineEnd(chain, v2, 's1>t3', 'from', 't2')).toBeNull()       // t2 to t3 exists
+    expect(moveLineEnd(chain, v2, 't1>t2', 'to', 's1')).toBeNull()
+    expect(moveLineEnd(chain, v2, 't1>t2', 'from', 'res')).toBeNull()
+    expect(moveLineEnd(chain, v2, 't1>t2', 'to', 't1')).toBeNull()         // both ends on one tile
+    expect(moveLineEnd(chain, v2, 'nope', 'to', 't1')).toBeNull()
+  })
+  it('a line moved into the result takes the place of the one that was there', () => {
+    const two: CanvasMap = { tiles, lines: [{ from: 't1', to: 'res' }, { from: 't2', to: 't3' }] }
+    expect(moveLineEnd(two, v2, 't2>t3', 'to', 'res')!.map.lines).toEqual([{ from: 't2', to: 'res' }])
+  })
+  it('lights up where an end may go: the nodes the other end allows, and no locked source', () => {
+    expect([...endTargets(m, v2, 't1>res', 'to')].sort()).toEqual(['t2', 't3'])
+    expect([...endTargets(m, v2, 't1>res', 'from')].sort()).toEqual(['t2', 't3'])
+    expect([...endTargets(m, v2, 's1>t1', 'from')].sort()).toEqual(['s2', 't2', 't3'])
+    expect([...endTargets(m, v2, 's1>t1', 'from', new Set(['s1', 'tool']))].sort()).toEqual(['t2', 't3'])
+    expect([...endTargets(m, v2, 's1>t1', 'to')].sort()).toEqual(['t2', 't3'])
+    expect(endTargets(m, v2, 'nope', 'to').size).toBe(0)
   })
 })

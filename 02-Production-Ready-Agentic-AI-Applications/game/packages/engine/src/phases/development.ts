@@ -3,11 +3,12 @@
 // money, developers and time, and validates the map. The accuracy of the submitted map is the
 // whole score of the phase. The scoring itself is `evaluate` in ../canvas.ts.
 import {
-  copyLine, mapErrors, readyReasons, ruledLines, startUnlocked, type BuildFile, type CanvasMap, type Pack,
+  copyLine, mapErrors, movedMap, movedPlaces, readyReasons, ruledLines, startUnlocked, type BuildFile, type CanvasMap, type Pack,
 } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
 import { evaluate } from '../canvas.ts'
 import { fireDialogue } from '../story.ts'
+import type { Missed, NoteId, Running } from '../canvas.ts'
 import type {
   DevelopmentResult, DevelopmentState, DevelopmentValidation, EngineEvent, FeedEntry, GameMs, PlayerState, SessionState,
 } from '../state.ts'
@@ -23,8 +24,33 @@ export function buildOf(pack: Pack, p: PlayerState): BuildFile {
 export function unlockedOf(pack: Pack, p: PlayerState): Set<string> {
   const b = buildOf(pack, p)
   const out = startUnlocked(b)
-  for (const d of p.development?.actionsDone ?? []) for (const id of b.actions.find((a) => a.id === d.id)?.unlocks ?? []) out.add(id)
+  const done = p.development?.actionsDone ?? []
+  for (const d of done) for (const id of b.actions.find((a) => a.id === d.id)?.unlocks ?? []) out.add(id)
+  for (const from of movedPlaces(b, done.map((d) => d.id)).keys()) out.delete(from)
   return out
+}
+
+/**
+ * The actions done moved some tiles to another place (`moves` of an action): the draft, the map
+ * that is being validated and every validated map follow, with what they cost to run. A note
+ * about private data is read again, since the new place may protect it. Nothing else changes.
+ */
+export function moveMaps(
+  b: BuildFile, done: readonly { id: string }[],
+  st: { map: CanvasMap; validating: { map: CanvasMap } | null; validations: { map: CanvasMap; running: Running; note: NoteId | null; missed: Missed | null }[] },
+): void {
+  const moved = movedPlaces(b, done.map((d) => d.id))
+  if (!moved.size) return
+  st.map = movedMap(st.map, moved)
+  if (st.validating) st.validating.map = movedMap(st.validating.map, moved)
+  for (const v of st.validations) {
+    const m = movedMap(v.map, moved)
+    if (m === v.map) continue
+    const ev = evaluate(m, b)
+    v.map = m
+    v.running = ev.running
+    if (v.note === 'private_data') v.note = ev.note
+  }
 }
 
 export function developersFree(pack: Pack, p: PlayerState): number {
@@ -54,6 +80,14 @@ export function copyMap(m: CanvasMap): CanvasMap {
 }
 
 export const EMPTY_MAP: CanvasMap = { tiles: [], lines: [] }
+
+/**
+ * The validations that count against `validate.runs`: every one after the first `validate.free`
+ * of the phase, with the one that runs now.
+ */
+export function runsUsed(b: BuildFile, st: DevelopmentState): number {
+  return Math.max(0, st.validations.length + (st.validating ? 1 : 0) - (b.validate.free ?? 0))
+}
 
 /** The best accuracy of a player's validations, the earliest on a tie. */
 function best(st: DevelopmentState): DevelopmentValidation | null {
@@ -94,6 +128,7 @@ function finishAction(pack: Pack, p: PlayerState, id: string, at: GameMs): Engin
   st.actionsRunning = st.actionsRunning.filter((r) => r.id !== id)
   st.actionsDone.push({ id, atMs: at })
   const a = buildOf(pack, p).actions.find((x) => x.id === id)
+  if (a?.moves) moveMaps(buildOf(pack, p), st.actionsDone, st)
   const events: EngineEvent[] = []
   if (a?.insight) events.push({ kind: 'moment', playerId: p.id, atMs: at, ref: { type: 'insight', action: id } })
   events.push(...fireDialogue(pack, p, 'development', `insight:${id}`, at))
@@ -199,7 +234,7 @@ export const development: PhaseModule = {
       now,
       facts: [
         { label: 'Best accuracy', value: top ? `${Math.round(100 * top.accuracy)}%` : 'Not validated yet' },
-        { label: 'Validations used', value: `${st?.validations.length ?? 0} of ${b.validate.runs}` },
+        { label: 'Validations used', value: `${st ? runsUsed(b, st) : 0} of ${b.validate.runs}` },
         { label: 'Actions done', value: `${st?.actionsDone.length ?? 0} of ${b.actions.length}` },
       ],
       map: st ? copyMap(st.map) : null,
@@ -243,7 +278,7 @@ export const development: PhaseModule = {
       if (!st) return fail('wrong_stage')
       const b = buildOf(pack, p)
       if (st.validating) return fail('validation_running')
-      if (st.validations.length >= b.validate.runs) return fail('no_validations_left')
+      if (runsUsed(b, st) >= b.validate.runs) return fail('no_validations_left')
       if (mapErrors(st.map, b, unlockedOf(pack, p)).length || readyReasons(st.map, b).length) return fail('not_ready')
       st.validating = { id: nextValidationId(st), startedAtMs: now, completesAtMs: now + b.validate.seconds * 1000, map: copyMap(st.map) }
       return ok(p)

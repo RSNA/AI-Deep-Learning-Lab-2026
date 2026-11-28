@@ -419,7 +419,7 @@ test('a game that starts again and ends: a dialog keeps its field, the players f
   await page.getByRole('button', { name: 'Restart the game' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Restart the game' }).click()
   await expect(pp.locator('.restartbar')).toContainText('The facilitator started the game again.')
-  await expect(pp.getByText('I am in. Waiting for the facilitator to start.')).toBeVisible()
+  await expect(pp.getByText('I am in, and I am waiting for the facilitator to start.')).toBeVisible()
   await expect(cols.nth(0).locator('.prow')).toContainText('Second Tester')
   await expect(page.getByText('Now on stage').locator('xpath=following-sibling::*[1]')).toHaveText('Lobby')
 

@@ -157,7 +157,8 @@ const CanvasContent = {
   rules: S({
     cols: Int, rows: Int, money: z.number(), developers: Int,
     columns: z.array(CanvasColumn).nullable(),
-    validations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
+    // `validations`: how many validations count. `freeValidations`: the first ones of Phase 2 that do not.
+    validations: Int, freeValidations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
     moneyUnit: Text.nullable(),         // written after a sum of money, such as k$
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actionGroups: z.array(S({ id: z.string(), label: Text })),
@@ -221,7 +222,7 @@ export type PhaseContent = z.infer<typeof PhaseContent>
 // ------------------------------------------------------------------------------------------
 // Slides (one deck per session). A slide reaches a browser only while it is shown.
 // ------------------------------------------------------------------------------------------
-export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings'] as const
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings', 'phase', 'shot'] as const
 export const SlideLayout = z.enum(SLIDE_LAYOUTS)
 export type SlideLayout = z.infer<typeof SlideLayout>
 export const SlideTone = z.enum(['go', 'sky', 'sun', 'lav', 'rose'])
@@ -233,18 +234,21 @@ export const SlideView = S({
   section: Text,
   layout: SlideLayout,
   title: Text,
+  kicker: Text.nullable(),          // a short line over the title
   subtitle: Text.nullable(),
   bullets: z.array(Text),
   // `system`: the index of a health system of the session, when the box belongs to one. It then
   // takes that system's color and shape in place of its tone.
   cards: z.array(S({ title: Text, text: Text.nullable(), points: z.array(Text), tag: Text.nullable(), tone: SlideTone, system: Int.nullable() })),
   people: z.array(S({ name: Text, role: Text.nullable(), photo: z.string().nullable() })),   // photo: URL under the pack's art
-  figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), tone: SlideTone })),
+  // `mark`: the words in the box that stands in for a picture.
+  figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), mark: Text.nullable(), tone: SlideTone })),
   // A QR code. `join` is the join link of the session, which every client already holds.
   // `link` carries its own URL, or null for a frame that waits for one.
   qr: S({ show: z.enum(['join', 'link']), url: z.string().nullable(), label: Text.nullable() }).nullable(),
   references: z.array(Text),
   image: z.string().nullable(),     // URL under the pack's art
+  images: z.array(z.string()),      // more pictures beside it, in one row
   stat: S({ label: Text, value: Text }).nullable(),   // a room statistic that is one number. "–" until the room has it
   // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
   // behind it is scored: the frame of the chart shows before the numbers do.
@@ -278,7 +282,8 @@ export const PlanningView = S({
 })
 export type PlanningView = z.infer<typeof PlanningView>
 
-const Missed = S({ title: Text, text: Text, why: Text })
+// `hint`: what would have saved the case, in a sentence or two that name only what is on the player's board.
+const Missed = S({ title: Text, text: Text, why: Text, hint: Text })
 export const ReadyDetail = z.discriminatedUnion('reason', [
   S({ reason: z.literal('nothing_reaches_result') }),
   S({ reason: z.literal('no_source_connected') }),
@@ -314,6 +319,7 @@ export const DevelopmentView = S({
     id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
     unhurried: z.number().nullable(),               // what the map would reach if nobody rushed
     rank: Int.nullable(), of: Int,                  // the rank in the live column right after it
+    free: z.boolean(),                              // it did not count against the validations of the phase
     missed: Missed.nullable(),
     note: Text.nullable(),
     running: Running.nullable(),

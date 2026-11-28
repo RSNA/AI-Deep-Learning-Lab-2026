@@ -32,6 +32,11 @@ export const reach = (used: number, max: number, past = false): string => {
   return `only ${who} ${past ? 'got' : even ? 'gets' : 'get'} a full look`
 }
 
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+/** A small count in words, as a person would say it: "two models", "one place". */
+export const count = (n: number, one: string, many: string) => `${WORDS[n] ?? String(n)} ${n === 1 ? one : many}`
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
 export const P2 = {
   phase: 'Phase 2',
   actions: 'Actions',
@@ -44,12 +49,12 @@ export const P2 = {
   validations: 'Validations',
   freeOf: (n: number, of: number) => `${n} of ${of} free`,
   left: (n: number) => `${n} left`,
-  moneyLine: 'An action is paid when it starts. Its developers are back when it ends.',
+  moneyLine: 'You pay for an action when it starts, and you get its developers back when it ends.',
   models: 'Models',
   computes: 'Where they run',
   // A tool that is plain software carries no tag: the card beside it says what it is.
   kinds: { ai: 'AI', fixed: '', person: 'Person' } as Record<string, string>,
-  pickHint: 'Tap an operator or a tool, then an empty cell of the map.',
+  pickHint: 'Tap an operator or a tool, and then tap an empty cell of the map.',
   picked: 'Now click an empty cell. Esc cancels.',
   locked: (action: string) => `Opens with: ${action}`,
   lockedNoAction: 'Not open in this phase',
@@ -72,35 +77,118 @@ export const P2 = {
   cleared: 'The map is clear. Undo brings it back.',
   // Hints in the bar of the map
   hint: {
-    idle: 'Pick an operator or a tool in the toolbox, then a cell. Join with a round dot.',
+    idle: 'Pick an operator or a tool in the toolbox and then a cell. To join two tiles, drag from a round dot.',
     place: (label: string) => `Click an empty cell for the ${label}. Esc cancels.`,
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
     join: (label: string) => `Click a lit tile, one of its dots, or the result to join ${label}. Esc cancels.`,
     tile: (label: string) => `${label} is selected.`,
-    line: (from: string, to: string) => `Line from ${from} to ${to}. Click a dot on either tile to move that end there.`,
+    line: 'Drag an end of this line to another tile, or click the tile it should point to.',
+    lineEnd: (end: 'from' | 'to') =>
+      end === 'from' ? 'Click the source or the tile where this line should start. Esc cancels.' : 'Click the tile this line should point to. Esc cancels.',
   },
   replaced: 'The result takes one line. The new line replaced the old one.',
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
   // The tour of the phase (section 10.1). It describes the screen, never an answer.
   tour: [
-    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
-    { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round dot of a tile to the tile that gets its work. A tile has a dot on each side: the line leaves from the dot you press. Select a line and press another dot to move that end. A line may run any way, but never in a loop. The work ends in the result.' },
-    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
-    { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
-    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. What you do puts more on your board: new tools, new models and new actions appear as your team learns and buys. Explore, and choose with care, because the budget does not stretch to everything.' },
-    { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Test the map against patients whose answers people checked. While the button cannot act, the line beside it says what to do next.' },
-    { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy and one patient the map got wrong, and you can bring back the map of any of them. The opening letter and the insights of actions wait here too.' },
+    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'This is where patient data and evidence live. When you draw a line from a source to a tile, that operator or tool can read it. A source with a lock opens once you take the right action.' },
+    { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are the people and the agents, and each tool does one job. Pick one and then click any empty cell of the map to place it. Point at a row if you want to read more about it.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'To connect two tiles, drag from a round dot of one tile to the other tile, or click the dot and then the tile. If you select a line, you can drag either of its ends somewhere else. Lines may run in any direction as long as they never form a loop, and the work has to end in the result.' },
+    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time, so the result is already waiting when the person who signs opens the case.' },
+    { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI agent needs a model, a place to run and a prompt, and you choose them in the three boxes on its tile. These shelves show what you have so far.' },
+    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Here your team can learn, build, buy or negotiate. Every action costs money, keeps some of your developers busy and takes time, and it brings back an insight or opens something new. The more your team learns and buys, the more shows up on your board. Do explore, but choose with care, because the money does not come back.' },
+    { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Validate tests your map on patients whose answers people have already checked. When the button cannot be pressed, the line beside it tells you what to do next.' },
+    { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy, one patient the map got wrong and a hint on what would help. You can bring back the map of any validation. The opening letter and the cards from your actions are here too.' },
   ],
+  // The guided first build (section 10.5): hands-on, one step at a time, after the tour. Every
+  // sentence is said the way a friendly colleague would say it over the player's shoulder.
+  first: {
+    label: 'Your first build',
+    stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
+    skip: 'Skip the tutorial',
+    again: 'Do the guided first build',
+    action: {
+      title: 'Start by learning something',
+      text: (action: string) => `Good teams learn before they build. Press Start on “${action}”. It costs nothing, and your team comes back with a card that is worth reading.`,
+    },
+    wait: {
+      title: 'Your team is on it',
+      text: (s: number) => `Give them a moment. The card arrives in about ${s} ${s === 1 ? 'second' : 'seconds'}. The clock of the phase keeps running in the meantime, just like in real life.`,
+    },
+    card: {
+      title: 'Your first insight is in',
+      text: 'This card is what your team brought back. Have a look at it, because cards like this one tell you what your map needs. Every action that teaches you something leaves a card here.',
+      ok: 'I have read it',
+    },
+    pick: {
+      title: (label: string) => `Put your first ${label} on the map`,
+      text: (label: string) => `Press ${label} in the toolbox. It is the operator that works things out for itself, which is why it needs a model, a place to run and a prompt.`,
+    },
+    cell: {
+      title: 'Give it a spot',
+      text: (label: string) => `Now press any empty cell of the map. The ${label} works the same in every cell, so pick the spot you like.`,
+    },
+    model: {
+      title: 'Choose its model',
+      open: (name: string) => `Your ${name} cannot think without a model. Press the box that says “+ Model” on its tile.`,
+      choose: (n: number) => `You have ${count(n, 'model', 'models')} for now. Pick ${n === 1 ? 'it' : 'the one you want'}. Keep learning and building, and more will show up here.`,
+    },
+    runsOn: {
+      title: 'Choose where it runs',
+      open: 'A model has to run somewhere. Press the box that says “+ Runs on”.',
+      choose: (n: number) => `You have ${count(n, 'place', 'places')} to run it for now. Pick ${n === 1 ? 'it' : 'one'}. Keep learning and building, and more will show up here.`,
+    },
+    prompt: {
+      title: 'Have a look at its prompt',
+      open: 'The third box is the prompt, which is what you tell your agent to do. It came with a plain one. Press the box to see your choices.',
+      choose: (n: number) => `You have ${count(n, 'prompt', 'prompts')} for now. Read how each one starts and pick the one you would hand to a new colleague. Keep learning, and more will show up here.`,
+      keep: 'Keep the one it has',
+    },
+    source: {
+      title: 'Give it something to read',
+      from: (name: string, source: string | null) => `Right now your ${name} knows nothing about the patient. Press the round dot of a source on the left${source ? `, for example ${source}` : ''}.`,
+      to: (name: string) => `Now press your ${name}. The line you draw lets it read that source. You can add more sources later in the same way.`,
+    },
+    person: {
+      title: (label: string) => `Now bring in the ${label}`,
+      pick: (label: string) => `An agent should not send its work out unchecked. Press ${label} in the toolbox.`,
+      cell: (name: string) => `Press an empty cell to the right of your ${name}, so that the work flows from left to right.`,
+    },
+    handoff: {
+      title: 'Hand the work on',
+      from: (name: string) => `Press one of the round dots on your ${name}.`,
+      to: (from: string, to: string) => `Now press the ${to}. The thick line means that your ${from} hands its work on.`,
+    },
+    result: {
+      title: 'Bring it home',
+      from: (name: string) => `One more line and you have a system. Press a round dot on the ${name}.`,
+      to: (result: string) => `Now press “${result}” on the right. That is where the finished work goes.`,
+    },
+    validate: {
+      title: 'Put it to the test',
+      text: (free: boolean) => `Press Validate.${free ? ' This first one is free, so you have nothing to lose.' : ''} If the button is grey, the line beside it tells you what is still missing.`,
+    },
+    validating: {
+      title: 'The test is running',
+      text: 'Your map is working through patients whose answers people have already checked. The result is here in a few seconds.',
+    },
+    done: {
+      title: 'You built a working system',
+      text: (free: boolean, left: number) =>
+        `${free ? 'This validation was free.' : 'That was your first validation.'} You still have ${count(left, 'validation', 'validations')} left. Keep going until you find the system you want.`,
+      more: 'Your accuracy is in the list of validations, together with one patient the map got wrong.',
+      ok: 'Keep building',
+    },
+    cap,
+  },
   helpTitle: 'Help · Phase 2',
-  helpIntro: 'Build a map that solves the problem of the letter, then validate it. The accuracy of your chosen map is your score.',
+  helpIntro: 'Build a map that solves the problem from the letter, and then validate it. Your score is the accuracy of the map you choose.',
   helpMarks: 'What the marks on the map mean',
   markWarn: 'Private data goes through a service that does not protect it.',
-  markStray: 'Dashed and pale: the tile has no line out yet, so its work goes nowhere.',
-  markMissing: 'A box in yellow: this AI tile still needs that part.',
-  markGuide: 'A glowing outline: what the line beside Validate is about.',
-  markAdvice: 'An i on a line: advice about that line. Click it to read it again.',
-  markLock: 'A lock: the source opens with an action.',
+  markStray: 'A dashed, pale tile has no line out yet, so its work goes nowhere.',
+  markMissing: 'A yellow box means that this AI tile still needs that part.',
+  markGuide: 'A glowing outline shows what the line beside Validate is talking about.',
+  markAdvice: 'An i on a line means there is advice about that line. Click it to read the advice again.',
+  markLock: 'A lock means that the source opens with an action.',
   lockedTold: (action: string | null) => (action ? `Locked. Do “${action}” in Actions to open it.` : 'Locked in this phase.'),
   personBody: (used: number, max: number) => `Needs ${num(used)} min per patient, has ${num(max)}`,
   // The parts of a tile
@@ -152,12 +240,14 @@ export const P2 = {
     port: (label: string) => `Draw a line from ${label}`,
     joinHere: (label: string) => `Join to ${label}`,
     line: (from: string, to: string) => `Line from ${from} to ${to}. Select it to remove it.`,
+    lineEnd: (end: 'from' | 'to', from: string, to: string) =>
+      end === 'from' ? `Move the start of the line from ${from} to ${to}` : `Move the arrow end of the line from ${from} to ${to}`,
     advice: 'Advice on this line', close: 'Close',
   } as Omit<GridWords, 'pickModel' | 'pickCompute' | 'defaultPrompt' | 'locked' | 'lockedNoAction' | 'model' | 'compute' | 'prompt'>,
   // Actions
   start: 'Start',
   done: 'Done',
-  noCancel: 'Paid up front, cannot be stopped.',
+  noCancel: 'You pay up front, and an action cannot be stopped.',
   noCancelLong: 'An action is paid when it starts and cannot be stopped. Several can run at once while money and developers allow.',
   cost: (money: number, devs: number, s: number) =>
     [money ? (unit ? `${moneyOf(money)}${unit}` : `${moneyOf(money)} money`) : 'Free', devs ? `${devs} dev${devs === 1 ? '' : 's'}` : 'no devs', `${s} s`].join(' · '),
@@ -172,6 +262,7 @@ export const P2 = {
       ? `Your account is below zero, so it cannot pay ${moneyOf(n)}${unit || ' money'}.`
       : `Costs ${moneyOf(n)}${unit || ' money'}, and you have ${moneyOf(have)}${unit || ''} left.`,
   belowZero: 'Your account is below zero. Nothing can be bought until it is positive again.',
+  hintLabel: 'What would help:',
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Said once, when a player has started this many actions.
   spendAfter: 4,
@@ -186,6 +277,7 @@ export const P2 = {
   privateWarn: 'Private data goes through a service that does not protect it.',
   validate: 'Validate',
   validateLeft: (n: number) => `Validate · ${n} left`,
+  validateFree: 'Validate · free',
   validating: (s: number) => `Validating · ${secs(s)}`,
   noneLeft: 'No validations left',
   sameTitle: 'Validate the same map again?',
@@ -205,7 +297,7 @@ export const P2 = {
   why: {
     running: 'A validation is running. Its result comes in a few seconds.',
     noneLeft: 'No validations are left. Your chosen map counts when the time is up.',
-    place: 'Place a tile first: pick an operator or a tool in the toolbox, then click an empty cell.',
+    place: 'Place a tile first. Pick an operator or a tool in the toolbox, and then click an empty cell.',
     joinSource: 'No source is joined to a tile. Draw a line from the round port of a source to a tile.',
     reachResult: 'Nothing reaches the result yet. Join a tile to it with the tile’s round port.',
     liveSource: 'No source reaches the tiles that lead to the result. Join a source to one of them.',
@@ -217,7 +309,7 @@ export const P2 = {
     rushOne: (name: string, used: number, max: number) => `${name} needs ${num(used)} min per patient and has ${num(max)}, so ${reach(used, max)}. You can still validate.`,
     rushPool: (label: string, used: number, max: number) => `${poolPeople(label)}: the map needs ${num(used)} min per patient and there are ${num(max)}, so ${reach(used, max)}. You can still validate.`,
     more: (n: number) => (n === 1 ? '1 more thing after this.' : `${n} more things after this.`),
-    ready: 'Ready. Press Validate to test the map against patients whose answers people checked.',
+    ready: 'Your map is ready. Press Validate to test it on patients whose answers people have already checked.',
   },
   // Why a placement or a line was refused, at its place (section 10.5).
   refuse: {
@@ -228,11 +320,17 @@ export const P2 = {
     twice: (a: string, b: string) => `${a} is already joined to ${b}.`,
     loop: (a: string, b: string) => `That would close a loop: ${b} already hands its work on to ${a}, directly or through other tiles.`,
     server: 'That line cannot be drawn on this map.',
+    endSelf: 'A line cannot start and end at the same tile.',
+    endNotHere: 'This end of the line cannot go there. A line starts at a source or a tile, and it ends at a tile or at the result.',
   },
   // Results
   validationsTitle: 'Your validations',
   usedOf: (n: number, of: number) => `${n} of ${of} used`,
   validationN: (n: number, of: number) => `Validation ${n} of ${of}`,
+  // A pack whose first validations are free numbers every validation and says which ones did not count.
+  validationPlain: (n: number) => `Validation ${n}`,
+  freeTag: 'Free',
+  usedOfFree: (n: number, of: number, free: number) => `${n} of ${of} used · ${free === 1 ? 'the first one was free' : `the first ${free} were free`}`,
   latest: 'Latest',
   accuracy: 'Accuracy',
   rank: (r: number, of: number) => `Rank ${r} of ${of}`,
