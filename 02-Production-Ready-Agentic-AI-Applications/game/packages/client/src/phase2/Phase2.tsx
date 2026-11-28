@@ -4,9 +4,11 @@
 // chooses to count, and the reveal.
 import type { CanvasMap, DevelopmentContent, DevelopmentView, Welcome } from '@lab02/protocol'
 import { sameLayout } from '../canvas/model.ts'
+import { useTour } from '../components/Tour.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { MapBoard, P2_BOARD_WORDS, sameAsValidation } from './Board.tsx'
 import { P2 } from './copy.ts'
+import { FirstBuild, useFirstBuild } from './FirstBuild.tsx'
 import { DevReveal } from './Reveal.tsx'
 
 export { InsightsPanel, P2_TABS_BELOW, Purse, gridWords, lockedByOf, reasonText, vocabularyOf } from './Board.tsx'
@@ -33,7 +35,9 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
   onLoad: (m: CanvasMap, n: number) => void; onChoose: (id: string | null) => void; readOnly?: boolean
 }) {
   const n = dv.validations.length
-  const head = <div className="panel-head sky"><span>{P2.validationsTitle}</span><span className="sub">{P2.usedOf(n, runs)}</span></div>
+  // Where the first validations are free, every validation has its number and the free ones say so.
+  const free = dv.validations.filter((v) => v.free).length
+  const head = <div className="panel-head sky"><span>{P2.validationsTitle}</span><span className="sub">{free ? P2.usedOfFree(n - free, runs, free) : P2.usedOf(n, runs)}</span></div>
   if (!n) return <section className="panel p2results" id="p2-results">{head}<div className="panel-body"><p className="muted">{P2.noValidation}</p></div></section>
   const best = dv.validations.reduce((b, v) => (v.accuracy > b.accuracy ? v : b), dv.validations[0]!)
   return (
@@ -49,7 +53,8 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
             return (
               <li key={v.id} className={`vrun${i === 0 ? ' newest' : ''}${sending ? ' send' : ''}`} data-validation={v.id}>
                 <div className="vrun-h">
-                  <span className="vrun-n">{P2.validationN(num, runs)}</span>
+                  <span className="vrun-n">{free ? P2.validationPlain(num) : P2.validationN(num, runs)}</span>
+                  {v.free && <span className="flag">{P2.freeTag}</span>}
                   {i === 0 && n > 1 && <span className="flag look">{P2.latest}</span>}
                   {v.rank !== null && <span className="vrank">{P2.rank(v.rank, v.of)}</span>}
                 </div>
@@ -93,9 +98,12 @@ function DevPlay({ w, content }: { w: Welcome; content: DevelopmentContent }) {
   const dv = usePlayer((s) => s.view!.development!)
   const send = usePlayer((s) => s.send)
   const choose = (id: string | null) => { void send('development.choose', { id }) }
+  const who = usePlayer((s) => `${s.view!.me.id}-${s.view!.run}`)
   return (
     <MapBoard w={w} phase="development" content={content} dv={dv} words={P2_BOARD_WORDS} spendWord
       sameAs={(map) => sameAsValidation(dv.validations, map)}
+      overlays={(api) => <FirstBuild api={api} dv={dv} content={content} who={who} />}
+      helpMore={<button type="button" className="btn small" onClick={() => { useTour.getState().closeHelp(); useFirstBuild.getState().start() }}>{P2.first.again}</button>}
       results={(api) => (
         <ResultsPanel dv={dv} runs={content.rules.validations} pools={content.rules.pools} current={api.map} onChoose={choose}
           onLoad={(m, n) => api.load(m, P2.restored(n))} />

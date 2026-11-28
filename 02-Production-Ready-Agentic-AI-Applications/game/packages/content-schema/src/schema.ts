@@ -403,7 +403,8 @@ export const BuildFile = W({
   // The headings of the toolbox, in this order. Without them the toolbox is one list.
   toolbox_groups: z.array(S({ id: Id, label: Text })).default([]),
   budget: S({ money: NonNeg, developers: Int.min(0) }),
-  validate: S({ runs: Int.min(0), seconds: PosInt }),
+  // `free`: the first validations of the phase that do not count against `runs` (a first try under guidance).
+  validate: S({ runs: Int.min(0), seconds: PosInt, free: Int.min(0).optional() }),
   // `over` says what happens when a map asks more minutes of a pool than `max`: `refuse` (the
   // default) keeps the map from being validated, `rush` lets it through and the people of the pool
   // get through a share of the cases (section 6.6).

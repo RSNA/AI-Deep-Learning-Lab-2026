@@ -175,16 +175,40 @@ describe('the four commands', () => {
     expect(v.validations[0]!.accuracy).toBeCloseTo(evaluate(SMALL, B).accuracy, 12)
     expect(v.validations[0]!.missed).not.toBeNull()
     expect(v.validations[0]!.note).toBe(B.notes.find((n) => n.id === 'private_data')!.text)
-    expect(v.validationsLeft).toBe(B.validate.runs - 1)
+    // The first validation of the pack is free: it is marked, and none of the count is used.
+    const free = B.validate.free ?? 0
+    expect(free).toBe(1)
+    expect(v.validations[0]!.free).toBe(true)
+    expect(v.validationsLeft).toBe(B.validate.runs)
+    expect(project.developmentContent(s, demoPack(), 'p1').rules).toMatchObject({ validations: B.validate.runs, freeValidations: free })
     // Use the rest, then one more is refused.
     cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0 + secs + 10)
     let t = t0 + secs + 20
-    for (let i = 1; i < B.validate.runs; i++) {
+    for (let i = 0; i < B.validate.runs; i++) {
       expect(err(cmd(s, 'p1', 'development.validate', {}, t))).toBe('ok')
+      // The validation that runs counts at once, as before.
+      expect(view(s).validationsLeft).toBe(B.validate.runs - i - 1)
       t += secs
       advance(s, pack, t)
     }
+    expect(view(s).validations.map((x) => x.free)).toEqual([true, ...Array<boolean>(B.validate.runs).fill(false)])
+    expect(view(s).validationsLeft).toBe(0)
     expect(err(cmd(s, 'p1', 'development.validate', {}, t + 1))).toBe('no_validations_left')
+  })
+  it('a pack with no free validation counts every one', () => {
+    const { s, t0 } = playing()
+    const was = B.validate.free
+    delete B.validate.free
+    try {
+      cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0)
+      expect(view(s).validationsLeft).toBe(B.validate.runs)
+      expect(err(cmd(s, 'p1', 'development.validate', {}, t0 + 1))).toBe('ok')
+      expect(view(s).validationsLeft).toBe(B.validate.runs - 1)
+      advance(s, pack, t0 + 1 + B.validate.seconds * 1000)
+      expect(view(s).validations.map((x) => x.free)).toEqual([false])
+      expect(view(s).validationsLeft).toBe(B.validate.runs - 1)
+      expect(project.developmentContent(s, demoPack(), 'p1').rules.freeValidations).toBe(0)
+    } finally { B.validate.free = was }
   })
 
   it('a second validation shows another case and another note when there is one', () => {

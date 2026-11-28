@@ -81,6 +81,14 @@ export function copyMap(m: CanvasMap): CanvasMap {
 
 export const EMPTY_MAP: CanvasMap = { tiles: [], lines: [] }
 
+/**
+ * The validations that count against `validate.runs`: every one after the first `validate.free`
+ * of the phase, with the one that runs now.
+ */
+export function runsUsed(b: BuildFile, st: DevelopmentState): number {
+  return Math.max(0, st.validations.length + (st.validating ? 1 : 0) - (b.validate.free ?? 0))
+}
+
 /** The best accuracy of a player's validations, the earliest on a tie. */
 function best(st: DevelopmentState): DevelopmentValidation | null {
   let out: DevelopmentValidation | null = null
@@ -226,7 +234,7 @@ export const development: PhaseModule = {
       now,
       facts: [
         { label: 'Best accuracy', value: top ? `${Math.round(100 * top.accuracy)}%` : 'Not validated yet' },
-        { label: 'Validations used', value: `${st?.validations.length ?? 0} of ${b.validate.runs}` },
+        { label: 'Validations used', value: `${st ? runsUsed(b, st) : 0} of ${b.validate.runs}` },
         { label: 'Actions done', value: `${st?.actionsDone.length ?? 0} of ${b.actions.length}` },
       ],
       map: st ? copyMap(st.map) : null,
@@ -270,7 +278,7 @@ export const development: PhaseModule = {
       if (!st) return fail('wrong_stage')
       const b = buildOf(pack, p)
       if (st.validating) return fail('validation_running')
-      if (st.validations.length >= b.validate.runs) return fail('no_validations_left')
+      if (runsUsed(b, st) >= b.validate.runs) return fail('no_validations_left')
       if (mapErrors(st.map, b, unlockedOf(pack, p)).length || readyReasons(st.map, b).length) return fail('not_ready')
       st.validating = { id: nextValidationId(st), startedAtMs: now, completesAtMs: now + b.validate.seconds * 1000, map: copyMap(st.map) }
       return ok(p)

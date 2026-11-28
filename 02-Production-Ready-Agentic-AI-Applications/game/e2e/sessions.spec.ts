@@ -75,6 +75,9 @@ async function soloUntil(page: Page, done: () => Promise<boolean>) {
       await page.waitForTimeout(200)
       continue
     }
+    // The guided first build of Phase 2 is not what this player came for.
+    const skip = page.getByRole('button', { name: 'Skip the tutorial' })
+    if (await skip.isVisible().catch(() => false)) { await skip.click(); continue }
     const end = bar.getByRole('button', { name: 'End this phase now' })
     if (await end.isVisible().catch(() => false)) {
       await end.click()

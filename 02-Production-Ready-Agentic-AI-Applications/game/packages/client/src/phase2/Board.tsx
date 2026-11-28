@@ -119,7 +119,7 @@ function RunningLine({ dv, content }: { dv: BoardView; content: BoardContent }) 
  * do (and how many more follow), a press says it again and marks its tile, and before the first
  * validation the same line guides through the first map.
  */
-function ValidateButton({ dv, guide, first, onValidate, onWhy, refused, ready }: { dv: BoardView; guide: Guide; first: boolean; onValidate: () => void; onWhy: () => void; refused: string | null; ready: string }) {
+function ValidateButton({ dv, guide, first, free, onValidate, onWhy, refused, ready }: { dv: BoardView; guide: Guide; first: boolean; free: boolean; onValidate: () => void; onWhy: () => void; refused: string | null; ready: string }) {
   useTick(250)
   const clock = usePlayer((s) => s.clock)
   const now = clock ? gameNow(clock) : 0
@@ -148,7 +148,7 @@ function ValidateButton({ dv, guide, first, onValidate, onWhy, refused, ready }:
         </span>
       )}
       <button type="button" className={`btn go vbtn${why ? ' off' : ''}`} aria-disabled={why ? true : undefined} aria-describedby={line ? 'p2-vwhy' : undefined}
-        title={why?.text} onClick={() => { if (why) { setFlash((n) => n + 1); onWhy() } else onValidate() }}>{P2.validateLeft(dv.validationsLeft)}</button>
+        title={why?.text} onClick={() => { if (why) { setFlash((n) => n + 1); onWhy() } else onValidate() }}>{free ? P2.validateFree : P2.validateLeft(dv.validationsLeft)}</button>
     </div>
   )
 }
@@ -270,7 +270,7 @@ export const P2_BOARD_WORDS: BoardWords = {
   tab: { ...P2.tab, year: '' }, insightsTitle: P2.insights,
 }
 
-export function MapBoard({ w, phase, content, dv, words, results, above, status, strip, overlays, letters, freshLetters, held = false, spendWord = false, sameAs, tabCounts }: {
+export function MapBoard({ w, phase, content, dv, words, results, above, status, strip, overlays, letters, freshLetters, held = false, spendWord = false, sameAs, tabCounts, helpMore }: {
   w: Welcome; phase: BoardPhase; content: BoardContent; dv: BoardView; words: BoardWords
   /** Under the map, on the left of the letters and insights: what the phase keeps of its validations. */
   results: (api: BoardApi) => ReactNode
@@ -292,6 +292,8 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   sameAs: (map: CanvasMap) => string | null
   /** What a tab of a phone shows beside its name, where the phase knows better than the board. */
   tabCounts?: Partial<Record<BoardTab, string>>
+  /** One more button at the foot of the help panel. */
+  helpMore?: ReactNode
 }) {
   useTick(500)
   const view = usePlayer((s) => s.view)!
@@ -639,7 +641,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       <RunningLine dv={dv} content={content} />
       <div className="footrow">
         {dv.flags.privateData.length > 0 && <span className="pwarn"><span className="cmark warn" aria-hidden="true">!</span> {P2.privateWarn}</span>}
-        <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} onValidate={validate} onWhy={showWhy} refused={refusedValidate} ready={words.whyReady} />
+        <ValidateButton dv={dv} guide={guide} first={dv.validations.length === 0} free={dv.validations.length < content.rules.freeValidations} onValidate={validate} onWhy={showWhy} refused={refusedValidate} ready={words.whyReady} />
       </div>
     </div>
   )
@@ -746,7 +748,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       {warning && <div className="toast warnbar" role="status">{warning}</div>}
       {briefOpen && <BriefSheet w={w} phase={phase} onClose={closeBrief} words={words.brief} />}
       <Tour phase={phase} steps={words.tour} doneKey={`tour-${phase}-${view.me.id}-${view.run}`} autoStart={!briefOpen && !held} onTab={(t) => setTab(t as BoardTab)} onEnd={() => setTab('map')} words={COPY.tour} />
-      <HelpSheet phase={phase} title={words.helpTitle} intro={words.helpIntro} steps={words.tour} tourLabel={COPY.takeTour}>
+      <HelpSheet phase={phase} title={words.helpTitle} intro={words.helpIntro} steps={words.tour} tourLabel={COPY.takeTour} more={helpMore}>
         <div className="eyebrow">{P2.helpMarks}</div>
         <div className="help-marks">
           <div className="hm"><LineLegend words={P2.legend} /><span /></div>

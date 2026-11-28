@@ -12,7 +12,7 @@ import { COLUMNS, PHASES, PLAY_STAGES, phaseOfStage, resetPhaseOf } from '@lab02
 import { livePhase, overallPoints, rankOf } from '../leaderboard.ts'
 import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
-import { developersFree, shownActions, submitted, unlockedOf } from '../phases/development.ts'
+import { developersFree, runsUsed, shownActions, submitted, unlockedOf } from '../phases/development.ts'
 import { bestReaders, evaluate, running as runningOf, type Evaluation } from '../canvas.ts'
 import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
 import { maintainingContent, maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
@@ -203,7 +203,7 @@ export function developmentContent(s: SessionState, pack: Pack, playerId: Player
   return {
     phase: 'development',
     ...canvasContent(pack, sp, b, {
-      brief: sp.story?.briefs?.development, validations: b.validate.runs, validateSeconds: b.validate.seconds,
+      brief: sp.story?.briefs?.development, validations: b.validate.runs, freeValidations: b.validate.free ?? 0, validateSeconds: b.validate.seconds,
       actionGroups: pack.game.phases.development.action_groups ?? [],
     }, shown),
     actions: shown.actions.map(actionView),
@@ -250,10 +250,11 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     rushed: overPools(st.map, b).filter((o) => o.rush).map((o) => ({ pool: o.pool, used: o.used, max: o.max, tiles: [...o.tiles] })),
     flags: { stray: run.stray, incomplete: incompleteTiles(b, st.map), privateData: run.privateData },
     running: show ? runningView(run.running) : null,
-    validationsLeft: Math.max(0, b.validate.runs - st.validations.length - (st.validating ? 1 : 0)),
+    validationsLeft: Math.max(0, b.validate.runs - runsUsed(b, st)),
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
-    validations: st.validations.map((v) => ({
+    validations: st.validations.map((v, i) => ({
       id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null, rank: v.rank, of: v.of,
+      free: i < (b.validate.free ?? 0),
       missed: missedView(b, v.missed, v.map, { unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }),
       note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
       running: show ? runningView(v.running) : null,

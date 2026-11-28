@@ -1,0 +1,22 @@
+/* The guided first build of Phase 2 (phase2/FirstBuild.tsx). A ring around the part of the
+   screen that the step is about, the rest dimmed, and a card beside it. Nothing here takes a
+   click but the card: the board stays usable under the dim. Above a sheet, below the tour. */
+.fb { position: fixed; inset: 0; z-index: 65; pointer-events: none; }
+.fb-ring {
+  position: fixed; pointer-events: none; border: 3px solid var(--go);
+  box-shadow: 0 0 0 200vmax rgba(15, 15, 36, 0.34), 0 0 0 6px rgba(46, 196, 166, 0.35);
+  transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease;
+  animation: fb-pulse 1.6s ease-in-out infinite;
+}
+/* Inside a sheet the scrim has dimmed the page already. */
+.fb-ring.in-sheet { box-shadow: 0 0 0 6px rgba(46, 196, 166, 0.35); }
+@keyframes fb-pulse {
+  0%, 100% { outline: 0 solid rgba(46, 196, 166, 0.55); outline-offset: 0; }
+  50% { outline: 4px solid rgba(46, 196, 166, 0); outline-offset: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .fb-ring { animation: none; transition: none; } }
+/* The card looks like the card of the tour, with the colour of the ring. */
+.fb-card { position: fixed; pointer-events: auto; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; border-color: var(--go); box-shadow: 5px 5px 0 var(--shade); }
+.fb-card h3 { margin: 0; font-family: var(--face); font-weight: 400; font-size: 24px; line-height: 1.05; }
+.fb-card p { margin: 0; font-size: 15.5px; line-height: 1.4; }
+.fb-card .fb-more { font-size: 14px; color: var(--muted); }
