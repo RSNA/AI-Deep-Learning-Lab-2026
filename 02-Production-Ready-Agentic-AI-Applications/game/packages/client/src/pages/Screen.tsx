@@ -88,7 +88,7 @@ function Leaderboard({ v }: { v: ScreenView }) {
       {v.activity && (
         <div style={{ fontSize: 26, fontWeight: 800 }} className="muted">
           {v.stage === 'maintaining.year'
-            ? `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} action${v.activity.insights === 1 ? '' : 's'} done · ${v.activity.sent} deployed a map`
+            ? `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} action${v.activity.insights === 1 ? '' : 's'} done · ${v.activity.sent} deployed a system`
             : v.stage === 'development.play'
               ? `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} action${v.activity.insights === 1 ? '' : 's'} done · ${v.activity.sent} validated a map`
               : `${v.activity.acted} of ${players(v.activity.players)} at work · ${v.activity.insights} insights found · ${v.activity.sent} assessment${v.activity.sent === 1 ? '' : 's'} sent`}
@@ -105,7 +105,7 @@ function Leaderboard({ v }: { v: ScreenView }) {
   )
 }
 
-const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment', validated: 'validated a map', deployed: 'deployed a map' } as const
+const FEED_VERB = { started: 'started', finished: 'finished', sent: 'sent the assessment', validated: 'validated a map', deployed: 'deployed a system' } as const
 const FEED_TONE = { started: 'var(--sun)', finished: 'var(--go)', sent: 'var(--sky)', validated: 'var(--sky)', deployed: 'var(--go)' } as const
 
 /** The room at work: what practices just started, finished or sent. Never what they learned. */
@@ -120,7 +120,7 @@ function Feed({ v, clock }: { v: ScreenView; clock: ClockRef | null }) {
   const stats = a ? [
     { n: `${a.acted} of ${a.players}`, l: a.players === 1 ? 'practice at work' : 'practices at work' },
     dev || year ? { n: String(a.insights), l: a.insights === 1 ? 'action done' : 'actions done' } : { n: String(a.insights), l: a.insights === 1 ? 'insight found' : 'insights found' },
-    year ? { n: String(a.sent), l: a.sent === 1 ? 'practice deployed a map' : 'practices deployed a map' }
+    year ? { n: String(a.sent), l: a.sent === 1 ? 'practice deployed a system' : 'practices deployed a system' }
       : dev ? { n: String(a.sent), l: a.sent === 1 ? 'practice validated a map' : 'practices validated a map' } : { n: String(a.sent), l: a.sent === 1 ? 'assessment sent' : 'assessments sent' },
   ] : []
   return (

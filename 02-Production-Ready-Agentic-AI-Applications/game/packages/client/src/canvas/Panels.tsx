@@ -5,9 +5,17 @@ import { useState, type ReactNode } from 'react'
 import { ClampCard } from '../components/Clamp.tsx'
 import { Sheet } from '../components/ui.tsx'
 import { Icon } from './icons.tsx'
+import type { MarkTag } from './model.ts'
 import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
 
-export type Item = { id: string; label: string; short?: string; description: string; costLine?: string | null; icon?: string; kind?: string }
+/** `marks`: what an action that is done changed about it, as tags. */
+export type Item = { id: string; label: string; short?: string; description: string; costLine?: string | null; icon?: string; kind?: string; marks?: MarkTag[] }
+
+/** The tags of an item, each with what it means behind it. */
+export function MarkTags({ marks, short = false }: { marks: MarkTag[] | undefined; short?: boolean }) {
+  if (!marks?.length) return null
+  return <>{marks.map((m) => <span key={m.tag} className="marktag" title={m.tip}>{short ? m.short : m.tag}</span>)}</>
+}
 
 const lockText = (lockedBy: Record<string, string> | undefined, id: string, w: { locked: (a: string) => string; lockedNoAction: string }) => {
   const by = lockedBy?.[id]
@@ -48,6 +56,7 @@ export function Shelves({ rows, unlocked, lockedBy, onInfo, popOf, words, fresh,
                   <Icon name={r.icon} size={12} />
                   <span>{it.short ?? it.label}</span>
                   {lock && <Icon name="lock" size={11} />}
+                  <MarkTags marks={it.marks} />
                   {isNew && words.newTag && <span className="newtag">{words.newTag}</span>}
                 </button>
               )
@@ -130,7 +139,7 @@ export function Toolbox({ workers, groups = [], unlocked, lockedBy, picked, onPi
         onClick={() => { onSeen?.(w.id); if (lock) { setTold(w.id); return } setTold(null); pop.hide(); onPick(on ? null : w.id) }}>
         <span className="tb-ic"><Icon name={w.icon ?? ''} kind={w.kind} size={phone ? 18 : 15} /></span>
         <span className="tb-tx">
-          <span className="tb-l"><span className="tb-ln">{w.label}</span>{lock && !phone && <span className="tb-lk"><Icon name="lock" size={11} /></span>}{isNew && words.newTag && <span className="newtag">{words.newTag}</span>}<span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
+          <span className="tb-l"><span className="tb-ln">{w.label}</span>{lock && !phone && <span className="tb-lk"><Icon name="lock" size={11} /></span>}<MarkTags marks={w.marks} short />{isNew && words.newTag && <span className="newtag">{words.newTag}</span>}<span className="tb-k">{words.kinds[w.kind ?? ''] ?? ''}</span></span>
           {w.task && <span className="tb-task">{w.task}</span>}
           {phone && details(w)}
           {lock && phone && lockLine(w)}
@@ -169,6 +178,7 @@ export type ActionRow = {
   again?: string                        // the label of Start, for an action that was done and may be done again
   tag?: string                          // a quiet word under the title: how often it was done
   upkeep?: string | null                // what it costs a month once it is done
+  inPlace?: boolean                     // it changes what is already on the board
 }
 
 export function ActionList({ groups, rows, onStart, refused, popOf, notice, words, more = [], fresh, onSeen }: {
@@ -179,7 +189,7 @@ export function ActionList({ groups, rows, onStart, refused, popOf, notice, word
   notice?: ReactNode
   words: {
     start: string; done: string; cost: (money: number, devs: number, secs: number) => string; story: (s: string) => string
-    opens: (list: string) => string; left: (s: number) => string; holds: (n: number) => string; noCancel: string; noCancelLong: string; more: string
+    opens: (list: string, toUse: boolean) => string; inPlace?: string; left: (s: number) => string; holds: (n: number) => string; noCancel: string; noCancelLong: string; more: string
     moreHere?: string; newTag?: string
   }
   /** The groups that will hold more actions than they show: each says so in one quiet line. */
@@ -230,7 +240,8 @@ export function ActionList({ groups, rows, onStart, refused, popOf, notice, word
                       <span className="tz">{a.teaser}</span>
                       {a.upkeep && <span className="meta">{a.upkeep}</span>}
                       {a.storyTime && <span className="meta">{words.story(a.storyTime)}</span>}
-                      {a.opens.length > 0 && <span className="meta opens">{words.opens(a.opens.join(', '))}</span>}
+                      {a.opens.length > 0 && <span className="meta opens">{words.opens(a.opens.join(', '), !a.inPlace)}</span>}
+                      {a.inPlace && words.inPlace && <span className="meta opens">{words.inPlace}</span>}
                     </div>
                   )}
                   {a.tag && <div className="atag">{a.tag}</div>}
@@ -250,7 +261,7 @@ export function ActionList({ groups, rows, onStart, refused, popOf, notice, word
 // ------------------------------------------------------------------------------------------
 // The choosers of a tile's parts.
 // ------------------------------------------------------------------------------------------
-export type Choice = { id: string; label: string; detail?: string; disabled?: string | null; current?: boolean }
+export type Choice = { id: string; label: string; detail?: string; disabled?: string | null; current?: boolean; marks?: MarkTag[] }
 
 /** A list of choices for a model or a place to run. Only what is open can be chosen. */
 export function PartSheet({ title, intro, choices, onPick, onClose, words, extra }: {
@@ -264,8 +275,9 @@ export function PartSheet({ title, intro, choices, onPick, onClose, words, extra
         {choices.map((c) => (
           <button key={c.id} type="button" className={`partrow${c.current ? ' on' : ''}`} disabled={!!c.disabled} aria-pressed={!!c.current}
             onClick={() => onPick(c.id)}>
-            <span className="pr-l">{c.label}{c.current && <span className="pr-cur">{words.current}</span>}</span>
+            <span className="pr-l">{c.label}<MarkTags marks={c.marks} />{c.current && <span className="pr-cur">{words.current}</span>}</span>
             {c.detail && <span className="pr-d">{c.detail}</span>}
+            {c.marks?.map((m) => <span key={m.tag} className="pr-d pr-mark">{m.tip}</span>)}
             {c.disabled && <span className="pr-x">{c.disabled}</span>}
           </button>
         ))}
@@ -288,7 +300,7 @@ export function PartSheet({ title, intro, choices, onPick, onClose, words, extra
  */
 export function PromptSheet({ title, about, prompts, current, unlocked, lockedBy, onPick, onClose, words }: {
   title: string; about?: string
-  prompts: { id: string; label: string; description: string; sample: string | null; samples: { label: string; text: string }[] }[]
+  prompts: { id: string; label: string; description: string; sample: string | null; samples: { label: string; text: string }[]; marks?: MarkTag[] }[]
   current: string | null; unlocked: ReadonlySet<string>; lockedBy?: Record<string, string>
   onPick: (id: string) => void; onClose: () => void
   words: { intro: string; use: string; inUse: string; isDefault: string; close: string; locked: (a: string) => string; lockedNoAction: string; more: string; less: string }
@@ -304,7 +316,7 @@ export function PromptSheet({ title, about, prompts, current, unlocked, lockedBy
           const on = shown === p.id
           return (
             <ClampCard key={p.id} className={`pcard${on ? ' on' : ''}${lock ? ' is-locked' : ''}`} words={{ more: words.more, less: words.less }}
-              head={<div className="pc-head"><span>{p.label}</span>{i === 0 && <span className="pc-def">{words.isDefault}</span>}</div>}
+              head={<div className="pc-head"><span>{p.label}</span>{!lock && <MarkTags marks={p.marks} />}{i === 0 && <span className="pc-def">{words.isDefault}</span>}</div>}
               foot={(
                 <div className="pc-foot">
                   {lock

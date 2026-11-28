@@ -97,7 +97,7 @@ describe('the report card', () => {
     expect(year.periods[0]).toMatchObject({ validity: 100 * reports[0]!.validity, reliability: 100 * reports[0]!.reliability })
     expect(year.facts).toContainEqual({ label: 'Score of the year', value: (Math.round(10 * p.maintaining!.result!.score) / 10).toFixed(1) })
     // This practice validated no map in Phase 2 and deployed none: the year ran without one.
-    expect(year.facts).toContainEqual({ label: 'Periods with a map running', value: `0 of ${reports.length}` })
+    expect(year.facts).toContainEqual({ label: 'Periods with a system running', value: `0 of ${reports.length}` })
     expect(card.lines.some((l) => l.section === pack.reportCard!.sections[1]!.title)).toBe(true)
   })
 

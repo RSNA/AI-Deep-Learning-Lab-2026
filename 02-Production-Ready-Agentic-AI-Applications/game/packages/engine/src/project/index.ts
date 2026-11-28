@@ -14,7 +14,7 @@ import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
 import { developersFree, runsUsed, shownActions, submitted, unlockedOf } from '../phases/development.ts'
 import { bestReaders, evaluate, running as runningOf, type Evaluation } from '../canvas.ts'
-import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
+import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, marksView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
 import { maintainingContent, maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
 import { deckSlides, sectionOf } from '../deck.ts'
 import { SEGMENT_OF_STAGE, guideLengthMs, kindOf, nextStageOf, shownScene, slidesMirrored } from '../session.ts'
@@ -240,6 +240,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     developers: { total: b.budget.developers, free: developersFree(pack, p) },
     board: boardNumber({ unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }),
     unlocked: [...unlockedOf(pack, p)].sort(),
+    marks: marksView(b, st.actionsDone.map((d) => d.id)),
     actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs })),
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
     insights,

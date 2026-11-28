@@ -7,7 +7,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile, LineSide } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
-import { lineKey, tileNames, type Vocabulary } from './model.ts'
+import { lineKey, tileNames, type Marks, type Vocabulary } from './model.ts'
 import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
 
 /** One color per origin of lines, so that six crossing lines can be told apart. */
@@ -69,6 +69,8 @@ export type GridProps = {
   popOf?: (id: string) => PopInfo | null
   /** A press on a source or the result that starts nothing else: a phone shows its card then. */
   onAbout?: (id: string) => void
+  /** What the actions that are done changed, as tags on the tiles and on the boxes of their parts. */
+  marks?: Marks
   words: GridWords
 }
 
@@ -427,8 +429,9 @@ export function Grid(p: GridProps) {
   const partLabel = (t: CanvasTile, part: Part): { what: string; text: string; missing: boolean; title: string } => {
     if (part === 'model') {
       const m = v.models.find((x) => x.id === t.model)
-      // A full name of a few letters fits a tile ("Jenson Mini"). A longer one goes by its short form.
-      const name = m && m.label.length <= 11 ? m.label : m?.short ?? ''
+      // A full name of a few letters fits a tile ("Jenson Mini"). A longer one goes by its short
+      // form, and so does one that shares its box with a tag.
+      const name = m && m.label.length <= 11 && !p.marks?.get(m.id)?.length ? m.label : m?.short ?? ''
       return m ? { what: words.model, text: name, missing: false, title: `${words.model}: ${m.label}` } : { what: words.model, text: words.pickModel, missing: true, title: words.pickModel }
     }
     if (part === 'runsOn') {
@@ -453,6 +456,12 @@ export function Grid(p: GridProps) {
     const target = lit(t.id)
     const guided = !!p.guide?.nodes.includes(t.id)
     const body = p.bodies?.[t.id] ?? (w?.task ? { text: w.task } : null)
+    // What the actions that are done changed about this kind of tile and about its prompt (a
+    // tile with no prompt has the first one), in one quiet line of the tile.
+    const promptId = isAi ? t.prompt ?? v.prompts[0]?.id ?? null : null
+    const tileMarks = [...(p.marks?.get(t.kind) ?? []), ...((promptId ? p.marks?.get(promptId) : undefined) ?? [])]
+    // An AI tile has three boxes, and on a low screen they fill it: the line shows where it has room.
+    const marksFit = !isAi || (boxes[t.id]?.h ?? 0) >= 68
     return (
       <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-node={t.id} data-target={target ? t.id : undefined}
         className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${heldAt === t.id ? ' ends' : ''}${t.row >= v.rows ? ' lastrow' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
@@ -475,15 +484,22 @@ export function Grid(p: GridProps) {
         {isAi && !compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)
           const g = guided && p.guide?.part === part ? ' guided' : ''
+          // What an action changed about this model or place, as a tag in its box. A prompt is
+          // too long to share its box: its tags stand in the line under the boxes.
+          const partId = part === 'model' ? t.model : part === 'runsOn' ? t.runsOn : null
+          const tags = (partId ? p.marks?.get(partId) : undefined) ?? []
+          const title = tags.length ? `${pl.title}. ${tags.map((m) => m.tip).join(' ')}` : pl.title
+          const inner = <><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span>{tags.map((m) => <i key={m.tag} className="marktag">{m.short}</i>)}</>
           return readOnly
-            ? <div key={part} className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={pl.title}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></div>
-            : <button key={part} type="button" className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={pl.title} aria-label={pl.title}
-                onClick={(e) => { e.stopPropagation(); if (mode.kind === 'idle') p.onPart?.(t.id, part); else p.onNode?.(t.id) }}><Icon name={PART_ICON[part]} size={11} /><span>{pl.text}</span></button>
+            ? <div key={part} className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={title}>{inner}</div>
+            : <button key={part} type="button" className={`ct-part${pl.missing ? ' missing' : ''}${g}`} title={title} aria-label={title}
+                onClick={(e) => { e.stopPropagation(); if (mode.kind === 'idle') p.onPart?.(t.id, part); else p.onNode?.(t.id) }}>{inner}</button>
         })}
         {isAi && compact && (['model', 'runsOn', 'prompt'] as Part[]).map((part) => {
           const pl = partLabel(t, part)
           return <div key={part} className={`ct-mini${pl.missing ? ' missing' : ''}`} title={pl.title}><i className="ct-what">{pl.what}:</i><span>{pl.missing ? '–' : pl.text}</span></div>
         })}
+        {!compact && marksFit && tileMarks.length > 0 && <div className="ct-marks" title={tileMarks.map((m) => m.tip).join(' ')}>{tileMarks.map((m) => m.short).join(' · ')}</div>}
         {!isAi && (!stray || compact) && body && <div className={`ct-body${body.over ? ' over' : ''}`} title={body.text}>{body.text}</div>}
         {!isAi && !compact && stray && <div className="ct-note">{words.stray}</div>}
         {isAi && stray && !compact && <div className="ct-badge">{words.strayShort}</div>}

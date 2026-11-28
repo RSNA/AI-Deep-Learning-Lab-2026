@@ -40,7 +40,7 @@ export const CARD = {
   againPhase: (n: number, label: string) => `Phase ${n} · ${label}`,
   againWhat: {
     planning: 'Your sorting beside the true classes',
-    development: 'Your map beside the reference map',
+    development: 'Your system beside the proposed system',
     maintaining: 'Your year, period by period',
   },
   backToResult: 'Back to your result',

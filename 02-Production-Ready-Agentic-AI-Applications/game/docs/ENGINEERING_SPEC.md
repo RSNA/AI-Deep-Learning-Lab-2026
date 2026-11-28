@@ -563,6 +563,9 @@ type Build = {
               unlocks?: ItemId[]            // an item that no action unlocks is open from the start
               moves?: Record<ComputeId, ComputeId>   // once done, every tile on the first place runs on the second, on every
                                             // map the player holds, and the first place leaves the shelf
+              marks?: { on: ItemId[]; tag: Text; short?: Text; tip: Text }[]
+                                            // once done, the board shows `tag` on every worker, model, place to run
+                                            // and prompt of `on`, with `tip` behind it (`short` on a tile)
               insight?: Tile | null         // a tile in the format of insights.yaml
               story_time?: Text; key?: object }[]
   cases: { id: CaseId; weight: number
@@ -1487,6 +1490,15 @@ stage closes.
 - A report is made from the map that is deployed and the actions that have finished at that
   moment. Timers on the same instant run in this order: actions, the validation, the end of the
   round. So what finishes at the very moment a round ends still counts.
+- **An action that makes parts better reaches the system in service by itself.** A hardening
+  (`reliability.hardening`), a repair (`repaired_by`), an action that spares a new map its first
+  period and an action with `moves` all act on the map that is deployed as it stands, from the
+  first report they count for. The player validates nothing and deploys nothing for that, and
+  the report names the same system. A new validation shows such a gain only where it measures
+  it: the accuracy on the test set does not change with a hardening, the reliability is carried
+  by a validation with the lens `dry_run`, and a repair of what changed during the year shows
+  on a validation with the lens `fresh_test_set`. An action that only unlocks something (a
+  tool, a model, a place, a prompt) changes nothing until the map uses it.
 - When the stage closes, actions that run end with their full effect and a validation that runs
   ends with its result, and then every report that is left is made, from the same state. (A
   host who ends the stage early gets all of them at once.)
@@ -2553,6 +2565,7 @@ type DevelopmentView = {
   money: number
   developers: { total: number; free: number }
   unlocked: string[]
+  marks: { id: ItemId; tag: Text; short: Text; tip: Text }[]   // the tags of the actions that are done, one for every item they name
   actionsDone: { id: ActionId; atMs: GameMs }[]
   actionsRunning: { id: ActionId; startedAtMs: GameMs; completesAtMs: GameMs }[]
   insights: { action: ActionId; tile: Tile }[]          // Tile as in Phase 1
@@ -3735,8 +3748,16 @@ does now.
   drops a line.
 - *A map of five columns* fits a laptop of 1280 wide (class `dense`): narrower gaps, and below
   1440 wide a tile shows its name and parts without their small pictures.
-- *The chosen map.* The validation list says "Your chosen map so far" and "Choose this map", and
-  the reveal says that the chosen map counts.
+- *Systems.* Every validated map is a system with a number, in the order the player made them:
+  "System 1", "System 2" and so on. The list is "Your systems". It says "Your chosen system so
+  far" and "Choose this system", and the reveal says that the chosen system counts. The word
+  "map" stays for the drawing on the canvas ("Restore this map"). The reference map of a pack is
+  called "the proposed system" on every screen.
+- *What an action changed.* An action that is done and has `marks` puts its tag where it acts
+  (`marks` of the view): on a tile's head for a kind of worker, in the box of a model, a place
+  to run or a prompt on a tile, on a chip of a shelf, on a row of the toolbox, and on the cards
+  of the choosers, where the sentence behind the tag is written out. Nothing is tagged before
+  the action is done.
 - *Accuracy with one decimal* in the validation list and at the reveal, because the maps of a
   real pack differ by less than a point at the top.
 
@@ -3839,17 +3860,22 @@ pass their own panels and words. Nothing of the board is copied.
   money takes one point off. On a phone the year is a tab of its own.
 - **One line between the map and its footer** says which map runs now and gives the three
   numbers of the last report. A press on the numbers opens that report.
-- **Your maps.** Every map of the list, the newest first: the validations of Phase 2 and of
-  Phase 3, each numbered within its phase, and the reference maps taken, by their label. A row
-  has the accuracy, what it was scored on (the test set, or this year's cases), the reliability
-  it would have when the view carries one, and two controls of one size: Deploy (or the words
+- **Your systems.** Every system of the list, the newest first. The numbers of Phase 2 go on:
+  a player who validated two maps in Phase 2 gets "System 3" next, whether that is a validation
+  of Phase 3 or the proposed system, which takes the next number like any other and carries the
+  tag "Proposed system" (with its label when a pack offers several). A row has the accuracy,
+  what it was scored on (the test set, or this year's cases), the reliability it would have when
+  the view carries one, the tags of the actions that changed its parts (so that a system in
+  service shows what reached it with no new validation and no new deployment), and two controls
+  of one size: Deploy (or the words
   "Running now" in its place) and "Restore this map" (or "On your canvas now"). The newest
   validation of Phase 3 also shows its failed case and its note. A line above the list says that
-  what is deployed when the timer reaches zero runs for the next two months. "Run no map" asks
+  what is deployed when the timer reaches zero runs for the next two months. "Run no system" asks
   first. A refused deployment says why in its row.
-- **Reference maps.** A sheet with the reference maps of the pack, with one tab for each when
-  there are several and no tabs for one: its label, its accuracy on the test set, its summary
-  and its drawing, and "Take this map" (`maintaining.adopt`), which closes the sheet. A map that
+- **The proposed system.** A sheet with the reference maps of the pack ("The proposed system",
+  or "Proposed systems" with one tab for each when there are several): its label, its accuracy
+  on the test set, its summary and its drawing, and "Take this system" (`maintaining.adopt`),
+  which closes the sheet. A map that
   was taken says so. Before the press the sheet lists what the map needs and the player has not
   bought, each with its price (`offers` of the view), and says what taking it costs. When the
   account holds less than the price the button is off, and the sheet says what the map costs,

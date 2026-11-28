@@ -386,6 +386,10 @@ const ActionShape = {
   // place named as its value, on every map the player holds, and the first place leaves the
   // shelf (an agreement that covers the calls a practice already makes).
   moves: z.record(Id, Id).optional(),
+  // `marks`: what the board shows, once the action is done, on what it changed: a short tag on
+  // every worker, model, place to run and prompt named in `on`, and a sentence that says what
+  // the tag means. `short` is the tag on a tile, where there is room for one word.
+  marks: z.array(S({ on: z.array(Id).min(1), tag: Text, short: Text.optional(), tip: Text })).optional(),
   insight: Tile.nullable().optional(),
   story_time: Text.optional(),
   key: K({}).optional(),

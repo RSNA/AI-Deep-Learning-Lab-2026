@@ -7,16 +7,13 @@ import { P3 } from './copy.ts'
 export type MapEntry = MaintainingView['validations'][number]
 export type Report = MaintainingView['reports'][number]
 
-/** What every map of the list is called: the validations of each phase by their number, a reference map by its label. */
-export function mapNames(validations: MapEntry[]): Map<string, string> {
-  const out = new Map<string, string>()
-  let two = 0, three = 0
-  for (const v of validations) {
-    if (v.origin === 'reference') out.set(v.id, P3.fromReference(v.label ?? ''))
-    else if (v.origin === 'phase2') out.set(v.id, P3.fromPhase2(++two))
-    else out.set(v.id, P3.fromPhase3(++three))
-  }
-  return out
+/**
+ * What every system of the list is called: "System 1", "System 2" and so on, in the order the
+ * player made them across Phase 2 and Phase 3. The proposed system takes the next number when it
+ * is taken, like any other.
+ */
+export function mapNames(validations: { id: string }[]): Map<string, string> {
+  return new Map(validations.map((v, i) => [v.id, P3.systemN(i + 1)]))
 }
 
 /** One point of the chart for every report: everything out of 100. A period with no map has no test mark. */

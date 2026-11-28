@@ -64,8 +64,8 @@ function developmentPart(s: SessionState, pack: Pack, p: PlayerState, facts: Rep
   facts.map_beats_reference = validated && st.result.accuracy >= reference - 1e-9
   facts.validations_used = st.validations.length
   return { facts: [
-    { label: 'Accuracy of your map', value: validated ? percent(st.result.accuracy) : 'No map was validated' },
-    { label: 'Accuracy of the reference map', value: percent(reference) },
+    { label: 'Accuracy of your system', value: validated ? percent(st.result.accuracy) : 'No system was validated' },
+    { label: 'Accuracy of the proposed system', value: percent(reference) },
     { label: 'Validations used', value: `${st.validations.length} of ${b.validate.runs}` },
   ] }
 }
@@ -88,7 +88,7 @@ function maintainingPart(s: SessionState, pack: Pack, p: PlayerState, facts: Rep
     facts: [
       { label: 'Score of the year', value: one(st.result.score) },
       { label: 'Money spent, in all', value: `${Math.round(st.result.spent)}${unit ? ` ${unit}` : ''}` },
-      { label: 'Periods with a map running', value: `${ran} of ${reports.length}` },
+      { label: 'Periods with a system running', value: `${ran} of ${reports.length}` },
     ],
     periods: reports.map((r) => ({
       label: periodName(m, r.period).short,

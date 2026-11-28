@@ -137,7 +137,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await expect(page.locator('.ctile.stray')).toHaveCount(1)
   await expect(page.locator('#p2-results .vacc .num')).toHaveText(/^\d+\.\d%$/, { timeout: 15_000 })
   await expect(page.locator('#p2-results')).toContainText('One patient it got wrong, as an example')
-  await expect(page.locator('#p2-results')).toContainText('Your chosen map so far')
+  await expect(page.locator('#p2-results')).toContainText('Your chosen system so far')
 
   // Undo takes the rule away, redo brings it back, Delete removes the selection.
   await page.getByRole('button', { name: 'Undo' }).click()
@@ -175,7 +175,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.locator('.cline .hit').first().click({ force: true })
   await page.keyboard.press('Delete')
   await expect(page.locator('.cline')).toHaveCount(4)
-  await expect(page.locator('#p2-results .vrun-h')).toContainText('Validation 1')
+  await expect(page.locator('#p2-results .vrun-h')).toContainText('System 1')
   await expect(page.locator('#p2-results .vrun-h')).toContainText('Free')
   await page.getByRole('button', { name: 'Restore this map' }).click()
   await expect(page.locator('.cline')).toHaveCount(5)
@@ -191,7 +191,7 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   // The reveal: the letter, the score, both maps, every case.
   await s.host('end_now')
   // The demo pack has three reference maps: one tab each, the first shown.
-  await expect(page.locator('.p2maps .panel-head.go')).toContainText('Reference maps')
+  await expect(page.locator('.p2maps .panel-head.go')).toContainText('Proposed systems')
   await expect(page.locator('.refseg button')).toHaveCount(3)
   await expect(page.locator('.p2maps .cgrid')).toHaveCount(2)
   await expect(page.locator('.rcase')).toHaveCount(5)
@@ -413,7 +413,7 @@ test('the phone: four tabs, a worker placed by taps, and the host looks at the p
   await page.locator('.ptabs button', { hasText: 'Actions' }).click()
   await expect(page.locator('.agroup-t')).toHaveText(['Learn', 'Build', 'Buy', 'Negotiate'])
   await page.locator('.ptabs button', { hasText: 'Results' }).click()
-  await expect(page.locator('#p2-results')).toContainText('No validation yet')
+  await expect(page.locator('#p2-results')).toContainText('You have no system yet')
 
   // The host's view of this player: a Phase 2 tab with the draft and the key.
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
@@ -442,7 +442,7 @@ test('the phone: four tabs, a worker placed by taps, and the host looks at the p
   await look.locator('summary', { hasText: 'Every validation, the actions and the key' }).click()
   await expect(look).toContainText('Share solved of each case')
   await expect(look.locator('.insp-cases .kv')).toHaveCount(5)
-  await look.locator('summary', { hasText: 'The reference map' }).click()
+  await look.locator('summary', { hasText: 'The proposed system' }).click()
   await expect(look.locator('.inspect-done .cgrid')).toBeVisible()
   expect(await hp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await ctx.close()
@@ -511,7 +511,7 @@ test('the guided first build: every step in turn, a free first validation, and t
   if (await page.locator('.ptabs').count()) await page.locator('.ptabs button', { hasText: 'Map' }).click()
   await expect(page.locator('.vbtn')).toHaveText('Validate · 6 left')
   if (await page.locator('.ptabs').count()) await page.locator('.ptabs button', { hasText: 'Results' }).click()
-  await expect(page.locator('#p2-results .panel-head')).toContainText('0 of 6 used · the first one was free')
+  await expect(page.locator('#p2-results .panel-head')).toContainText('0 of 6 validations used · the first one was free')
   await expect(page.locator('#p2-results .vrun').first()).toContainText('Free')
   await noErrorNames(page)
   // It does not come back by itself after a refresh.
