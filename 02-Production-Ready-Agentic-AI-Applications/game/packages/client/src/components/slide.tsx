@@ -5,6 +5,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import type { SlideView } from '@lab02/protocol'
+import { Marks } from '../lib/marks.tsx'
 import { Avatar, SystemShape } from './ui.tsx'
 
 /** The slide area of the projector: the screen without the header and the street. */
@@ -37,17 +38,20 @@ function QrBox({ sl, joinUrl }: { sl: SlideView; joinUrl: string }) {
   )
 }
 
-/** The bullets of a plain slide. Under boxes, people or pictures they stand as a strip: what to take from the slide. */
+/**
+ * The bullets of a plain slide. Under boxes, people or pictures they stand as a strip: what to
+ * take from the slide. A word between two pairs of stars is marked, so that a room sees it first.
+ */
 function Bullets({ items, small = false }: { items: string[]; small?: boolean }) {
   if (!items.length) return null
-  return <ul className={small ? 'sl-take' : 'sl-bullets'}>{items.map((b, i) => <li key={i}>{b}</li>)}</ul>
+  return <ul className={small ? 'sl-take' : 'sl-bullets'}>{items.map((b, i) => <li key={i}><Marks text={b} /></li>)}</ul>
 }
 
 /** A room statistic as bars. Before its phase is scored the bars are empty and one line says so. */
 function Chart({ ch }: { ch: SlideView['charts'][number] }) {
   return (
-    <div className="sl-chart">
-      <div className="ct">{ch.title}{ch.bars.every((b) => b.value === null) && <span className="cn">Fills in when the phase is scored</span>}</div>
+    <div className={`sl-chart${ch.bars.length > 5 ? ' many' : ''}${ch.bars.length > 8 ? ' dense' : ''}`}>
+      <div className="ct"><span>{ch.title}</span>{ch.bars.every((b) => b.value === null) && <span className="cn">Fills in when the phase is scored</span>}</div>
       {ch.bars.map((b) => (
         <div key={b.label} className={`sl-bar st-${b.system === null ? b.tone : `sys${b.system % 4}`}`}>
           <span className="bl">{b.label}</span>
@@ -102,7 +106,8 @@ function Side({ sl }: { sl: SlideView }) {
   if (!sl.image && !sl.stat && !sl.charts.length) return null
   return (
     <div className="sl-side">
-      {sl.image && <img className="sl-img" src={sl.image} alt="" />}
+      {sl.image && sl.images.length === 0 && <img className="sl-img" src={sl.image} alt="" />}
+      {sl.image && sl.images.length > 0 && <div className="sl-imgs">{[sl.image, ...sl.images].map((src) => <img key={src} className="sl-img" src={src} alt="" />)}</div>}
       {sl.stat && <div className="sl-stat"><div className="num">{sl.stat.value}</div><div>{sl.stat.label}</div></div>}
       {sl.charts.map((ch) => <Chart key={ch.title} ch={ch} />)}
     </div>
@@ -121,8 +126,8 @@ function Cards({ sl }: { sl: SlideView }) {
           </div>
           {(c.text || c.points.length > 0) && (
             <div className="sl-card-text">
-              {c.text && <p>{c.text}</p>}
-              {c.points.length > 0 && <ul>{c.points.map((x, k) => <li key={k}>{x}</li>)}</ul>}
+              {c.text && <p><Marks text={c.text} /></p>}
+              {c.points.length > 0 && <ul>{c.points.map((x, k) => <li key={k}><Marks text={x} /></li>)}</ul>}
             </div>
           )}
         </div>
@@ -152,8 +157,8 @@ function Figures({ sl }: { sl: SlideView }) {
     <div className="sl-figs" style={{ '--n': sl.figures.length } as CSSProperties}>
       {sl.figures.map((f, i) => (
         <figure key={i} className={`sl-fig st-${f.tone}`}>
-          {f.image ? <img src={f.image} alt="" /> : <div className="ph" aria-hidden="true">{f.caption ?? ''}</div>}
-          <figcaption><div className="ft">{f.title}</div>{f.caption && f.image && <div className="fc">{f.caption}</div>}</figcaption>
+          {f.image ? <img src={f.image} alt="" /> : <div className="ph" aria-hidden={f.mark ? undefined : 'true'}>{f.mark ?? f.caption ?? ''}</div>}
+          <figcaption><div className="ft">{f.title}</div>{f.caption && (f.image || f.mark) && <div className="fc">{f.caption}</div>}</figcaption>
         </figure>
       ))}
     </div>
@@ -193,6 +198,30 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
           </div>
         </div>
       )
+    case 'phase':
+      // The opening of a part of the session: a few large words, and nothing to read through.
+      return (
+        <div className="sl lay-phase" style={style}>
+          {meta && <div className="sl-meta">{meta}</div>}
+          <div className="sl-phase">
+            {sl.kicker && <div className="sl-kicker">{sl.kicker}</div>}
+            <h1 className="sl-title">{sl.title}</h1>
+            {sl.subtitle && <div className="sl-sub">{sl.subtitle}</div>}
+            <Bullets items={sl.bullets} small />
+          </div>
+        </div>
+      )
+    case 'shot':
+      main = (
+        <div className="sl-main shot">
+          <div className="sl-col">
+            <Bullets items={sl.bullets} />
+            <Cards sl={sl} />
+          </div>
+          {side}
+        </div>
+      )
+      break
     case 'cards':
       main = (
         <div className={`sl-main${hasSide ? ' two' : ''}`}>
@@ -225,6 +254,21 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
       )
       break
     case 'closing':
+      // With nothing to list, the last slide is its few words, large, beside the code.
+      if (!sl.bullets.length && !sl.references.length && !sl.people.length) {
+        return (
+          <div className="sl lay-closing bare" style={style}>
+            {meta && <div className="sl-meta">{meta}</div>}
+            <div className={`sl-main${sl.qr ? ' with-qr' : ''}`}>
+              <div className="sl-col">
+                <h1 className="sl-title">{sl.title}</h1>
+                {sl.subtitle && <div className="sl-sub"><Marks text={sl.subtitle} /></div>}
+              </div>
+              <QrBox sl={sl} joinUrl={joinUrl} />
+            </div>
+          </div>
+        )
+      }
       main = (
         <div className={`sl-main${sl.qr ? ' with-qr' : ''}`}>
           <div className="sl-col">
@@ -264,8 +308,9 @@ export function SlideBody({ sl, joinUrl, meta, style }: {
     <div className={`sl lay-${sl.layout}`} style={style}>
       {meta && <div className="sl-meta">{meta}</div>}
       <div className="sl-head">
+        {sl.kicker && <div className="sl-kicker">{sl.kicker}</div>}
         <h1 className="sl-title">{sl.title}</h1>
-        {sl.subtitle && <div className="sl-sub">{sl.subtitle}</div>}
+        {sl.subtitle && <div className="sl-sub"><Marks text={sl.subtitle} /></div>}
       </div>
       {main}
     </div>

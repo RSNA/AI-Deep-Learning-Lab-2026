@@ -652,31 +652,43 @@ export type StoryFile = z.infer<typeof StoryFile>
 /** teaching/deck.yaml: the one deck of the session, in sections. */
 /** The room statistics a slide may show (section 6.10). */
 export const ROOM_STATS = [
-  'flagship_hit_rate', 'sorting_by_class', 'flagship_by_system', 'most_reported_decoy', 'class_confusion', 'median_pilot_runs', 'most_common_trace',
+  'flagship_hit_rate', 'sorting_by_class', 'sorting_by_problem', 'flagship_by_system', 'most_reported_decoy', 'class_confusion', 'median_pilot_runs', 'most_common_trace',
   'pilot_to_heldout_drop', 'share_overbuilt', 'monitors_funded', 'silent_events_caught_early', 'most_missed_event',
 ] as const
 
-/** How a slide is laid out (section 10.9). `bullets` is the plain slide and the default. */
-export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings'] as const
+/**
+ * How a slide is laid out (section 10.9). `bullets` is the plain slide and the default. `phase`
+ * opens a part of the session with a few large words. `shot` gives most of the slide to its
+ * picture, such as a screenshot of the game, with a few lines beside it.
+ */
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings', 'phase', 'shot'] as const
 /** The colors a box of a slide may take. They are the colors of the design system. */
 export const SLIDE_TONES = ['go', 'sky', 'sun', 'lav', 'rose'] as const
 
 export const DeckSlide = W({
   id: Id, title: Text, bullets: z.array(Text).default([]),
   layout: z.enum(SLIDE_LAYOUTS).optional(),
+  /** A short line over the title, such as "Phase 2". */
+  kicker: Text.optional(),
   subtitle: Text.optional(),
   /** Boxes side by side: a colored head with an optional tag, a title and a text. */
   /** `system` names a health system: the box then takes that system's color and shape, as everywhere in the game. */
   cards: z.array(W({ title: Text, text: Text.optional(), points: z.array(Text).max(4).optional(), tag: Text.optional(), tone: z.enum(SLIDE_TONES).optional(), system: Id.optional() })).max(4).optional(),
   /** The people who give the session. `photo` is a path under art/. */
   people: z.array(W({ name: Text, role: Text.optional(), photo: z.string().optional() })).max(6).optional(),
-  /** Pictures side by side, each with a title and a caption. Without an image the title stands in a box. */
-  figures: z.array(W({ image: z.string().optional(), title: Text, caption: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(3).optional(),
+  /**
+   * Pictures one under the other, each with a title and a caption. Without an image a colored box
+   * stands in its place: it carries `mark` (a few words, such as "in press"), or the caption when
+   * there is no mark.
+   */
+  figures: z.array(W({ image: z.string().optional(), title: Text, caption: Text.optional(), mark: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(3).optional(),
   /** A QR code: the join link of the session, or a link of the pack. A link without a url shows an empty frame. */
   qr: W({ show: z.enum(['join', 'link']), url: z.string().url().optional(), label: Text.optional() }).optional(),
   /** Lines to read later, such as the articles behind the session. */
   references: z.array(Text).max(6).optional(),
   image: z.string().optional(),
+  /** Up to two more pictures that stand beside `image` in one row (layout `shot`). */
+  images: z.array(z.string()).max(2).optional(),
   /** The leaderboard of the game on a slide (layout `standings`): how many players it names, and how many of them stand out at the top. */
   standings: W({ rows: PosInt.max(12).default(10), highlight: z.number().int().min(0).max(5).default(3) }).optional(),
   /** One room statistic, or two that stand one under the other. */

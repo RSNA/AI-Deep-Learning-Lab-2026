@@ -433,6 +433,31 @@ function liveChart(s: SessionState, pack: Pack, name: string): Chart | null {
     }).reverse()
     return { title: 'Placed in the right class, by the room', bars }
   }
+  if (name === 'sorting_by_problem') {
+    // One bar for every problem of the session's health systems: the share of the room that put
+    // it in its class. Until the phase is scored the bars stand in the order of the pack and in
+    // one color, so that the chart gives no class away.
+    const scored = s.closedPhases.includes('planning')
+    const rows = s.systems.flatMap((id) => (pack.systems[id]!.problems ?? []).map((k) => ({ system: id, problem: k })))
+    const bars = rows.map(({ system, problem }) => {
+      const at = rules.class_order.indexOf(problem.key.class)
+      let right = 0
+      let all = 0
+      for (const p of done) {
+        if (p.system !== system) continue
+        const g = p.planning!.result!.graded.find((x) => x.problem === problem.id)
+        if (!g) continue
+        all++
+        if (g.picked === problem.key.class) right++
+      }
+      return {
+        order: at, label: problem.public.title, value: all ? Math.round((100 * right) / all) : null, note: all ? `${right} of ${all}` : null,
+        tone: scored ? CLASS_TONES[Math.max(0, at) % CLASS_TONES.length]! : CLASS_TONES[0], system: null,
+      }
+    })
+    if (scored) bars.sort((x, y) => y.order - x.order)
+    return { title: 'Placed in the right class, problem by problem', bars: bars.map(({ order: _order, ...bar }) => bar) }
+  }
   if (name === 'flagship_by_system') {
     const bars = s.systems.map((id, i) => {
       const ps = done.filter((p) => p.system === id)
@@ -461,6 +486,7 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
     section: x.section.title,
     layout: sl.layout ?? 'bullets',
     title: sl.title,
+    kicker: sl.kicker ?? null,
     subtitle: sl.subtitle ?? null,
     bullets: [...sl.bullets],
     cards: (sl.cards ?? []).map((c, i) => {
@@ -469,10 +495,11 @@ export function slideView(s: SessionState, pack: Pack, index: number): SlideView
       return { title: c.title, text: c.text ?? null, points: [...(c.points ?? [])], tag: c.tag ?? null, tone: c.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]!, system: at >= 0 ? at : null }
     }),
     people: (sl.people ?? []).map((p) => ({ name: p.name, role: p.role ?? null, photo: p.photo ? `${art}${p.photo}` : null })),
-    figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
+    figures: (sl.figures ?? []).map((f, i) => ({ image: f.image ? `${art}${f.image}` : null, title: f.title, caption: f.caption ?? null, mark: f.mark ?? null, tone: f.tone ?? SLIDE_TONES[i % SLIDE_TONES.length]! })),
     qr: sl.qr ? { show: sl.qr.show, url: sl.qr.show === 'link' ? sl.qr.url ?? null : null, label: sl.qr.label ?? null } : null,
     references: [...(sl.references ?? [])],
     image: sl.image ? `${art}${sl.image}` : null,
+    images: (sl.images ?? []).map((x) => `${art}${x}`),
     stat: stats.map((n) => liveStat(s, n)).find((x) => x !== null) ?? null,
     charts: stats.map((n) => liveChart(s, pack, n)).filter((x): x is Chart => x !== null),
     standings: sl.standings === undefined ? null : {

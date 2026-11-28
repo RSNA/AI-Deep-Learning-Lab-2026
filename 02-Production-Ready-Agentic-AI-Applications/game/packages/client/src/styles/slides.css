@@ -152,6 +152,52 @@
 .sl-bar .track i { display: block; height: 100%; background: var(--tone); }
 .sl-bar .v { font-size: calc(42 * var(--u)); text-align: right; line-height: 1; }
 
+/* A marked word (two pairs of stars in the pack): heavier, on a thick underline, so that a room
+   sees it before it reads the sentence. */
+.sl b { font-weight: 900; text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.16em; text-underline-offset: 0.14em; }
+.sl i { font-style: italic; }
+
+/* A short line over a title, such as the number of a phase. */
+.sl-kicker {
+  align-self: flex-start; padding: 0 calc(16 * var(--u)); background: var(--sun); color: #1d2140; border: calc(4 * var(--u)) solid var(--line);
+  font-family: var(--face); font-size: calc(40 * var(--u)); line-height: 1.3;
+}
+
+/* The opening of a part of the session: its number, its name and one sentence, in the middle. */
+.sl-phase { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: calc(28 * var(--u)); padding-bottom: calc(30 * var(--u)); }
+.sl.lay-phase .sl-kicker { font-size: calc(76 * var(--u)); padding: 0 calc(28 * var(--u)); box-shadow: calc(8 * var(--u)) calc(8 * var(--u)) 0 var(--shade); }
+.sl.lay-phase .sl-title { font-size: calc(150 * var(--u)); line-height: 0.95; max-width: calc(1640 * var(--u)); }
+.sl.lay-phase .sl-sub { font-size: calc(48 * var(--u)); color: var(--ink); max-width: calc(1500 * var(--u)); }
+.sl.lay-phase .sl-take { align-self: stretch; }
+
+/* A slide that belongs to its picture: a screenshot of the game, large, with a few lines beside it. */
+.sl-main.shot { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); gap: calc(48 * var(--u)); align-items: center; }
+.sl.lay-shot .sl-col, .sl.lay-shot .sl-side { justify-content: center; }
+.sl.lay-shot .sl-bullets { font-size: calc(40 * var(--u)); gap: 0.55em; }
+.sl.lay-shot .sl-img { max-height: calc(590 * var(--u)); width: auto; max-width: 100%; align-self: center; box-shadow: calc(8 * var(--u)) calc(8 * var(--u)) 0 var(--shade); }
+
+/* Several pictures of one slide stand in a row, each as tall as the row allows. */
+.sl-imgs { display: flex; align-items: center; justify-content: center; gap: calc(28 * var(--u)); min-width: 0; }
+.sl-imgs .sl-img { flex: 0 1 auto; min-width: 0; }
+.sl-imgs .sl-img:first-child { flex-shrink: 0; }
+
+/* A chart with many bars, such as one for every problem: a wide name, and thinner bars. */
+.sl-chart.many { gap: calc(9 * var(--u)); }
+.sl-chart.many .sl-bar { grid-template-columns: calc(400 * var(--u)) minmax(0, 1fr) calc(96 * var(--u)); font-size: calc(23 * var(--u)); }
+.sl-chart.many .sl-bar .track { height: calc(32 * var(--u)); }
+.sl-chart.many .sl-bar .v { font-size: calc(34 * var(--u)); }
+/* More than eight bars: thinner again, so that a pack with many problems keeps its chart on the slide. */
+.sl-chart.dense { gap: calc(5 * var(--u)); padding-top: calc(12 * var(--u)); padding-bottom: calc(12 * var(--u)); }
+.sl-chart.dense .sl-bar { font-size: calc(19 * var(--u)); }
+.sl-chart.dense .sl-bar .track { height: calc(20 * var(--u)); border-width: calc(2 * var(--u)); }
+.sl-chart.dense .sl-bar .v { font-size: calc(24 * var(--u)); }
+
+/* The last slide with nothing to list: its words large, in the middle, beside the code. */
+.sl.lay-closing.bare .sl-main { align-items: center; padding-bottom: calc(30 * var(--u)); }
+.sl.lay-closing.bare .sl-col { gap: calc(30 * var(--u)); }
+.sl.lay-closing.bare .sl-title { font-size: calc(190 * var(--u)); }
+.sl.lay-closing.bare .sl-sub { font-size: calc(50 * var(--u)); color: var(--ink); max-width: calc(1150 * var(--u)); }
+
 /* The welcome slide: a larger title */
 .sl.lay-title .sl-title { font-size: calc(118 * var(--u)); }
 .sl.lay-title .sl-sub { font-size: calc(38 * var(--u)); color: var(--ink); }

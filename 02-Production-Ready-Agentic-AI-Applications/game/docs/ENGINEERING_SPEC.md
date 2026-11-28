@@ -774,7 +774,8 @@ type DeckSection = {
   slides: Slide[]                 // one or more
 }
 type Slide = { id: string; title: Text
-               layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing'   // 'bullets' when absent (10.9)
+               layout?: 'bullets' | 'title' | 'cards' | 'figures' | 'closing' | 'standings' | 'phase' | 'shot'   // 'bullets' when absent (10.9)
+               kicker?: Text            // a short line over the title, such as "Phase 2"
                subtitle?: Text
                bullets?: Text[]         // none is allowed on a slide that has other parts
                cards?: { title: Text; text?: Text; points?: Text[]   // up to 4 boxes side by side, each with up
@@ -782,10 +783,12 @@ type Slide = { id: string; title: Text
                          system?: SystemId }[]                        // a box of one health system: it takes that
                                                                       // system's color and shape (10.9)
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
-               figures?: { image?: string; title: Text; caption?: Text; tone?: Tone }[]   // up to 3, one row each
+               figures?: { image?: string; title: Text; caption?: Text; tone?: Tone   // up to 3, one row each
+                           mark?: Text }[]                            // the words in the box of a figure without a picture
                qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
                references?: Text[]      // lines to read later
                image?: string           // every picture is a path under art/, ending in .png or .webp
+               images?: string[]        // up to two more pictures beside `image`, in one row (layout 'shot')
                live_stat?: RoomStatId | RoomStatId[]   // one room statistic, or two (6.10)
                notes?: Text             // for the host console only
                placeholder?: boolean }  // a slide whose text is still to be written
@@ -1742,10 +1745,14 @@ put in a real class), `class_confusion` (true class against picked class),
 `median_pilot_runs`, `most_common_trace`, `pilot_to_heldout_drop`, `share_overbuilt`,
 `monitors_funded`, `silent_events_caught_early`, `most_missed_event`. A slide names one in
 `live_stat`, or two in a list. Each is a small typed object that the big screen knows how to
-draw. Three are drawn so far. `flagship_hit_rate` is one number, the share of the room that
+draw. Four are drawn so far. `flagship_hit_rate` is one number, the share of the room that
 found the agent project. `sorting_by_class` is a set of bars, one per class from the agentic
 class down to the class of problems that are not real: the share of the problems of that
-class that the room put in it, both health systems counted together. `flagship_by_system` is
+class that the room put in it, both health systems counted together. `sorting_by_problem` is
+one bar for every problem of the session's health systems: the share of the room that put it
+in its class. Once Phase 1 is scored its bars stand by class, the agentic class first, in the
+colors of the classes. Before that they stand in the order of the pack and in one color, so
+that the chart gives no class away. `flagship_by_system` is
 one bar per health system: the share of its practices that found the agent project. Before
 the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
 in when the phase is scored", so a host who goes through the deck sees that a chart belongs
@@ -4289,7 +4296,7 @@ in the box that holds the count of players in every other scene ("SLIDE 7 of 19"
 anyone in the room can ask about a slide by its number. The projector never shows the notes and
 never marks a placeholder. One component draws a slide everywhere (the projector, a player's
 screen, the previews of the console), always at 1920 × 820 px and scaled as one block, so a
-slide looks the same wherever it shows. A slide has one of five layouts:
+slide looks the same wherever it shows. A slide has one of eight layouts:
 
 | Layout | Shows |
 | --- | --- |
@@ -4298,7 +4305,15 @@ slide looks the same wherever it shows. A slide has one of five layouts:
 | `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
 | `standings` | The leaderboard of the game, from the slide's `standings: {rows, highlight}` (ten rows and three large by default). The first `highlight` players stand side by side as large boxes with their rank, character, name and total points, the winner a little taller, and the others in a list beside them. Before a phase is scored the slide is a frame that says when it fills in, and until the last phase is scored a line says that these are the standings so far. The names come from the board of the session, so a facilitator can call the winners from this slide |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
-| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here" |
+| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code |
+| `phase` | The opening of a part of the session: the `kicker` as a large tag ("Phase 2"), the title very large, the subtitle under it. Nothing to read through |
+| `shot` | A slide that belongs to its picture, such as a screenshot of the game: a few bullets on the left and the `image` large on the right. With `images` the pictures stand in one row, the first at its full height |
+
+On every layout a `kicker` stands as a small tag over the title, and a figure without a picture
+shows its `mark` in the colored box and its caption beside the title. **A word between two
+pairs of stars is marked** (`**money**`): it is drawn heavier on a thick underline in bullets,
+subtitles and the text and points of a box. A chart with more than five bars takes a wide
+column for the names and thinner bars.
 
 **A slide uses its whole height** (lab director, round 11). Boxes grow down to the strip at
 the foot of the slide, the bullets of a plain slide stand in the middle of the area, and two
