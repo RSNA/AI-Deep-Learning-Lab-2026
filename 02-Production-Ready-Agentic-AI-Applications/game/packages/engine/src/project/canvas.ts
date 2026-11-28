@@ -1,7 +1,7 @@
 // Projection of the canvas (engineering spec, section 9): what Phases 2 and 3 both send about
 // the board, a map, a validation and a missed case. Built field by field, like everything that
 // leaves the server. Nothing here spreads, passes through or strips a pack object.
-import { copyLine, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
+import { copyLine, copySourceOrder, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
 import type { BoardMark, CanvasLegend, CanvasMap, DevelopmentContent, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
 import { bestReaders, evaluate, type Running as EngineRunning } from '../canvas.ts'
 
@@ -41,6 +41,7 @@ export function mapView(m: PackCanvasMap): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runsOn: t.runsOn, prompt: t.prompt })),
     lines: m.lines.map(copyLine),
+    ...copySourceOrder(m),
   }
 }
 

@@ -20,7 +20,16 @@ export type CanvasLine = { from: string; to: string; fromSide?: Side; toSide?: S
 export function copyLine(l: CanvasLine): CanvasLine {
   return { from: l.from, to: l.to, ...(l.fromSide ? { fromSide: l.fromSide } : {}), ...(l.toSide ? { toSide: l.toSide } : {}) }
 }
-export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[] }
+/**
+ * A map. `sourceOrder` is the order in which the player put the sources in their column: it
+ * changes how the board is drawn and never a score. Sources it does not name follow in the
+ * order of the pack.
+ */
+export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[]; sourceOrder?: string[] }
+/** A copy of the order of the sources, as a field to spread into a map: nothing when the map has none. */
+export function copySourceOrder(m: { sourceOrder?: readonly string[] }): { sourceOrder?: string[] } {
+  return m.sourceOrder ? { sourceOrder: [...m.sourceOrder] } : {}
+}
 
 // `knows` is what a worker holds of a fact without a line to any source (a person who knows the
 // guideline by heart, a model that has read about it).
@@ -70,7 +79,7 @@ export const MAX_LINES = 80
 
 export type MapError =
   | 'bad_tile_id' | 'bad_kind' | 'off_grid' | 'cell_taken' | 'no_parts_here' | 'bad_model' | 'bad_compute'
-  | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end'
+  | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end' | 'bad_source_order'
   | 'source_locked' | 'source_to_result' | 'line_loop' | 'result_takes_one_line' | 'line_refused'
 
 /** The items that some action unlocks. Every other item is open from the start. */
@@ -106,7 +115,7 @@ export function movedPlaces(t: { actions?: readonly { id: string; moves?: Readon
 /** The map with every tile on a moved place put on the place it moved to. The same map when nothing moves. */
 export function movedMap(m: CanvasMap, moved: ReadonlyMap<string, string>): CanvasMap {
   if (!m.tiles.some((x) => x.runsOn !== null && moved.has(x.runsOn))) return m
-  return { tiles: m.tiles.map((x) => (x.runsOn !== null && moved.has(x.runsOn) ? { ...x, runsOn: moved.get(x.runsOn)! } : x)), lines: m.lines }
+  return { tiles: m.tiles.map((x) => (x.runsOn !== null && moved.has(x.runsOn) ? { ...x, runsOn: moved.get(x.runsOn)! } : x)), lines: m.lines, ...copySourceOrder(m) }
 }
 
 /** The first prompt of the pack is the default: a tile whose prompt is null carries it. */
@@ -191,9 +200,9 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
   if (m.lines.length > MAX_LINES) errs.add('too_many_lines')
   for (const ln of m.lines) {
     const a = ln.from, b = ln.to
-    // A side is one of the four, on a tile. A source and the result have one place for a line.
+    // A side is one of the four, on a tile or on the result. A source has one place for a line.
     const sideOk = (x: unknown) => x === undefined || (SIDES as readonly unknown[]).includes(x)
-    if (!sideOk(ln.fromSide) || !sideOk(ln.toSide) || (ln.fromSide !== undefined && sources.has(a)) || (ln.toSide !== undefined && b === t.result.id)) errs.add('bad_line_end')
+    if (!sideOk(ln.fromSide) || !sideOk(ln.toSide) || (ln.fromSide !== undefined && sources.has(a))) errs.add('bad_line_end')
     const key = `${a}\u0000${b}`
     if (seen.has(key)) { errs.add('line_twice'); continue }
     seen.add(key)
@@ -212,6 +221,12 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
   if (intoResult > 1) errs.add('result_takes_one_line')
   // Lines between tiles may run in any direction. They must not form a loop.
   if (between.some(([a, b]) => a === b) || handoffOrder(tiles, between) === null) errs.add('line_loop')
+  // The order of the sources names sources of the pack, each once. A locked source has a place
+  // in the column like any other. The reference scorer does not know this field: it never scores.
+  if (m.sourceOrder !== undefined) {
+    const o = m.sourceOrder
+    if (!Array.isArray(o) || o.some((id) => typeof id !== 'string' || !sources.has(id)) || new Set(o).size !== o.length) errs.add('bad_source_order')
+  }
   return [...errs].sort()
 }
 

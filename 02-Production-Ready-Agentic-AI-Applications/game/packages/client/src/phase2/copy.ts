@@ -75,6 +75,20 @@ export const P2 = {
   clearNo: 'Keep it',
   clearEmpty: 'The map is empty already.',
   cleared: 'The map is clear. Undo brings it back.',
+  tidy: 'Tidy map',
+  tidyTip: 'This puts the tiles and the sources where the arrows are short and cross less. It changes no line and no score.',
+  tidyEmpty: 'There is nothing to tidy yet, because the map is empty.',
+  tidyAlready: 'The map is already as tidy as this button can make it.',
+  tidied: 'The map is tidy now, and every line still joins the same two things. Undo puts the tiles back where they were.',
+  // A source in its column, on the card that a phone opens for it
+  source: {
+    up: 'Move up',
+    down: 'Move down',
+    place: (n: number, of: number) => `This source is number ${n} of ${of} in its column.`,
+    why: 'You can move it next to the tile that reads it, so the arrow stays short.',
+    top: 'It is at the top already, so it can only move down.',
+    bottom: 'It is at the bottom already, so it can only move up.',
+  },
   // Hints in the bar of the map
   hint: {
     idle: 'Pick an operator or a tool in the toolbox and then a cell. To join two tiles, drag from a round dot.',
@@ -90,10 +104,11 @@ export const P2 = {
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
   // The tour of the phase (section 10.1). It describes the screen, never an answer.
   tour: [
-    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'This is where patient data and evidence live. When you draw a line from a source to a tile, that operator or tool can read it. A source with a lock opens once you take the right action.' },
+    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'This is where patient data and evidence live. When you draw a line from a source to a tile, that operator or tool can read it. A source with a lock opens once you take the right action. You can drag a source up or down in its column, so that it sits next to the tile that reads it and the arrow stays short.' },
     { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are the people and the agents, and each tool does one job. Pick one and then click any empty cell of the map to place it. Point at a row if you want to read more about it.' },
     { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'To connect two tiles, drag from a round dot of one tile to the other tile, or click the dot and then the tile. If you select a line, you can drag either of its ends somewhere else. Lines may run in any direction as long as they never form a loop, and the work has to end in the result.' },
-    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time, so the result is already waiting when the person who signs opens the case.' },
+    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time, so the result is already waiting when the person who signs opens the case. The result takes one line, and you can bring that line in on any of its four sides.' },
+    { area: '[data-tour="p2-tidy"]', tab: 'map', title: 'Tidy map', text: 'When the map gets crowded and the arrows start to tangle, press Tidy map. It moves the tiles and the sources so that the arrows are short and cross less. It never changes a line, so your score stays what it was, and Undo puts everything back.' },
     { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI agent needs a model, a place to run and a prompt, and you choose them in the three boxes on its tile. These shelves show what you have so far.' },
     { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Here your team can learn, build, buy or negotiate. Every action costs money, keeps some of your developers busy and takes time, and it brings back an insight or opens something new. The more your team learns and buys, the more shows up on your board. Do explore, but choose with care, because the money does not come back.' },
     { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Validate tests your map on patients whose answers people have already checked. When the button cannot be pressed, the line beside it tells you what to do next.' },
@@ -227,7 +242,8 @@ export const P2 = {
     done: 'Done.',
     running: (s: number) => `Running, ${secs(s)} left.`,
     sourceHow: 'Draw a line from its round port to a tile that should read it.',
-    resultHow: 'One line ends here, from the tile that signs.',
+    sourceMove: 'Drag it up or down to move it in its column.',
+    resultHow: 'One line ends here, from the tile that signs. It can come in on any of the four sides.',
   },
   // The grid
   grid: {
@@ -243,6 +259,8 @@ export const P2 = {
     lineEnd: (end: 'from' | 'to', from: string, to: string) =>
       end === 'from' ? `Move the start of the line from ${from} to ${to}` : `Move the arrow end of the line from ${from} to ${to}`,
     advice: 'Advice on this line', close: 'Close',
+    moveSource: 'Drag it up or down to move it in its column, or hold Alt and press the up or the down arrow.',
+    resultSide: (side: 'top' | 'right' | 'bottom' | 'left') => `End the line on the ${side} side of the result`,
   } as Omit<GridWords, 'pickModel' | 'pickCompute' | 'defaultPrompt' | 'locked' | 'lockedNoAction' | 'model' | 'compute' | 'prompt'>,
   // Actions
   start: 'Start',

@@ -89,18 +89,28 @@ test('the tour of each phase: it starts after the letter, steps back and forth, 
   // Phase 2 has its own tour, after its own letter.
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
-  await expect(card).toContainText('1 of 8')
+  await expect(card).toContainText('1 of 9')
   await expect(card).toContainText('where patient data and evidence live')
+  await expect(card).toContainText('You can drag a source up or down in its column')
   for (let i = 0; i < 3; i++) await card.getByRole('button', { name: 'Next' }).click()
   await expect(card).toContainText('When it runs')          // the step that says the map works ahead of the person who signs
+  await expect(card).toContainText('on any of its four sides')
+  // The card on Tidy map points at its button in the bar of the map.
+  await card.getByRole('button', { name: 'Next' }).click()
+  await expect(card).toContainText('It never changes a line')
+  const btn = (await page.getByRole('button', { name: 'Tidy map' }).boundingBox())!
+  await expect.poll(async () => (await page.locator('.tour-light').boundingBox())!.width).toBeLessThan(btn.width + 40)
+  const lit = (await page.locator('.tour-light').boundingBox())!
+  expect(lit.x).toBeLessThanOrEqual(btn.x)
+  expect(lit.x + lit.width).toBeGreaterThanOrEqual(btn.x + btn.width)
   for (let i = 0; i < 4; i++) await card.getByRole('button', { name: 'Next' }).click()
-  await expect(card).toContainText('8 of 8')
+  await expect(card).toContainText('9 of 9')
   await card.getByRole('button', { name: 'End tour' }).click()
   // The guided first build follows the tour. Skipped here, and the help panel offers it again.
   await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /^Help/ }).click()
-  await expect(page.getByRole('dialog').locator('.help-list li')).toHaveCount(8)
+  await expect(page.getByRole('dialog').locator('.help-list li')).toHaveCount(9)
   await expect(page.getByRole('dialog')).toContainText('An i on a line')
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Do the guided first build' })).toBeVisible()
   s.close()

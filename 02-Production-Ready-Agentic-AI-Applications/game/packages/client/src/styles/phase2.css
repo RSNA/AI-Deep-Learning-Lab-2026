@@ -712,3 +712,29 @@
 .more-line { padding: 4px 12px 6px; font-size: 12.5px; font-weight: 700; line-height: 1.3; color: var(--muted); }
 .toolbox .more-line { padding: 4px 10px 6px; }
 .shelf-more { align-self: center; font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+
+/* A source can be dragged up or down in its column. While it moves it is lifted, and the column shows the order it would make. */
+.cgrid .csource.sortable { cursor: grab; }
+.cgrid .csource.sortable.is-locked { cursor: grab; }
+.cgrid .csource.sorting { cursor: grabbing; z-index: 3; box-shadow: 0 0 0 4px var(--sky), 5px 5px 0 var(--shade); }
+.cgrid .csource:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+/* The card of a source on a phone: one place up, one place down. */
+.srcmove { display: flex; flex-direction: column; gap: 8px; }
+.srcmove p { margin: 0; font-size: 15px; line-height: 1.4; }
+.srcmove .btn:disabled { opacity: 0.45; }
+
+/* The result takes a line on any of its four sides. Its dots show while a line looks for its end,
+   and while the end that stands on the result is picked up. They end a line and start none. */
+.cport.rs { background: var(--go); cursor: pointer; }
+.cport.rs.s-r { right: -8px; left: auto; }
+.cgrid.joining .cresult.lit > .cport.more, .cresult.ends > .cport.more { opacity: 1; pointer-events: auto; }
+.cgrid.joining .cresult.lit > .cport.more::after, .cresult.ends > .cport.more::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+.cresult.ends > .cport.more { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
+
+/* A line that passes behind a tile shows faintly through it. Only the part over a tile is drawn, and it takes no click. */
+.cover { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; overflow: visible; }
+.cover-ink { fill: none; stroke-width: 3; opacity: 0.24; }
+.cover-ink.handoff { stroke-width: 5.5; }
+.cover-ink.faded { opacity: 0.08; }
+.cgrid.compact .cover-ink { stroke-width: 1.8; }
+.cgrid.compact .cover-ink.handoff { stroke-width: 4; }

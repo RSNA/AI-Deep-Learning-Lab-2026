@@ -22,7 +22,7 @@ describe('the sides of a line', () => {
     expect(b.perCase).toEqual(a.perCase)
     expect(b.running).toEqual(a.running)
   })
-  it('must be one of the four, on a tile: a source and the result have one place for a line', () => {
+  it('must be one of the four, on a tile or on the result: a source has one place for a line', () => {
     const m = fromPackMap(packMap)
     const withLine = (i: number, extra: Partial<CanvasLine>) => ({ tiles: m.tiles, lines: m.lines.map((l, k) => (k === i ? { ...l, ...extra } : l)) })
     const fromSource = m.lines.findIndex((l) => l.from.startsWith('s-'))
@@ -30,7 +30,45 @@ describe('the sides of a line', () => {
     expect(mapErrors(withLine(1, { fromSide: 'middle' as never }), block.build)).toEqual(['bad_line_end'])
     expect(mapErrors(withLine(fromSource, { fromSide: 'right' }), block.build)).toEqual(['bad_line_end'])
     expect(mapErrors(withLine(fromSource, { toSide: 'top' }), block.build)).toEqual([])
-    expect(mapErrors(withLine(intoResult, { toSide: 'left' }), block.build)).toEqual(['bad_line_end'])
+    expect(mapErrors(withLine(intoResult, { toSide: 'top' }), block.build)).toEqual([])
+    expect(mapErrors(withLine(intoResult, { toSide: 'middle' as never }), block.build)).toEqual(['bad_line_end'])
     expect(mapErrors(withLine(intoResult, { fromSide: 'bottom' }), block.build)).toEqual([])
+  })
+})
+
+describe('the order of the sources and the place of a tile', () => {
+  const m = fromPackMap(packMap)
+  const ids = block.build.sources.map((s) => s.id)
+  it('are how a map is drawn and never change a score', () => {
+    const a = evaluate(m, block.build)
+    const turned = { ...m, sourceOrder: [...ids].reverse() }
+    expect(mapErrors(turned, block.build)).toEqual([])
+    const b = evaluate(turned, block.build)
+    expect(b.accuracy).toBe(a.accuracy)
+    expect(b.perCase).toEqual(a.perCase)
+    expect(b.running).toEqual(a.running)
+    // Every tile on another cell of the grid: the same tiles, the same lines, the same score.
+    const cells: [number, number][] = []
+    for (let r = block.build.grid.rows; r >= 1; r--) for (let c = block.build.grid.cols; c >= 1; c--) cells.push([c, r])
+    const moved = { ...m, tiles: m.tiles.map((t, i) => ({ ...t, col: cells[i]![0], row: cells[i]![1] })) }
+    expect(mapErrors(moved, block.build)).toEqual([])
+    const c = evaluate(moved, block.build)
+    expect(c.accuracy).toBe(a.accuracy)
+    expect(c.perCase).toEqual(a.perCase)
+    expect(c.running.money).toBe(a.running.money)
+  })
+  it('names sources of the pack, each once, and need not name them all', () => {
+    expect(mapErrors({ ...m, sourceOrder: [ids[0]!] }, block.build)).toEqual([])
+    expect(mapErrors({ ...m, sourceOrder: [] }, block.build)).toEqual([])
+    expect(mapErrors({ ...m, sourceOrder: [ids[0]!, ids[0]!] }, block.build)).toEqual(['bad_source_order'])
+    expect(mapErrors({ ...m, sourceOrder: ['nothing-of-the-pack'] }, block.build)).toEqual(['bad_source_order'])
+    expect(mapErrors({ ...m, sourceOrder: [m.tiles[0]!.id] }, block.build)).toEqual(['bad_source_order'])
+    expect(mapErrors({ ...m, sourceOrder: 'first' as never }, block.build)).toEqual(['bad_source_order'])
+  })
+  it('names a locked source like any other', () => {
+    const open = new Set([...block.build.workers.map((w) => w.id), ...(block.build.models ?? []).map((x) => x.id), ...(block.build.compute ?? []).map((x) => x.id), ...(block.build.prompts ?? []).map((x) => x.id), ...m.lines.map((l) => l.from)])
+    const lockedOne = ids.find((id) => !open.has(id))
+    expect(mapErrors({ ...m, sourceOrder: [...ids].reverse() }, block.build, open)).toEqual([])
+    if (lockedOne) expect(mapErrors({ ...m, sourceOrder: [lockedOne] }, block.build, open)).toEqual([])
   })
 })

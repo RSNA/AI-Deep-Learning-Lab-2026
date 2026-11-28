@@ -6,10 +6,11 @@
 // two phases and nothing of what either scores: each phase passes its panels and its words.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CanvasMap, DevelopmentContent, DevelopmentView, InboxItem, LineSide, Welcome } from '@lab02/protocol'
-import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, marksOf, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { Grid, LineLegend, type GridWords, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
+import { addLine, lineKey, marksOf, moveSource, moveTile, orderedSources, placeTile, removeLine, removeTile, sameLayout, sameMap, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
 import { PopLayer, type PopInfo } from '../canvas/Pop.tsx'
+import { tidyMap } from '../canvas/tidy.ts'
 import { ClampCard } from '../components/Clamp.tsx'
 import { HelpSheet, Tour, useTour, type TourStep } from '../components/Tour.tsx'
 import { Portrait, Sheet as Dialog } from '../components/ui.tsx'
@@ -61,7 +62,7 @@ export function lockedByOf(c: BoardContent): Record<string, string> {
 /** Below this width the board shows its tabs: three columns side by side need more room. */
 export const P2_TABS_BELOW = 1280
 
-export const gridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, lockedShort: P2.lockedShort, model: P2.model, compute: P2.compute, prompt: P2.prompt }
+export const gridWords: GridWords = { ...P2.grid, pickModel: P2.pickModel, pickCompute: P2.pickCompute, defaultPrompt: P2.defaultPrompt, locked: P2.locked, lockedNoAction: P2.lockedNoAction, lockedShort: P2.lockedShort, model: P2.model, compute: P2.compute, prompt: P2.prompt }
 
 export const labelOf = (c: BoardContent, id: string): string =>
   c.sources.find((x) => x.id === id)?.label ?? c.workers.find((x) => x.id === id)?.label ?? c.models.find((x) => x.id === id)?.label
@@ -459,7 +460,24 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     setSel(null)
   }
   const empty = map.tiles.length === 0 && map.lines.length === 0
-  const clearMap = () => { reset(); setSheet(null); commit({ tiles: [], lines: [] }); say(P2.cleared) }
+  // The sources keep the places the player gave them: they are no part of what is cleared.
+  const clearMap = () => { reset(); setSheet(null); commit({ ...map, tiles: [], lines: [] }); say(P2.cleared) }
+  // Tidy map: the same tiles and lines, laid out afresh. The same object when there is nothing to do.
+  const mapKey = JSON.stringify(map)
+  const tidied = useMemo(() => tidyMap(map, v), [mapKey, v]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canTidy = tidied !== map && !sameMap(tidied, map)
+  const tidyWhy = map.tiles.length === 0 ? P2.tidyEmpty : P2.tidyAlready
+  const tidy = () => {
+    if (!canTidy) { say(tidyWhy); return }
+    reset()
+    commit(tidied)
+    say(P2.tidied)
+    // A phone shows a part of the grid: the tidy map starts at its left edge, beside the sources.
+    if (phone) requestAnimationFrame(() => document.querySelector('.gridscroll')?.scrollTo({ left: 0, behavior: 'smooth' }))
+  }
+  // A source goes to another place of its column. Its lines go with it, and no score reads the order.
+  const sourceAt = (id: string) => orderedSources(v.sources, map.sourceOrder).findIndex((x) => x.id === id)
+  const onMoveSource = (id: string, to: number) => { const next = moveSource(map, v.sources, id, to); if (next !== map) commit(next) }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -569,6 +587,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       {mode.kind !== 'idle' && <button type="button" className="btn small" onClick={reset}>{P2.cancel}</button>}
       <button type="button" className="btn small" disabled={!draft.canUndo} onClick={draft.undo} title={`${P2.undo} (Ctrl+Z)`}>{P2.undo}</button>
       <button type="button" className="btn small" disabled={!draft.canRedo} onClick={draft.redo} title={`${P2.redo} (Ctrl+Shift+Z)`}>{P2.redo}</button>
+      <button type="button" data-tour="p2-tidy" className={`btn small${canTidy ? '' : ' off'}`} aria-disabled={!canTidy || undefined} title={canTidy ? P2.tidyTip : tidyWhy} onClick={tidy}>{P2.tidy}</button>
       <button type="button" className={`btn small${empty ? ' off' : ''}`} aria-disabled={empty || undefined} title={empty ? P2.clearEmpty : undefined}
         onClick={() => { if (empty) say(P2.clearEmpty); else { reset(); setSheet({ kind: 'clear' }) } }}>{P2.clear}</button>
     </div>
@@ -589,7 +608,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   const nodeMore = (id: string): (string | null)[] => {
     const src = content.sources.find((x) => x.id === id)
     if (!src) return [P2.pop.resultHow]
-    return [src.privateData ? P2.pop.privateSource : null, unlocked.has(id) ? P2.pop.sourceHow : null]
+    return [src.privateData ? P2.pop.privateSource : null, unlocked.has(id) ? P2.pop.sourceHow : null, phone ? null : P2.pop.sourceMove]
   }
   const popOfShelf = (id: string): PopInfo | null => {
     const it = content.models.find((x) => x.id === id) ?? content.compute.find((x) => x.id === id)
@@ -643,6 +662,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       onDropKind={(kind, col, row) => { if (!tileAt(map, col, row)) { const r = placeTile(map, kind, col, row); commit(r.map); setSel({ kind: 'tile', id: r.id }); setMode({ kind: 'idle' }) } }}
       onDropTile={(id, col, row) => commit(moveTile(map, id, col, row))}
       onDragLine={(from, to, sides) => { join(from, to, sides); setMode({ kind: 'idle' }) }}
+      onMoveSource={onMoveSource}
       bodies={bodies} guide={guide.first?.nodes.length ? { nodes: guide.first.nodes, part: guide.first.part ?? null } : null}
       note={note} onNoteClose={() => setNote(null)}
       advice={new Set(advice.keys())} onAdvice={(k) => setNote({ at: `line:${k}`, text: advice.get(k) ?? '', tone: 'advice' })}
@@ -695,7 +715,19 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   // --- the sheets of a tile's parts and of a shelf item
   let sheetEl: React.ReactNode = null
   if (sheet?.kind === 'item') {
-    sheetEl = <ItemSheet item={sheet.item} more={sheet.more} state={sheet.state} locked={!unlocked.has(sheet.item.id)} lockedBy={lockedBy} onClose={() => setSheet(null)} words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, close: P2.close, open: P2.open }} />
+    // A phone has no pointer to drag a source with: its card moves it one place up or down.
+    const at = sourceAt(sheet.item.id)
+    const last = v.sources.length - 1
+    const mover = at < 0 ? null : (
+      <div className="srcmove">
+        <p className="muted">{P2.source.place(at + 1, last + 1)} {at === 0 ? P2.source.top : at === last ? P2.source.bottom : P2.source.why}</p>
+        <div className="sheet-actions">
+          <button type="button" className="btn" disabled={at === 0} onClick={() => onMoveSource(sheet.item.id, at - 1)}>{P2.source.up}</button>
+          <button type="button" className="btn" disabled={at === last} onClick={() => onMoveSource(sheet.item.id, at + 1)}>{P2.source.down}</button>
+        </div>
+      </div>
+    )
+    sheetEl = <ItemSheet item={sheet.item} more={sheet.more} state={sheet.state} extra={mover} locked={!unlocked.has(sheet.item.id)} lockedBy={lockedBy} onClose={() => setSheet(null)} words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, close: P2.close, open: P2.open }} />
   } else if (sheet?.kind === 'clear') {
     sheetEl = (
       <Dialog title={P2.clearTitle} head="sun" onClose={() => setSheet(null)}>
