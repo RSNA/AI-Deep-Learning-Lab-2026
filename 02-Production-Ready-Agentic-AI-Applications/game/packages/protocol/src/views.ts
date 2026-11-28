@@ -134,8 +134,18 @@ export const CanvasLegend = S({
 })
 export type CanvasLegend = z.infer<typeof CanvasLegend>
 
-/** What a map would take to run a month: money, minutes per case of each pool, complexity. */
-export const Running = S({ money: z.number(), minutes: z.record(z.string(), z.number()), complexity: z.number() })
+/**
+ * What the model of one tile reads for a case and what that costs a month: the tile and its name
+ * on the board, the model and the place it runs on, tokens a case and money a month.
+ */
+export const ModelRead = S({ tile: z.string(), name: Text, model: Text, place: Text, tokens: z.number(), money: z.number() })
+export type ModelRead = z.infer<typeof ModelRead>
+
+/**
+ * What a map would take to run a month: money, minutes per case of each pool, complexity.
+ * `reads`: every tile with a model, in a pack that prices a model by what it reads (else empty).
+ */
+export const Running = S({ money: z.number(), minutes: z.record(z.string(), z.number()), complexity: z.number(), reads: z.array(ModelRead) })
 export type Running = z.infer<typeof Running>
 
 const Part = { id: z.string(), label: Text, short: Text, description: Text, costLine: Text.nullable() }
@@ -375,7 +385,9 @@ export const MaintainingReport = S({
   // The bill of the period, line by line (running costs and fines, adding up to `runCost` +
   // `fine`), the money that arrived with the report, and the account after the bill was paid.
   // The account may be below zero: nothing can then be bought until it is positive again.
-  bill: z.array(S({ label: Text, money: z.number() })),
+  // `parts`: what makes up a line, when the report knows it (the models of a place, each with
+  // what it read).
+  bill: z.array(S({ label: Text, money: z.number(), parts: z.array(S({ label: Text, money: z.number() })) })),
   granted: z.number(),
   account: z.number(),
   spent: z.number(),                // everything spent up to this report

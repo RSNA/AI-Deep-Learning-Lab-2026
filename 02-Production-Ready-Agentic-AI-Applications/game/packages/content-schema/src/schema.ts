@@ -403,7 +403,9 @@ export const BuildFile = W({
   grid: S({ cols: PosInt.max(8), rows: PosInt.max(8), columns: z.array(S({ label: Text, hint: Text })).optional() }),
   // The kinds of effort a fact takes to get out of a source. Without the list they are the ones
   // the sources name. Never sent to a browser.
-  efforts: z.array(W({ id: Id, key: K({}).optional() })).optional(),
+  // `size`: how much a model reads of a source of this kind for one case, in reading units. It
+  // counts only when the file has `reading`, and then every effort needs one.
+  efforts: z.array(W({ id: Id, size: NonNeg.optional(), key: K({}).optional() })).optional(),
   // The headings of the toolbox, in this order. Without them the toolbox is one list.
   toolbox_groups: z.array(S({ id: Id, label: Text })).default([]),
   budget: S({ money: NonNeg, developers: Int.min(0) }),
@@ -415,6 +417,11 @@ export const BuildFile = W({
   pools: z.array(W({ id: Id, public: S({ label: Text }), max: NonNeg, over: z.enum(['refuse', 'rush']).optional() })).default([]),
   handoff: S({ keep: Unit }),
   quality_cap: Unit.optional(),
+  // A model is paid for what it reads (section 6.6): its price is per reading unit, and a tile
+  // reads the sizes of its sources plus `handoff` for whatever else is handed to it. Without
+  // this block a model is paid per call (`calls` of the worker). `tokens_per_unit` turns units
+  // into tokens on the screen (1,000 when absent) and changes no price.
+  reading: S({ handoff: NonNeg, tokens_per_unit: PosInt.optional() }).optional(),
   facts: z.array(W({
     id: Id,
     miss: S({ missing: Text, weak: Text }),

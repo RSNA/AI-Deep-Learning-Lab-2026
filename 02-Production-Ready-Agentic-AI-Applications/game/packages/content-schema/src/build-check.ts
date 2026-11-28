@@ -68,6 +68,11 @@ export function checkBuild(
     b.sources.forEach((s, i) => { if (!listed.has(s.effort)) err(`sources[${i}].effort`, `unknown effort "${s.effort}"`) })
   }
   const efforts = b.efforts ? b.efforts.map((x) => x.id) : [...new Set(b.sources.map((x) => x.effort))]
+  // A model that is paid for what it reads needs the size of every kind of effort.
+  if (b.reading) {
+    if (!b.efforts) err('reading', 'a file with `reading` lists its efforts, each with a size')
+    else b.efforts.forEach((e, i) => { if (e.size === undefined) err(`efforts[${i}].size`, `the effort "${e.id}" needs a size, because the file has \`reading\``) })
+  }
   b.workers.forEach((w, i) => {
     const qs = w.by_model ? Object.entries(w.by_model).map(([m, q]) => [`by_model.${m}`, q] as const) : w.quality ? [['quality', w.quality] as const] : []
     for (const [at, q] of qs) for (const e of efforts) if (q.fetch[e] === undefined) err(`workers[${i}].${at}.fetch`, `no number for the effort "${e}" of a source`)

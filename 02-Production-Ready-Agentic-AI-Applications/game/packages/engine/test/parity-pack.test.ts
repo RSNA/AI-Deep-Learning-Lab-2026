@@ -100,7 +100,7 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
       const req = maps.map((m) => ({ map: { tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runs_on: t.runsOn, prompt: t.prompt })), lines: m.lines }, unlocked: null }))
       const file = join(process.env.CONTENT_DIR!, sp.folder, 'build.yaml')
       const out = execFileSync('python3', [process.env.CANVAS_SCORER!, '--score', file], { input: JSON.stringify(req), maxBuffer: 64 * 1024 * 1024 })
-      const ref = JSON.parse(out.toString()) as { accuracy: number; per_case: Record<string, number>; run_month: number; bill: BillExpect[]; complexity: number; missed: unknown; note: unknown; flags: Record<string, string[]> }[]
+      const ref = JSON.parse(out.toString()) as { accuracy: number; per_case: Record<string, number>; run_month: number; bill: BillExpect[]; complexity: number; missed: unknown; note: unknown; flags: Record<string, string[]>; reads?: Record<string, { units: number; money: number }> }[]
       maps.forEach((m, i) => {
         const e = evaluate(m, b)
         const r = ref[i]!
@@ -109,6 +109,13 @@ describe.runIf(on && !!process.env.CANVAS_SCORER)('canvas parity on CONTENT_DIR'
         expect(Math.abs(e.running.money - r.run_month)).toBeLessThan(1e-9)
         expectBill(e.bill, r.bill, (x, y) => Math.abs(x - y) < 1e-9)
         expect(e.running.complexity).toBe(r.complexity)
+        // What every tile with a model reads and pays (empty in a pack that prices a model per call).
+        const reads = e.running.reads ?? {}
+        expect(Object.keys(reads).sort()).toEqual(Object.keys(r.reads ?? {}).sort())
+        for (const [tile, want] of Object.entries(r.reads ?? {})) {
+          expect(Math.abs(reads[tile]!.units - want.units)).toBeLessThan(1e-9)
+          expect(Math.abs(reads[tile]!.money - want.money)).toBeLessThan(1e-9)
+        }
         expect(e.missed).toEqual(r.missed)
         expect(e.note).toEqual(r.note)
         expect([e.flags.privateData, e.flags.overloaded, e.flags.distracting, e.flags.prompt, e.flags.stray, e.flags.rushed]).toEqual([r.flags.private_data, r.flags.overloaded, r.flags.distracting, r.flags.prompt, r.flags.stray, r.flags.rushed])

@@ -1,7 +1,7 @@
 // Session state. Plain JSON data: no classes, maps, sets or dates (engineering spec, 6.1).
 import type { CanvasMap } from '@lab02/content-schema'
 import type { AckData, AvatarId, ColumnId, ErrorCode, InboxItem, Kind, Mode, PhaseId, SceneId, StageId, Theme } from '@lab02/protocol'
-import type { BillLine, Missed, NoteId, Running } from './canvas.ts'
+import type { BillLine, Missed, NoteId, Read, Running } from './canvas.ts'
 
 export type PlayerId = string
 export type GameMs = number
@@ -124,6 +124,11 @@ export type PeriodScore = {
   fine: number
   /** What the period cost, line by line: the two months of the map, upkeep of actions, fines. */
   bill: BillLine[]
+  /**
+   * What the model of every tile read in the period and what that cost (the two months), in a
+   * pack that prices a model by what it reads. Absent in a report stored before the rule.
+   */
+  reads?: Record<string, Read>
   components: RiskEntry[]
   worstPart: number | null
   events: EventLoss[]

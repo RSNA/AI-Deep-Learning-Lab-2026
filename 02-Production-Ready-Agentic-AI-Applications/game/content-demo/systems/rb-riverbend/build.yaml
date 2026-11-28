@@ -11,10 +11,16 @@ grid:
     - {label: Find the copies, hint: Which partner holds a copy and what it asks before it lends.}
     - {label: Weigh the options, hint: Pick the partner and the route that serve the patron best.}
     - {label: Check and send, hint: A last look before the patron gets the answer.}
+# `size`: how much a model reads of a source of that kind for one request, in reading units. A
+# model is paid for what it reads (`reading` below), so a long thread costs more than a form,
+# and most on the large model.
 efforts:
-  - {id: easy, key: {note: A lookup.}}
-  - {id: hard, key: {note: Digging through long threads.}}
-  - {id: scan, key: {note: Old handwriting on scanned cards.}}
+  - {id: easy, size: 0.5, key: {note: A lookup.}}
+  - {id: hard, size: 2.5, key: {note: Digging through long threads.}}
+  - {id: scan, size: 2.5, key: {note: Old handwriting on scanned cards.}}
+  # What a tool makes of a source for the tile behind it (`prepares`).
+  - {id: hard_sorted, size: 1.5, key: {note: Long threads after the thread sorter kept the ones about this partner.}}
+  - {id: hard_short, size: 0.5, key: {note: "Sorted threads after the quote clipper cut them down to the lines about terms. It works only behind the sorter."}}
 toolbox_groups:
   - {id: operators, label: Operators}
   - {id: tools, label: Tools}
@@ -25,6 +31,9 @@ pools:
   - {id: desk, public: {label: Desk staff minutes}, max: 12}
 handoff: {keep: 0.96}
 quality_cap: 0.99
+# The price of a model is per reading unit. `handoff`: the size of what one tile hands to the
+# next (a summary, a note). `tokens_per_unit` turns units into tokens on the screen.
+reading: {handoff: 0.5, tokens_per_unit: 1000}
 
 facts:
   - id: rb-f-patron
@@ -109,9 +118,9 @@ workers:
       cost_line: Several model calls for every request.
     needs_model: true
     by_model:
-      rb-m-large: {fetch: {easy: 0.98, hard: 0.86, scan: 0.40}, decide: {plain: 0.95, hard: 0.84}, catch: 0.4}
-      rb-m-small: {fetch: {easy: 0.95, hard: 0.70, scan: 0.30}, decide: {plain: 0.85, hard: 0.55}, catch: 0.2}
-      rb-m-open:  {fetch: {easy: 0.94, hard: 0.68, scan: 0.30}, decide: {plain: 0.83, hard: 0.52}, catch: 0.2}
+      rb-m-large: {fetch: {easy: 0.98, hard: 0.86, hard_sorted: 0.9, hard_short: 0.92, scan: 0.40}, decide: {plain: 0.95, hard: 0.84}, catch: 0.4}
+      rb-m-small: {fetch: {easy: 0.95, hard: 0.70, hard_sorted: 0.74, hard_short: 0.76, scan: 0.30}, decide: {plain: 0.85, hard: 0.55}, catch: 0.2}
+      rb-m-open:  {fetch: {easy: 0.94, hard: 0.68, hard_sorted: 0.72, hard_short: 0.74, scan: 0.30}, decide: {plain: 0.83, hard: 0.52}, catch: 0.2}
     load: {free: 4, factor: 0.92}
     calls: 4
     complexity: 3
@@ -128,9 +137,9 @@ workers:
       cost_line: One model call for every request.
     needs_model: true
     by_model:
-      rb-m-large: {fetch: {easy: 0.97, hard: 0.0, scan: 0.35}, decide: {plain: 0.92, hard: 0.70}, catch: 0.3}
-      rb-m-small: {fetch: {easy: 0.93, hard: 0.0, scan: 0.25}, decide: {plain: 0.82, hard: 0.45}, catch: 0.15}
-      rb-m-open:  {fetch: {easy: 0.92, hard: 0.0, scan: 0.25}, decide: {plain: 0.80, hard: 0.42}, catch: 0.15}
+      rb-m-large: {fetch: {easy: 0.97, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.35}, decide: {plain: 0.92, hard: 0.70}, catch: 0.3}
+      rb-m-small: {fetch: {easy: 0.93, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.25}, decide: {plain: 0.82, hard: 0.45}, catch: 0.15}
+      rb-m-open:  {fetch: {easy: 0.92, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.25}, decide: {plain: 0.80, hard: 0.42}, catch: 0.15}
     load: {free: 2, factor: 0.90}
     calls: 1
     complexity: 1
@@ -145,7 +154,7 @@ workers:
       icon: rule
       cost_line: Costs nothing to run.
     needs_model: false
-    quality: {fetch: {easy: 1.0, hard: 0.0, scan: 0.0}, decide: {plain: 1.0, hard: 0.0}, catch: 0.0}
+    quality: {fetch: {easy: 1.0, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.0}, decide: {plain: 1.0, hard: 0.0}, catch: 0.0}
     complexity: 1
   - id: rb-w-reader
     kind: fixed
@@ -158,7 +167,7 @@ workers:
       icon: image
       cost_line: A small monthly licence.
     needs_model: false
-    quality: {fetch: {easy: 0.9, hard: 0.0, scan: 0.97}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    quality: {fetch: {easy: 0.9, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.97}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
     run: 0.4
     complexity: 1
     key: {note: Reads the card files well. Hands what it found to an operator.}
@@ -174,8 +183,8 @@ workers:
       cost_line: Minutes of the librarians for every request.
     needs_model: false
     pool: librarian
-    quality: {fetch: {easy: 1.0, hard: 0.95, scan: 0.85}, decide: {plain: 0.98, hard: 0.95}, catch: 0.85}
-    minutes: {decide: 6, check: 2, per_line: {easy: 1, hard: 5, scan: 6}}
+    quality: {fetch: {easy: 1.0, hard: 0.95, hard_sorted: 0.99, hard_short: 1.0, scan: 0.85}, decide: {plain: 0.98, hard: 0.95}, catch: 0.85}
+    minutes: {decide: 6, check: 2, per_line: {easy: 1, hard: 5, hard_sorted: 3, hard_short: 2, scan: 6}}
     complexity: 1
   - id: rb-w-clerk
     kind: person
@@ -189,9 +198,39 @@ workers:
       cost_line: Minutes of the desk staff for every request.
     needs_model: false
     pool: desk
-    quality: {fetch: {easy: 1.0, hard: 0.90, scan: 0.80}, decide: {plain: 0.60, hard: 0.20}, catch: 0.30}
-    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, scan: 5}}
+    quality: {fetch: {easy: 1.0, hard: 0.90, hard_sorted: 0.94, hard_short: 0.96, scan: 0.80}, decide: {plain: 0.60, hard: 0.20}, catch: 0.30}
+    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, hard_sorted: 4, hard_short: 3, scan: 5}}
     complexity: 1
+  - id: rb-w-sorter
+    kind: fixed
+    group: tools
+    public:
+      label: Thread sorter
+      short: Sorter
+      task: Keeps the threads about one partner
+      description: This small program goes through the mailbox and keeps the threads about the partner in question. Whoever stands behind it reads less and finds more.
+      icon: catalog
+      cost_line: It costs nothing to run.
+    needs_model: false
+    prepares: {hard: {as: hard_sorted, load: 0.5}}
+    quality: {fetch: {easy: 0.0, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.0}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    complexity: 1
+    key: {note: A tool that prepares the mailbox. The reader behind it reads the mailbox itself, shorter.}
+  - id: rb-w-clipper
+    kind: fixed
+    group: tools
+    public:
+      label: Quote clipper
+      short: Clipper
+      task: Cuts sorted threads down to the terms
+      description: This program cuts threads that are already sorted down to the lines about lending terms. Put it behind the thread sorter, because it can do nothing with the raw mailbox.
+      icon: rule
+      cost_line: It costs nothing to run.
+    needs_model: false
+    prepares: {hard_sorted: {as: hard_short, load: 0.5}}
+    quality: {fetch: {easy: 0.0, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.0}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    complexity: 1
+    key: {note: A tool behind a tool. It names the kind that the sorter makes of the mailbox.}
 
 models:
   - id: rb-m-large

@@ -165,6 +165,9 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   // A map ran these two months: its bill is listed line by line and paid from the account.
   await expect(second.locator('.p3money .kv.part').first()).toBeVisible()
   await expect(second.locator('.p3money')).toContainText('Paid from your account')
+  // Under the model calls of a place, every model that ran there says how much it read.
+  await expect(second.locator('.p3money .kv.part.sub').first()).toContainText(/ on .+ read about [0-9,]+ tokens per patient/)
+  if (process.env.SHOTS_DIR) await second.screenshot({ path: `${process.env.SHOTS_DIR}/report-bill-${test.info().project.name}.png` })
   await noErrorNames(page)
   await second.getByRole('button', { name: 'Back to the board' }).click()
   await closeLetters(page)

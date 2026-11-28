@@ -15,6 +15,7 @@ type Expect = {
   complexity?: number; raw?: number
   flags?: { private_data: string[]; overloaded: string[]; distracting: string[]; prompt: string[]; stray: string[]; rushed: string[] }
   missed?: { case: string; reason: string; fact: string | null } | null; note?: string | null
+  reads?: Record<string, { units: number; money: number }>
 }
 type Vector = {
   name: string; unlocked_set: string; unlocked: string[]
@@ -45,6 +46,9 @@ describe('parity: the canvas', () => {
     expect(all().some((v) => (v.expect.flags?.rushed.length ?? 0) > 0 && v.expect.note === 'rushed')).toBe(true)
     expect(file.cases.length).toBeGreaterThan(30)
     expect(all().some((v) => !v.expect.accepted)).toBe(true)
+    // a pack that prices a model by what it reads, with a tool behind a tool
+    expect(blocks.some((b) => b.build.reading && b.cases.some((v) => Object.keys(v.expect.reads ?? {}).length > 0))).toBe(true)
+    expect(blocks.some((b) => b.build.workers.some((w) => Object.keys(w.prepares ?? {}).some((k) => !b.build.sources.some((s) => s.effort === k))))).toBe(true)
     expect(all().some((v) => v.expect.accepted && !v.expect.ready)).toBe(true)
     for (const b of blocks) expect(b.cases.some((v) => v.expect.ready)).toBe(true)
   })
@@ -70,6 +74,13 @@ describe('parity: the canvas', () => {
         expect(close(r.bill.reduce((sum, x) => sum + x.money, 0), r.running.money)).toBe(true)
         expect(sameNumbers(r.running.minutes, e.minutes!)).toBe(true)
         expect(r.running.complexity).toBe(e.complexity)
+        // What every tile with a model reads and pays for it (empty in a pack without `reading`).
+        const reads = r.running.reads ?? {}
+        expect(Object.keys(reads).sort()).toEqual(Object.keys(e.reads!).sort())
+        for (const [tile, want] of Object.entries(e.reads!)) {
+          expect(close(reads[tile]!.units, want.units), `${tile} reads ${reads[tile]!.units} against ${want.units}`).toBe(true)
+          expect(close(reads[tile]!.money, want.money), `${tile} pays ${reads[tile]!.money} against ${want.money}`).toBe(true)
+        }
         expect({
           private_data: r.flags.privateData, overloaded: r.flags.overloaded, distracting: r.flags.distracting,
           prompt: r.flags.prompt, stray: r.flags.stray, rushed: r.flags.rushed,

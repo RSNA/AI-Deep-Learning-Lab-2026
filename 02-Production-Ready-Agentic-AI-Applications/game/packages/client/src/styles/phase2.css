@@ -237,6 +237,8 @@
 .runline { display: flex; flex-wrap: wrap; gap: 0 14px; font-size: 12.5px; line-height: 1.35; }
 .runline > span { white-space: nowrap; }
 .runline .over { color: var(--bad); font-weight: 800; }
+/* What the model of every tile reads and pays: a row of its own under the totals, in one sentence. */
+.runline > .runreads { flex-basis: 100%; white-space: normal; color: var(--muted); }
 .footrow { display: flex; align-items: center; gap: 10px; min-height: 46px; }
 .footrow .pwarn { flex: 1 1 230px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; line-height: 1.25; }
 .vwrap { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; margin-left: auto; min-width: 0; }

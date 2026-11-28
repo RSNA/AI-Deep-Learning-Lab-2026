@@ -110,6 +110,7 @@ function RunningLine({ dv, content }: { dv: BoardView; content: BoardContent }) 
     <div className="runline">
       <span><b>{P2.toRun}</b> {P2.perMonth(r.money)}</span>
       {content.rules.pools.map((pl) => <span key={pl.id} className={(r.minutes[pl.id] ?? 0) > pl.max ? 'over' : ''}>{P2.minutes(pl.label, r.minutes[pl.id] ?? 0, pl.max)}</span>)}
+      {P2.reads(r.reads) && <span className="runreads" data-testid="runreads">{P2.reads(r.reads)}</span>}
     </div>
   )
 }
@@ -718,6 +719,8 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     )
   } else if (sheet?.kind === 'part') {
     const t = tileOf(map, sheet.tile)
+    // What the model of a tile reads with the lines it has now, as the server last counted it.
+    const readOf = (id: string) => dv.running?.reads?.find((x) => x.tile === id && x.tokens > 0)
     const w2 = t ? content.workers.find((x) => x.id === t.kind) : undefined
     if (t && w2) {
       const name = nodeLabel(t.id)
@@ -732,7 +735,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       } else if (sheet.part === 'model') {
         sheetEl = <PartSheet title={P2.modelOf(name)} onPick={(id) => set('model', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
-          intro={content.rules.more.models ? P2.moreShelfLong : undefined}
+          intro={[readOf(t.id) ? P2.readsIntro(name, readOf(t.id)!.model, readOf(t.id)!.tokens, readOf(t.id)!.money) : null, content.rules.more.models ? P2.moreShelfLong : null].filter(Boolean).join(' ') || undefined}
           choices={shownModels.map((m) => ({
             id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id, marks: marks.get(m.id),
             disabled: !w2.models.includes(m.id) ? P2.cannotCarry : null,

@@ -109,6 +109,9 @@
 .p3bar.bad i { background: var(--fail, var(--bad)); }
 .p3money .kv { font-size: 14px; }
 .p3money .kv.part { color: var(--muted); }
+/* What makes up a line of the bill: every model of a place, with what it read. */
+.p3money .kv.part.sub { padding-left: 14px; font-size: 13px; border-bottom-style: dotted; }
+.p3money .kv.part.sub .v { font-size: 14px; }
 .p3money .kv.part .v, .p3money .kv.sum .v { font-size: 16px; }
 .p3money .kv.sum { font-weight: 800; }
 .p3money .kv.below .v, .p3below { color: var(--bad); }

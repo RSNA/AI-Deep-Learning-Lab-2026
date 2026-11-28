@@ -252,7 +252,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     tileMinutes: show ? { ...tileMinutes(st.map, b) } : {},
     rushed: overPools(st.map, b).filter((o) => o.rush).map((o) => ({ pool: o.pool, used: o.used, max: o.max, tiles: [...o.tiles] })),
     flags: { stray: run.stray, incomplete: incompleteTiles(b, st.map), privateData: run.privateData },
-    running: show ? runningView(run.running) : null,
+    running: show ? runningView(run.running, st.map, b) : null,
     validationsLeft: Math.max(0, b.validate.runs - runsUsed(b, st)),
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v, i) => ({
@@ -260,7 +260,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
       free: i < (b.validate.free ?? 0),
       missed: missedView(b, v.missed, v.map, { unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }),
       note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
-      running: show ? runningView(v.running) : null,
+      running: show ? runningView(v.running, v.map, b) : null,
     })),
     submitId: closed ? st.result?.validation ?? null : sub?.id ?? null,
     reveal,
@@ -881,6 +881,7 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
   const going = new Set(st.actionsRunning.map((r) => r.id))
   return {
     status: s.closedPhases.includes('development') ? 'closed' : 'playing',
+    moneyUnit: pack.game.phases.development.money_unit ?? null,
     money: st.money,
     developers: { total: b.budget.developers, free: developersFree(pack, p) },
     legend: canvasLegend(b),
@@ -897,7 +898,7 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
         privateData: run.privateData, stray: run.stray, rushed: [...run.rushed],
         overloaded: ev ? [...ev.flags.overloaded] : [], distracting: ev ? [...ev.flags.distracting] : [], prompt: ev ? [...ev.flags.prompt] : [],
       },
-      running: runningView(run.running),
+      running: runningView(run.running, st.map, b),
       reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: evaluate(ref, b).accuracy },
     },
     coach: coachView(b, st, ev, ref),

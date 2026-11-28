@@ -226,6 +226,34 @@ describe('rounds and reports', () => {
     // A tag without a short form goes by its words on a tile too.
     expect(marksView({ ...B3, actions: [{ ...contract, marks: [{ on: ['rb-m-small'], tag: 'Covered', tip: 'It is covered.' }] }] }, [contract.id])).toEqual([{ id: 'rb-m-small', tag: 'Covered', short: 'Covered', tip: 'It is covered.' }])
   })
+  it('a report lists under the model calls of a place every model that ran there, with what it read', () => {
+    const { s, t0 } = year()
+    advance(s, pack, boundary(t0, 1))
+    const r = st(s).reports[1]!
+    // the stored report: the reads of the map that ran, with the money of the two months
+    const calls = r.bill.find((x) => x.kind === 'calls' && x.id === 'rb-c-api')!
+    expect(Object.keys(r.reads!)).toEqual(['t1'])
+    expect(r.reads!.t1!.money).toBeCloseTo(calls.money, 9)
+    expect(r.reads!.t1).toMatchObject({ model: 'rb-m-small', place: 'rb-c-api' })
+    // what the player reads: one line under the calls, in tokens, and nothing under any other line
+    const bill = view(s).reports[1]!.bill
+    const line = bill.find((x) => x.label.endsWith('model calls'))!
+    expect(line.parts).toHaveLength(1)
+    expect(line.parts[0]!.label).toMatch(/^Agent on .+ read about 1,500 tokens per patient$/)
+    expect(line.parts[0]!.money).toBeCloseTo(line.money, 9)
+    expect(bill.filter((x) => x !== line).every((x) => x.parts.length === 0)).toBe(true)
+    // the map on the canvas and every system of the list say what their models read
+    expect(view(s).running!.reads.map((x) => [x.name, x.tokens])).toEqual([['Agent', 1500]])
+    expect(view(s).validations[0]!.running!.reads).toHaveLength(1)
+    // a facilitator who looks at this player sees the same, by the month
+    const insp = project.hostInspect(s, pack, 'p1', true)!.maintaining!
+    expect(insp.reads.map((x) => [x.name, x.tokens])).toEqual([['Agent', 1500]])
+    expect(insp.reads[0]!.money).toBeCloseTo(calls.money / 2, 9)
+    // a report that was stored before the rule has no reads, and its bill has no parts
+    delete st(s).reports[1]!.reads
+    expect(view(s).reports[1]!.bill.every((x) => x.parts.length === 0)).toBe(true)
+  })
+
   it('an account below zero buys nothing, and the system keeps running', () => {
     const { s, t0 } = year()
     st(s).money = 0.5

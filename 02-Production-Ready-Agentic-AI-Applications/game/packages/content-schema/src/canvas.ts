@@ -35,6 +35,12 @@ export type CanvasTables = {
   pools?: readonly { id: string; max: number; over?: 'refuse' | 'rush' }[]
   handoff?: { keep: number }
   quality_cap?: number
+  // A model is paid for what it reads. With `reading`, every kind of effort has a `size` in
+  // reading units, `handoff` is the size of whatever a tile hands on that is not a prepared
+  // source, and the price of a model is per unit. Without it a model is paid per call
+  // (`calls` of the worker). `tokens_per_unit` only turns units into tokens on the screen.
+  reading?: { handoff: number; tokens_per_unit?: number }
+  efforts?: readonly { id: string; size?: number }[]
   facts: readonly { id: string }[]
   sources: readonly {
     id: string; gives: Readonly<Record<string, number>>; effort: string
@@ -300,6 +306,8 @@ export type Prepared = { effort: string; load: number }
  *
  * Tools may stand in a row. A source that reaches `u` through another tile that prepares goes on
  * through `u`, with one more candidate when `u` names its effort and unchanged when it does not.
+ * A tool behind a tool works on what the one before it made of the source: it looks up the kind
+ * of the last candidate first, and the raw effort of the source when it has no entry for that.
  * The candidates stand in the order of the row, from the source to the reader, and the reader
  * takes one of them (`pickPrepared`). So a second tool on the same source earns nothing and
  * loses nothing. `wrkIn` are the tiles with a line into each tile.
@@ -321,7 +329,7 @@ export function preparedBy(
   const next = new Set(path).add(u)
   for (const v of wrkIn.get(u) ?? []) {
     for (const got of preparedBy(v, tiles, srcIn, wrkIn, sources, workers, next)) {
-      const p = prep[sources.get(got.source)!.effort]
+      const p = prep[got.candidates[got.candidates.length - 1]!.effort] ?? prep[sources.get(got.source)!.effort]
       out.push({ source: got.source, candidates: p === undefined ? got.candidates : [...got.candidates, { effort: p.as, load: p.load ?? 1 }] })
     }
   }
@@ -340,6 +348,32 @@ export function pickPrepared(candidates: readonly Prepared[], fetch: Readonly<Re
     if (x > y + 1e-12 || (Math.abs(x - y) <= 1e-12 && c.load < best.load - 1e-12)) best = c
   }
   return best
+}
+
+/**
+ * How much the model of tile `n` reads for one case, in reading units, or null when the pack
+ * prices a model by a fixed number of calls (no `reading` block). A source on a direct line
+ * counts with the size of its effort. A source behind a tool counts with the size of the kind
+ * the reader takes of it (`pickPrepared`, by the reader's own numbers `fetch`). Whatever else is
+ * handed on (the summary of an agent, the note of a person, the number of a narrow model) counts
+ * `reading.handoff`.
+ */
+export function readingUnits(
+  n: string, t: CanvasTables, tiles: ReadonlyMap<string, CanvasTile>, srcIn: ReadonlyMap<string, readonly string[]>,
+  wrkIn: ReadonlyMap<string, readonly string[]>,
+  sources: ReadonlyMap<string, CanvasTables['sources'][number]>, workers: ReadonlyMap<string, CanvasTables['workers'][number]>,
+  fetch: Readonly<Record<string, number>>,
+): number | null {
+  if (!t.reading) return null
+  const size = new Map((t.efforts ?? []).map((e) => [e.id, e.size ?? 0]))
+  let units = 0
+  for (const s of srcIn.get(n) ?? []) units += size.get(sources.get(s)!.effort) ?? 0
+  for (const u of wrkIn.get(n) ?? []) {
+    const got = preparedBy(u, tiles, srcIn, wrkIn, sources, workers)
+    if (got.length) for (const p of got) units += size.get(pickPrepared(p.candidates, fetch).effort) ?? 0
+    else units += t.reading.handoff
+  }
+  return units
 }
 
 /** Minutes per case that a map asks of each pool of people. Every placed person counts. */
