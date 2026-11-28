@@ -122,6 +122,8 @@ export function checkBuild(
       if (!places.has(from) || !places.has(to) || from === to) err(`${at}.moves`, `moves "${from}" to "${to}": both must be places to run, and not the same one`)
       else if (b.models.some((m) => m.runs_on.includes(from) && !m.runs_on.includes(to))) err(`${at}.moves`, `a model runs on "${from}" and not on "${to}"`)
     }
+    const markable = new Set([...workerIds, ...b.models.map((m) => m.id), ...(b.compute ?? []).map((c) => c.id), ...b.prompts.map((x) => x.id)])
+    a.marks?.forEach((m, j) => m.on.forEach((id, k) => { if (!markable.has(id)) err(`${at}.marks[${j}].on[${k}]`, `"${id}" is not a worker, a model, a place to run or a prompt`) }))
     if (a.insight?.type === 'quote' && !ctx.insightTileOk(a.insight.data.speaker)) err(`${at}.insight.data.speaker`, `unknown character "${a.insight.data.speaker}"`)
     if (a.developers > b.budget.developers) err(`${at}.developers`, `needs ${a.developers} developers, the practice has ${b.budget.developers}`)
   })

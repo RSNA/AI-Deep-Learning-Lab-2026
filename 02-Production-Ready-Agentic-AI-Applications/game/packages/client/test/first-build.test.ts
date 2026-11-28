@@ -124,7 +124,7 @@ describe('the words of the guided first build', () => {
     expect(P2.first.done.text(true, 6)).toBe('This validation was free. You still have six validations left. Keep going until you find the system you want.')
     expect(P2.first.done.text(false, 5)).toContain('That was your first validation. You still have five validations left.')
     expect(P2.first.validate.text(true)).toContain('This first one is free')
-    expect(P2.usedOfFree(2, 6, 1)).toBe('2 of 6 used · the first one was free')
+    expect(P2.usedOfFree(2, 6, 1)).toBe('2 of 6 validations used · the first one was free')
   })
   it('is written in whole sentences', () => {
     const all = [P2.first.action.text('x'), P2.first.wait.text(8), P2.first.card.text, P2.first.pick.text('x'), P2.first.cell.text('x'), P2.first.model.open('x'), P2.first.runsOn.open,

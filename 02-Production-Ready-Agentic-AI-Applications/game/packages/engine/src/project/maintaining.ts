@@ -14,7 +14,7 @@ import {
   developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
 } from '../phases/maintaining.ts'
 import type { MaintainingReport, MaintainingState, PlayerState, RiskEntry, SessionState } from '../state.ts'
-import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, missedView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
+import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, marksView, missedView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
 
 type Files = { b: BuildFile; mt: MaintainFile; b3: BuildFile }
 
@@ -40,7 +40,7 @@ export function offerTitle(pack: Pack, p: PlayerState, b3: BuildFile, actionId: 
     b3.workers.find((x) => x.id === id)?.public.label ?? b3.sources.find((x) => x.id === id)?.public.label ?? b3.models.find((x) => x.id === id)?.public.label
     ?? b3.compute.find((x) => x.id === id)?.public.label ?? b3.prompts.find((x) => x.id === id)?.public.label
   const gives = (b3.actions.find((a) => a.id === actionId)?.unlocks ?? []).map(label).filter((x): x is string => !!x)
-  return gives.length ? gives.join(', ') : 'What the map needs'
+  return gives.length ? gives.join(', ') : 'What the system needs'
 }
 
 export function maintainingContent(s: SessionState, pack: Pack, playerId: string): MaintainingContent {
@@ -258,6 +258,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     developers: { total: b3.budget.developers, free: developersFreeIn3(pack, p) },
     board: boardNumber(shown),
     unlocked: [...unlockedIn3(pack, p)].sort(),
+    marks: marksView(b3, st.actionsDone.map((d) => d.id)),
     actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs, phase: d.started === 0 ? 'development' as const : 'maintaining' as const })),
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
     insights,
@@ -306,7 +307,7 @@ export function maintainingStatus(pack: Pack, p: PlayerState): string {
   if (!st || !f) return 'Running the year'
   const last = st.reports.at(-1)
   const parts = [`report ${st.reports.length} of ${Math.max(st.reports.length, f.mt.periods.length)}`]
-  if (last) parts.push(last.noMap ? 'no map runs' : `${Math.round(100 * last.validity)}% right · ${Math.round(100 * last.reliability)}% of the time`)
+  if (last) parts.push(last.noMap ? 'no system runs' : `${Math.round(100 * last.validity)}% right · ${Math.round(100 * last.reliability)}% of the time`)
   parts.push(`score ${Math.max(0, Math.round(10 * scoreSoFar(pack, p)) / 10)}`)
   if (st.actionsRunning.length) parts.push(`${st.actionsRunning.length} running`)
   if (st.validating) parts.push('validating')
@@ -324,8 +325,8 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
   const seen = st.reports.length
   const run = st.deployed === null ? undefined : st.validations.find((v) => v.id === st.deployed)
   if (!run) {
-    holds.push('No map of theirs runs. The practice works as it did before the project.')
-    say.push(st.validations.length ? 'They have a map in their list. Ask why it is not deployed.' : 'Ask whether they want to start from one of the reference maps, and deploy it.')
+    holds.push('No system of theirs runs. The practice works as it did before the project.')
+    say.push(st.validations.length ? 'They have a system on their list. Ask why it is not deployed.' : 'Ask whether they want to start from the proposed system, and deploy it.')
   }
   // What acts on them now: every event that cost them something in the last report.
   for (const x of last?.events ?? []) {
@@ -349,11 +350,11 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
   if (lenses > 0) good.push(`They look before they change: ${lenses} of the actions that make a report say more are done.`)
   const repaired = mt.events.filter((e) => e.from <= seen && counts(held, e.repaired_by, seen + 1, e.from) && e.reveal).map((e) => e.reveal!.title)
   if (repaired.length) good.push(`They repaired what broke: ${repaired.join(', ')}.`)
-  if (st.money < 0) holds.push('Their account is below zero, so they cannot buy anything. Every report takes the running cost of the map in service.')
+  if (st.money < 0) holds.push('Their account is below zero, so they cannot buy anything. Every report takes the running cost of the system in service.')
   if (st.money < 0 && last && last.runCost > 0) say.push('Ask which line of their last bill is the largest, and whether another place to run the models would cost less.')
   const start = mt.grants.reduce((sum, g) => sum + (g.round <= st.roundsOpened ? g.money : 0), 0)
   if (seen >= 3 && st.money > 0.6 * start && (last?.events.some((x) => x.hit) ?? false)) say.push('They still hold most of their money. Ask what the last report says is worth paying for.')
-  if (run && b3.sources.length && st.adopted.length === 0 && run.origin !== 'reference') good.push('They run a map of their own.')
+  if (run && b3.sources.length && st.adopted.length === 0 && run.origin !== 'reference') good.push('They run a system of their own.')
   return { holds: holds.slice(0, 4), say: say.slice(0, 4), good: good.slice(0, 4) }
 }
 

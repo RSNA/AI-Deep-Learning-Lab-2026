@@ -23,8 +23,8 @@ const WORDS: BoardWords = {
   phase: P3.phase, tour: P3.tour, helpTitle: P3.helpTitle, helpIntro: P3.helpIntro,
   brief: { started: P3.phaseStarted, start: P3.briefStart, stays: P3.letterStays },
   warn: P3.warn, whyNoneLeft: P3.whyNoneLeft, whyReady: P3.whyReady,
-  // A reference map joins the list without a validation, and says so in its own words.
-  doneToast: (v) => ((v as MapEntry).origin === 'reference' ? P3.tookToast((v as MapEntry).label ?? '') : P2.doneToast(v.accuracy)),
+  // The proposed system joins the list without a validation, and says so in its own words.
+  doneToast: (v, n) => ((v as MapEntry).origin === 'reference' ? P3.tookToast(n) : P2.doneToast(n, v.accuracy)),
   tab: P3.tab, insightsTitle: P3.lettersTitle, again: P3.again, doneTimes: P3.doneTimes, upkeep: P3.upkeep,
 }
 

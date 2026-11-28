@@ -143,6 +143,7 @@ const CanvasAction = {
   id: z.string(), group: z.string(), title: Text, teaser: Text,
   money: z.number(), developers: Int, seconds: z.number(),
   requires: z.array(z.string()), unlocks: z.array(z.string()), storyTime: Text.nullable(),
+  inPlace: z.boolean(),             // it changes what is already on the board, so no map has to change for it
 }
 /** What Phases 2 and 3 both send about the board: the rules, and the public part of everything on it. */
 const CanvasContent = {
@@ -297,11 +298,17 @@ export const ReadyDetail = z.discriminatedUnion('reason', [
 ])
 export type ReadyDetail = z.infer<typeof ReadyDetail>
 
+// What an action that is done changed on the board: a tag on a worker, a model, a place to run
+// or a prompt (`id`), in the words of the pack. `short` is the tag on a tile.
+export const BoardMark = S({ id: z.string(), tag: Text, short: Text, tip: Text })
+export type BoardMark = z.infer<typeof BoardMark>
+
 export const DevelopmentView = S({
   money: z.number(),
   developers: S({ total: Int, free: Int }),
   board: Int,                                       // the `board` of the content this view goes with
   unlocked: z.array(z.string()),
+  marks: z.array(BoardMark),
   actionsDone: z.array(S({ id: z.string(), atMs: Ms })),
   actionsRunning: z.array(S({ id: z.string(), startedAtMs: Ms, completesAtMs: Ms })),
   insights: z.array(S({ action: z.string(), tile: Tile })),
@@ -401,6 +408,7 @@ export const MaintainingView = S({
   developers: S({ total: Int, free: Int }),
   board: Int,                       // the `board` of the content this view goes with
   unlocked: z.array(z.string()),
+  marks: z.array(BoardMark),
   // Every action that finished, those of Phase 2 too (`phase` tells them apart). A `repeat`
   // action is listed once for every time it finished.
   actionsDone: z.array(S({ id: z.string(), atMs: Ms, phase: z.enum(['development', 'maintaining']) })),

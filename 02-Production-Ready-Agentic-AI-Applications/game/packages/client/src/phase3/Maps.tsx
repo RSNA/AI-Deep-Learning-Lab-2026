@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import type { CanvasMap, MaintainingContent, MaintainingView } from '@lab02/protocol'
 import { Grid } from '../canvas/Grid.tsx'
-import { sameLayout, type Vocabulary } from '../canvas/model.ts'
+import { marksOf, marksOnMap, sameLayout, type MarkTag, type Vocabulary } from '../canvas/model.ts'
 import { Sheet } from '../components/ui.tsx'
 import { plainError } from '../lib/errors.ts'
 import { gridWords } from '../phase2/Board.tsx'
@@ -14,11 +14,17 @@ import type { MapEntry } from './model.ts'
 
 const NO_FLAGS = { stray: [], incomplete: [], privateData: [] }
 
-/** What a map of the list was scored on, and what it would have for reliability, as quiet tags. */
-function Tags({ v }: { v: MapEntry }) {
+/**
+ * What a system of the list is and was scored on, and what it would have for reliability, as
+ * quiet tags. `marks`: what the actions that are done changed about its parts, so that a system
+ * in service shows what reached it without a new validation.
+ */
+function Tags({ v, marks, several }: { v: MapEntry; marks: MarkTag[]; several: boolean }) {
   return (
     <span className="p3tags">
+      {v.origin === 'reference' && <span className="p3tag proposed">{several && v.label ? `${P3.proposedTag} · ${v.label}` : P3.proposedTag}</span>}
       <span className="p3tag">{v.fresh ? P3.onFresh : P3.onTest}</span>
+      {marks.map((m) => <span key={m.tag} className="marktag" title={m.tip}>{m.tag}</span>)}
       {v.reliability !== null && <span className="p3tag rel">{P3.reliabilityWould(P3.share100(v.reliability))}</span>}
     </span>
   )
@@ -43,6 +49,8 @@ export function MapsPanel({ mv, content, names, current, send, onLoad, onRefs, r
   }
   const n = mv.validations.length
   const newest = [...mv.validations].reverse()
+  const marks = marksOf(mv.marks)
+  const firstPrompt = content.prompts[0]?.id ?? null
   const lastOwn = newest.find((v) => v.origin === 'phase3')
   // The map in service shows a patient that the last report lost, with what would have helped.
   const lastReport = mv.reports.at(-1)
@@ -64,7 +72,7 @@ export function MapsPanel({ mv, content, names, current, send, onLoad, onRefs, r
                 <div className="p3map-acc"><span className="num">{P2.acc1(v.accuracy)}</span><span className="face">{P3.accuracy}</span></div>
                 <div className="p3map-t">
                   <div className="p3map-n">{name}</div>
-                  <Tags v={v} />
+                  <Tags v={v} marks={marksOnMap(v.map, marks, firstPrompt)} several={content.references.length > 1} />
                   {on && inService ? (
                     <div className="vmiss"><div className="eyebrow">{P3.missedInService}</div><p><b>{inService.title}.</b> {inService.text} <span className="why">{inService.why}</span></p><p className="vhint"><b>{P2.hintLabel}</b> {inService.hint}</p></div>
                   ) : v === lastOwn && v.missed && (
@@ -114,7 +122,7 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
   content: MaintainingContent; mv: MaintainingView; v: Vocabulary
   send: (type: string, payload: unknown) => Promise<{ ok: boolean; error?: string }>
   onClose: () => void
-  onTook: (label: string) => void
+  onTook: () => void
   /** Offered at the start of the phase, before the player asked: the way out says that they keep their own map. */
   first: boolean
 }) {
@@ -133,7 +141,7 @@ export function RefPanel({ content, mv, v, send, onClose, onTook, first }: {
     setRefused(null)
     void send('maintaining.adopt', { id: r.id }).then((x) => {
       setBusy(false)
-      if (x.ok) { onTook(r.label); onClose() } else setRefused(plainError(x.error))
+      if (x.ok) { onTook(); onClose() } else setRefused(plainError(x.error))
     })
   }
   return (

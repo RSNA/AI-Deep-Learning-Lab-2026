@@ -697,6 +697,16 @@
    "What is on the board"). A new mark is a word, not a control: no border, no shadow. */
 .newtag { display: inline-block; margin-left: 6px; padding: 0 5px; font-family: var(--text); font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.5; color: var(--on); background: var(--sun); vertical-align: middle; }
 .schip .newtag { margin-left: 2px; }
+/* What an action that is done changed about something on the board ("Private", "Uses skills").
+   A word like the new mark, in the green of what is in order, and never a control. */
+.marktag { display: inline-block; flex: 0 0 auto; margin-left: 6px; padding: 0 5px; font-family: var(--text); font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.5; color: var(--on); background: var(--go); vertical-align: middle; white-space: nowrap; }
+.schip .marktag { margin-left: 2px; }
+/* The tags of a tile's kind and of its prompt, in one line under its boxes. */
+.ctile .ct-marks { flex: 0 0 auto; padding: 0 3px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25; color: var(--good); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctile .ct-part .marktag { margin-left: auto; padding: 0 3px; font-size: 9px; letter-spacing: 0.02em; line-height: 1.3; }
+.pc-head .marktag { margin-left: 0; margin-right: auto; }
+.pr-l .marktag { margin-left: 0; }
+.pr-mark { color: var(--good); font-weight: 700; }
 .tbrow.is-new, .arow.is-new { box-shadow: inset 4px 0 0 var(--sun); }
 .schip.is-new { box-shadow: inset 0 -3px 0 var(--sun); }
 .more-line { padding: 4px 12px 6px; font-size: 12.5px; font-weight: 700; line-height: 1.3; color: var(--muted); }

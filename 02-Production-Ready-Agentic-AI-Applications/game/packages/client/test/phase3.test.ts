@@ -19,21 +19,21 @@ describe('the price of a reference map', () => {
     setUnit3('k$')
     expect(P3.refPays(6)).toBe('Taking it buys all of this for 6 k$ from your account.')
     expect(P3.refTooDear(68, 45)).toContain('costs 68 k$, and your account holds 45 k$')
-    expect(P3.refTooDear(68, 45)).toContain('You cannot take the map yet')
+    expect(P3.refTooDear(68, 45)).toContain('You cannot take the system yet')
     // An account below zero buys nothing, and the sheet says so with the sum.
     expect(P3.refTooDear(16, -6)).toContain('your account is below zero (−6 k$)')
     expect(P3.refTooDear(16, -6)).toContain('until it is positive again')
     expect(P3.refTooDearShort(16, -6)).toBe('Costs 16 k$, and your account is below zero')
-    expect(P3.refTitle(1)).toBe('The reference map')
-    expect(P3.refTitle(3)).toBe('Reference maps')
+    expect(P3.refTitle(1)).toBe('The proposed system')
+    expect(P3.refTitle(3)).toBe('Proposed systems')
   })
 })
 
-describe('the list of maps', () => {
-  it('numbers the validations of each phase by themselves and names a reference map by its label', () => {
+describe('the list of systems', () => {
+  it('numbers every system in the order it was made, across both phases, and the proposed system like any other', () => {
     const names = mapNames(view().validations)
-    expect([...names.values()]).toEqual(['Phase 2 · validation 1', 'Phase 2 · validation 2', 'Reference · Map A', 'Validation 1'])
-    expect(P3.fromReference('Reference map')).toBe('Reference map')
+    expect([...names.values()]).toEqual(['System 1', 'System 2', 'System 3', 'System 4'])
+    expect(P3.tookToast(5)).toBe('The proposed system is now System 5 on your list, and it is deployed.')
   })
 })
 
