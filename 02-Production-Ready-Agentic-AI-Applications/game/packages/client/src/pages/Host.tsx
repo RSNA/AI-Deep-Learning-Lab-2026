@@ -1000,6 +1000,7 @@ function Console({ token, name, code, back, manual, guide, slides }: { token: st
                             <button type="button" className="pname plook" title={H.lookAt(p.name)} onClick={() => look(p.id)}>{p.name}</button>
                             <span className="psys" title={sys?.name}><SystemShape index={sys?.index ?? 0} size={12} /><span className="sr-only">{sys?.name}</span></span>
                             <span className={`ponline ${p.connected ? 'good' : 'bad'}`}><span aria-hidden="true">●</span> {p.connected ? H.onlineWord : H.offlineWord}</span>
+                            {p.help && H.help[p.help] && <span className="chip sun phelp" title={H.help[p.help]!.why} data-testid="player-help">{H.help[p.help]!.chip}</span>}
                           </div>
                           <div className="pstatus">{p.status}{p.idleSeconds === null ? '' : ` · ${H.lastAct(p.idleSeconds)}`}</div>
                           {rowCodes[p.id] && <div className="hint">{H.rejoinCodeIs(rowCodes[p.id]!)}</div>}

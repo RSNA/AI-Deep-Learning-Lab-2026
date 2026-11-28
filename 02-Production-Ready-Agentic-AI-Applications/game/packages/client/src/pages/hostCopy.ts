@@ -225,6 +225,45 @@ export const H = {
   offlineNow: 'offline',
   phaseTab: (n: number) => `Phase ${n}`,
   notStarted: 'This player has not started the phase.',
+  // Why a facilitator might visit a player first, on their row of the list (section 10.8).
+  help: {
+    no_validation: { chip: 'No validation yet', why: 'Three minutes into the phase this practice has not validated a map. Open the player to see what holds them back.' },
+    no_system: { chip: 'No system runs', why: 'No system of this practice is in service, so it works as it did before the project.' },
+    below_zero: { chip: 'Account below zero', why: 'The account of this practice is below zero, so it cannot buy anything until a bill is smaller.' },
+  } as Record<string, { chip: string; why: string }>,
+  // What the shape of a map says to a host who helps (section 10.8). Every hint has a line for
+  // what holds the map back and a question a facilitator can put to the player.
+  hints: {
+    lockedSource: {
+      holds: (source: string, action: string | null) => `${source} is still locked on their board, so nothing on their map can read it.${action ? ` The action "${action}" opens it.` : ''}`,
+      say: (source: string) => `Ask which patients need ${source}, and which action on their list would open it.`,
+    },
+    afterRequired: {
+      holds: (tile: string, required: string) => `${tile} stands after ${required} on the way to the result. That adds a handoff, and ${tile} cannot judge a plan that was already checked.`,
+      say: (tile: string, required: string) => `Ask what ${tile} adds once ${required} has checked the plan, and who should have the last word.`,
+    },
+    throughAgent: {
+      holds: (sources: string[], via: string[], decider: string, loss: number) =>
+        `${listOf(sources)} ${sources.length === 1 ? 'reaches' : 'reach'} ${decider} only through ${listOf(via)}. Every patient needs ${sources.length === 1 ? 'it' : 'them'}, and each handoff loses about ${loss} percent.`,
+      say: (sources: string[], decider: string) => `Ask which tile needs ${listOf(sources)} for every patient, and what a line straight into ${decider} would change.`,
+    },
+    readsWhole: {
+      holds: (tile: string, model: string, sources: string[], tokens: number, cost: string, billed: boolean) =>
+        `${tile} reads ${listOf(sources)} whole on ${model}, about ${tokens.toLocaleString('en-US')} tokens per patient. ${billed ? `On the last bill ${tile} cost ${cost} a month.` : `${tile} costs ${cost} a month.`}`,
+      say: (tile: string, tool: string, source: string, cheapest: boolean) =>
+        `Ask what ${tile} reads for each patient and what that costs a month. Would ${tool} in front of ${source}${cheapest ? '' : ', or a small agent that gathers,'} change the bill?`,
+    },
+    dearGatherer: {
+      holds: (tile: string, model: string, cheaper: string, cost: string) =>
+        `${tile} only gathers for another agent, and it runs on ${model}, the most expensive model they have (${cost} a month). ${cheaper} finds the same things for less.`,
+      say: (tile: string) => `Ask whether ${tile} has to judge anything or only finds things, and which model on their shelf would do that for less.`,
+    },
+    good: {
+      requiredLast: (required: string) => `${required} has the last word before the result.`,
+      deciderDirect: (decider: string) => `What every patient needs goes straight to ${decider}, which decides.`,
+      readsShort: 'Every long text is read behind a tool or by their cheapest model, so the bill stays small.',
+    },
+  },
   // Phase 3 beside the key (section 10.8)
   mnt: {
     playing: 'The year is running', closed: 'Scored',

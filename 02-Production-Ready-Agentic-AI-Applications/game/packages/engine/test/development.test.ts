@@ -567,5 +567,19 @@ describe('what a host sees to help a player (spec 10.8)', () => {
     const mine = JSON.stringify(view(s))
     expect(mine).not.toContain('coach')
     expect(mine).not.toContain(insp.coach.guide[0]!.best)
+    // The shape of the map: the mailbox that the proposed system reads is still locked here.
+    expect(insp.coach.hints).toContainEqual({ kind: 'locked_source', source: 'rb-s-mailbox', action: 'rb-a-mailbox' })
+    expect(Array.isArray(insp.coach.good)).toBe(true)
+    expect(mine).not.toContain('locked_source')
+  })
+  it('marks a practice for a visit when it has no validation three minutes into the phase', () => {
+    const { s, t0 } = playing()
+    const rows = (now: number) => project.hostView(s, demoPack(), { clock: { gameMs: now, running: true, scale: 1 }, connected: () => true, publicUrl: 'http://x', wallNowMs: 0, stageWall: {}, answerKey: false, guide: false, screens: 0 }).players
+    expect(rows(t0 + 60_000).map((r) => r.help)).toEqual([null, null])
+    expect(rows(t0 + 180_000).map((r) => r.help)).toEqual(['no_validation', 'no_validation'])
+    // One of them validates: the mark goes, and the other keeps it.
+    expect(cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0 + 100).ok).toBe(true)
+    expect(cmd(s, 'p1', 'development.validate', {}, t0 + 200).ok).toBe(true)
+    expect(rows(t0 + 180_000).map((r) => r.help)).toEqual([null, 'no_validation'])
   })
 })

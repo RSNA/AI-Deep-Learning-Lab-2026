@@ -2798,7 +2798,9 @@ Phase 2 adds its part (Step 7):
     spent: MaintainingSpent; score: number
     key: { references: { id; label; map; accuracy }[]
            guide: { id; best: Text; wrong: Text }[] }         // what Phase 3 adds, and the kinds on the map that runs
-    glimpse: { holds: Text[]; say: Text[]; good: Text[] }     // a few lines for a host who helps
+    glimpse: { holds: Text[]; say: Text[]; good: Text[]       // a few lines for a host who helps
+               first: { holds: number; say: number } }        // how many of them stand before the hints
+    hints: CoachHint[]; good: CoachGood[]                     // the shape of the system in service (below)
   } | null
 ```
 
@@ -4410,6 +4412,37 @@ otherwise, and says which. It has three short lists:
 - **Good on this map.** The kinds on the map that the reference map has too (`coach.shared`),
   and the kinds that the reference map does not use (`coach.extra`).
 
+**Hints on the shape of a map (2026-11-28).** `coach.hints` and `coach.good` come from
+`mapHints(map, tables, unlocked, reference)` of the engine (`hints.ts`). It reads the structure
+of a map and never its score, so it also works on a draft that reaches no result. The hints are
+data (`CoachHint`: tiles, ids of the legend, an action id, tokens, money), and the console writes
+the sentences (`hostHints.ts`, `H.hints`): one line for "What holds this map back" and one
+question for "Worth saying" each, which a facilitator can put to the player without giving the
+answer away. In this order:
+
+1. `locked_source`: a source that the reference map reads is locked for this player. It names
+   the action whose `unlocks` holds the source.
+2. `after_required`: a tile stands behind the last tile of a required kind (`required.workers`)
+   on the way to the result. Tiles between two required workers are no hint.
+3. `through_agent`: a source that gives a fact in the `needs` of every case (the one with the
+   highest trust for that fact) reaches the agent that decides only through another AI tile.
+   The agent that decides is the last AI tile in the order of the handoffs. A source behind a
+   tool that prepares it counts as read by the tile behind the tool, so it is no hint. The
+   console says several of them to the same agent in one line, with `1 - handoff.keep` in percent.
+4. `reads_whole` (only with `reading`): a tile whose model costs money reads a source of 2
+   reading units or more on a direct line, and an unlocked tool has a `prepares` entry that
+   makes it shorter. A tool that costs nothing to run is named before one that does. A source
+   that distracts is left to its flag. `cheapest` says that no model of the player costs less,
+   and then the question does not suggest a smaller model.
+5. `dear_gatherer` (only with `reading`): an AI tile with another AI tile behind it runs on the
+   dearest model the player has, and a cheaper unlocked model fetches every kind it reads as well.
+
+`coach.good` holds `required_last` (the required worker signs), `decider_direct` (two or more
+agents, and what every case needs goes straight to the one that decides) and `reads_short` (a
+long source is read on the map, none of them whole on a model that is not the cheapest, and no
+hint of kinds 4 and 5). The hints stand before the lines of the losses, a loss whose source a
+hint of kinds 1 or 3 already names is left out, and a column has four lines at most.
+
 Every kind named in the block is a button. A press shows the guide of that kind under the lists:
 its best use and the wrong choices, from `key.guide` of the build file (optional, one entry for
 a kind of worker, host only). At 900 px and below the three lists stand under each other.
@@ -4427,11 +4460,21 @@ holds the reference map with its accuracy and its summary. Nothing of `coach` an
 a few lines each. The engine writes them from the last report (no map runs, an event that was
 a hit and has a line of `key.coach` in the pack, a map that stops often, people who are asked
 twice, validations that still run on the test set) and from what the player did (lenses held,
-repairs made). Under it the year as a table of the reports with the events that were a hit in
+repairs made). `glimpse.first` counts the lines that come first: that no system runs, an
+account below zero, and the lines of the events. After them the console puts the hints on the
+shape of the system in service (`maintaining.hints`, kinds 2 to 5 of the list above, with the
+money of the last bill per month when that bill was for this system), then the rest, four lines
+a column. When the account is below zero or the models are the largest line of the last bill,
+the hints about cost come first (`costFirst`). Under it the year as a table of the reports with the events that were a hit in
 each, the map that runs drawn read-only, the list of maps, the actions, the money spent by
 part, the reference maps, and the guide of `key.guide` for what Phase 3 adds and for the kinds
 on the map that runs. Nothing of `glimpse`, of `key.coach` and of the events is in any player
 view or screen view, and a test holds that.
+
+**A mark for a visit.** `HostPlayerRow.help` is `no_validation` (the phase of Phase 2 runs for
+three minutes of game time and the player has validated nothing), `no_system` or `below_zero`
+(Phase 3), or null. The row shows it as one small chip after the online mark, with the reason
+as its title. It is never set outside a play stage.
 
 **The players list.** At 1280 px every row is fully inside its column, and nothing is cut at
 its edge: a long name is shortened with an ellipsis and shows whole on hover, and the status

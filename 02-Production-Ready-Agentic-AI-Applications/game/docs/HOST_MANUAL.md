@@ -99,6 +99,20 @@ their points. **Click a name to look at that player beside the key.** The page o
 phase that runs and starts with what holds the player back, what is worth saying and what is
 good. It updates as the player works. Only facilitators see it.
 
+The first lines of that block are about the shape of the map, and each comes with a question you
+can put to the player without giving the answer away:
+
+- a source that the proposed system reads is still locked on their board, with the action that
+  opens it,
+- a tile stands after the radiologist, or after whoever has to sign,
+- something every patient needs reaches the agent that decides only through another agent,
+- an agent reads a long text whole on a model that costs money, or an agent that only gathers
+  runs on the most expensive model.
+
+A row of the list carries a small yellow mark when the player is worth a visit first: "No
+validation yet" three minutes into Phase 2, and in Phase 3 "No system runs" or "Account below
+zero". Hover over the mark to read why.
+
 The button with three lines (☰) on a row has the rest.
 
 | Action | What it does |
