@@ -185,7 +185,7 @@ export function hintOf(b: BuildFile, m: MissedCase, map: PackCanvasMap, shown: B
   const start = `${name} was read, and too little came out of it.`
   if (best?.via && !kinds.has(best.via)) {
     return shown.unlocked.has(best.via)
-      ? `${start} Put ${label(best.via)} between ${name} and the tile that reads it.`
+      ? `${start} Put the tool "${label(best.via)}" between ${name} and the tile that reads it.`
       : `${start} There is a tool that readies it for its reader. ${opener(best.via)}`
   }
   if (best && !kinds.has(best.worker)) {

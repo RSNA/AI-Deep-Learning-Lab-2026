@@ -351,7 +351,7 @@
 .vrun-n { font-family: var(--face); font-size: 22px; line-height: 1; }
 .vrun-h .flag { margin-left: 0; }
 .vrun-h .vrank { margin-left: auto; font-size: 13px; color: var(--muted); }
-.vrun-b { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; }
+.vrun-b { display: grid; grid-template-columns: minmax(112px, max-content) minmax(0, 1fr); gap: 14px; align-items: start; }
 .vrun .vacc { flex-direction: column; align-items: flex-start; gap: 0; }
 .vrun .vacc .num { font-size: 40px; }
 .vrun .vacc .face { font-size: 16px; }
@@ -434,7 +434,7 @@
   .rcases { grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 8px 10px; }
   .vacc .num, .vrun.newest .vacc .num { font-size: 44px; }
   .vrun .vacc .num { font-size: 34px; }
-  .vrun-b { grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }
+  .vrun-b { grid-template-columns: minmax(88px, max-content) minmax(0, 1fr); gap: 10px; }
 }
 @media (max-width: 560px) {
   .rcases { grid-template-columns: minmax(0, 1fr) 92px 92px; }
