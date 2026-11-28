@@ -53,9 +53,9 @@ By the end of this session, participants will be able to:
 
 | Material | Link |
 | --- | --- |
-| Game | The link to join will be shown on screen at the start of the session |
-| Source code | Will be posted in this folder before the meeting |
-| Slides | Will be posted here before the meeting |
+| Game | [radagents.tech](https://radagents.tech) (see "Play the game" above) |
+| Source code | The [`game/`](./game/) folder holds the code of the game. The scenario itself is kept out of the repository, so that the game stays a surprise |
+| Slides | The slides are part of the game and appear on screen between its phases |
 
 ## Suggested Reading
 
