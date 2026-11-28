@@ -131,7 +131,7 @@ export function FirstBuild({ api, dv, content, who }: {
   useEffect(() => { if (open && !plan) { store.setFlag(doneKey); end() } }, [open, plan, doneKey, end])
 
   // Where the ring is, for which step it was measured: a new step starts unmeasured.
-  const [seen, setAt] = useState<{ key: string; rect: Rect | null; half: Half; sheet: boolean }>({ key: '', rect: null, half: 'a', sheet: false })
+  const [seen, setAt] = useState<{ key: string; rect: Rect | null; half: Half; sheet: boolean; covered: boolean }>({ key: '', rect: null, half: 'a', sheet: false, covered: false })
   const [vw, setVw] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }))
   const card = useRef<HTMLDivElement>(null)
   // What changes the place of the ring: the step, and what it names.
@@ -162,10 +162,13 @@ export function FirstBuild({ api, dv, content, who }: {
         rect = shownRect(t.el)
       }
       const sheet = !!t.el?.closest('.scrim')
+      // A window that the step is not about (a question, a letter, a card opened to read) comes
+      // first: the tutorial steps aside until it is closed.
+      const covered = !sheet && !!document.querySelector('.scrim')
       setAt((p) => {
-        const same = p.key === stepKey && p.half === t.half && p.sheet === sheet && (p.rect === rect || (!!p.rect && !!rect
+        const same = p.key === stepKey && p.half === t.half && p.sheet === sheet && p.covered === covered && (p.rect === rect || (!!p.rect && !!rect
           && Math.abs(p.rect.x - rect.x) < 0.5 && Math.abs(p.rect.y - rect.y) < 0.5 && Math.abs(p.rect.w - rect.w) < 0.5 && Math.abs(p.rect.h - rect.h) < 0.5))
-        return same ? p : { key: stepKey, rect, half: t.half, sheet }
+        return same ? p : { key: stepKey, rect, half: t.half, sheet, covered }
       })
       setVw((p) => (p.w === window.innerWidth && p.h === window.innerHeight ? p : { w: window.innerWidth, h: window.innerHeight }))
       raf = requestAnimationFrame(measure)
@@ -180,7 +183,7 @@ export function FirstBuild({ api, dv, content, who }: {
   const labelOf = (id: string | null) => content.workers.find((w) => w.id === id)?.label ?? ''
   const agent = inline(labelOf(plan.agent))
   const person = inline(labelOf(plan.person))
-  const at = seen.key === stepKey ? seen : { rect: null, half: 'a' as Half, sheet: false }
+  const at = seen.key === stepKey ? seen : { rect: null, half: 'a' as Half, sheet: false, covered: false }
   const { rect, half } = at
   let title = '', text = '', more: string | null = null
   let primary: { label: string; press: () => void } | null = null
@@ -227,6 +230,7 @@ export function FirstBuild({ api, dv, content, who }: {
   left = Math.max(12, Math.min(left, vw.w - cw - 12))
   top = Math.max(12, Math.min(top, low))
 
+  if (at.covered) return null
   return (
     <div className="fb">
       {rect && <div className={`fb-ring${at.sheet ? ' in-sheet' : ''}`} style={{ left: rect.x - PAD, top: rect.y - PAD, width: rect.w + 2 * PAD, height: rect.h + 2 * PAD }} />}
