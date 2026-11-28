@@ -239,7 +239,7 @@ test('Validate always says why, and every refused placement or line says why at 
   await page.locator('.cline .hit[aria-label^="Line from Request form to Reference librarian"]').click({ force: true })
   await page.keyboard.press('Delete')
   await expect(page.locator('.ctile.k-person .ct-body')).toHaveText(/^Needs \d+ min per patient, has 4$/)
-  await expect(why).toContainText('Ready. Press Validate')
+  await expect(why).toContainText('Your map is ready. Press Validate')
   await expect(vbtn).not.toHaveAttribute('aria-disabled', 'true')
   await noErrorNames(page)
   s.close()

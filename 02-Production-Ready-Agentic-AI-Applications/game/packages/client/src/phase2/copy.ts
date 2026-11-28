@@ -49,12 +49,12 @@ export const P2 = {
   validations: 'Validations',
   freeOf: (n: number, of: number) => `${n} of ${of} free`,
   left: (n: number) => `${n} left`,
-  moneyLine: 'An action is paid when it starts. Its developers are back when it ends.',
+  moneyLine: 'You pay for an action when it starts, and you get its developers back when it ends.',
   models: 'Models',
   computes: 'Where they run',
   // A tool that is plain software carries no tag: the card beside it says what it is.
   kinds: { ai: 'AI', fixed: '', person: 'Person' } as Record<string, string>,
-  pickHint: 'Tap an operator or a tool, then an empty cell of the map.',
+  pickHint: 'Tap an operator or a tool, and then tap an empty cell of the map.',
   picked: 'Now click an empty cell. Esc cancels.',
   locked: (action: string) => `Opens with: ${action}`,
   lockedNoAction: 'Not open in this phase',
@@ -77,7 +77,7 @@ export const P2 = {
   cleared: 'The map is clear. Undo brings it back.',
   // Hints in the bar of the map
   hint: {
-    idle: 'Pick an operator or a tool in the toolbox, then a cell. Join with a round dot.',
+    idle: 'Pick an operator or a tool in the toolbox and then a cell. To join two tiles, drag from a round dot.',
     place: (label: string) => `Click an empty cell for the ${label}. Esc cancels.`,
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
     join: (label: string) => `Click a lit tile, one of its dots, or the result to join ${label}. Esc cancels.`,
@@ -90,14 +90,14 @@ export const P2 = {
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
   // The tour of the phase (section 10.1). It describes the screen, never an answer.
   tour: [
-    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'Where patient data and evidence live. A line from a source to a tile lets that operator or tool read there. A locked source opens with an action.' },
-    { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are people and agents. Tools do one job each. Pick one, then click any empty cell of the map to place it. Point at a row to read more about it.' },
-    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'Draw a line from a round dot of a tile to the tile that gets its work. A tile has a dot on each side: the line leaves from the dot you press. Select a line and press another dot to move that end. A line may run any way, but never in a loop. The work ends in the result.' },
-    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time. The result is waiting when the person who signs opens the case.' },
-    { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI tile needs a model, a place to run and a prompt. Choose them in the three boxes on the tile. These shelves show what you have.' },
-    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Learn, build, buy or negotiate. An action costs money and developers, takes time, and brings an insight or opens new items. What you do puts more on your board: new tools, new models and new actions appear as your team learns and buys. Explore, and choose with care, because the budget does not stretch to everything.' },
-    { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Test the map against patients whose answers people checked. While the button cannot act, the line beside it says what to do next.' },
-    { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy and one patient the map got wrong, and you can bring back the map of any of them. The opening letter and the insights of actions wait here too.' },
+    { area: '[data-tour="p2-sources"]', tab: 'map', title: 'Sources', text: 'This is where patient data and evidence live. When you draw a line from a source to a tile, that operator or tool can read it. A source with a lock opens once you take the right action.' },
+    { area: '[data-tour="p2-tools"]', tab: 'toolbox', title: 'Toolbox', text: 'Operators are the people and the agents, and each tool does one job. Pick one and then click any empty cell of the map to place it. Point at a row if you want to read more about it.' },
+    { area: '[data-tour="p2-grid"]', tab: 'map', title: 'Your map', text: 'To connect two tiles, drag from a round dot of one tile to the other tile, or click the dot and then the tile. If you select a line, you can drag either of its ends somewhere else. Lines may run in any direction as long as they never form a loop, and the work has to end in the result.' },
+    { area: '[data-tour="p2-result"]', tab: 'map', title: 'When it runs', text: 'Your map works on every case ahead of time, so the result is already waiting when the person who signs opens the case.' },
+    { area: '[data-tour="p2-shelves"]', tab: 'map', title: 'Models and places to run', text: 'An AI agent needs a model, a place to run and a prompt, and you choose them in the three boxes on its tile. These shelves show what you have so far.' },
+    { area: '[data-tour="p2-actions"]', tab: 'actions', title: 'Actions', text: 'Here your team can learn, build, buy or negotiate. Every action costs money, keeps some of your developers busy and takes time, and it brings back an insight or opens something new. The more your team learns and buys, the more shows up on your board. Do explore, but choose with care, because the money does not come back.' },
+    { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Validate tests your map on patients whose answers people have already checked. When the button cannot be pressed, the line beside it tells you what to do next.' },
+    { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy, one patient the map got wrong and a hint on what would help. You can bring back the map of any validation. The opening letter and the cards from your actions are here too.' },
   ],
   // The guided first build (section 10.5): hands-on, one step at a time, after the tour. Every
   // sentence is said the way a friendly colleague would say it over the player's shoulder.
@@ -181,14 +181,14 @@ export const P2 = {
     cap,
   },
   helpTitle: 'Help · Phase 2',
-  helpIntro: 'Build a map that solves the problem of the letter, then validate it. The accuracy of your chosen map is your score.',
+  helpIntro: 'Build a map that solves the problem from the letter, and then validate it. Your score is the accuracy of the map you choose.',
   helpMarks: 'What the marks on the map mean',
   markWarn: 'Private data goes through a service that does not protect it.',
-  markStray: 'Dashed and pale: the tile has no line out yet, so its work goes nowhere.',
-  markMissing: 'A box in yellow: this AI tile still needs that part.',
-  markGuide: 'A glowing outline: what the line beside Validate is about.',
-  markAdvice: 'An i on a line: advice about that line. Click it to read it again.',
-  markLock: 'A lock: the source opens with an action.',
+  markStray: 'A dashed, pale tile has no line out yet, so its work goes nowhere.',
+  markMissing: 'A yellow box means that this AI tile still needs that part.',
+  markGuide: 'A glowing outline shows what the line beside Validate is talking about.',
+  markAdvice: 'An i on a line means there is advice about that line. Click it to read the advice again.',
+  markLock: 'A lock means that the source opens with an action.',
   lockedTold: (action: string | null) => (action ? `Locked. Do “${action}” in Actions to open it.` : 'Locked in this phase.'),
   personBody: (used: number, max: number) => `Needs ${num(used)} min per patient, has ${num(max)}`,
   // The parts of a tile
@@ -247,7 +247,7 @@ export const P2 = {
   // Actions
   start: 'Start',
   done: 'Done',
-  noCancel: 'Paid up front, cannot be stopped.',
+  noCancel: 'You pay up front, and an action cannot be stopped.',
   noCancelLong: 'An action is paid when it starts and cannot be stopped. Several can run at once while money and developers allow.',
   cost: (money: number, devs: number, s: number) =>
     [money ? (unit ? `${moneyOf(money)}${unit}` : `${moneyOf(money)} money`) : 'Free', devs ? `${devs} dev${devs === 1 ? '' : 's'}` : 'no devs', `${s} s`].join(' · '),
@@ -297,7 +297,7 @@ export const P2 = {
   why: {
     running: 'A validation is running. Its result comes in a few seconds.',
     noneLeft: 'No validations are left. Your chosen map counts when the time is up.',
-    place: 'Place a tile first: pick an operator or a tool in the toolbox, then click an empty cell.',
+    place: 'Place a tile first. Pick an operator or a tool in the toolbox, and then click an empty cell.',
     joinSource: 'No source is joined to a tile. Draw a line from the round port of a source to a tile.',
     reachResult: 'Nothing reaches the result yet. Join a tile to it with the tile’s round port.',
     liveSource: 'No source reaches the tiles that lead to the result. Join a source to one of them.',
@@ -309,7 +309,7 @@ export const P2 = {
     rushOne: (name: string, used: number, max: number) => `${name} needs ${num(used)} min per patient and has ${num(max)}, so ${reach(used, max)}. You can still validate.`,
     rushPool: (label: string, used: number, max: number) => `${poolPeople(label)}: the map needs ${num(used)} min per patient and there are ${num(max)}, so ${reach(used, max)}. You can still validate.`,
     more: (n: number) => (n === 1 ? '1 more thing after this.' : `${n} more things after this.`),
-    ready: 'Ready. Press Validate to test the map against patients whose answers people checked.',
+    ready: 'Your map is ready. Press Validate to test it on patients whose answers people have already checked.',
   },
   // Why a placement or a line was refused, at its place (section 10.5).
   refuse: {
