@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { fromPackMap, movedMap, movedPlaces, periodName, phase3Build, referenceMaps, type CanvasMap } from '@lab02/content-schema'
 import { advance, evaluate, project, type SessionState } from '../src/index.ts'
 import { live, period } from '../src/maintain.ts'
+import { marksView } from '../src/project/canvas.ts'
 import { offerTitle } from '../src/project/maintaining.ts'
 import { demoPack, host, join, newSession, run } from './helpers.ts'
 
@@ -176,6 +177,54 @@ describe('rounds and reports', () => {
     expect(r.components.some((c) => c.part === 'new_map')).toBe(false)
     expect(r.bill.some((x) => x.kind === 'place' && x.id === 'rb-c-private')).toBe(true)
     expect(r.bill.some((x) => x.id === 'rb-c-api')).toBe(false)
+  })
+  it('an action that makes parts better reaches the system in service by itself, from the next report on', () => {
+    const { s, t0 } = year()
+    st(s).money = 500
+    const before = st(s).reports[0]!
+    // Retries on the model calls, bought in the first round. The map in service is left alone:
+    // no new validation and no new deployment.
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-harden' }, t0 + 1))).toBe('ok')
+    advance(s, pack, boundary(t0, 1))
+    const m = st(s)
+    expect(m.deployed).toBe('v1')
+    expect(m.validations).toHaveLength(1)
+    const after = m.reports[1]!
+    expect(after.map).toBe('v1')
+    expect(after.components.some((c) => c.part === 'new_map')).toBe(false)
+    const risk = (r: typeof after) => r.components.find((c) => c.part === 'worker' && c.id === 'rb-w-agent' && c.event === null)!.risk
+    expect(risk(after)).toBeCloseTo(risk(before) * 0.5, 12)
+    expect(after.reliability).toBeGreaterThan(before.reliability)
+    // Skills do the same on top of it, also when they come in a later round.
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-guide' }, boundary(t0, 1) + 1))).toBe('ok')
+    advance(s, pack, boundary(t0, 1) + 9_000)
+    expect(err(cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-skills' }, boundary(t0, 1) + 10_000))).toBe('ok')
+    advance(s, pack, boundary(t0, 2))
+    expect(m.deployed).toBe('v1')
+    expect(risk(m.reports[2]!)).toBeCloseTo(risk(before) * 0.5 * 0.6, 12)
+    // A new validation of the same map shows the gain to a practice whose validations carry the reliability.
+    cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-staging' }, boundary(t0, 2) + 1)
+    advance(s, pack, boundary(t0, 2) + 20_000)
+    cmd(s, 'p1', 'maintaining.validate', {}, boundary(t0, 2) + 20_000)
+    advance(s, pack, boundary(t0, 2) + 20_000 + M.validate.seconds * 1000)
+    const again = m.validations.at(-1)!
+    expect(again.accuracy).toBeCloseTo(m.validations[0]!.accuracy, 12)
+    expect(again.reliability).not.toBeNull()
+  })
+  it('an action that is done marks what it changed, and nothing before that', () => {
+    const { s, t0 } = year()
+    st(s).money = 500
+    expect(view(s).marks).toEqual([])
+    const contract = B3.actions.find((a) => a.moves?.['rb-c-api'] === 'rb-c-private')!
+    cmd(s, 'p1', 'maintaining.act', { id: contract.id }, t0 + 1)
+    cmd(s, 'p1', 'maintaining.act', { id: 'rb-a-harden' }, t0 + 2)
+    expect(view(s).marks).toEqual([])                                       // running is not done
+    advance(s, pack, t0 + 60_000)
+    const marks = view(s).marks
+    expect(marks.filter((x) => x.tag === contract.marks![0]!.tag).map((x) => x.id).sort()).toEqual(['rb-m-large', 'rb-m-small'])
+    expect(marks.find((x) => x.id === 'rb-w-agent')).toMatchObject({ short: 'Retries' })
+    // A tag without a short form goes by its words on a tile too.
+    expect(marksView({ ...B3, actions: [{ ...contract, marks: [{ on: ['rb-m-small'], tag: 'Covered', tip: 'It is covered.' }] }] }, [contract.id])).toEqual([{ id: 'rb-m-small', tag: 'Covered', short: 'Covered', tip: 'It is covered.' }])
   })
   it('an account below zero buys nothing, and the system keeps running', () => {
     const { s, t0 } = year()
@@ -654,7 +703,7 @@ describe('the host and the projector', () => {
     expect(h.key.guide.map((g) => g.id)).toEqual(expect.arrayContaining(['rb-w-gateway', 'rb-a-monitor', 'rb-w-agent']))
     expect(h.legend.workers.map((w) => w.id)).toContain('rb-w-gateway')
     const none = project.hostInspect(s, pack, 'p3', true)!.maintaining!
-    expect(none.glimpse.holds[0]).toMatch(/No map/)
+    expect(none.glimpse.holds[0]).toMatch(/No system/)
     // Nothing of the key is in the player's own view.
     expect(JSON.stringify(view(s))).not.toContain(M.events.find((e) => e.id === 'rb-e-audit')!.key!.coach!.holds)
   })

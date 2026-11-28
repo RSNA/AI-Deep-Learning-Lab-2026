@@ -243,11 +243,11 @@ test('the host console: two windows, one in control, the pin banner, the slides,
   await page.evaluate((t) => localStorage.setItem('lab02.host', JSON.stringify({ token: t, name: "Maya's laptop" })), token)
   await page.goto('/host')
   await page.getByLabel('Label').fill('E2E two hosts')
-  await page.getByLabel('Link name (optional)').fill('AB')
+  await page.getByLabel('Session code (optional)').fill('AB')
   await expect(page.getByText('A link name needs 4 to 8 letters or digits.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled()
   await noErrorNames(page)
-  await page.getByLabel('Link name (optional)').fill('')
+  await page.getByLabel('Session code (optional)').fill('')
   await page.getByRole('button', { name: 'Create' }).click()
   // The test before this one left its session open, and one session is open at a time: the console asks first.
   const replace = page.getByRole('dialog').getByRole('button', { name: 'End it and start the new session' })

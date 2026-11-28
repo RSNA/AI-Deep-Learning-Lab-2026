@@ -46,13 +46,20 @@ To make a session, give it a name and a mode and press **Create**.
   can join.
 - **Single player.** The panel under the sessions has a switch. While it is on, a person who
   opens the site can play the whole game alone. A phase of such a game stays open when its
-  timer ends, until its player ends it. Nobody can watch such a game or help in it. The
+  timer ends, until its player ends it. The player can run the clock of a phase slower or
+  faster (a quarter, a half, twice or four times the pace of a room), which never changes a
+  score, and can step through the slides with the arrow keys. Nobody can watch such a game or help in it. The
   panel lists the games so that they can be deleted, one by one or all at once after typing
   DELETE. Switch it off right before a session with a room.
 - **The passcode of single player.** The same panel says who may start such a game: whoever
   has the facilitator passcode (the setting of a new server, for the days before an event), a
   passcode of its own that opens nothing else, or anybody. Never give the facilitator passcode
   to players: it opens this console.
+- **The passcode on the last slide.** A closing slide can tell the room which passcode a
+  single-player game asks for, and it always shows the one this panel asks for at that moment.
+  If that is still the facilitator passcode, the room has read it. So after the session, set
+  "A passcode of its own" to the code that was on the slide, and then change the facilitator
+  passcode on the server. While anybody may play, the slide names no passcode.
 
 ## 3. Who is in charge
 

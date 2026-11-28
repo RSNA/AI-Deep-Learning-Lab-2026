@@ -53,7 +53,7 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
             return (
               <li key={v.id} className={`vrun${i === 0 ? ' newest' : ''}${sending ? ' send' : ''}`} data-validation={v.id}>
                 <div className="vrun-h">
-                  <span className="vrun-n">{free ? P2.validationPlain(num) : P2.validationN(num, runs)}</span>
+                  <span className="vrun-n">{P2.systemN(num)}</span>
                   {v.free && <span className="flag">{P2.freeTag}</span>}
                   {i === 0 && n > 1 && <span className="flag look">{P2.latest}</span>}
                   {v.rank !== null && <span className="vrank">{P2.rank(v.rank, v.of)}</span>}

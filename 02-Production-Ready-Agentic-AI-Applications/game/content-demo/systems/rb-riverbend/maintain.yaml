@@ -242,6 +242,8 @@ actions:
     money: 0
     developers: 2
     seconds: 16
+    marks:
+      - {on: [rb-w-agent], tag: Retries and timeouts, short: Retries, tip: Every model call of an agent tries again once and gives up cleanly.}
     story_time: three weeks
     key: {note: Halves the risk of the AI tiles.}
   - id: rb-a-gateway

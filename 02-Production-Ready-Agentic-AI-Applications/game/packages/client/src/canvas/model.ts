@@ -10,6 +10,33 @@ export type Vocabulary = Omit<CanvasLegend, 'workers' | 'models'> & {
   models: (CanvasLegend['models'][number] & { runsOn: string[] })[]
 }
 
+/** A tag on something of the board that an action changed: its words, the one word for a tile, and what it means. */
+export type MarkTag = { tag: string; short: string; tip: string }
+/** The tags of the board by the id of what they stand on: a worker, a model, a place to run or a prompt. */
+export type Marks = ReadonlyMap<string, MarkTag[]>
+
+export function marksOf(list: readonly ({ id: string } & MarkTag)[]): Marks {
+  const out = new Map<string, MarkTag[]>()
+  for (const m of list) out.set(m.id, [...(out.get(m.id) ?? []), { tag: m.tag, short: m.short, tip: m.tip }])
+  return out
+}
+
+/**
+ * The tags that hold for a map: those of the kinds of its tiles, and of the models, the places
+ * to run and the prompts of its tiles (a tile with no prompt has the first one). Each tag once.
+ */
+export function marksOnMap(m: CanvasMap, marks: Marks, defaultPrompt: string | null): MarkTag[] {
+  const out: MarkTag[] = []
+  const add = (id: string | null) => { for (const x of (id ? marks.get(id) : undefined) ?? []) if (!out.some((y) => y.tag === x.tag)) out.push(x) }
+  for (const t of m.tiles) {
+    add(t.kind)
+    add(t.model)
+    add(t.runsOn)
+    if (t.model !== null) add(t.prompt ?? defaultPrompt)
+  }
+  return out
+}
+
 export const MAX_LINES = 80
 const TILE_ID = /^t[0-9a-z]{1,8}$/
 

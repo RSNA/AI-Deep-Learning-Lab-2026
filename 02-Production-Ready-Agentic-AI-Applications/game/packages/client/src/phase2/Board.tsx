@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CanvasMap, DevelopmentContent, DevelopmentView, InboxItem, LineSide, Welcome } from '@lab02/protocol'
 import { Grid, LineLegend, type Mode, type Part, type Selection } from '../canvas/Grid.tsx'
-import { addLine, lineKey, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
+import { addLine, lineKey, marksOf, moveTile, placeTile, removeLine, removeTile, sameLayout, setPart, targetsOf, tileAt, tileNames, tileOf, type Vocabulary } from '../canvas/model.ts'
 import { ActionList, ItemSheet, PartSheet, PromptSheet, Shelves, Toolbox, type ActionRow, type Item } from '../canvas/Panels.tsx'
 import { PopLayer, type PopInfo } from '../canvas/Pop.tsx'
 import { ClampCard } from '../components/Clamp.tsx'
@@ -31,7 +31,7 @@ import { useMap } from './useMap.ts'
 // ------------------------------------------------------------------------------------------
 export type BoardPhase = 'development' | 'maintaining'
 /** The part of a phase's view that the board reads. The views of Phases 2 and 3 both carry it. */
-export type BoardView = Pick<DevelopmentView, 'money' | 'developers' | 'unlocked' | 'actionsRunning' | 'insights' | 'map' | 'ready' | 'lineAdvice' | 'tileMinutes' | 'rushed' | 'flags' | 'running' | 'validationsLeft' | 'validating'> & {
+export type BoardView = Pick<DevelopmentView, 'money' | 'developers' | 'unlocked' | 'marks' | 'actionsRunning' | 'insights' | 'map' | 'ready' | 'lineAdvice' | 'tileMinutes' | 'rushed' | 'flags' | 'running' | 'validationsLeft' | 'validating'> & {
   actionsDone: { id: string; atMs: number }[]
   validations: { id: string; map: CanvasMap; accuracy: number }[]
 }
@@ -153,15 +153,16 @@ function ValidateButton({ dv, guide, first, free, onValidate, onWhy, refused, re
   )
 }
 
-/**
- * The letters and the insights of the phase: the opening letter first, then the letters and memos
- * that arrived since (Phase 3), the newest first, then a card per action that brought an insight.
- */
 /** The bar of a card that is opened in a window takes the color of the group of its action. */
-const POP_HEAD: Record<string, string> = { learn: 'sky', build: '', buy: 'sun', negotiate: 'lav' }
+const POP_HEAD: Record<string, string> = { learn: 'sky', build: '', buy: 'sun', negotiate: 'lav', watch: 'rose', maintain: 'orange' }
 
+/**
+ * The letters and the insights of the phase as one row of cards, the newest first: the letters
+ * and memos that arrived (Phase 3), a card per action that brought an insight, and the letter
+ * that opened the phase, each at the time it came.
+ */
 export function InsightsPanel({ w, content, dv, fresh, phase = 'development', letters = [], title = P2.insights, freshLetters }: {
-  w: Welcome; content: BoardContent; dv: Pick<BoardView, 'insights'>; fresh: Set<string>
+  w: Welcome; content: BoardContent; dv: Pick<BoardView, 'insights' | 'actionsDone'>; fresh: Set<string>
   phase?: BoardPhase
   /** Letters and memos of the inbox that stay as cards, the newest first. */
   letters?: InboxItem[]
@@ -174,43 +175,50 @@ export function InsightsPanel({ w, content, dv, fresh, phase = 'development', le
   const idx = b ? w.system.cast.findIndex((c) => c.id === b.from) : -1
   const from = idx >= 0 ? w.system.cast[idx] : undefined
   const person = (id: string) => { const i = w.system.cast.findIndex((c) => c.id === id); return i >= 0 ? { c: w.system.cast[i]!, i } : null }
+  // When the insight of an action came: with its last run.
+  const doneAt = new Map<string, number>()
+  for (const d of dv.actionsDone) doneAt.set(d.id, Math.max(d.atMs, doneAt.get(d.id) ?? 0))
+  const cards: { at: number; card: ReactNode }[] = []
+  for (const m of letters) {
+    const p = person(m.from)
+    cards.push({ at: m.atMs, card: (
+      <ClampCard key={m.id} className={`card letter${freshLetters?.has(m.id) ? ' fresh' : ''}`} bodyClass="cbody" data-letter={m.id} words={{ more: P2.showMore, less: P2.showLess }}
+        pop={{ title: `${m.kind === 'announcement' ? P2.memoCard : P2.letterCard}${p ? ` · ${p.c.role}` : ''}`, head: m.kind === 'announcement' ? 'sky' : 'sun', close: P2.close }}
+        head={<div className={`chead ${m.kind === 'announcement' ? 'h-memo' : 'h-letter'}`}><span className="src">{m.kind === 'announcement' ? P2.memoCard : P2.letterCard}{p ? ` · ${p.c.role}` : ''}</span></div>}>
+        {m.title && <h3>{m.title}</h3>}
+        {p && <div className="speaker"><Portrait c={p.c} cast={w.system.cast} index={p.i} size={48} /><div><div className="nm">{p.c.name}</div><div className="rl">{p.c.role}</div></div></div>}
+        <div className="letter-text"><Paragraphs text={m.text} /></div>
+      </ClampCard>
+    ) })
+  }
+  if (b) {
+    cards.push({ at: inbox?.atMs ?? 0, card: (
+      <ClampCard key="brief" className="card letter" bodyClass="cbody" data-letter="brief" words={{ more: P2.showMore, less: P2.showLess }} pop={{ title: `${P2.letterCard}${from ? ` · ${from.role}` : ''}`, head: 'sun', close: P2.close }}
+        head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
+        <h3>{b.title}</h3>
+        {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
+        <div className="letter-text"><Paragraphs text={b.text} /></div>
+      </ClampCard>
+    ) })
+  }
+  for (const x of [...dv.insights].reverse()) {
+    const a = content.actions.find((y) => y.id === x.action)
+    cards.push({ at: doneAt.get(x.action) ?? 0, card: (
+      <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
+        pop={{ title: P2.fromAction(a?.title ?? ''), head: POP_HEAD[a?.group ?? 'learn'] ?? 'lav', close: P2.close }}
+        head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
+        <h3>{x.tile.headline}</h3>
+        <TileBody tile={x.tile} cast={w.system.cast} />
+      </ClampCard>
+    ) })
+  }
+  // Each kind is listed above with its newest first, and cards of one moment keep that order.
+  const row = [...cards].sort((x, y) => y.at - x.at)
   return (
     <section className="panel p2insights" id="p2-insights">
       <div className="panel-head lav"><span>{title}</span><span className="sub">{dv.insights.length + letters.length}</span></div>
       <div className="panel-body">
-        <div className="icards">
-          {letters.map((m) => {
-            const p = person(m.from)
-            return (
-              <ClampCard key={m.id} className={`card letter${freshLetters?.has(m.id) ? ' fresh' : ''}`} bodyClass="cbody" data-letter={m.id} words={{ more: P2.showMore, less: P2.showLess }}
-                pop={{ title: `${m.kind === 'announcement' ? P2.memoCard : P2.letterCard}${p ? ` · ${p.c.role}` : ''}`, head: m.kind === 'announcement' ? 'sky' : 'sun', close: P2.close }}
-                head={<div className={`chead ${m.kind === 'announcement' ? 'h-memo' : 'h-letter'}`}><span className="src">{m.kind === 'announcement' ? P2.memoCard : P2.letterCard}{p ? ` · ${p.c.role}` : ''}</span></div>}>
-                {m.title && <h3>{m.title}</h3>}
-                {p && <div className="speaker"><Portrait c={p.c} cast={w.system.cast} index={p.i} size={48} /><div><div className="nm">{p.c.name}</div><div className="rl">{p.c.role}</div></div></div>}
-                <div className="letter-text"><Paragraphs text={m.text} /></div>
-              </ClampCard>
-            )
-          })}
-          {b && (
-            <ClampCard className="card letter" bodyClass="cbody" words={{ more: P2.showMore, less: P2.showLess }} pop={{ title: `${P2.letterCard}${from ? ` · ${from.role}` : ''}`, head: 'sun', close: P2.close }}
-              head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
-              <h3>{b.title}</h3>
-              {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
-              <div className="letter-text"><Paragraphs text={b.text} /></div>
-            </ClampCard>
-          )}
-          {dv.insights.map((x) => {
-            const a = content.actions.find((y) => y.id === x.action)
-            return (
-              <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
-                pop={{ title: P2.fromAction(a?.title ?? ''), head: POP_HEAD[a?.group ?? 'learn'] ?? 'sky', close: P2.close }}
-                head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
-                <h3>{x.tile.headline}</h3>
-                <TileBody tile={x.tile} cast={w.system.cast} />
-              </ClampCard>
-            )
-          })}
-        </div>
+        <div className="icards">{row.map((c) => c.card)}</div>
         {!dv.insights.length && <p className="muted">{P2.insightsEmpty}</p>}
       </div>
     </section>
@@ -253,7 +261,8 @@ export type BoardWords = {
   whyNoneLeft: string
   whyReady: string
   /** What is said when a map joins the list of validations. */
-  doneToast: (v: BoardView['validations'][number]) => string
+  /** `n`: the number of the system that the validation made. */
+  doneToast: (v: BoardView['validations'][number], n: number) => string
   tab: Record<BoardTab, string>
   insightsTitle: string
   /** The label of Start on an action that may be done again, and the word for how often it was done. */
@@ -266,7 +275,7 @@ export type BoardWords = {
 export const P2_BOARD_WORDS: BoardWords = {
   phase: P2.phase, tour: P2.tour, helpTitle: P2.helpTitle, helpIntro: P2.helpIntro,
   brief: { started: P2.phaseStarted, start: P2.briefStart, stays: P2.letterStays },
-  warn: P2.warn, whyNoneLeft: P2.why.noneLeft, whyReady: P2.why.ready, doneToast: (v) => P2.doneToast(v.accuracy),
+  warn: P2.warn, whyNoneLeft: P2.why.noneLeft, whyReady: P2.why.ready, doneToast: (v, n) => P2.doneToast(n, v.accuracy),
   tab: { ...P2.tab, year: '' }, insightsTitle: P2.insights,
 }
 
@@ -305,6 +314,9 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   const lockedBy = useMemo(() => lockedByOf(content), [content])
   const unlockedKey = dv.unlocked.join(',')
   const unlocked = useMemo(() => new Set(dv.unlocked), [unlockedKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // What the actions that are done changed on the board, as tags where they act.
+  const marksKey = dv.marks.map((m) => `${m.id}:${m.tag}`).join(',')
+  const marks = useMemo(() => marksOf(dv.marks), [marksKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // A sentence at the place of an action: a refusal, or advice on a line. It stays until the next action.
   const [note, setNote] = useState<{ at: string; text: string; tone: 'refuse' | 'advice' } | null>(null)
   const refuse = (at: string, text: string) => setNote({ at, text, tone: 'refuse' })
@@ -345,7 +357,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   const showResults = () => show('results', 'p2-results')
   const showInsights = () => show('results', 'p2-insights')
   useEffect(() => {
-    if (dv.validations.length > seenV.current) setToast({ text: words.doneToast(dv.validations.at(-1)!), show: showResults })
+    if (dv.validations.length > seenV.current) setToast({ text: words.doneToast(dv.validations.at(-1)!, dv.validations.length), show: showResults })
     seenV.current = dv.validations.length
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dv.validations.length])
@@ -501,7 +513,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   const rows: ActionRow[] = content.actions.map((a) => {
     const run = dv.actionsRunning.find((r) => r.id === a.id)
     const times = dv.actionsDone.filter((d) => d.id === a.id).length
-    const base = { id: a.id, group: a.group, title: a.title, teaser: a.teaser, money: a.money, developers: a.developers, seconds: a.seconds, storyTime: a.storyTime, opens: a.unlocks.map((u) => labelOf(content, u)), upkeep: a.upkeep && words.upkeep ? words.upkeep(a.upkeep) : null }
+    const base = { id: a.id, group: a.group, title: a.title, teaser: a.teaser, money: a.money, developers: a.developers, seconds: a.seconds, storyTime: a.storyTime, opens: a.unlocks.map((u) => labelOf(content, u)), inPlace: a.inPlace, upkeep: a.upkeep && words.upkeep ? words.upkeep(a.upkeep) : null }
     if (run) {
       const left = Math.max(0, (run.completesAtMs - now) / 1000)
       return { ...base, state: 'running', left, share: 1 - left / a.seconds }
@@ -567,11 +579,12 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   /** The quiet lines of a model or a place to run, beyond the words of the pack. */
   const shelfMore = (id: string): (string | null)[] => {
     const m = content.models.find((x) => x.id === id)
-    if (m) return [P2.pop.runsOn(m.runsOn.map(shortOf).join(', '))]
+    const tips = (marks.get(id) ?? []).map((x) => x.tip)
+    if (m) return [P2.pop.runsOn(m.runsOn.map(shortOf).join(', ')), ...tips]
     const c = content.compute.find((x) => x.id === id)
     if (!c) return []
     const here = content.models.filter((x) => x.runsOn.includes(c.id)).map((x) => x.short)
-    return [c.protectsPrivateData ? P2.pop.protected : P2.pop.unprotected, here.length ? P2.pop.runsHere(here.join(', ')) : null]
+    return [c.protectsPrivateData ? P2.pop.protected : P2.pop.unprotected, here.length ? P2.pop.runsHere(here.join(', ')) : null, ...tips]
   }
   const nodeMore = (id: string): (string | null)[] => {
     const src = content.sources.find((x) => x.id === id)
@@ -587,7 +600,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     if (!x) return null
     return {
       title: x.label, tag: P2.kinds[x.kind] || null, tone: x.kind, lead: x.task, body: [x.description],
-      meta: [x.costLine, x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null, x.needsModel ? P2.pop.needsParts : null], lock: lockOf(id),
+      meta: [x.costLine, x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null, x.needsModel ? P2.pop.needsParts : null, ...(marks.get(id) ?? []).map((m) => m.tip)], lock: lockOf(id),
     }
   }
   const popOfNode = (id: string): PopInfo | null => {
@@ -599,8 +612,8 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     <div data-tour="p2-shelves"><Shelves unlocked={unlocked} lockedBy={lockedBy} onInfo={(item) => setSheet({ kind: 'item', item, more: shelfMore(item.id) })} popOf={phone ? undefined : popOfShelf}
       fresh={newIds} onSeen={seen}
       rows={[
-        { title: P2.models, icon: 'model', more: content.rules.more.models, items: shownModels.map((m) => ({ id: m.id, label: m.label, short: m.short, description: m.description, costLine: m.costLine })) },
-        { title: P2.computes, icon: 'compute', more: content.rules.more.compute, items: shownCompute.map((c) => ({ id: c.id, label: c.label, short: c.short, description: c.description, costLine: c.costLine })) },
+        { title: P2.models, icon: 'model', more: content.rules.more.models, items: shownModels.map((m) => ({ id: m.id, label: m.label, short: m.short, description: m.description, costLine: m.costLine, marks: marks.get(m.id) })) },
+        { title: P2.computes, icon: 'compute', more: content.rules.more.compute, items: shownCompute.map((c) => ({ id: c.id, label: c.label, short: c.short, description: c.description, costLine: c.costLine, marks: marks.get(c.id) })) },
       ]}
       words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, info: P2.info, more: P2.moreShelf, moreLong: P2.moreShelfLong, newTag: P2.newTag }} /></div>
   )
@@ -614,7 +627,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
 
   const targets = mode.kind === 'join' ? targetsOf(map, v, mode.from) : ends.targets
   const grid = (
-    <Grid v={v} map={map} flags={{ stray: noLineOut, incomplete: dv.flags.incomplete, privateData: dv.flags.privateData }}
+    <Grid v={v} map={map} flags={{ stray: noLineOut, incomplete: dv.flags.incomplete, privateData: dv.flags.privateData }} marks={marks}
       popOf={phone ? undefined : popOfNode}
       onAbout={(id) => {
         // A phone has no pointer to rest on a source, so a tap opens its card.
@@ -650,7 +663,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
     if (!a) return null
     return {
       title: a.title, body: [a.teaser],
-      meta: [P2.cost(a.money, a.developers, a.seconds), a.upkeep ?? null, a.storyTime ? P2.story(a.storyTime) : null, a.opens.length ? P2.opens(a.opens.join(', ')) : null,
+      meta: [P2.cost(a.money, a.developers, a.seconds), a.upkeep ?? null, a.storyTime ? P2.story(a.storyTime) : null, a.opens.length ? P2.opens(a.opens.join(', '), !a.inPlace) : null, a.inPlace ? P2.inPlace : null,
         a.tag ?? null, a.state === 'done' ? P2.pop.done : a.state === 'running' ? P2.pop.running(a.left ?? 0) : null],
       lock: a.state === 'blocked' ? a.blocked ?? null : null,
     }
@@ -665,7 +678,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
   const actions = (
     <ActionList groups={content.rules.actionGroups} rows={rows} onStart={(id) => { seenAction(id); start(id) }} refused={refusedAction} popOf={phone ? undefined : popOfAction} notice={phone ? spendNote : null}
       more={content.rules.more.actions} fresh={newActions} onSeen={seenAction}
-      words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more, moreHere: P2.moreActions, newTag: P2.newTag }} />
+      words={{ start: P2.start, done: P2.done, cost: P2.cost, story: P2.story, opens: P2.opens, inPlace: P2.inPlace, left: P2.leftS, holds: P2.holds, noCancel: P2.noCancel, noCancelLong: P2.noCancelLong, more: P2.more, moreHere: P2.moreActions, newTag: P2.newTag }} />
   )
   const toolbox = (
     <Toolbox phone={phone} picked={mode.kind === 'place' ? mode.worker : null} unlocked={unlocked} lockedBy={lockedBy} groups={content.rules.toolboxGroups}
@@ -673,7 +686,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       onPick={(id) => { setSel(null); setNote(null); setMode(id ? { kind: 'place', worker: id } : { kind: 'idle' }); if (id && phone) setTab('map') }}
       workers={shownWorkers.map((x) => ({
         id: x.id, label: x.label, short: x.short, description: x.description, costLine: x.costLine, icon: x.icon, kind: x.kind,
-        task: x.task, group: x.group, extra: x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null,
+        task: x.task, group: x.group, extra: x.minutes ? P2.personMinutes(x.minutes.decide, x.minutes.check) : null, marks: marks.get(x.id),
       }))}
       words={{ locked: P2.locked, lockedNoAction: P2.lockedNoAction, pickHint: P2.pickHint, picked: P2.picked, kinds: P2.kinds, lockedTold: P2.lockedTold, more: P2.moreTools, newTag: P2.newTag }} />
   )
@@ -713,7 +726,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
       if (sheet.part === 'prompt') {
         const reads = map.lines.filter((l) => l.to === t.id && content.sources.some((x) => x.id === l.from)).map((l) => labelOf(content, l.from))
         const from = map.lines.filter((l) => l.to === t.id && tileOf(map, l.from)).map((l) => nodeLabel(l.from))
-        sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={shownPrompts} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
+        sheetEl = <PromptSheet title={P2.promptOf(name)} about={P2.promptAbout(name, reads, from)} prompts={shownPrompts.map((x) => ({ ...x, marks: marks.get(x.id) }))} current={t.prompt} unlocked={unlocked} lockedBy={lockedBy}
           onPick={(id) => set('prompt', id)} onClose={close}
           words={{ intro: content.rules.more.prompts ? `${P2.promptIntro} ${P2.morePrompts}` : P2.promptIntro, use: P2.use, inUse: P2.inUse, isDefault: P2.isDefault, close: P2.close, locked: P2.locked, lockedNoAction: P2.lockedNoAction, more: P2.showMore, less: P2.showLess }} />
       } else if (sheet.part === 'model') {
@@ -721,7 +734,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
           words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
           intro={content.rules.more.models ? P2.moreShelfLong : undefined}
           choices={shownModels.map((m) => ({
-            id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id,
+            id: m.id, label: m.label, detail: m.costLine ?? m.description, current: t.model === m.id, marks: marks.get(m.id),
             disabled: !w2.models.includes(m.id) ? P2.cannotCarry : null,
           }))} />
       } else {
@@ -730,7 +743,7 @@ export function MapBoard({ w, phase, content, dv, words, results, above, status,
         sheetEl = <PartSheet title={P2.computeOf(name)} intro={[P2.computeIntro(model?.label ?? null), content.rules.more.compute ? P2.moreShelfLong : null].filter(Boolean).join(' ')} onPick={(id) => set('runsOn', id)} onClose={close}
           words={{ close: P2.close, current: P2.current, clear: P2.clearPart }}
           choices={shownCompute.map((c) => ({
-            id: c.id, label: c.label, detail: [c.description, c.costLine].filter(Boolean).join(' '), current: t.runsOn === c.id,
+            id: c.id, label: c.label, detail: [c.description, c.costLine].filter(Boolean).join(' '), current: t.runsOn === c.id, marks: marks.get(c.id),
             disabled: model && !model.runsOn.includes(c.id)
               ? P2.cannotRun(model.short, model.runsOn.filter((x) => unlocked.has(x)).map((x) => content.compute.find((y) => y.id === x)?.short ?? x).join(', ') || P2.nowhereYet) : null,
           }))} />

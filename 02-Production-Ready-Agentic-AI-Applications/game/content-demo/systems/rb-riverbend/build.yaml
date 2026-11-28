@@ -344,6 +344,8 @@ actions:
     seconds: 25
     unlocks: [rb-c-private]
     moves: {rb-c-api: rb-c-private}
+    marks:
+      - {on: [rb-m-large, rb-m-small], tag: Under contract, short: Contract, tip: The contract with the provider covers this model wherever the branch uses it.}
     insight:
       type: stat
       headline: The private link is signed
@@ -373,6 +375,8 @@ actions:
     developers: 2
     seconds: 14
     requires: [rb-a-guide]
+    marks:
+      - {on: [rb-p-line, rb-p-goal, rb-p-long, rb-p-steps], tag: With skills, short: Skills, tip: An agent with this prompt also loads the skills that Tom wrote.}
     insight:
       type: quote
       headline: Tom on the new skills

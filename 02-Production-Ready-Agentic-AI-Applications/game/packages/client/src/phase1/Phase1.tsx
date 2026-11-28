@@ -33,7 +33,7 @@ export function useNarrow(px = PHONE_BELOW): boolean {
 export type BriefWords = { started: string; start: string; stays: string }
 const P1_BRIEF: BriefWords = { started: P1.phaseStarted, start: P1.briefStart, stays: P1.letterStays }
 
-/** The opening letter of a phase: it pops up once when the phase starts and stays as the first card. */
+/** The opening letter of a phase: it pops up once when the phase starts and stays as a card. */
 export function BriefSheet({ w, onClose, again = false, phase = 'planning', words = P1_BRIEF }: { w: Welcome; onClose: () => void; again?: boolean; phase?: string; words?: BriefWords }) {
   const view = usePlayer((s) => s.view)!
   const brief = view.inbox.find((m) => m.id === `${phase}:brief`)

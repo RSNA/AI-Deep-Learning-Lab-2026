@@ -101,4 +101,5 @@ sections:
           - The Quiet Catalogue. A sample reference for the demo deck.
           - Shelves That Count. Another sample reference.
         qr: {show: link, label: Tell us how it went}
+        solo_passcode: "To play alone later, use the passcode {passcode}."
         notes: Two or three answers from the room, then the winners.

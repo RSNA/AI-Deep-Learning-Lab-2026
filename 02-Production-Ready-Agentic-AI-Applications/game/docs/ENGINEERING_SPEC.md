@@ -563,6 +563,9 @@ type Build = {
               unlocks?: ItemId[]            // an item that no action unlocks is open from the start
               moves?: Record<ComputeId, ComputeId>   // once done, every tile on the first place runs on the second, on every
                                             // map the player holds, and the first place leaves the shelf
+              marks?: { on: ItemId[]; tag: Text; short?: Text; tip: Text }[]
+                                            // once done, the board shows `tag` on every worker, model, place to run
+                                            // and prompt of `on`, with `tip` behind it (`short` on a tile)
               insight?: Tile | null         // a tile in the format of insights.yaml
               story_time?: Text; key?: object }[]
   cases: { id: CaseId; weight: number
@@ -786,7 +789,9 @@ type Slide = { id: string; title: Text
                people?: { name: Text; role?: Text; photo?: string }[]               // who gives the session
                figures?: { image?: string; title: Text; caption?: Text; tone?: Tone   // up to 3, one row each
                            mark?: Text }[]                            // the words in the box of a figure without a picture
-               qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the session's own link
+               qr?: { show: 'join' | 'link'; url?: string; label?: Text }           // 'join' is the address where the room joins
+               solo_passcode?: Text     // a sentence with {passcode}: the server puts the passcode of a
+                                        // single-player game there when it shows the slide (10.9)
                references?: Text[]      // lines to read later
                image?: string           // every picture is a path under art/, ending in .png or .webp
                images?: string[]        // up to two more pictures beside `image`, in one row (layout 'shot')
@@ -1487,6 +1492,15 @@ stage closes.
 - A report is made from the map that is deployed and the actions that have finished at that
   moment. Timers on the same instant run in this order: actions, the validation, the end of the
   round. So what finishes at the very moment a round ends still counts.
+- **An action that makes parts better reaches the system in service by itself.** A hardening
+  (`reliability.hardening`), a repair (`repaired_by`), an action that spares a new map its first
+  period and an action with `moves` all act on the map that is deployed as it stands, from the
+  first report they count for. The player validates nothing and deploys nothing for that, and
+  the report names the same system. A new validation shows such a gain only where it measures
+  it: the accuracy on the test set does not change with a hardening, the reliability is carried
+  by a validation with the lens `dry_run`, and a repair of what changed during the year shows
+  on a validation with the lens `fresh_test_set`. An action that only unlocks something (a
+  tool, a model, a place, a prompt) changes nothing until the map uses it.
 - When the stage closes, actions that run end with their full effect and a validation that runs
   ends with its result, and then every report that is left is made, from the same state. (A
   host who ends the stage early gets all of them at once.)
@@ -1755,9 +1769,12 @@ in its class. Once Phase 1 is scored its bars stand by class, the agentic class 
 colors of the classes. Before that they stand in the order of the pack and in one color, so
 that the chart gives no class away. `flagship_by_system` is
 one bar per health system: the share of its practices that found the agent project. Before
-the phase is scored a number reads "–" and a chart shows its bars empty with the line "Fills
-in when the phase is scored", so a host who goes through the deck sees that a chart belongs
-on the slide. The others show nothing. Step 11 fixes their exact shapes.
+the phase is scored a number reads "–" and a chart shows its bars empty with the line "It
+fills in when Phase 1 is scored.", so a host who goes through the deck sees that a chart
+belongs on the slide. A chart never keeps that promise open: when the phase is scored and
+nobody played it, the line says so ("Nobody in this session played Phase 1, so there is
+nothing to draw."). In a single-player game the room is its one player, and the chart by class
+is titled "Placed in the right class, in your own game". The others show nothing. Step 11 fixes their exact shapes.
 
 ### 6.11 Story hooks
 
@@ -1970,13 +1987,22 @@ A session has a `kind`: `multi`, played by a room with a facilitator, or `solo`,
 person alone. A state saved before kinds existed is `multi`.
 
 - A solo session takes one player: once it has one, joining is closed. Its mode is
-  `rehearsal`, so the game runs at real speed.
+  `rehearsal`, so the game starts at real speed.
 - **Its player moves it on.** Three player commands exist for it, and each stands for one
   host command that the engine then applies: `solo.next` for `next` in an untimed stage,
   `solo.end_now` for `end_now` in a timed one, and `solo.slide {delta}` for `slide`, inside
   the section of the stage only (the last slide is left with `solo.next`). In a `multi`
   session each is refused with `not_solo`. Anything else a facilitator can do does not exist
-  in a solo game: no reset, no restart, no pause, no change of speed.
+  in a solo game: no reset, no restart, no pause.
+- **Its player sets the speed.** A fourth command, `solo.speed {speed}`, sets the scale of the
+  clock to one of `SOLO_SPEEDS` (¼, ½, 1, 2, 4). It acts on the server's clock like
+  `set_scale` and never reaches the engine, which counts in game time: the timer of a phase,
+  the duration of an action or a validation and the reports of Phase 3 all run faster or
+  slower, and the score of a game does not depend on its speed. The scale is stored with the
+  clock, so it survives a reload, a reconnect, a game set aside and a restart of the server,
+  and it stays as set from one phase to the next. Refused with `not_solo` in a `multi`
+  session. The strip of section 10.1 shows the five speeds during a phase, with the one in
+  use pressed in, and says in a sentence what the speed is while it is not 1.
 - **The clock closes nothing.** A timed stage of a solo session does not end when its time is
   over: `advance` leaves it open, and it ends with `solo.end_now`, before its time or after.
   `stageEndsAtMs` stays where it was, so the timer of the player stands at zero. In Phase 3
@@ -2019,10 +2045,10 @@ session and closing.
 | `GET /api/content/:phase` | Player token | The static content of that phase for the player's health system (section 8.3). 403 until the phase opens. Carries an ETag |
 | `GET /pack-art/:hash/*` | Anyone | Files under the pack's `art/` folder |
 | `POST /api/host/login` `{passcode}` | Anyone | Returns a host token |
-| `POST /api/host/session` `{label, mode, code?, by?, replace?}` | Host | Creates a session with a facilitator. `code` is the session code, the last part of the join link, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. `by` is the name of the facilitator who opens it. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates. **One such session is open at a time:** while another runs the answer is 409 `{error: 'session_running', running}`, where `running` says its code, label, mode, stage, players, when and by whom it was opened, and whether ending it needs its code (`needsCode`: an event session with players). With `replace: {code?, confirm?}` the session that runs is ended first and its results are kept. `replace.code` names the session the facilitator was warned about: when another one runs by now, the answer is `session_running` again. When `needsCode` holds, `replace.confirm` must be the code of that session, else 409 `confirm_mismatch` |
+| `POST /api/host/session` `{label, mode, code?, by?, replace?}` | Host | Creates a session with a facilitator. `code` is the session code, a short name that the link `/j/<code>` ends with, 4 to 8 letters or digits, typed without regard to case. Without it the server makes one. `by` is the name of the facilitator who opens it. Answers 400 `code_invalid` for a code that breaks the rule, 409 `code_taken` for one in use, and 409 `provisional_anchors` for an `event` session while the anchors of the pack are estimates. **One such session is open at a time:** while another runs the answer is 409 `{error: 'session_running', running}`, where `running` says its code, label, mode, stage, players, when and by whom it was opened, and whether ending it needs its code (`needsCode`: an event session with players). With `replace: {code?, confirm?}` the session that runs is ended first and its results are kept. `replace.code` names the session the facilitator was warned about: when another one runs by now, the answer is `session_running` again. When `needsCode` holds, `replace.confirm` must be the code of that session, else 409 `confirm_mismatch` |
 | `PATCH /api/host/session/:code` `{label}` | Host | A new name for a session with a facilitator, in the lobby (through the engine's `rename_session`) or after it has ended (the row, the state if it is in memory, and the stored cards). 409 `rename_running` in between |
 | `GET /api/host/sessions` | Host | Lists the sessions with a facilitator, open and closed, each with `closed`, who opened it, how many results it keeps and, for a session the server cannot resume, the reason. `solo`: the switch, how many single-player games exist, finished, unfinished and in memory, the cap, and the newest fifty with their code, practice name, start time and whether they are over or in memory, and nothing about how they go. Also what the first page says about the pack: title, phases with content, health systems, whether the anchors are estimates, the number of placeholder slides, the pick modes and the fingerprint |
-| `POST /api/host/solo` `{enabled?, gate?, passcode?}` | Host | `enabled` switches single-player games on or off for the whole server. `gate` says who may start one: `facilitator` (whoever has the facilitator passcode, the default, so that nobody outside plays before an event), `custom` with a `passcode` of six characters or more that opens nothing else (400 `passcode_short` otherwise; only its hash is kept), or `none`. Both settings are kept in the database. Returns `{enabled, gate}` |
+| `POST /api/host/solo` `{enabled?, gate?, passcode?}` | Host | `enabled` switches single-player games on or off for the whole server. `gate` says who may start one: `facilitator` (whoever has the facilitator passcode, the default, so that nobody outside plays before an event), `custom` with a `passcode` of four characters or more that opens nothing else (400 `passcode_short` otherwise), or `none`. The settings are kept in the database. A passcode of its own is kept as its hash, which a start is checked against, and as its text, because a closing slide may show the room which passcode to use (`solo_passcode`, section 10.9). Returns `{enabled, gate}` |
 | `POST /api/host/solo/delete-all` `{confirm: 'DELETE'}` | Host | Deletes every single-player game with everything stored for it, also the ones in play, and returns `{deleted}`. 409 `confirm_delete` without the word |
 | `POST /api/host/session/:code/end` `{name?}` | Host | Ends an open test or rehearsal session from the list of sessions, without a console that holds control: the engine's `close`, logged as a host command and as the event `ended_from_list` with the host's name. Answers 409 `wrong_stage` for a session that has ended and 409 `event_session` for an event session, which is ended from its own console by the host in charge |
 | `DELETE /api/host/session/:code` | Host | Deletes a closed session with its results and logs. Answers 409 `wrong_stage` for a session with a facilitator that is still open. A single-player game is deleted in any state: one in play ends at once for its player |
@@ -2035,8 +2061,9 @@ session and closing.
 | `GET /healthz` | Anyone | Build id, uptime, for each open session with a facilitator its stage and its number of players, and the number of single-player games in memory. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the open session with a facilitator. Without
-one it serves the start page (section 10.2), which `/home` always does. The QR code holds
-`PUBLIC_URL/j/<code>`. The screen link, the deck and the export of a single-player game do not
+one it serves the start page (section 10.2), which `/home` always does. The QR code and the
+address on the big screen are `PUBLIC_URL` alone, with no code, so a room reads and types one
+short address (`joinUrl` of the session). `/j/<code>` still opens its session. The screen link, the deck and the export of a single-player game do not
 exist (404), and a console that names one in its `hello` is refused.
 
 ### 7.3 WebSocket
@@ -2230,7 +2257,7 @@ the room.
 | `DATA_DIR` | Database folder | `./data` |
 | `HOST_PASSCODE` | Host passcode, at least 16 characters when `NODE_ENV` is `production`. The server refuses to start in production without one | `demo` in development |
 | `ALLOW_WEAK_PASSCODE` | `1` lets a production server start with a passcode shorter than 16 characters, for development weeks on the event server (Step 5, at the lab director's request). The server logs a warning at start. Never set at the event | unset |
-| `PUBLIC_URL` | Base of the join link | `http://localhost:3000` |
+| `PUBLIC_URL` | The address of the site, which the QR code and the big screen show for joining | `http://localhost:3000` |
 | `ANSWER_KEY_FILE` | The generated answer key page | none |
 | `FACILITATOR_GUIDE_FILE` | The generated facilitator guide page: the game for the people who run it, with its answers. `scripts/deploy.sh --content` ships it from `review/facilitator-guide.html` beside the content folder | none |
 | `LOG_LEVEL` | Log detail | `info` |
@@ -2509,12 +2536,15 @@ type SlideView = {
   people: { name: Text; role: Text | null; photo: string | null }[]        // photo: a URL under the pack's art
   figures: { image: string | null; title: Text; caption: Text | null; tone: Tone }[]
   qr: { show: 'join' | 'link'; url: string | null; label: Text | null } | null
-                                                // 'join': the client draws the join link of its session.
+                                                // 'join': the client draws the address where the room joins.
+  passcode: Text | null                         // the sentence that names the passcode of a single-player
+                                                // game, filled in by the server. Null when there is none
                                                 // 'link': its own URL, or null for a frame that waits for one
   references: Text[]
   image: string | null                          // a URL under the pack's art
   stat: { label: Text; value: Text } | null     // a live statistic that is one number, "–" until the room has it
-  charts: { title: Text                         // live statistics that are bars, in percent. A bar has
+  charts: { title: Text; note: Text | null      // live statistics that are bars, in percent. `note` says
+                                                // why a chart without a single value is empty. A bar has
             bars: { label: Text; value: number | null   // no value until its phase is scored
                     note: Text | null; tone: Tone
                     system: number | null }[] }[]       // a bar of one health system
@@ -2553,6 +2583,7 @@ type DevelopmentView = {
   money: number
   developers: { total: number; free: number }
   unlocked: string[]
+  marks: { id: ItemId; tag: Text; short: Text; tip: Text }[]   // the tags of the actions that are done, one for every item they name
   actionsDone: { id: ActionId; atMs: GameMs }[]
   actionsRunning: { id: ActionId; startedAtMs: GameMs; completesAtMs: GameMs }[]
   insights: { action: ActionId; tile: Tile }[]          // Tile as in Phase 1
@@ -2929,7 +2960,14 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
   one or two sentences on what the area is and what the player does there (at most 30 words, the
   screen and never the answer), "2 of 6", Back, Next and End tour. The first card says once that
   the clock keeps running. Escape ends it, the arrow keys step it, and on a phone it switches to
-  the tab that holds the area and returns to the first tab at the end. A tour that was ended or
+  the tab that holds the area and returns to the first tab at the end. Each step brings its
+  area into view first (`lib/inView.ts`): the page and every box around the area scroll until
+  it shows, to the middle of the window when it fits. The card then stands beside the area
+  (right, left, below, above, narrower when a side is narrow), and with no free side in the
+  corner where it covers least (`components/guideCard.ts`). **A card of a tour is no panel of
+  the game** and must not pass for one: a dashed border in the yellow of the lit box, a
+  tinted ground and a yellow strip with a question mark that names it (`.guide-card`). The
+  guided first build of section 10.5 uses the same card, the same ring and the same rules. A tour that was ended or
   finished does not start by itself again in that browser (a flag per player, run and phase). A
   phase only passes a list of steps (`components/Tour.tsx`), so Phase 3 adds a list. The host
   console gets nothing for it.
@@ -3254,8 +3292,8 @@ and a switch between them. It does not scroll away with the cards.
   or the number, then the body and the note with their bold and italic marks. Nothing is
   clamped, cut or hidden behind a click. Body text is 14 px or more. The cards of a row start
   at the same height and may end at different heights.
-- **Order.** The opening letter is first. The insight cards follow in order of arrival, and a
-  card never changes its place afterwards, so a player finds it again where it was. The count
+- **Order.** The newest card is first: every insight from the last one that arrived back to
+  the first, then the opening letter. A new card pushes the others down by one place. The count
   on the title line counts insights and leaves the letter out.
 - **Arrival.** A new card appears with a short highlight and a "New" tag that goes when the
   card has been on screen for a few seconds.
@@ -3639,8 +3677,11 @@ can be opened from its chip, loaded back onto the map with "Load this map", or c
 this map". The chosen one says "This map will be sent", and "Send the best one again" returns to
 the default. A line says that the best map is sent unless the player picks another.
 
-**Insights.** The opening letter, then a card per action that brought one, with a head in the
-color of its group and the tile drawn as in Phase 1. A new card is highlighted, and a notice says
+**Insights.** A card per action that brought one, the newest first, and the opening letter
+after them (in Phase 3 the letters of the year stand among them, each at the time it came).
+A card has a head in the color of the group of its action (a group without a color of its
+own gets the lavender one, so the dark words of a head are never on a dark ground) and the
+tile drawn as in Phase 1. A new card is highlighted, and a notice says
 "New insight: <title>" with Show.
 
 **Phone.** Below 1024 px the screen is four tabs at the bottom: Map, Actions, Toolbox, Results.
@@ -3713,7 +3754,9 @@ does now.
   has prompts, its prompt (the card says how many choices there are now and that more will
   come); join a source to it; put the person the pack requires behind it and join the two; join
   that person to the result; press Validate. When that validation is done the card says that
-  it was free and how many are left. "Skip the tutorial" ends it at any step. On a phone it
+  it was free and how many are left. Each step scrolls the page to its part of the screen
+  (Validate may be below the fold of a low window), and the ring of the row of prompts goes
+  around the prompts that are there. "Skip the tutorial" ends it at any step. On a phone it
   shows the tab that holds the step. Where the first validation is free (`validate.free`), the
   button, the list of validations and the purse say so.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
@@ -3735,8 +3778,16 @@ does now.
   drops a line.
 - *A map of five columns* fits a laptop of 1280 wide (class `dense`): narrower gaps, and below
   1440 wide a tile shows its name and parts without their small pictures.
-- *The chosen map.* The validation list says "Your chosen map so far" and "Choose this map", and
-  the reveal says that the chosen map counts.
+- *Systems.* Every validated map is a system with a number, in the order the player made them:
+  "System 1", "System 2" and so on. The list is "Your systems". It says "Your chosen system so
+  far" and "Choose this system", and the reveal says that the chosen system counts. The word
+  "map" stays for the drawing on the canvas ("Restore this map"). The reference map of a pack is
+  called "the proposed system" on every screen.
+- *What an action changed.* An action that is done and has `marks` puts its tag where it acts
+  (`marks` of the view): on a tile's head for a kind of worker, in the box of a model, a place
+  to run or a prompt on a tile, on a chip of a shelf, on a row of the toolbox, and on the cards
+  of the choosers, where the sentence behind the tag is written out. Nothing is tagged before
+  the action is done.
 - *Accuracy with one decimal* in the validation list and at the reveal, because the maps of a
   real pack differ by less than a point at the top.
 
@@ -3839,17 +3890,22 @@ pass their own panels and words. Nothing of the board is copied.
   money takes one point off. On a phone the year is a tab of its own.
 - **One line between the map and its footer** says which map runs now and gives the three
   numbers of the last report. A press on the numbers opens that report.
-- **Your maps.** Every map of the list, the newest first: the validations of Phase 2 and of
-  Phase 3, each numbered within its phase, and the reference maps taken, by their label. A row
-  has the accuracy, what it was scored on (the test set, or this year's cases), the reliability
-  it would have when the view carries one, and two controls of one size: Deploy (or the words
+- **Your systems.** Every system of the list, the newest first. The numbers of Phase 2 go on:
+  a player who validated two maps in Phase 2 gets "System 3" next, whether that is a validation
+  of Phase 3 or the proposed system, which takes the next number like any other and carries the
+  tag "Proposed system" (with its label when a pack offers several). A row has the accuracy,
+  what it was scored on (the test set, or this year's cases), the reliability it would have when
+  the view carries one, the tags of the actions that changed its parts (so that a system in
+  service shows what reached it with no new validation and no new deployment), and two controls
+  of one size: Deploy (or the words
   "Running now" in its place) and "Restore this map" (or "On your canvas now"). The newest
   validation of Phase 3 also shows its failed case and its note. A line above the list says that
-  what is deployed when the timer reaches zero runs for the next two months. "Run no map" asks
+  what is deployed when the timer reaches zero runs for the next two months. "Run no system" asks
   first. A refused deployment says why in its row.
-- **Reference maps.** A sheet with the reference maps of the pack, with one tab for each when
-  there are several and no tabs for one: its label, its accuracy on the test set, its summary
-  and its drawing, and "Take this map" (`maintaining.adopt`), which closes the sheet. A map that
+- **The proposed system.** A sheet with the reference maps of the pack ("The proposed system",
+  or "Proposed systems" with one tab for each when there are several): its label, its accuracy
+  on the test set, its summary and its drawing, and "Take this system" (`maintaining.adopt`),
+  which closes the sheet. A map that
   was taken says so. Before the press the sheet lists what the map needs and the player has not
   bought, each with its price (`offers` of the view), and says what taking it costs. When the
   account holds less than the price the button is off, and the sheet says what the map costs,
@@ -3861,7 +3917,8 @@ pass their own panels and words. Nothing of the board is copied.
   again: its button says so, and a quiet word under its title says how often it was done. An
   action with `upkeep` says what it costs a month from the period after it finished.
 - **Letters and memos.** Everything that arrives in the inbox during the year stays as a card
-  under "Letters and insights", the newest first, before the opening letter. Its arrival is said
+  under "Letters and insights", in one row with the insight cards and the opening letter,
+  the newest first. Its arrival is said
   in a toast with "Show", and money that arrives is said in a toast of its own. Nothing covers
   the board.
 - **The reveal.** The annual review beside the score: the mean of the periods, the money
@@ -3949,7 +4006,12 @@ pass their own panels and words. Nothing of the board is copied.
   "Next slide" with "Slide 3 of 5" on a slide and the name of what comes next on the last one
   of a section ("Start Phase 1"), "Continue" at a reveal, "End this phase now" in a phase
   (after a question, since the phase is then scored as it stands), and "Finish the game" at
-  the end. A phase stays open when its timer reaches zero: the timer then says "Over time",
+  the end. On a slide the left and right arrow keys do what "Back" and "Next slide" do, and
+  stop at the ends of the section: the step from its last slide starts a phase and stays
+  with the button. They do nothing while a field has the focus or a window is open. In a
+  phase the strip also holds "Speed" with the five speeds of section 6.14 as one row of keys
+  as high as the buttons, the one in use pressed in. On a phone the speed stands beside the
+  name of the strip and the button under it. A phase stays open when its timer reaches zero: the timer then says "Over time",
   the strip says that time is up and that the player may take the time they need, and its
   button ("End this phase") stands out. The notices of the last minutes say that the phase
   stays open. In Phase 3 the round timer says that the last report comes when the player
@@ -3971,7 +4033,7 @@ hosts, for example Maya's laptop". The browser remembers the name.
 | Area | Holds |
 | --- | --- |
 | Content | What the server has loaded, in plain words: "Content loaded: Phase 1, two health systems", with the game title when the pack has one. When the anchors are estimates a second line says "Scores are not calibrated yet, so only test and rehearsal sessions can be opened." When the deck has placeholders a third says "The deck has 14 placeholder slides." A small detail line under them holds the fingerprint of the content |
-| New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Link name (optional)", the end of the join link, which nobody has to type (see below), with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
+| New session | "Label" with an example. "Mode", a styled control with the three modes, spaced like the other fields. "Session code (optional)", a short name for the session, which nobody has to type because the QR code and the address of the site lead to the session that is open, with the hint that the game picks one when it is left empty. Formerly "Join code" with the hint "Players type this to join. Leave it empty and the game picks one." and the rule "4 to 8 letters or digits" under the field. Create |
 | Sessions | The open sessions, each with its join code, label, mode, stage, "1 player" or "42 players" and who opened it when, and Open. Closed sessions are hidden behind "Show closed sessions (3)" |
 | Single player | The switch (On, Off) with what it means, the numbers (games, finished, not finished, in play now, the cap), "Show the newest 50" and "Delete all single-player games" |
 
@@ -4130,7 +4192,8 @@ game moving into a break move both. A look elsewhere stays where it is while the
 moves, and once the shown slide reaches it, it follows again. After "Show this slide" the two
 agree. **The keys.** For the host in charge, the left and right arrow keys move the shown slide
 and, with Shift, only the look. For a host who is not in charge, they move the look. Nothing
-moves while a field or a dialog has the focus. The look stands outside the controls that need
+moves while a field has the focus or a dialog is open. A button of the console may have the
+focus. The look stands outside the controls that need
 control, so a host who is watching can prepare or check a slide while someone else presents.
 
 *Slides that run ahead of the game.* A section is due from the stage before its own: the
@@ -4297,7 +4360,7 @@ in its window changes anything.
 
 | Scene | Shows |
 | --- | --- |
-| Lobby | The QR code, the join link in large type, one line ("Scan the code with your phone, or type the link on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
+| Lobby | The QR code, the address of the site in large type, one line ("Scan the code with your phone, or type the address on a laptop. No account is needed."), players appearing by health system, the count. No separate code to type |
 | Play (the leaderboard) | The countdown and one of three leaderboards (section 6.13): four columns for everyone with the health system strip and a line of room activity, the same for one health system, or one phase with a column per health system |
 | Play, following a phase | The programme of the pack in a loop (section 6.13): the activity list, the leaderboard of the running phase by health system, one practice at work, a practice that got a letter of its own. The name of a practice beside its map takes up to two lines. In Phase 2 the practice at work is shown as its map, large, beside its name, what runs and its counts |
 | Activity | "The room at work": up to `feed_rows` lines, each with the character, the health system mark, the practice name, a colored verb, the title of the investigation and how long ago. Beside it three counts (practices at work, insights found, assessments sent) and the health system strip |
@@ -4318,11 +4381,11 @@ slide looks the same wherever it shows. A slide has one of eight layouts:
 | Layout | Shows |
 | --- | --- |
 | `bullets` (the default) | The title, an optional subtitle, the bullets in large body type. Beside them, when the slide has one: a picture, a live number, or a live chart of bars |
-| `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the join link with its label |
+| `title` | The opening slide: a larger title and the subtitle, the people who give the session (a photo each, or a colored tile with their initials until there is one, with name and role), a short line, and on the right the QR code of the address where the room joins, with its label and that address |
 | `cards` | Up to four boxes side by side, each with a colored head (an optional tag such as a number, and a title), a text, and up to four short points at its foot. The boxes of a row share the height of their heads and of their bodies. With four boxes the tag stands over the title. The bullets of the slide stand under the boxes as a strip. With a live number or chart beside them the boxes go one under the other |
 | `standings` | The leaderboard of the game, from the slide's `standings: {rows, highlight}` (ten rows and three large by default). The first `highlight` players stand side by side as large boxes with their rank, character, name and total points, the winner a little taller, and the others in a list beside them. Before a phase is scored the slide is a frame that says when it fills in, and until the last phase is scored a line says that these are the standings so far. The names come from the board of the session, so a facilitator can call the winners from this slide |
 | `figures` | Up to three rows, each a picture on the left (the head of an article, for one) and its title and caption beside it. A figure without a picture shows its caption in a colored box |
-| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code A marked word of that subtitle (`**word**`) is an address to go to: it stands on a line of its own, as large as a title |
+| `closing` | The title and subtitle, a numbered list of references, and on the right a QR code of a link of the pack with its label. A link that is not known yet shows an empty frame, "The QR code comes here". With no bullets, references or people the title and the subtitle stand large in the middle, beside the code, with a line across between them, and all of it starts at one left edge. A marked word of that subtitle (`**word**`) is an address to go to: it stands on a line of its own, as large as a title. `solo_passcode` adds one sentence under it that names the passcode a single-player game asks for at that moment, with the passcode on a colored label: the facilitator passcode, or the passcode of its own once one is set in the "Single player" panel. The pack holds only the sentence with `{passcode}` in it, the server fills it in when it shows the slide, and the sentence is left out while anybody may play. A slide reaches a player only when it is shown, so nobody reads the passcode earlier |
 | `phase` | The opening of a part of the session: the `kicker` as a large tag ("Phase 2"), the title very large, the subtitle under it. Nothing to read through |
 | `shot` | A slide that belongs to its picture, such as a screenshot of the game: a few bullets on the left and the `image` large on the right. With `images` the pictures stand in one row, the first at its full height |
 

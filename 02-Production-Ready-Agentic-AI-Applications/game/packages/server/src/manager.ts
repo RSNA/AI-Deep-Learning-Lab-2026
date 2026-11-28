@@ -9,6 +9,7 @@ import type { SessionRunning } from '@lab02/protocol/host'
 import { ProvisionalAnchorsError } from '@lab02/engine'
 import { newCode } from './auth.ts'
 import { Room, type Deps } from './room.ts'
+import { setSoloGate, soloGate, type SoloGate } from './soloGate.ts'
 
 export type CreateOptions = {
   code?: string
@@ -23,8 +24,6 @@ export type CreateResult =
   | { ok: false; error: 'session_running'; running: SessionRunning }
 
 const SOLO_SETTING = 'solo'
-/** Who may start a single-player game: `facilitator` (the default), `none`, or `custom:` with the hash of a passcode of its own. */
-const SOLO_GATE_SETTING = 'solo_gate'
 const SOLO_LABEL = 'Single player'
 
 export class Manager {
@@ -177,16 +176,15 @@ export class Manager {
    * facilitator passcode, so that nobody outside plays before an event. `hash` is the hash of
    * a passcode of its own.
    */
-  soloGate(): { mode: 'facilitator' | 'custom' | 'none'; hash: string | null } {
-    const v = this.deps.db.setting(SOLO_GATE_SETTING)
-    if (v === 'none') return { mode: 'none', hash: null }
-    if (v?.startsWith('custom:')) return { mode: 'custom', hash: v.slice(7) }
-    return { mode: 'facilitator', hash: null }
+  soloGate(): SoloGate {
+    return soloGate(this.deps.db)
   }
 
-  setSoloGate(mode: 'facilitator' | 'custom' | 'none', hash: string | null = null): void {
-    this.deps.db.setSetting(SOLO_GATE_SETTING, mode === 'custom' ? `custom:${hash ?? ''}` : mode)
+  /** `passcode` is the text of a passcode of its own. A slide that shows the passcode is sent again. */
+  setSoloGate(mode: SoloGate['mode'], passcode = ''): void {
+    setSoloGate(this.deps.db, mode, passcode)
     this.deps.log.info('single player passcode changed', { mode })
+    for (const room of this.rooms.values()) room.slidesChanged()
   }
 
   /** The single-player games in memory. */

@@ -386,6 +386,10 @@ const ActionShape = {
   // place named as its value, on every map the player holds, and the first place leaves the
   // shelf (an agreement that covers the calls a practice already makes).
   moves: z.record(Id, Id).optional(),
+  // `marks`: what the board shows, once the action is done, on what it changed: a short tag on
+  // every worker, model, place to run and prompt named in `on`, and a sentence that says what
+  // the tag means. `short` is the tag on a tile, where there is room for one word.
+  marks: z.array(S({ on: z.array(Id).min(1), tag: Text, short: Text.optional(), tip: Text })).optional(),
   insight: Tile.nullable().optional(),
   story_time: Text.optional(),
   key: K({}).optional(),
@@ -683,8 +687,14 @@ export const DeckSlide = W({
    * there is no mark.
    */
   figures: z.array(W({ image: z.string().optional(), title: Text, caption: Text.optional(), mark: Text.optional(), tone: z.enum(SLIDE_TONES).optional() })).max(3).optional(),
-  /** A QR code: the join link of the session, or a link of the pack. A link without a url shows an empty frame. */
+  /** A QR code: the address where the room joins, or a link of the pack. A link without a url shows an empty frame. */
   qr: W({ show: z.enum(['join', 'link']), url: z.string().url().optional(), label: Text.optional() }).optional(),
+  /**
+   * A sentence that tells the room which passcode a single-player game asks for, on a closing
+   * slide. The server puts the passcode in place of `{passcode}` when it shows the slide, so the
+   * pack never holds it. While single-player games ask for no passcode the sentence is left out.
+   */
+  solo_passcode: Text.refine((t) => t.includes('{passcode}'), 'solo_passcode needs {passcode} where the passcode goes').optional(),
   /** Lines to read later, such as the articles behind the session. */
   references: z.array(Text).max(6).optional(),
   image: z.string().optional(),

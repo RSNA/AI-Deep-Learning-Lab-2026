@@ -36,7 +36,7 @@ const SOCKET: Record<ErrorCode, string> = {
   unknown_system: 'That health system is not part of this game.',
   not_in_control: 'Another facilitator is in charge. Take charge first.',
   wrong_passcode: 'That passcode is not right.',
-  passcode_short: 'A passcode has six characters or more.',
+  passcode_short: 'A passcode has four characters or more.',
   no_scores_yet: 'There are no scores yet. The leaderboard opens with Phase 1, and the winners after the first phase is scored.',
   no_deck: 'This content has no slides.',
   not_during_play: "Players' screens stay on the game while a phase is running.",

@@ -1,7 +1,7 @@
 // The player's screens: top bar, lobby, the stages of the foundation, standings and menu
 // (engineering spec, sections 10.1, 10.2, 10.7).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { COLUMNS, PHASES, phaseOfStage, type PhaseId, type SlideView, type SystemRef, type Welcome } from '@lab02/protocol'
+import { COLUMNS, PHASES, SOLO_SPEEDS, phaseOfStage, type PhaseId, type SlideView, type SystemRef, type Welcome } from '@lab02/protocol'
 import { COPY, PHASE_NUMBER, SOLO_NEXT, STAGE_TITLE } from '../copy.ts'
 import { timeIsUp, useTick } from '../lib/clock.ts'
 import { api } from '../lib/net.ts'
@@ -634,9 +634,16 @@ function WaitingRoom({ w }: { w: Welcome }) {
   )
 }
 
+/** Whether a key press belongs to something else: a field that is being typed in, or a window in front of the page. */
+function keysTaken(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null
+  return !!t?.closest('input, select, textarea, [contenteditable]') || !!document.querySelector('.scrim, [role="dialog"]')
+}
+
 /**
  * A single-player game has no facilitator (section 6.14): this strip is how its player moves it
- * on. It steps through the slides of a section, starts each phase, and may end a phase early.
+ * on. It steps through the slides of a section (the left and right arrow keys do the same),
+ * starts each phase, may end a phase early, and sets how fast the clock of a phase runs.
  */
 function SoloBar() {
   const view = usePlayer((s) => s.view)!
@@ -648,20 +655,47 @@ function SoloBar() {
   const clock = usePlayer((s) => s.clock)
   useTick(500)
   const over = !!solo?.timed && timeIsUp(clock)
-  if (!solo || view.stage === 'closed') return null
+  const shown = !!solo && view.stage !== 'closed'
   const run = async (type: string, payload: unknown = {}) => {
     if (busy) return
     setBusy(true)
     await send(type, payload)
     setBusy(false)
   }
-  const onSlide = !!view.slide && !!solo.slide
-  const say = view.stage === 'lobby' ? COPY.soloLobby : over ? COPY.soloOver : solo.timed ? COPY.soloPlaying : onSlide ? COPY.soloSlides : COPY.soloResult
+  const onSlide = shown && !!view.slide && !!solo.slide
+  // The arrow keys step through the slides of the section and stop at its ends: the step from the
+  // last slide starts a phase and its clock, so it stays with the button.
+  const step = useRef<(delta: 1 | -1) => void>(() => {})
+  step.current = (delta) => {
+    if (!onSlide || (delta === 1 ? solo.slide!.last : solo.slide!.first)) return
+    void run('solo.slide', { delta })
+  }
+  useEffect(() => {
+    if (!onSlide) return
+    const on = (e: KeyboardEvent) => {
+      if ((e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || keysTaken(e)) return
+      e.preventDefault()
+      step.current(e.key === 'ArrowRight' ? 1 : -1)
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [onSlide])
+  if (!shown) return null
+  const speed = clock?.clock.scale ?? 1
+  const say = view.stage === 'lobby' ? COPY.soloLobby : over ? COPY.soloOver : solo.timed ? (speed === 1 ? COPY.soloPlaying : COPY.soloPlayingAt(speedLabel(speed))) : onSlide ? COPY.soloSlides : COPY.soloResult
   return (
-    <div className={`solobar${over ? ' over' : ''}`} role="group" aria-label={COPY.soloWord}>
+    <div className={`solobar${over ? ' over' : ''}${solo.timed ? ' timed' : ''}`} role="group" aria-label={COPY.soloWord}>
       <span className="solo-tag">{COPY.soloWord}</span>
       <span className="solo-say">{say}</span>
       <span className="acts">
+        {solo.timed && (
+          <span className="solo-speed" role="group" aria-label={COPY.soloSpeedHint} title={COPY.soloSpeedHint}>
+            <span className="solo-speed-l" aria-hidden="true">{COPY.soloSpeed}</span>
+            {SOLO_SPEEDS.map((x) => (
+              <button key={x} type="button" aria-pressed={speed === x} aria-label={COPY.soloSpeedOf(speedLabel(x))} disabled={busy} onClick={() => { if (speed !== x) void run('solo.speed', { speed: x }) }}>{speedLabel(x)}</button>
+            ))}
+          </span>
+        )}
         {onSlide && <button type="button" className="btn small text" disabled={busy || solo.slide!.first} onClick={() => void run('solo.slide', { delta: -1 })}>← {COPY.soloBack}</button>}
         {onSlide && !solo.slide!.last && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.slide', { delta: 1 })}>{COPY.soloNextSlide} →</button>}
         {solo.next && (!onSlide || solo.slide!.last) && <button type="button" className="btn small text go" disabled={busy} onClick={() => void run('solo.next')}>{SOLO_NEXT[solo.next]} →</button>}
@@ -678,6 +712,11 @@ function SoloBar() {
       )}
     </div>
   )
+}
+
+/** A speed as the strip writes it: ¼×, ½×, 1×, 2×, 4×. */
+function speedLabel(x: number): string {
+  return `${x === 0.25 ? '¼' : x === 0.5 ? '½' : String(x)}×`
 }
 
 // ------------------------------------------------------------------------------------------

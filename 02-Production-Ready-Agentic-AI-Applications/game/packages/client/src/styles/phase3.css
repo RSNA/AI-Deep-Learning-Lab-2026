@@ -136,6 +136,9 @@
 /* A tag states something about a map. No border and no shadow: it is not a button. */
 .p3tag { font-size: 12px; font-weight: 800; color: var(--muted); }
 .p3tag.rel { color: var(--ink); }
+.p3tag.proposed { color: var(--good); }
+.p3tags { align-items: center; }
+.p3tags .marktag { margin-left: 0; }
 .p3map-acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; min-width: 150px; }
 .p3map-acts .btn.small { min-height: 34px; height: 34px; font-size: 17px; width: 100%; white-space: nowrap; }
 .p3map-is { min-height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: var(--good); text-align: center; }

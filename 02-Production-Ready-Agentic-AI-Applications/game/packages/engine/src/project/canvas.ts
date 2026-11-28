@@ -2,7 +2,7 @@
 // the board, a map, a validation and a missed case. Built field by field, like everything that
 // leaves the server. Nothing here spreads, passes through or strips a pack object.
 import { copyLine, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
-import type { CanvasLegend, CanvasMap, DevelopmentContent, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
+import type { BoardMark, CanvasLegend, CanvasMap, DevelopmentContent, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
 import { bestReaders, evaluate, type Running as EngineRunning } from '../canvas.ts'
 
 export function tileView(t: PackTile): Tile {
@@ -67,7 +67,18 @@ export function actionView(x: BuildFile['actions'][number]): DevelopmentContent[
     id: x.id, group: x.group, title: x.public.title, teaser: x.public.teaser,
     money: x.money, developers: x.developers, seconds: x.seconds,
     requires: [...x.requires], unlocks: [...x.unlocks], storyTime: x.story_time ?? null,
+    inPlace: (x.marks?.length ?? 0) > 0,
   }
+}
+
+/** The tags of the actions that are done, one for every item each of them names, in the order of the list of actions. */
+export function marksView(b: BuildFile, done: readonly string[]): BoardMark[] {
+  const out: BoardMark[] = []
+  for (const a of b.actions) {
+    if (!a.marks || !done.includes(a.id)) continue
+    for (const m of a.marks) for (const id of m.on) out.push({ id, tag: m.tag, short: m.short ?? m.tag, tip: m.tip })
+  }
+  return out
 }
 
 /** What of the board a player has: the items that are unlocked, the actions on the list, and the models that do not exist yet. */

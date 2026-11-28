@@ -187,9 +187,9 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
             <div className="eyebrow">{H.dev.validations}</div>
             {d.validations.length ? (
               <div className="insp-vals">
-                {d.validations.map((x) => (
+                {d.validations.map((x, i) => (
                   <button key={x.id} type="button" className={`hchip${shown === x.id ? ' on' : ''}${d.submitId === x.id ? ' send' : ''}`} onClick={() => setShown(shown === x.id ? null : x.id)}>
-                    {x.id} · {acc(x.accuracy)}{d.submitId === x.id ? ` · ${H.dev.sends}` : ''}
+                    {H.mnt.systemN(i + 1, false)} · {acc(x.accuracy)}{d.submitId === x.id ? ` · ${H.dev.sends}` : ''}
                   </button>
                 ))}
               </div>
@@ -229,9 +229,7 @@ function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> 
   const [refAt, setRefAt] = useState<string | null>(null)
   const M = H.mnt
   // What a map of their list is called, as on the player's screen.
-  const names = new Map<string, string>()
-  let two = 0, three = 0
-  for (const v of m.validations) names.set(v.id, v.origin === 'reference' ? M.mapName.reference(v.label ?? '') : v.origin === 'phase2' ? M.mapName.phase2(++two) : M.mapName.phase3(++three))
+  const names = new Map(m.validations.map((v, i) => [v.id, M.systemN(i + 1, v.origin === 'reference')]))
   const nameOf = (id: string) => m.legend.workers.find((w) => w.id === id)?.label ?? m.actions.find((a) => a.id === id)?.title ?? id
   const runs = m.validations.find((v) => v.id === m.deployed) ?? null
   const guide = m.key.guide.find((g) => g.id === guideOf)

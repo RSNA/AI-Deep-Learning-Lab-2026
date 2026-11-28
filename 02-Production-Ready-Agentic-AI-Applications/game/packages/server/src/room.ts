@@ -18,6 +18,7 @@ import { hashToken, newCode, newPlayerId, newToken, samePasscode } from './auth.
 import type { Config } from './config.ts'
 import type { CommandRow, Storage } from './db.ts'
 import type { Logger } from './log.ts'
+import { soloPasscodeAsked } from './soloGate.ts'
 
 export type Sock = {
   send(data: string): void
@@ -314,7 +315,19 @@ export class Room {
   }
 
   playerView(id: PlayerId) {
-    return project.playerView(this.state, this.deps.pack, id, this.rejoinCodes.get(id) ?? '', this.playedAt)
+    return project.playerView(this.state, this.deps.pack, id, this.rejoinCodes.get(id) ?? '', this.playedAt, this.slideSite())
+  }
+
+  /** What a slide may show of the server: the passcode that a single-player game asks for now. */
+  private slideSite(): project.SlideSite {
+    return { soloPasscode: soloPasscodeAsked(this.deps.db, this.deps.config) }
+  }
+
+  /** Something a slide shows has changed outside the session, so every screen gets its view again. */
+  slidesChanged(): void {
+    this.hostDirty = true
+    this.screenDirty = true
+    for (const id of this.players.keys()) this.sendView(id)
   }
 
   /** The report card of a practice from the phases scored so far. Null before any, and for a removed practice. */
@@ -393,7 +406,7 @@ export class Room {
 
   /** Every slide with its notes, for a host who looks through the deck alone. */
   hostDeck() {
-    return project.hostDeck(this.state, this.deps.pack)
+    return project.hostDeck(this.state, this.deps.pack, this.slideSite())
   }
 
   private sendStanding(id: PlayerId): void {
@@ -418,6 +431,7 @@ export class Room {
       clock: this.clockInfo(),
       connected: (id) => this.players.has(id),
       publicUrl: this.deps.config.publicUrl,
+      soloPasscode: this.slideSite().soloPasscode,
       wallNowMs: this.deps.config.wallNow(),
       stageWall: this.stageWall,
       answerKey: !!this.deps.config.answerKeyFile && existsSync(this.deps.config.answerKeyFile),
@@ -459,7 +473,7 @@ export class Room {
   }
 
   screenView() {
-    return project.screenView(this.state, this.deps.pack, this.deps.config.publicUrl)
+    return project.screenView(this.state, this.deps.pack, this.deps.config.publicUrl, this.slideSite())
   }
 
   private sendScreenViews(): void {
@@ -645,6 +659,19 @@ export class Room {
     const { pack, db, config } = this.deps
     const now = this.now()
     this.handle(advance(this.state, pack, now))
+    // The speed of a single-player game is the scale of its clock, which the server keeps and
+    // stores with the session. The engine counts in game time and never sees the scale, so a
+    // faster or slower game is scored like any other and comes back at its speed after a restart.
+    if (parsed.data.type === 'solo.speed') {
+      if (this.kind !== 'solo') return ack({ ok: false, error: 'not_solo' })
+      if (this.state.closed) return ack({ ok: false, error: 'wrong_stage' })
+      const { speed } = parsed.data.payload
+      if (speed !== this.clock.scale) {
+        this.setClock(this.clock.running, speed)
+        db.logEvent(this.code, 'speed', this.now(), config.wallNow(), { speed })
+      }
+      return ack({ ok: true })
+    }
     // The player of a single-player game moves it on (section 6.14). Each of those commands is
     // applied and logged as the facilitator's command it stands for, so a restore replays it.
     let actor: 'player' | 'host' = 'player'
