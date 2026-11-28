@@ -197,6 +197,8 @@
 .sl.lay-closing.bare .sl-col { gap: calc(30 * var(--u)); }
 .sl.lay-closing.bare .sl-title { font-size: calc(190 * var(--u)); }
 .sl.lay-closing.bare .sl-sub { font-size: calc(50 * var(--u)); color: var(--ink); max-width: calc(1150 * var(--u)); }
+/* A marked word on the last slide is an address to go to: it stands on a line of its own, as large as a title. */
+.sl.lay-closing.bare .sl-sub b { display: block; margin-top: calc(22 * var(--u)); font-family: var(--face); font-weight: 400; font-size: calc(120 * var(--u)); line-height: 1.05; text-decoration: none; overflow-wrap: anywhere; }
 
 /* The welcome slide: a larger title */
 .sl.lay-title .sl-title { font-size: calc(118 * var(--u)); }
