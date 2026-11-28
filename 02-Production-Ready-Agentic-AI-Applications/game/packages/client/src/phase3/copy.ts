@@ -115,8 +115,8 @@ export const P3 = {
   refOpen: (n: number) => (n === 1 ? 'Reference map' : 'Reference maps'),
   refIntro: (n: number) =>
     n === 1
-      ? 'An outside group built this map for the same problem and tested it. If you take it, it joins your maps right away, costs you no validation and goes to work. Whatever it needs and you have not bought yet is bought along with it. You can go back to your own map whenever you like.'
-      : 'An outside group built these maps for the same problem and tested them. If you take one, it joins your maps right away, costs you no validation and goes to work. Whatever it needs and you have not bought yet is bought along with it. You can go back to your own map whenever you like.',
+      ? 'An outside group built this map for the same problem and tested it. If you take it, it joins your maps right away, costs you no validation and goes to work. Whatever it needs and you have not bought yet is bought along with it. You can switch back to your own map at any point.'
+      : 'An outside group built these maps for the same problem and tested them. If you take one, it joins your maps right away, costs you no validation and goes to work. Whatever it needs and you have not bought yet is bought along with it. You can switch back to your own map at any point.',
   refTake: 'Take this map',
   refTaken: 'In your maps',
   refHasAll: 'You already have everything it needs. Taking it costs nothing.',

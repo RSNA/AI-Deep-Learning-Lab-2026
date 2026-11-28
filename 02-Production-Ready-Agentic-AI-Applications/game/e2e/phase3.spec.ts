@@ -96,7 +96,7 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await memo.getByRole('button', { name: 'Got it' }).click()
   const refs = page.getByRole('dialog', { name: 'Reference maps' })
   await expect(refs).toBeVisible()
-  await expect(refs).toContainText('You can go back to your own map whenever you like')
+  await expect(refs).toContainText('You can switch back to your own map at any point')
   await expect(refs.getByRole('tab')).toHaveCount(3)
   await refs.getByRole('tab', { name: /Map B/ }).click()
   await expect(refs.locator('.ctile').first()).toBeVisible()
