@@ -5,7 +5,9 @@
 .p2 { display: flex; flex-direction: column; min-width: 0; }
 .p2-top {
   --act-w: clamp(236px, 19.5vw, 300px); --tool-w: clamp(200px, 16.5vw, 260px);
-  height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); min-height: 560px;
+  /* The board is never lower than 650 px: below that a row of the grid cannot hold an agent tile
+     with its three lines, and the port under the tile covers its prompt. A lower window scrolls. */
+  height: calc(100vh - var(--top-h)); height: calc(100dvh - var(--top-h)); min-height: 650px;
   display: grid; grid-template-columns: var(--act-w) minmax(0, 1fr) var(--tool-w);
   gap: 10px; padding: 8px 10px 10px;
 }
