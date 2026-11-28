@@ -77,7 +77,9 @@ export const P2 = {
     move: (label: string) => `Click an empty cell to move the ${label}. Esc cancels.`,
     join: (label: string) => `Click a lit tile, one of its dots, or the result to join ${label}. Esc cancels.`,
     tile: (label: string) => `${label} is selected.`,
-    line: (from: string, to: string) => `Line from ${from} to ${to}. Click a dot on either tile to move that end there.`,
+    line: 'Drag an end of this line to another tile, or click the tile it should point to.',
+    lineEnd: (end: 'from' | 'to') =>
+      end === 'from' ? 'Click the source or the tile where this line should start. Esc cancels.' : 'Click the tile this line should point to. Esc cancels.',
   },
   replaced: 'The result takes one line. The new line replaced the old one.',
   refusedMap: 'The game did not accept that change, so the map is back as it was.',
@@ -152,6 +154,8 @@ export const P2 = {
     port: (label: string) => `Draw a line from ${label}`,
     joinHere: (label: string) => `Join to ${label}`,
     line: (from: string, to: string) => `Line from ${from} to ${to}. Select it to remove it.`,
+    lineEnd: (end: 'from' | 'to', from: string, to: string) =>
+      end === 'from' ? `Move the start of the line from ${from} to ${to}` : `Move the arrow end of the line from ${from} to ${to}`,
     advice: 'Advice on this line', close: 'Close',
   } as Omit<GridWords, 'pickModel' | 'pickCompute' | 'defaultPrompt' | 'locked' | 'lockedNoAction' | 'model' | 'compute' | 'prompt'>,
   // Actions
@@ -229,6 +233,8 @@ export const P2 = {
     twice: (a: string, b: string) => `${a} is already joined to ${b}.`,
     loop: (a: string, b: string) => `That would close a loop: ${b} already hands its work on to ${a}, directly or through other tiles.`,
     server: 'That line cannot be drawn on this map.',
+    endSelf: 'A line cannot start and end at the same tile.',
+    endNotHere: 'This end of the line cannot go there. A line starts at a source or a tile, and it ends at a tile or at the result.',
   },
   // Results
   validationsTitle: 'Your validations',

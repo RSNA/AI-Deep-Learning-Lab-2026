@@ -2,8 +2,8 @@
 // the right, and lines that run any way between the tiles but never in a loop. A line leaves and
 // enters a tile on the side the player picked (any of the four), and where none was picked it
 // joins the sides that face each other. It draws any map, editable or read-only, and knows
-// nothing of the phase that shows it. Every action works by click or tap; drag is an extra on a
-// laptop.
+// nothing of the phase that shows it. Every action works by click or tap, and a line can also be
+// drawn and re-attached by dragging, with a mouse or a finger.
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile, LineSide } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
@@ -18,6 +18,9 @@ export type Mode =
   | { kind: 'place'; worker: string }
   | { kind: 'move'; tile: string }
   | { kind: 'join'; from: string; side?: LineSide }
+  /** One end of a line was picked up and looks for the node it goes to. */
+  | { kind: 'reattach'; key: string; end: LineEnd }
+export type LineEnd = 'from' | 'to'
 export type Selection = { kind: 'tile'; id: string } | { kind: 'line'; key: string } | null
 export type Part = 'model' | 'runsOn' | 'prompt'
 
@@ -36,16 +39,18 @@ export type GridProps = {
   lockedBy?: Record<string, string>
   mode?: Mode
   selection?: Selection
-  /** Tiles and the result that a line from the node in `mode.join` may reach. */
+  /** The nodes that the line in the making may reach, or that the end that was picked up may go to. */
   targets?: ReadonlySet<string>
   onCell?: (col: number, row: number) => void
-  /** A press on a node. `side` is the side of a tile whose dot was pressed to end a line there. */
+  /** A press on a node. `side` is the side of a tile whose dot was pressed, to end a line there or to bring an end that was picked up to that side. */
   onNode?: (id: string, side?: LineSide) => void
   /** A press on a dot that starts a line. `side` is the side of the tile it stands on. */
   onPort?: (id: string, side?: LineSide) => void
   onLine?: (key: string) => void
-  /** A dot of an end tile of the selected line was pressed: that end moves to this side. */
-  onMoveEnd?: (key: string, end: 'from' | 'to', side: LineSide) => void
+  /** A handle at an end of the selected line was pressed (`on` absent: pick it up or put it back), or a drag of it began or ended in the open. */
+  onPickEnd?: (key: string, end: LineEnd, on?: boolean) => void
+  /** An end of a line was dragged onto a node. `side` is the dot of a tile it was dropped on. */
+  onDropEnd?: (key: string, end: LineEnd, node: string, side?: LineSide) => void
   onPart?: (tile: string, part: Part) => void
   onDropKind?: (kind: string, col: number, row: number) => void
   onDropTile?: (id: string, col: number, row: number) => void
@@ -75,6 +80,8 @@ export type GridWords = {
   emptyCell: (col: number, row: number) => string; placeHere: string; moveHere: string
   port: (label: string) => string; joinHere: (label: string) => string
   line: (from: string, to: string) => string
+  /** The handle at one end of the selected line. */
+  lineEnd: (end: LineEnd, from: string, to: string) => string
   model: string; compute: string; prompt: string
   advice: string; close: string
 }
@@ -91,7 +98,8 @@ export function Grid(p: GridProps) {
   const box = useRef<HTMLDivElement>(null)
   const nodes = useRef(new Map<string, HTMLElement>())
   const [boxes, setBoxes] = useState<Record<string, Box>>({})
-  const [drag, setDrag] = useState<{ from: string; side?: LineSide; x: number; y: number } | null>(null)
+  // A line that follows the pointer: a new one out of a port, or one end of the selected line.
+  const [drag, setDrag] = useState<({ from: string; side?: LineSide } | { key: string; end: LineEnd }) & { x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const [hintCol, setHintCol] = useState<number | null>(null)
   // A sentence at the place of an action is brought into view, also where the grid scrolls sideways.
@@ -257,6 +265,15 @@ export function Grid(p: GridProps) {
     const r = Math.max(14, Math.hypot(x - a.x, y - a.y) * 0.4)
     return `M${a.x},${a.y} C${a.x + OUT[sd].x * r},${a.y + OUT[sd].y * r} ${x},${y} ${x},${y}`
   }
+  /** The line whose one end follows the pointer, from the end that stays. */
+  const endPath = (l: CanvasLine, end: LineEnd, x: number, y: number): string | null => {
+    const stays = anchors.get(`${lineKey(l)}|${end === 'from' ? 'to' : 'from'}`)
+    if (!stays) return null
+    const sd = sidesOf(l)[end === 'from' ? 1 : 0]
+    const r = Math.max(14, Math.hypot(x - stays.x, y - stays.y) * 0.4)
+    const bend = `${stays.x + OUT[sd].x * r},${stays.y + OUT[sd].y * r}`
+    return end === 'to' ? `M${stays.x},${stays.y} C${bend} ${x},${y} ${x},${y}` : `M${x},${y} C${x},${y} ${bend} ${stays.x},${stays.y}`
+  }
   const names = tileNames(map, v)
   const nameOf = (id: string): string => {
     const s = v.sources.find((x) => x.id === id)
@@ -266,70 +283,119 @@ export function Grid(p: GridProps) {
   }
 
   const joining = mode.kind === 'join'
+  const reattach = mode.kind === 'reattach' ? mode : null
+  // A line in the making and an end that was picked up both look for a node: the same marks show where they may go.
+  const seeking = joining || !!reattach
   const placing = mode.kind === 'place' || mode.kind === 'move'
   const targets = p.targets ?? new Set<string>()
-  const lit = (id: string) => (joining || !!drag) && targets.has(id)
+  const lit = (id: string) => (seeking || !!drag) && targets.has(id)
 
-  // Drag from a port draws a line that follows the pointer (laptop). A click joins in two clicks.
+  /** The node under a point of the screen, and the dot of a tile there. A line or a handle that lies over it is looked through. */
+  const nodeAt = (x: number, y: number): { node: string | null; side?: LineSide } => {
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (!box.current?.contains(el)) continue
+      const node = el.closest<HTMLElement>('[data-node]')
+      if (node) return { node: node.dataset.node ?? null, side: el.closest<HTMLElement>('[data-side]')?.dataset.side as LineSide | undefined }
+    }
+    return { node: null }
+  }
+  /**
+   * Follow a press that may become a drag, with a mouse or a finger. `begin` is called once the
+   * pointer has left its place, `end` with the node it was let go on (null in the open). Where
+   * the grid is wider than its frame (a phone), the frame scrolls while the pointer is held near
+   * its left or right edge, so that a line can be taken to a node that was out of view.
+   */
+  const follow = (e: React.PointerEvent, begin: () => void, to: (x: number, y: number) => void, end: (node: string | null, side?: LineSide) => void) => {
+    pop.hide()
+    const el = box.current!
+    let frame: HTMLElement | null = el.parentElement
+    while (frame && !(frame.scrollWidth > frame.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(frame).overflowX))) frame = frame.parentElement
+    const sx = e.clientX, sy = e.clientY
+    let moved = false
+    let px = sx, py = sy, pull = 0, raf = 0
+    const place = () => {
+      const root = el.getBoundingClientRect()
+      const k = root.width / Math.max(1, el.offsetWidth)
+      to((px - root.left) / k, (py - root.top) / k)
+      const at = nodeAt(px, py).node
+      setOver(at && nodes.current.get(at)?.dataset.target ? at : null)
+    }
+    const scroll = () => {
+      raf = 0
+      if (!pull || !frame) return
+      frame.scrollLeft += pull
+      place()
+      raf = requestAnimationFrame(scroll)
+    }
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
+      if (!moved) { moved = true; begin() }
+      px = ev.clientX; py = ev.clientY
+      place()
+      if (frame) {
+        const f = frame.getBoundingClientRect()
+        pull = px > f.right - 36 ? 12 : px < f.left + 36 ? -12 : 0
+        if (pull && !raf) raf = requestAnimationFrame(scroll)
+      }
+    }
+    const done = (ev: PointerEvent) => {
+      onPort.current = false
+      pull = 0
+      if (raf) cancelAnimationFrame(raf)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', done)
+      window.removeEventListener('pointercancel', done)
+      if (!moved) return
+      const at = ev.type === 'pointerup' ? nodeAt(ev.clientX, ev.clientY) : { node: null }
+      setDrag(null)
+      setOver(null)
+      end(at.node, at.side)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', done)
+    window.addEventListener('pointercancel', done)
+  }
+
+  // A drag from a port draws a line that follows the pointer. A click joins in two clicks.
   const startDrag = (from: string, e: React.PointerEvent, side?: LineSide) => {
-    if (readOnly || e.button !== 0 || e.pointerType === 'touch') return
-    // A dot that ends a line, or moves an end of the selected line, starts no new line. The
+    if (readOnly || e.button !== 0) return
+    onPort.current = true
+    // A dot that ends a line, or takes an end that was picked up, starts no new line. The
     // press still belongs to the dot, so it must not start a drag of the tile around it.
-    if ((joining && mode.from !== from) || endOf(from)) {
-      onPort.current = true
+    if ((joining && mode.from !== from) || reattach) {
       window.addEventListener('pointerup', () => { onPort.current = false }, { once: true })
       return
     }
-    onPort.current = true
-    pop.hide()
-    const el = box.current!
-    const root = el.getBoundingClientRect()
-    const k = root.width / Math.max(1, el.offsetWidth)
-    const sx = e.clientX, sy = e.clientY
-    let moved = false
-    const move = (ev: PointerEvent) => {
-      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
-      if (!moved) { moved = true; p.onPort?.(from, side) }
-      setDrag({ from, side, x: (ev.clientX - root.left) / k, y: (ev.clientY - root.top) / k })
-      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-target]')
-      setOver(el?.dataset.target ?? null)
-    }
-    const up = (ev: PointerEvent) => {
-      onPort.current = false
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      if (moved) {
-        // A drop on a node that cannot take the line goes to the phase too, which says why.
-        const at = document.elementFromPoint(ev.clientX, ev.clientY)
-        const to = at?.closest<HTMLElement>('[data-target]')?.dataset.target ?? at?.closest<HTMLElement>('[data-node]')?.dataset.node
-        // Dropped on a dot of the tile: the line enters on that side.
-        const toSide = at?.closest<HTMLElement>('[data-side]')?.dataset.side as LineSide | undefined
-        if (to && to !== from) p.onDragLine?.(from, to, { from: side, to: toSide })
-        setDrag(null)
-        setOver(null)
-      }
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    follow(e, () => p.onPort?.(from, side), (x, y) => setDrag({ from, side, x, y }), (to, toSide) => {
+      // A drop on a node that cannot take the line goes to the phase too, which says why.
+      if (to && to !== from) p.onDragLine?.(from, to, { from: side, to: toSide })
+    })
+  }
+  // A drag from a handle of the selected line takes that end along. A drop on a node moves the
+  // end there, and the phase says why when it cannot. A drop in the open puts it back.
+  // A drag that ends on its own handle is followed by a click there, which must not pick the end up again.
+  const dragged = useRef(false)
+  const startEndDrag = (key: string, end: LineEnd, e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    follow(e, () => { dragged.current = true; p.onPickEnd?.(key, end, true) }, (x, y) => setDrag({ key, end, x, y }), (node, side) => {
+      setTimeout(() => { dragged.current = false }, 0)
+      if (node) p.onDropEnd?.(key, end, node, side)
+      else p.onPickEnd?.(key, end, false)
+    })
   }
 
   // The round port of a node starts a line from it. A source has one on its right. A tile has
   // one on each of its four sides: the one on the right is always there, the others show while
-  // the tile is pointed at or selected, while a line is looking for its end, and at the two ends
-  // of the selected line. A press on a dot does one of three things. It starts a line that
+  // the tile is pointed at or selected, while a line is looking for its end, and on the tile of
+  // an end that was picked up. A press on a dot does one of three things. It starts a line that
   // leaves on that side. Or, while a line looks for its end, it ends the line on that side. Or,
-  // on a tile at an end of the selected line, it moves that end to that side. A read-only map
-  // marks each side that a line leaves.
+  // while an end of the selected line is picked up, it brings that end to this tile on that
+  // side (on its own tile: to another side). A read-only map marks each side that a line leaves.
   const selLine = p.selection?.kind === 'line' ? map.lines.find((l) => lineKey(l) === (p.selection as { key: string }).key) : undefined
-  /** Which end of the selected line this tile is, if any. */
-  function endOf(id: string): 'from' | 'to' | null {
-    if (readOnly || !selLine || mode.kind !== 'idle' || !cellOf.has(id)) return null
-    return selLine.from === id ? 'from' : selLine.to === id ? 'to' : null
-  }
+  /** The tile on which the end that was picked up stands: its four dots show, one for each side it may move to. */
+  const heldAt = !readOnly && reattach && selLine ? (reattach.end === 'from' ? selLine.from : selLine.to) : null
   const pressPort = (id: string, side: LineSide | undefined) => {
-    const end = endOf(id)
-    if (end && side) { p.onMoveEnd?.(lineKey(selLine!), end, side); return }
-    if (joining && mode.from !== id) { p.onNode?.(id, side); return }
+    if ((joining && mode.from !== id) || reattach) { p.onNode?.(id, side); return }
     p.onPort?.(id, side)
   }
   const port = (id: string, label: string, side?: LineSide) => readOnly ? (used.has(id) ? <span className="cport ro" style={{ background: colorOf(id) }} aria-hidden="true" /> : null) : (
@@ -389,7 +455,7 @@ export function Grid(p: GridProps) {
     const body = p.bodies?.[t.id] ?? (w?.task ? { text: w.task } : null)
     return (
       <div key={t.id} ref={setNode(t.id)} data-tile={t.id} data-node={t.id} data-target={target ? t.id : undefined}
-        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${endOf(t.id) ? ' ends' : ''}${t.row >= v.rows ? ' lastrow' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
+        className={`ctile k-${w?.kind ?? 'ai'}${stray ? ' stray' : ''}${sel ? ' sel' : ''}${heldAt === t.id ? ' ends' : ''}${t.row >= v.rows ? ' lastrow' : ''}${moving ? ' moving' : ''}${target ? ' lit' : ''}${over === t.id ? ' over' : ''}${warn ? ' warned' : ''}${guided ? ' guided' : ''}`}
         style={{ gridColumn: t.col + 1, gridRow: t.row + 1 }}
         role={readOnly ? undefined : 'button'} tabIndex={readOnly ? undefined : 0}
         aria-label={`${label}${stray ? `. ${words.stray}` : ''}${warn ? `. ${words.privateData}` : ''}${target ? `. ${words.joinHere(label)}` : ''}`}
@@ -456,7 +522,7 @@ export function Grid(p: GridProps) {
   const res = v.result
   const resLit = lit(res.id)
   return (
-    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${v.cols >= 6 ? ' six' : ''}${joining ? ' joining' : ''}${placing ? ' placing' : ''}`}
+    <div ref={box} className={`cgrid${compact ? ' compact' : ''}${v.cols >= 5 ? ' dense' : ''}${v.cols >= 6 ? ' six' : ''}${seeking ? ' joining' : ''}${placing ? ' placing' : ''}`}
       style={{ '--cols': v.cols, '--rows': v.rows } as React.CSSProperties} aria-label={p.label}>
       <div className="chdr" style={{ gridColumn: 1 }}>{words.sources}</div>
       {Array.from({ length: v.cols }, (_, i) => {
@@ -479,13 +545,14 @@ export function Grid(p: GridProps) {
           const lock = locked(s.id)
           const by = p.lockedBy?.[s.id]
           return (
-            <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
+            <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && lit(s.id) ? ' lit' : ''}${over === s.id ? ' over' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
+              data-target={!lock && lit(s.id) ? s.id : undefined}
               title={p.popOf && !readOnly ? undefined : lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
-              role={(lock || joining) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
-              aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : undefined}
+              role={(lock || seeking || selLine) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
+              aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : lit(s.id) ? `${s.label}. ${words.joinHere(s.label)}` : undefined}
               {...(p.popOf && !readOnly ? popHandlers(pop, `node:${s.id}`, 'right', () => (drag ? null : p.popOf!(s.id))) : {})}
-              onClick={readOnly ? undefined : () => { if (lock || joining) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
-              onKeyDown={(lock || joining) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
+              onClick={readOnly ? undefined : () => { if (lock || seeking || selLine) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
+              onKeyDown={(lock || seeking || selLine) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
               {/* A locked source wears its lock where the others wear their picture, so its name keeps the full width. */}
               {lock ? <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={compact ? 10 : 12} /></Mark> : <Icon name={s.icon} size={compact ? 12 : 15} />}
               <span className="cs-name">{s.label}</span>
@@ -499,11 +566,11 @@ export function Grid(p: GridProps) {
       <div className="cresult-col" style={{ gridColumn: v.cols + 2, gridRow: `2 / span ${v.rows}` }}>
         <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${over === res.id ? ' over' : ''}${p.guide?.nodes.includes(res.id) ? ' guided' : ''}`} data-target={resLit ? res.id : undefined} data-node={res.id}
           data-tour={readOnly ? undefined : 'p2-result'}
-          role={joining && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
+          role={(seeking || selLine) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
           aria-label={resLit ? words.joinHere(res.label) : res.label}
-          {...(p.popOf && !readOnly ? popHandlers(pop, `node:${res.id}`, 'left', () => (drag || joining ? null : p.popOf!(res.id))) : {})}
-          onClick={readOnly ? undefined : () => { if (joining) p.onNode?.(res.id); else p.onAbout?.(res.id) }}
-          onKeyDown={joining && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
+          {...(p.popOf && !readOnly ? popHandlers(pop, `node:${res.id}`, 'left', () => (drag || seeking ? null : p.popOf!(res.id))) : {})}
+          onClick={readOnly ? undefined : () => { if (seeking || selLine) p.onNode?.(res.id); else p.onAbout?.(res.id) }}
+          onKeyDown={(seeking || selLine) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
           <Icon name="result" size={compact ? 14 : 18} />
           <span className="cr-name">{res.label}</span>
         </div>
@@ -516,7 +583,8 @@ export function Grid(p: GridProps) {
           const d = g.d
           const color = colorOf(l.from)
           const sel = p.selection?.kind === 'line' && p.selection.key === key
-          const faded = joining && mode.from !== l.from
+          const carried = !!drag && 'key' in drag && drag.key === key
+          const faded = (joining && mode.from !== l.from) || (!!reattach && reattach.key !== key) || carried
           // A line between two tiles (or into the result) is a handoff, drawn heavier than a line
           // from a source, which only says that the tile may read it.
           const handoff = !sourceIds.has(l.from)
@@ -546,9 +614,13 @@ export function Grid(p: GridProps) {
             </g>
           )
         })}
-        {drag && boxes[drag.from] && (
+        {drag && 'from' in drag && boxes[drag.from] && (
           <path className="cline-drag" d={dragPath(drag.from, drag.side, drag.x, drag.y)} stroke={colorOf(drag.from)} />
         )}
+        {drag && 'key' in drag && selLine && (() => {
+          const d = endPath(selLine, drag.end, drag.x, drag.y)
+          return d ? <path className="cline-drag" d={d} stroke={colorOf(selLine.from)} /> : null
+        })()}
       </svg>
       {/* The heads of the lines, over the tiles: a head in the narrow gap between two neighbours stays whole. */}
       <svg className="cheads" aria-hidden="true">
@@ -565,10 +637,23 @@ export function Grid(p: GridProps) {
           if (!g) return null
           const { at: h, dir } = g.head
           const idx = LINE_COLORS.indexOf(colorOf(l.from))
-          const faded = joining && mode.from !== l.from
+          const faded = (joining && mode.from !== l.from) || (!!reattach && reattach.key !== lineKey(l)) || (!!drag && 'key' in drag && drag.key === lineKey(l))
           return <path key={lineKey(l)} className={`chead${faded ? ' faded' : ''}`} d={`M${h.x - dir.x},${h.y - dir.y} L${h.x},${h.y} L${h.x + dir.x},${h.y + dir.y}`} markerMid={`url(#ca${idx}${compact ? 'c' : ''})`} />
         })}
       </svg>
+      {/* The two ends of the selected line, as handles: a press picks an end up, a drag takes it along. */}
+      {!readOnly && selLine && (mode.kind === 'idle' || reattach) && (['from', 'to'] as LineEnd[]).map((end) => {
+        const key = lineKey(selLine)
+        const a = anchors.get(`${key}|${end}`)
+        if (!a) return null
+        const on = reattach?.end === end
+        return (
+          <button key={end} type="button" className={`cend ${end}${on ? ' on' : ''}`} style={{ left: a.x, top: a.y, background: colorOf(selLine.from) }}
+            aria-label={words.lineEnd(end, nameOf(selLine.from), nameOf(selLine.to))} aria-pressed={on}
+            onPointerDown={(e) => startEndDrag(key, end, e)}
+            onClick={(e) => { e.stopPropagation(); if (!dragged.current) p.onPickEnd?.(key, end) }} />
+        )
+      })}
       {p.note && (() => {
         // The sentence stands under the place of the action, or over it near the foot of the grid.
         const n = p.note

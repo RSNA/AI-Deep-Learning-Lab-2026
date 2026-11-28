@@ -185,6 +185,42 @@ export function targetsOf(m: CanvasMap, v: Vocabulary, from: string): Set<string
   return out
 }
 
+/**
+ * Where one end of a line may be moved while its other end stays: for the end of a line, every
+ * node a line from its start may reach, and for its start, every open source and every tile
+ * from which a line may reach its end.
+ */
+export function endTargets(m: CanvasMap, v: Vocabulary, key: string, end: 'from' | 'to', unlocked?: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>()
+  const l = m.lines.find((x) => lineKey(x) === key)
+  if (!l) return out
+  const rest = removeLine(m, key)
+  if (end === 'to') {
+    for (const id of targetsOf(rest, v, l.from)) if (id !== l.to) out.add(id)
+    return out
+  }
+  const starts = [...v.sources.filter((s) => !unlocked || unlocked.has(s.id)).map((s) => s.id), ...m.tiles.map((t) => t.id)]
+  for (const id of starts) if (id !== l.from && targetsOf(rest, v, id).has(l.to)) out.add(id)
+  return out
+}
+
+/**
+ * Move one end of a line to another node, or to another side of the tile it stands on. The other
+ * end keeps its place and its side. Returns the new map with the key the line has there, or null
+ * when that node cannot take the end.
+ */
+export function moveLineEnd(m: CanvasMap, v: Vocabulary, key: string, end: 'from' | 'to', node: string, side?: LineSide): { map: CanvasMap; key: string } | null {
+  const l = m.lines.find((x) => lineKey(x) === key)
+  if (!l) return null
+  if (node === (end === 'from' ? l.from : l.to)) return { map: side ? setLineSide(m, key, end, side) : m, key }
+  const rest = removeLine(m, key)
+  const from = end === 'from' ? node : l.from
+  const to = end === 'to' ? node : l.to
+  if (!targetsOf(rest, v, from).has(to)) return null
+  const map = addLine(rest, from, to, v.result.id, { from: end === 'from' ? side : l.fromSide, to: end === 'to' ? side : l.toSide })
+  return { map, key: `${from}>${to}` }
+}
+
 export function sameMap(a: CanvasMap, b: CanvasMap): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }

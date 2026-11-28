@@ -3520,9 +3520,22 @@ as dashed boxes.
   line that would run backward after a move is removed, and the title bar says so.
 - **Join**: click a port, then a lit tile or the lit result. Only the tiles further right that the
   origin does not reach yet, and the result for a tile, are lit, and every other line fades. A
-  drag from a port draws the line under the pointer and joins where it is let go. A second line
-  into the result replaces the first, and the title bar says so. Clicking the port again or
-  pressing Escape cancels.
+  drag from a port, with a mouse or a finger, draws the line under the pointer and joins where
+  it is let go. Where the grid is wider than its frame (a phone), the frame scrolls while the
+  pointer is held near its left or right edge. A second line into the result replaces the
+  first, and the title bar says so. Clicking the port again or pressing Escape cancels.
+- **Move an end of a line**: a selected line shows a handle at each of its two ends, large
+  enough for a finger. A drag of a handle takes that end along and drops it on another tile, on
+  a dot of a tile (the end then stands on that side), on another source (the start only) or on
+  the result (the arrow end only). A press on a handle picks the end up, the nodes that can
+  take it are lit, and a press on one of them moves it. While a line is selected and nothing
+  is picked up, a click on another tile points the arrow at that tile, a click on the result
+  does the same, and a click on an open source moves the start there, so a click never starts
+  a second line by accident. A move that the rules of the map do not allow (a loop, a line
+  that exists, a source as an end, a locked source, both ends on one tile) changes nothing and
+  says why at the node. A move to another node is one step of undo and ends the selection. A
+  move to another side of the same tile keeps the line selected. The edits are
+  `moveLineEnd` and `endTargets` of `canvas/model.ts`.
 - **Remove**: select a tile or a line (a line has a wide invisible edge to click), then Remove or
   the Delete key. A removed tile takes its lines with it.
 - **Parts**: a click on a part box opens its chooser. The model chooser lists every model. One the
@@ -3673,7 +3686,10 @@ does now.
 - *Clear map*, beside Undo and Redo, with a question, undoable.
 - *A word on money* once, after the fourth action a player starts, and one line in the tour.
 - *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
-  a longer text is cut with "Show more".
+  a longer text is cut with "Show more". On an insight card, a letter or a memo, "Show more"
+  opens the whole card in a window in the middle of the screen (a sheet with a close button,
+  Escape and a click beside it), in Phase 2 and Phase 3 and on every size of screen, and the
+  card in its row never grows. A prompt card already stands in a window and opens in place.
 - *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
   result is waiting when the person who signs opens the case.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
@@ -3708,9 +3724,11 @@ does now.
   selected line. A press on a dot starts a line that leaves on that side (`fromSide`). While a
   line looks for its end, a press on a dot of a target ends it on that side (`toSide`), and a
   press on the tile itself, the Join button or the keyboard leaves the side open. A drag from
-  a dot that is dropped on a dot does both. With a line selected, a press on a dot of either
-  end tile moves that end there, one step of undo each, and the line stays selected. An end
-  without a side is drawn on the side that faces the other tile, as before. A line whose sides
+  a dot that is dropped on a dot does both. An end of the selected line that was picked up by
+  its handle goes to another side of its tile by a press on that dot, or by a drop on it, one
+  step of undo each, and the line stays selected (until the version with handles a press on a
+  dot of either end tile did this without a handle, which kept a new line from being started
+  there). An end without a side is drawn on the side that faces the other tile, as before. A line whose sides
   do not face each other reaches further out before it bends. The sides are part of the map
   that is saved and of every map that is drawn (the list of validations, the host's view, the
   reveal, the reference map). They change no score, and two maps that differ only in sides are
