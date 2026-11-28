@@ -3,7 +3,7 @@
 // chooser, undo, a refresh, an earlier map loaded back, the reveal with both maps, the phone
 // tabs, both themes, and the host's view of a player.
 import { createRequire } from 'node:module'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const require = createRequire(import.meta.url)
 const WebSocket = require('ws') as typeof import('ws')
@@ -280,6 +280,111 @@ test('the same map by drag, on a laptop, in the dark theme', async ({ page }, in
   await expect(page.locator('.vbtn')).not.toHaveAttribute('aria-disabled', 'true')
   // A pack without names for its columns shows nothing above them.
   await expect(page.locator('.p2-map .chdr')).toHaveText(['Sources', '', '', '', '', 'Result'])
+  s.close()
+})
+
+test('lines by their ends: a click and a drag bring an end to another node, a refusal says why, and a port draws by drag', async ({ page }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const s = await setup(page, 'E2E canvas lines')
+  await joinPicked(page, s.code, 'Canvas Lines', /Riverbend/)
+  await toDevelopment(page, s)
+  const line = (from: string, to: string) => page.locator(`.cline .hit[aria-label^="Line from ${from} to ${to}."]`)
+  const select = async (from: string, to: string) => { await line(from, to).focus(); await page.keyboard.press('Enter') }
+  const handle = (end: 'start' | 'arrow end', from: string, to: string) => page.getByRole('button', { name: `Move the ${end} of the line from ${from} to ${to}` })
+  const dragTo = async (from: Locator, to: Locator) => {
+    const a = (await from.boundingBox())!, b = (await to.boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2 + 14, a.y + a.height / 2 + 9, { steps: 3 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 })
+    await page.mouse.up()
+  }
+  const source = (label: string) => page.locator('.csource', { hasText: label }).locator('.cs-name')
+
+  // The map of the play check: the agent hands its work to the result, and the librarian is placed afterwards.
+  await tool(page, 'Agent').click()
+  await cell(page, 2, 2).click()
+  await join(page, 'Request form', /Join to Agent/)
+  await join(page, 'Agent', /Join to Loan arranged/)
+  await tool(page, 'Reference librarian').click()
+  await cell(page, 4, 2).click()
+  // The line is selected and shows its two ends. A click on the librarian points the arrow
+  // there. It starts no line from the librarian, and the selection is gone afterwards.
+  await select('Agent', 'Loan arranged')
+  await expect(page.locator('.mhint')).toContainText('Drag an end of this line to another tile')
+  await expect(handle('start', 'Agent', 'Loan arranged')).toBeVisible()
+  await expect(handle('arrow end', 'Agent', 'Loan arranged')).toBeVisible()
+  await page.locator('.ctile[aria-label^="Reference librarian"]').click()
+  await expect(line('Agent', 'Reference librarian')).toHaveCount(1)
+  await expect(page.locator('.cline')).toHaveCount(2)
+  await expect(page.locator('.cend')).toHaveCount(0)
+  await expect(page.locator('.cgrid.joining')).toHaveCount(0)
+  // A drag from the port of the librarian to the result draws the next line.
+  await dragTo(page.getByRole('button', { name: 'Draw a line from Reference librarian' }), page.locator('.cresult'))
+  await expect(line('Reference librarian', 'Loan arranged')).toHaveCount(1)
+  // A drag of the start of a line to another source.
+  await select('Request form', 'Agent')
+  await dragTo(handle('start', 'Request form', 'Agent'), source('Shared catalog'))
+  await expect(line('Shared catalog', 'Agent')).toHaveCount(1)
+  await expect(line('Request form', 'Agent')).toHaveCount(0)
+  await expect(page.locator('.cline')).toHaveCount(3)
+  // An end that cannot go where it was dropped stays, the line stays selected, and a sentence says why.
+  await select('Shared catalog', 'Agent')
+  await dragTo(handle('arrow end', 'Shared catalog', 'Agent'), source('Courier site'))
+  await expect(page.locator('.cnote')).toContainText('A line cannot end at Courier site')
+  await expect(line('Shared catalog', 'Agent')).toHaveCount(1)
+  await dragTo(handle('start', 'Shared catalog', 'Agent'), page.locator('.ctile', { hasText: 'Agent' }).locator('.ct-name'))
+  await expect(page.locator('.cnote')).toContainText('A line cannot start and end at the same tile')
+  await expect(handle('arrow end', 'Shared catalog', 'Agent')).toBeVisible()
+  // A press on a handle picks that end up: the tiles it may go to are lit, and a press on one moves it.
+  await handle('arrow end', 'Shared catalog', 'Agent').click()
+  await expect(page.locator('.mhint')).toContainText('Click the tile this line should point to')
+  await expect(page.locator('.ctile.lit')).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.cend')).toHaveCount(0)
+  await expect(line('Shared catalog', 'Agent')).toHaveCount(1)
+  await select('Shared catalog', 'Agent')
+  await handle('start', 'Shared catalog', 'Agent').click()
+  // Every other open source is lit, the one the line starts at is not.
+  await expect(page.locator('.csource.lit', { hasText: 'Courier site' })).toHaveCount(1)
+  await expect(page.locator('.csource.lit', { hasText: 'Shared catalog' })).toHaveCount(0)
+  await page.locator('.csource', { hasText: 'Courier site' }).click()
+  await expect(line('Courier site', 'Agent')).toHaveCount(1)
+  // Each move is one step of undo.
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(line('Shared catalog', 'Agent')).toHaveCount(1)
+  await noErrorNames(page)
+  s.close()
+})
+
+test('a card that is cut opens whole in a window, and the card in its row keeps its height', async ({ page }, info) => {
+  const s = await setup(page, `E2E cards ${info.project.name}`)
+  await joinPicked(page, s.code, 'Card Reader', /Riverbend/)
+  await toDevelopment(page, s)
+  // Short cards, so that the letter of the phase does not fit its card.
+  await page.addStyleTag({ content: '.icards .stdcard { height: 150px !important; }' })
+  if (info.project.name === 'phone') await page.locator('.ptabs button', { hasText: 'Results' }).click()
+  const card = page.locator('#p2-insights .stdcard').first()
+  await card.scrollIntoViewIfNeeded()
+  const more = card.getByRole('button', { name: /Show more/ })
+  await expect(more).toBeVisible()
+  await more.click()
+  const sheet = page.getByRole('dialog', { name: /^LETTER/ })
+  await expect(sheet).toBeVisible()
+  await expect(sheet).toContainText('What you build here will run for a long time.')
+  // Nothing in the window is cut, and the card behind it did not grow.
+  expect(await sheet.locator('.clamp-box').count()).toBe(0)
+  expect(Math.round((await card.boundingBox())!.height)).toBe(150)
+  await page.keyboard.press('Escape')
+  await expect(sheet).toHaveCount(0)
+  // The button of the window and a click beside it close it too.
+  await more.click()
+  await sheet.getByRole('button', { name: 'Close', exact: true }).last().click()
+  await expect(sheet).toHaveCount(0)
+  await more.click()
+  await page.mouse.click(4, 4)
+  await expect(sheet).toHaveCount(0)
+  await noOverflow(page)
   s.close()
 })
 

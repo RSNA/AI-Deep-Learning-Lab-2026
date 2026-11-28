@@ -169,10 +169,13 @@ test('Validate always says why, and every refused placement or line says why at 
   let ends = await endsOf()
   expect(Math.abs(ends.x1 - (ends.agent.x + ends.agent.w))).toBeLessThan(3)
   expect(Math.abs(ends.x2 - (ends.rule.x + ends.rule.w))).toBeLessThan(3)
-  // With the line selected, a press on another dot of Agent moves that end there: now it leaves
-  // the left side, and the two ends face each other. One step of undo takes the move back.
+  // With the line selected, its start is picked up by its handle, and a press on another dot of
+  // Agent brings it to that side: now it leaves the left side, and the two ends face each other.
+  // The line stays selected, and one step of undo takes the move back.
   await page.locator('.cline .hit[aria-label^="Line from Agent to Rule"]').dispatchEvent('click')
+  await page.getByRole('button', { name: 'Move the start of the line from Agent to Rule' }).click()
   await page.locator('.ctile', { hasText: 'Agent' }).locator('[data-side="left"]').click()
+  await expect(page.getByRole('button', { name: 'Move the start of the line from Agent to Rule' })).toBeVisible()
   ends = await endsOf()
   expect(Math.abs(ends.x1 - ends.agent.x)).toBeLessThan(3)
   await expect(page.locator('.cline')).toHaveCount(before + 1)
