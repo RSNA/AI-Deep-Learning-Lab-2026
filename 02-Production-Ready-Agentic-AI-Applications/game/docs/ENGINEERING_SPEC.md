@@ -1165,11 +1165,17 @@ it is precise and hurts when it is long.
 A map, as the engine and the protocol hold it:
 
 ```ts
-type CanvasMap = { tiles: Tile[]; lines: Line[] }
+// `sourceOrder`: the order in which the player put the sources in their column, from the top.
+// It changes how the board is drawn and never a score. It names sources of the pack, each once
+// (`bad_source_order` otherwise). A locked source is named like any other, and a source that is
+// not named follows the named ones in the order of the pack. A map without it is drawn in the
+// order of the pack.
+type CanvasMap = { tiles: Tile[]; lines: Line[]; sourceOrder?: SourceId[] }
 // `fromSide` and `toSide`: the side of its tile where the player attached that end of the line.
 // They change how the line is drawn and never a score. An end without one takes the side that
-// faces the other tile. A source and the result have one place for a line and take no side
-// (`bad_line_end` otherwise, as for a value that is not one of the four).
+// faces the other tile. The result takes `toSide` too, and without it a line enters on its
+// left. A source has one place for a line and takes no side (`bad_line_end` otherwise, as for a
+// value that is not one of the four).
 type Line = { from: string; to: string; fromSide?: Side; toSide?: Side }
 type Tile = { id: string                     // made by the client, ^t[0-9a-z]{1,8}$
               kind: WorkerId; col: number; row: number
@@ -1253,6 +1259,9 @@ holds. `mapErrors` names each case.
     rule when `from` is its source, or the kind of the tile it starts at, and `to` is the kind of
     the tile it ends at. A line into the result matches no rule, and the first rule that matches
     counts.
+12. `sourceOrder` is no list, or names something that is no source of the pack, or names a
+    source twice (`bad_source_order`). The reference scorer does not know the field, because
+    it never scores.
 
 Lines never form a loop, because every line between tiles goes right.
 
@@ -3755,8 +3764,11 @@ does now.
 - *A tile with no line out* says so, and falls quiet the moment it hands on to any tile. What
   the whole map still lacks stays beside Validate.
 - *The same map twice.* Validate on a map equal to one already validated asks first, because
-  the accuracy will be the same and a validation is spent.
-- *Clear map*, beside Undo and Redo, with a question, undoable.
+  the accuracy will be the same and a validation is spent. Two maps are equal when they have
+  the same tiles with the same parts and the same lines. Where a tile stands, the side of a
+  line and the order of the sources change no score and do not count, so a map that was only
+  tidied is still the system it was.
+- *Clear map*, beside Undo and Redo, with a question, undoable. The sources keep their order.
 - *A word on money* once, after the fourth action a player starts, and one line in the tour.
 - *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
   a longer text is cut with "Show more". On an insight card, a letter or a memo, "Show more"
@@ -3857,6 +3869,40 @@ something comes onto the board, a toast names it ("New on your board: ..."), and
 chip carries the word "New" and a coloured edge until the player points at it, presses it or
 starts it. A source keeps its lock and says which action opens it. The tour of each phase says
 that what the practice learns, builds and buys puts more on the board.
+
+**The last feedback before the event** (a board that stays readable when it is crowded).
+
+- *Tidy map*, beside Undo and Redo. One press lays the map out afresh: the tiles in columns
+  that read from left to right (a tile stands one column after the last tile that hands work to
+  it), their rows where the lines are short, cross little and do not run behind another tile,
+  and every source level with what it reads. It moves tiles and sources and nothing else. No
+  tile, no part of a tile and no line is added, removed or changed, so no score changes
+  (`canvas/tidy.ts`, a pure function with a test that says so). The sides that were picked for
+  lines were picked for the old places, so every line goes back to the sides that face each
+  other. The layout depends on the tiles and the lines alone, never on where the tiles stood,
+  so a tidied map is tidy. A map with more layers than the grid has columns puts neighbouring
+  layers in one column, and a column that is full passes tiles to the next. The change goes
+  through `set_map` like any other and Undo takes it back. With an empty map, or one that is
+  as tidy as the button can make it, the button looks off and says why in its title and, on a
+  press, in the bar.
+- *Sources in the player's order.* A source is dragged up or down in its column with the
+  mouse, and the column and the lines show the new order while it moves. With the keyboard,
+  Alt with the up or the down arrow moves the source in focus one place. A finger scrolls the
+  page there, so on a phone the card of a source has "Move up" and "Move down", and the card
+  says which place the source has. The order is part of the map (`sourceOrder`, section 6.6),
+  so the list of systems, the host's view of a player, the result page and a refreshed page
+  draw it the same way. A locked source moves like any other. Lines keep the colour of their
+  source, which follows the order of the pack.
+- *The result takes a line on any of its four sides.* While a line looks for its end, and
+  while the end that stands on the result is picked up, the result shows a dot on each side. A
+  press on a dot, or a drop on it or near that edge, ends the line there (`toSide`). A press or
+  a drop in the middle leaves the side open, and the line enters on the left as before.
+- *A line behind a tile shows through it.* The part of a line that runs behind a tile is drawn
+  again over the tile, faintly (a quarter of its ink), so that no line is lost from sight and
+  the words of the tile stay readable in both themes. It takes no click.
+- *The tours say so.* The tour of Phase 2 says in its card on the sources that a source can be
+  moved, in its card on the result that the line may come in on any side, and has a card that
+  points at Tidy map. The tour of Phase 3 has one card on all three, which points at the button.
 
 ### 10.6 Phase 3 screens
 

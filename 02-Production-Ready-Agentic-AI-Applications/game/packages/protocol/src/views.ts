@@ -108,12 +108,17 @@ export type LineSide = z.infer<typeof LineSide>
 /**
  * A line. `fromSide` and `toSide` are the sides of its two tiles where the player attached it.
  * They change how the line is drawn and never a score. Without them it joins the sides that
- * face each other. A source and the result have one place for a line and take no side.
+ * face each other. The result takes a line on any of its four sides (`toSide`), and without a
+ * pick on its left. A source has one place for a line and takes no side.
  */
 export const CanvasLine = S({ from: Id, to: Id, fromSide: LineSide.optional(), toSide: LineSide.optional() })
 export type CanvasLine = z.infer<typeof CanvasLine>
-/** A map: tiles on the cells of the grid, and lines that run any way but never in a loop. */
-export const CanvasMap = S({ tiles: z.array(CanvasTile).max(64), lines: z.array(CanvasLine).max(160) })
+/**
+ * A map: tiles on the cells of the grid, and lines that run any way but never in a loop.
+ * `sourceOrder` is the order in which the player put the sources in their column. It changes
+ * how the board is drawn and never a score. Sources it does not name follow in the order of the pack.
+ */
+export const CanvasMap = S({ tiles: z.array(CanvasTile).max(64), lines: z.array(CanvasLine).max(160), sourceOrder: z.array(Id).max(64).optional() })
 export type CanvasMap = z.infer<typeof CanvasMap>
 
 /** What it takes to draw a map read-only: the grid and the public names of everything on it. */

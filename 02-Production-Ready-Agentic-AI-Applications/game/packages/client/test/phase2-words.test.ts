@@ -70,9 +70,12 @@ describe('the same map', () => {
   it('is the same whatever the order of its tiles and lines', () => {
     expect(sameLayout(a, { tiles: [...a.tiles].reverse(), lines: [...a.lines].reverse() })).toBe(true)
   })
-  it('is another map when a line, a place or a part differs', () => {
+  it('is another map when a line or a part differs', () => {
     expect(sameLayout(a, { tiles: a.tiles, lines: a.lines.slice(0, 1) })).toBe(false)
-    expect(sameLayout(a, { tiles: [t('t1', 1), t('t2', 3)], lines: a.lines })).toBe(false)
     expect(sameLayout(a, { tiles: [t('t1', 1), { ...t('t2', 2), model: 'm' }], lines: a.lines })).toBe(false)
+  })
+  it('is the same system when only a tile stands elsewhere: a place changes no score, so a tidied map is not validated twice', () => {
+    expect(sameLayout(a, { tiles: [t('t1', 1), t('t2', 3)], lines: a.lines })).toBe(true)
+    expect(sameLayout(a, { ...a, sourceOrder: ['s2', 's1'] })).toBe(true)
   })
 })
