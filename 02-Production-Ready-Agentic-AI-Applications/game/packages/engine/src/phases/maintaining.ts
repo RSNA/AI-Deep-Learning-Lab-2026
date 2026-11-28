@@ -142,8 +142,12 @@ function openRound(pack: Pack, p: PlayerState, round: number, at: GameMs): Engin
   if (round <= st.roundsOpened) return events
   st.roundsOpened = round
   // A letter with `if_event` goes only to a practice on whose map in service that event acted
-  // in the report just made, at the first round from its own on at which it did.
-  const acted = new Set(st.reports.at(-1)?.events.map((x) => x.id) ?? [])
+  // in the report just made, at the first round from its own on at which it did. An event
+  // that only adds risks must have added some: an upgrade that breaks hand-made connections
+  // says nothing to a practice behind a standard connector.
+  const concerns = (x: { id: string; fine: number; reliabilityLoss: number }) =>
+    x.fine > 0 || x.reliabilityLoss > 1e-9 || (mt.events.find((e) => e.id === x.id)?.patches?.length ?? 0) > 0
+  const acted = new Set(st.reports.at(-1)?.events.filter(concerns).map((x) => x.id) ?? [])
   for (const n of mt.news) {
     if (n.if_event === undefined ? n.round !== round : n.round > round || !acted.has(n.if_event)) continue
     const id = `news:${n.id}`

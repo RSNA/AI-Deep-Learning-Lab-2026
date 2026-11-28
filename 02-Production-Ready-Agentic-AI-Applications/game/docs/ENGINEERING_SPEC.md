@@ -1664,6 +1664,8 @@ definition of the scoring of a period, a validation and a year. The engine's
   the player's `found`.
 - **A letter for those concerned.** A news item with `if_event` goes to a player at the first
   round from its `round` on at which the report just made lists that event as acting on them.
+  An event that only adds risks must have added some for that player (a risk on lines that a
+  connector tile takes away concerns nobody behind the connector).
 
 In the demo pack: the rule goes wrong more every period once the request form changes, a look
 names it and brings the repair, Pine 2 comes with the fourth round, and Acorn doubles its
