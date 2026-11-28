@@ -13,7 +13,7 @@ import { H } from './hostCopy.ts'
 import { Grid } from '../canvas/Grid.tsx'
 import { tileNames } from '../canvas/model.ts'
 import { gridWords, reasonText } from '../phase2/Phase2.tsx'
-import { P2, runCost } from '../phase2/copy.ts'
+import { P2, runCost, setMoneyUnit } from '../phase2/copy.ts'
 
 // The flags of a map, the one that costs a player the most first.
 const FLAG_ORDER = ['rushed', 'overloaded', 'privateData', 'distracting', 'prompt', 'stray']
@@ -97,6 +97,7 @@ function PlanningInspect({ p }: { p: NonNullable<HostInspect['planning']> }) {
  * and under a fold everything else: the validations, the actions and the key.
  */
 function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> }) {
+  setMoneyUnit(d.moneyUnit)       // for the sentence on what the models read
   const [shown, setShown] = useState<string | null>(null)
   const [which, setWhich] = useState<'now' | 'chosen'>('now')
   const [guideOf, setGuideOf] = useState<string | null>(null)
@@ -180,6 +181,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
         ? <div className="gridscroll insp-map"><Grid v={d.legend} map={chosen.map} compact words={gridWords} label={C.mapChosen} /></div>
         : <div className="gridscroll insp-map"><Grid v={d.legend} map={d.map} flags={none} compact words={gridWords} label={H.dev.draft} /></div>}
       <div className="hint">{d.ready.ok && d.key.accuracy !== null ? H.dev.ready(d.key.accuracy) : H.dev.notReady(d.ready.reasons.map((r) => reasonText(r, d.pools)).join(' '))} {H.dev.running(runCost(d.key.running.money), minutes, d.key.running.complexity)}</div>
+      {P2.reads(d.key.running.reads) && <div className="hint" data-testid="insp-reads">{P2.reads(d.key.running.reads)}</div>}
       <details className="inspect-done">
         <summary>{C.more}</summary>
         <div className="insp-two">
@@ -223,6 +225,7 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
  * runs beside their draft, their year report by report with what acted on them, and the key.
  */
 function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> }) {
+  setMoneyUnit(m.moneyUnit)       // for the sentence on what the models read
   const [which, setWhich] = useState<'runs' | 'draft'>('runs')
   const [guideOf, setGuideOf] = useState<string | null>(null)
   const [shown, setShown] = useState<string | null>(null)
@@ -279,6 +282,7 @@ function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> 
       {which === 'runs'
         ? runs ? <div className="gridscroll insp-map"><Grid v={m.legend} map={runs.map} compact words={gridWords} label={M.mapRuns} /></div> : <div className="muted">{M.noMapRuns}</div>
         : <div className="gridscroll insp-map"><Grid v={m.legend} map={m.map} compact words={gridWords} label={M.mapDraft} /></div>}
+      {which === 'runs' && P2.reads(m.reads) && <div className="hint" data-testid="insp-reads">{P2.reads(m.reads)}</div>}
       {which === 'draft' && !m.ready.ok && <div className="hint">{H.dev.notReady(m.ready.reasons.map((r) => reasonText(r, m.pools)).join(' '))}</div>}
       <div className="eyebrow">{M.reports}</div>
       {m.reports.length ? (

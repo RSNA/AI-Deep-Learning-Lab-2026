@@ -595,6 +595,57 @@ describe('host consoles', () => {
     expect(info.pack.guide).toBe(true)
   })
 
+  it('serves the pages of the guide and of all slides, and gives what they read to a signed-in host only', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lab02-pages-'))
+    const guideFile = join(dir, 'guide.html')
+    writeFileSync(guideFile, '<!doctype html><title>Guide</title><h2>Part one</h2><p>the demo guide</p>')
+    const srv = await startServer({ config: { facilitatorGuideFile: guideFile } })
+    cleanups.push(() => srv.app.close().catch(() => {}), srv.cleanup, () => rmSync(dir, { recursive: true, force: true }))
+    // The two addresses are pages of the client. They carry nothing private, and the client asks for the passcode.
+    for (const path of ['/host/guide', '/host/slides']) {
+      const page = await fetch(`${srv.url}${path}`)
+      expect(page.status, path).toBe(200)
+      const body = await page.text()
+      expect(body, path).not.toContain('the demo guide')
+      expect(body, path).not.toContain('welcome-1')
+    }
+    // What the pages read: nothing without a sign-in, nothing for a wrong token.
+    for (const path of ['/api/host/pages', '/api/host/slides']) {
+      expect((await fetch(`${srv.url}${path}`)).status, path).toBe(401)
+      expect((await fetch(`${srv.url}${path}`, { headers: { authorization: 'Bearer nope' } })).status, path).toBe(401)
+    }
+    const auth = { authorization: `Bearer ${await hostToken(srv.url)}`, 'content-type': 'application/json' }
+    const count = srv.app.pack.deck!.sections.reduce((n, sec) => n + sec.slides.length, 0)
+    expect(await (await fetch(`${srv.url}/api/host/pages`, { headers: auth })).json()).toEqual({ guide: true, key: false, slides: count })
+    const info = (await (await fetch(`${srv.url}/api/host/sessions`, { headers: auth })).json()) as { pack: { slides: number } }
+    expect(info.pack.slides).toBe(count)
+
+    // All slides with no session open: every slide in order, and the last one with the passcode a single-player game asks for.
+    type Slides = { joinUrl: string; slides: { slide: { id: string; index: number; passcode: string | null }; notes: string | null; section: string }[] }
+    const first = (await (await fetch(`${srv.url}/api/host/slides`, { headers: auth })).json()) as Slides
+    expect(first.slides.length).toBe(count)
+    expect(first.slides.map((x) => x.slide.index)).toEqual(first.slides.map((_x, i) => i))
+    expect(first.slides[0]!.slide.id).toBe('welcome-1')
+    expect(first.joinUrl).toBe(srv.app.config.publicUrl.replace(/\/$/, ''))
+    expect(first.slides.some((x) => !!x.notes)).toBe(true)
+    const withPass = first.slides.filter((x) => x.slide.passcode !== null)
+    expect(withPass.length).toBe(1)
+    expect(withPass[0]!.slide.passcode).toContain('test-passcode')
+    // A passcode of its own for single player shows in its place, and none shows when anybody may play.
+    expect((await fetch(`${srv.url}/api/host/solo`, { method: 'POST', headers: auth, body: JSON.stringify({ gate: 'custom', passcode: 'rsna' }) })).status).toBe(200)
+    const own = (await (await fetch(`${srv.url}/api/host/slides`, { headers: auth })).json()) as Slides
+    expect(own.slides.find((x) => x.slide.passcode !== null)!.slide.passcode).toContain('rsna')
+    expect(JSON.stringify(own)).not.toContain('test-passcode')
+    // With a session open the same slides come from that session, and a player's token still gets nothing.
+    const code = session(srv)
+    const bot = await joinBot(srv, code, 'Alpha Branch')
+    cleanups.push(() => bot.conn.close())
+    expect((await fetch(`${srv.url}/api/host/slides`, { headers: { authorization: `Bearer ${bot.token}` } })).status).toBe(401)
+    expect((await fetch(`${srv.url}/api/host/pages`, { headers: { authorization: `Bearer ${bot.token}` } })).status).toBe(401)
+    const live = (await (await fetch(`${srv.url}/api/host/slides`, { headers: auth })).json()) as Slides
+    expect(live.slides.map((x) => x.slide.id)).toEqual(first.slides.map((x) => x.slide.id))
+  })
+
   it('keeps control for a console that comes back within 20 seconds, then frees it', async () => {
     let skew = 0
     const srv = await startServer({ wallNow: () => Date.now() + skew })

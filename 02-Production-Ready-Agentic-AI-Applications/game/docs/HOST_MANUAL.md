@@ -4,7 +4,8 @@ The controls of the facilitator console, for the people who run a session of the
 It says what each button does. The **Facilitator guide** says how the game itself works: each
 phase, how it is scored, what every option is for and what to say to a player who is stuck. A
 server that has the guide shows a **Facilitator guide** button at the top of the console. The
-guide holds answers, so keep it off the projector.
+guide holds answers, so keep it off the projector. **All slides** beside it shows every slide of
+the session from the first to the last.
 
 | Screen | Who looks at it | How it opens |
 | --- | --- | --- |
@@ -138,6 +139,16 @@ The switch "Players' screens follow the slides" shows and changes this.
 **Facilitator guide** opens the guide, and **Open the answer key** opens every answer of the
 game with its reason. Each opens in a window of its own and needs no second passcode. Keep both
 off the projector.
+
+The guide has an address of its own, `/host/guide` after the address of the game. It asks for
+the facilitator passcode once, like the console. On the left a menu lists the parts of the guide,
+and a press takes you there. **Search the guide** finds a word or a phrase, tells you how many
+places have it, and **Next** and **Previous** step through them. On a phone the menu is behind
+the button **Contents**.
+
+**All slides** opens `/host/slides`, which shows every slide of the session in order with its
+notes. You can read the deck there before the session, with no session open. The bar at the top
+of both pages leads to the other one and back to the console.
 
 ## 9. Rehearsal tools
 

@@ -104,6 +104,11 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   await expect(refs).toBeHidden()
   await expect(page.locator('.tour-card')).toContainText('Two months at a time')
   for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Next', exact: true }).click()
+  // The board has the helpers of Phase 2, and one card says so at the button.
+  await expect(page.locator('.tour-card')).toContainText('Tidy map rearranges a crowded map without changing a line')
+  await expect(page.locator('.tour-card')).toContainText('drag a source up or down')
+  await expect(page.locator('.tour-card')).toContainText('any of its four sides')
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.locator('.tour-card')).toContainText('Validate, then deploy')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
@@ -165,6 +170,9 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   // A map ran these two months: its bill is listed line by line and paid from the account.
   await expect(second.locator('.p3money .kv.part').first()).toBeVisible()
   await expect(second.locator('.p3money')).toContainText('Paid from your account')
+  // Under the model calls of a place, every model that ran there says how much it read.
+  await expect(second.locator('.p3money .kv.part.sub').first()).toContainText(/ on .+ read about [0-9,]+ tokens per patient/)
+  if (process.env.SHOTS_DIR) await second.screenshot({ path: `${process.env.SHOTS_DIR}/report-bill-${test.info().project.name}.png` })
   await noErrorNames(page)
   await second.getByRole('button', { name: 'Back to the board' }).click()
   await closeLetters(page)

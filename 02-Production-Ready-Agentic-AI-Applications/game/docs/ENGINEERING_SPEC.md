@@ -513,7 +513,8 @@ type Build = {
           columns?: { label: Text; hint: Text }[] }   // one per column: the stage of the work it
                                             // stands for, and one sentence on it. Names only.
                                             // Without it nothing stands above the columns
-  efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
+  efforts?: { id: string; size?: number     // `size`: what a model reads of a source of this kind for one
+              key?: object }[]              // case, in reading units (needed with `reading`). The kinds of effort a source may name. Never sent
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
   validate: { runs: number; seconds: number
@@ -523,6 +524,8 @@ type Build = {
                                             // default), or these people rush (section 6.6)
   handoff: { keep: number }                 // what survives one line between two tiles, 0 to 1
   quality_cap?: number                      // a prompt cannot lift an AI worker above this. Default 1
+  reading?: { handoff: number               // a model is paid for what it reads: the size of what a tile
+              tokens_per_unit?: number }    // hands on, and tokens per unit for the screen (default 1,000)
   facts: { id: FactId
            miss: { missing: Text            // shown with a missed case: nothing on the map reaches it
                    weak: Text }             // the map reaches it and loses it too often
@@ -593,7 +596,8 @@ type Worker = {
   by_model?: Record<ModelId, Quality>       // with needs_model: one entry per model it may carry
   quality?: Quality                         // without needs_model
   load?: { free: number; factor: number }   // lines in beyond `free` each multiply the judgment by `factor`
-  calls?: number                            // model calls per case, multiplies the price of the model. Default 1
+  calls?: number                            // model calls per case, multiplies the price of the model. Default 1.
+                                            // Not used in a pack with `reading`
   run?: number; complexity?: number
   pool?: PoolId                             // required for a person
   minutes?: { decide: number; check: number; per_line: Record<Effort, number> }   // required for a person
@@ -1161,11 +1165,17 @@ it is precise and hurts when it is long.
 A map, as the engine and the protocol hold it:
 
 ```ts
-type CanvasMap = { tiles: Tile[]; lines: Line[] }
+// `sourceOrder`: the order in which the player put the sources in their column, from the top.
+// It changes how the board is drawn and never a score. It names sources of the pack, each once
+// (`bad_source_order` otherwise). A locked source is named like any other, and a source that is
+// not named follows the named ones in the order of the pack. A map without it is drawn in the
+// order of the pack.
+type CanvasMap = { tiles: Tile[]; lines: Line[]; sourceOrder?: SourceId[] }
 // `fromSide` and `toSide`: the side of its tile where the player attached that end of the line.
 // They change how the line is drawn and never a score. An end without one takes the side that
-// faces the other tile. A source and the result have one place for a line and take no side
-// (`bad_line_end` otherwise, as for a value that is not one of the four).
+// faces the other tile. The result takes `toSide` too, and without it a line enters on its
+// left. A source has one place for a line and takes no side (`bad_line_end` otherwise, as for a
+// value that is not one of the four).
 type Line = { from: string; to: string; fromSide?: Side; toSide?: Side }
 type Tile = { id: string                     // made by the client, ^t[0-9a-z]{1,8}$
               kind: WorkerId; col: number; row: number
@@ -1249,6 +1259,9 @@ holds. `mapErrors` names each case.
     rule when `from` is its source, or the kind of the tile it starts at, and `to` is the kind of
     the tile it ends at. A line into the result matches no rule, and the first rule that matches
     counts.
+12. `sourceOrder` is no list, or names something that is no source of the pack, or names a
+    source twice (`bad_source_order`). The reference scorer does not know the field, because
+    it never scores.
 
 Lines never form a loop, because every line between tiles goes right.
 
@@ -1361,6 +1374,11 @@ among equals the first of the row. A person pays `per_line` of that kind. So a s
 the same source earns nothing and loses nothing in accuracy, and every tile and line of the
 row still counts toward the complexity of the map (section 6.6, what the map takes to run).
 
+*A tool behind a tool.* A tool in a row looks up its `prepares` entry first by the kind that
+the tool before it made of the source (the last candidate) and only then by the raw effort of
+the source. So a pack can give a tool an entry for a prepared kind: a regex behind patient
+matching works on the matched records. A pack without such entries scores as before.
+
 *The order.* Tiles are scored in the order of the handoffs: a tile comes after every tile that
 hands to it, and among tiles free to come next the one nearer the top left comes first (column,
 row, id). Private data is followed along the lines in the same order. An overloaded worker's
@@ -1376,11 +1394,21 @@ raw       = 1000 × accuracy
 *What the map takes to run*, counted over every placed tile and every line, live or stray:
 
 - **Money a month** = for every tile `w.run`, plus for a tile with a model and a compute
-  `w.calls × model.run × compute.price_factor`, plus `source.run` once for every source that a
+  `amount × model.run × compute.price_factor`, plus `source.run` once for every source that a
   line leaves (however many lines), plus `compute.run_fixed` once for every compute that at
   least one tile uses. `evaluate` also returns this sum as a **bill**: one line for the calls
   of the models at each place, one for the fixed cost of each place, one for the tiles of each
   kind, one for each source, in the order of first use, without the lines that cost nothing.
+  `amount` is `w.calls` in a pack without `reading`. With `reading` **a model is paid for what
+  it reads**, and `amount` is the reading units of the tile: the `size` of the effort of every
+  source on a direct line, the size of the kind the tile takes of every source behind a tool
+  (`pickPrepared`, by its own fetch numbers under its prompt), and `reading.handoff` for every
+  other tile with a line into it (the summary of an agent, the note of a person). `running`
+  returns them as `reads`, per tile with a model: units, money a month, model and place. A
+  browser gets tokens (`units × tokens_per_unit`) and money for the player's own tiles, by the
+  name of each tile on the board, and never a size of the pack. The line under the map says
+  them in one sentence, the chooser of a tile's model says them for that tile, and the bill of
+  a Phase 3 report lists them under the model calls of their place.
 - **Minutes per case, by pool** = for every person tile, `minutes.check` when a tile has a line
   into it and `minutes.decide` when none has, plus `minutes.per_line[source.effort]` for every
   line from a source into it.
@@ -2058,12 +2086,14 @@ session and closing.
 | `GET /api/host/deck/:code` | Host | Every slide of the deck as a `SlideView`, with its notes, its placeholder mark and the id of its section, for a host who looks through the deck alone (section 10.8). Never cached. A player token and a screen token are refused |
 | `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
 | `POST /api/host/guide-ticket`, `GET /api/host/guide?ticket=` | Host, then a valid ticket | The facilitator guide, a second private page served the same way, from the file in `FACILITATOR_GUIDE_FILE`. Without the file: 404 `no_guide`, and the console shows no button for it (`guide` of the host view and of the pack info is false) |
+| `GET /api/host/pages` | Host | What the pages for facilitators can link to: `{guide, key, slides}`, whether this server holds a facilitator guide and an answer key, and the number of slides in the deck. Never cached |
+| `GET /api/host/slides` | Host | Every slide of the deck from the first to the last, as `GET /api/host/deck/:code` gives it, with `joinUrl`, for the page `/host/slides` (section 10.8). It needs no session. While a session with a facilitator is open the slides carry the numbers of that room, and otherwise they are drawn as before anybody has joined. The slide with `solo_passcode` carries the passcode that a single-player game asks for now, as on the projector. Never cached. A player token and a screen token are refused |
 | `GET /healthz` | Anyone | Build id, uptime, for each open session with a facilitator its stage and its number of players, and the number of single-player games in memory. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the open session with a facilitator. Without
 one it serves the start page (section 10.2), which `/home` always does. The QR code and the
 address on the big screen are `PUBLIC_URL` alone, with no code, so a room reads and types one
-short address (`joinUrl` of the session). `/j/<code>` still opens its session. The screen link, the deck and the export of a single-player game do not
+short address (`joinUrl` of the session). `/j/<code>` still opens its session. `/host/guide` and `/host/slides` are pages of the client like `/host` and `/host/manual`: the server sends the same application, which carries nothing private, and the page asks for the passcode before it reads anything. The screen link, the deck and the export of a single-player game do not
 exist (404), and a console that names one in its `hello` is refused.
 
 ### 7.3 WebSocket
@@ -2698,6 +2728,7 @@ type HostViewAdditions = {
 }
 type HostSlide = { slide: SlideView; notes: Text | null; placeholder: boolean }
 type HostDeck = { slides: (HostSlide & { section: string })[] }   // GET /api/host/deck/:code
+type HostSlides = HostDeck & { joinUrl: string }                  // GET /api/host/slides
 ```
 
 `screen.pinned` is not sent. A scene other than `auto` is pinned. `available` says which scenes
@@ -3733,8 +3764,11 @@ does now.
 - *A tile with no line out* says so, and falls quiet the moment it hands on to any tile. What
   the whole map still lacks stays beside Validate.
 - *The same map twice.* Validate on a map equal to one already validated asks first, because
-  the accuracy will be the same and a validation is spent.
-- *Clear map*, beside Undo and Redo, with a question, undoable.
+  the accuracy will be the same and a validation is spent. Two maps are equal when they have
+  the same tiles with the same parts and the same lines. Where a tile stands, the side of a
+  line and the order of the sources change no score and do not count, so a map that was only
+  tidied is still the system it was.
+- *Clear map*, beside Undo and Redo, with a question, undoable. The sources keep their order.
 - *A word on money* once, after the fourth action a player starts, and one line in the tour.
 - *Cards of one size.* Insight cards, the letter and the prompt cards have one height each, and
   a longer text is cut with "Show more". On an insight card, a letter or a memo, "Show more"
@@ -3835,6 +3869,40 @@ something comes onto the board, a toast names it ("New on your board: ..."), and
 chip carries the word "New" and a coloured edge until the player points at it, presses it or
 starts it. A source keeps its lock and says which action opens it. The tour of each phase says
 that what the practice learns, builds and buys puts more on the board.
+
+**The last feedback before the event** (a board that stays readable when it is crowded).
+
+- *Tidy map*, beside Undo and Redo. One press lays the map out afresh: the tiles in columns
+  that read from left to right (a tile stands one column after the last tile that hands work to
+  it), their rows where the lines are short, cross little and do not run behind another tile,
+  and every source level with what it reads. It moves tiles and sources and nothing else. No
+  tile, no part of a tile and no line is added, removed or changed, so no score changes
+  (`canvas/tidy.ts`, a pure function with a test that says so). The sides that were picked for
+  lines were picked for the old places, so every line goes back to the sides that face each
+  other. The layout depends on the tiles and the lines alone, never on where the tiles stood,
+  so a tidied map is tidy. A map with more layers than the grid has columns puts neighbouring
+  layers in one column, and a column that is full passes tiles to the next. The change goes
+  through `set_map` like any other and Undo takes it back. With an empty map, or one that is
+  as tidy as the button can make it, the button looks off and says why in its title and, on a
+  press, in the bar.
+- *Sources in the player's order.* A source is dragged up or down in its column with the
+  mouse, and the column and the lines show the new order while it moves. With the keyboard,
+  Alt with the up or the down arrow moves the source in focus one place. A finger scrolls the
+  page there, so on a phone the card of a source has "Move up" and "Move down", and the card
+  says which place the source has. The order is part of the map (`sourceOrder`, section 6.6),
+  so the list of systems, the host's view of a player, the result page and a refreshed page
+  draw it the same way. A locked source moves like any other. Lines keep the colour of their
+  source, which follows the order of the pack.
+- *The result takes a line on any of its four sides.* While a line looks for its end, and
+  while the end that stands on the result is picked up, the result shows a dot on each side. A
+  press on a dot, or a drop on it or near that edge, ends the line there (`toSide`). A press or
+  a drop in the middle leaves the side open, and the line enters on the left as before.
+- *A line behind a tile shows through it.* The part of a line that runs behind a tile is drawn
+  again over the tile, faintly (a quarter of its ink), so that no line is lost from sight and
+  the words of the tile stay readable in both themes. It takes no click.
+- *The tours say so.* The tour of Phase 2 says in its card on the sources that a source can be
+  moved, in its card on the result that the line may come in on any side, and has a card that
+  points at Tidy map. The tour of Phase 3 has one card on all three, which points at the button.
 
 ### 10.6 Phase 3 screens
 
@@ -4155,6 +4223,32 @@ projector without being picked carries the flag "On now".
 of 6" between them, the title of the section, the line "Back and Next change the slide the room
 sees. So do the left and right arrow keys.", and a menu "Go to section" that jumps the shown
 slide to the first slide of a section. These move what the room sees.
+
+*The guide and all slides, as pages.* Two pages of the client stand beside the console, and the
+console links both from its first page and from the bar of a session, each in one window of its
+own that a second press brings back. They ask for the facilitator passcode with the console's
+sign-in form and keep the same sign-in in the browser, so a facilitator signs in once for all
+three. A sign-in that has ended is asked for again with the sentence that says so.
+
+- `/host/guide` shows the facilitator guide. The page asks for a ticket and reads the guide with
+  it (section 7.2), so no ticket ever stands in an address, and it shows the guide in a frame of
+  the same origin, where the guide keeps its own styles. A script inside the guide does not run.
+  The page builds a menu from the headings that the guide holds, which names no section of its
+  own: the parts are the headings of the highest level that occurs more than once, with the next
+  level under each. A press jumps there, the heading the reader is at is marked, and on a narrow
+  screen the menu folds into a button "Contents". A search field finds a word or a phrase, also
+  one that runs over a bold word, with any capitals. It marks every place, says "This is place 2
+  of 29.", steps with Next and Previous and with Enter and Shift+Enter, and shows beside each
+  part of the menu how many places it has. With nothing found it says "The guide does not have
+  "…" anywhere.", and with one letter "Type two letters or more." A table with four columns or
+  more scrolls sideways in a box of its own on a phone.
+- `/host/slides` shows every slide of the deck from the first to the last (`GET /api/host/slides`),
+  each drawn by the slide component of the projector at the width of the page, with its number,
+  its title, the name of its part and its notes. A list jumps to a part of the deck, and a switch
+  shows the slides in the light or the dark theme of the projector. It needs no session.
+- A bar at the very top of both pages links the guide, all slides, the console, the console
+  manual and, on a server that has one, the answer key. The page that is open stays in the row
+  as a pressed link.
 
 *Look through the deck.* Under the two groups, across the whole panel, a look at the deck that
 only this console sees. It keeps a cursor of its own in the browser tab ("looking at") beside the

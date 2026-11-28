@@ -70,19 +70,22 @@ export function Shelves({ rows, unlocked, lockedBy, onInfo, popOf, words, fresh,
 }
 
 /** The card of one shelf item: its description, what it costs to run, and what opens it. */
-export function ItemSheet({ item, locked, lockedBy, onClose, words, more = [], state = true }: {
+export function ItemSheet({ item, locked, lockedBy, onClose, words, more = [], state = true, extra }: {
   item: Item; locked: boolean; lockedBy?: Record<string, string>; onClose: () => void
   words: { locked: (a: string) => string; lockedNoAction: string; close: string; open: string }
   /** Further quiet lines: where a model runs, what a source holds. */
   more?: (string | null | undefined)[]
   /** Whether the card says that the item is open or what opens it. The result has no such state. */
   state?: boolean
+  /** What the board adds to the card of this item, above Close: the buttons that move a source in its column. */
+  extra?: ReactNode
 }) {
   return (
     <Sheet title={item.label} head="sky" onClose={onClose}>
       <p style={{ fontSize: 16, lineHeight: 1.45 }}>{item.description}</p>
       {[item.costLine, ...more].filter(Boolean).map((x, i) => <p key={i} className="muted" style={{ fontSize: 15 }}>{x}</p>)}
       {state && <div className={`chip ${locked ? 'sun' : 'go'}`} style={{ alignSelf: 'flex-start' }}>{locked ? lockText(lockedBy, item.id, words) : words.open}</div>}
+      {extra}
       <div className="sheet-actions"><button type="button" className="btn" onClick={onClose}>{words.close}</button></div>
     </Sheet>
   )

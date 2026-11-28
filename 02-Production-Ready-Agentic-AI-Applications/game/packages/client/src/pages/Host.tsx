@@ -66,7 +66,7 @@ function RowActions({ label, items }: { label: string; items: RowAction[] }) {
 type PackInfo = {
   title: string | null; hash: string; systems: string[]; systemNames?: string[]
   phasesAvailable: Record<string, boolean>; provisional: boolean; pickModes?: Mode[]; placeholders?: number
-  guide?: boolean
+  guide?: boolean; slides?: number
 }
 
 /**
@@ -74,7 +74,7 @@ type PackInfo = {
  * (section 10.8). The window is opened at once, inside the press, so that no browser blocks it,
  * and gets its address when the ticket arrives. Returns the refusal to show, or null.
  */
-async function openPrivatePage(token: string, page: 'key' | 'guide'): Promise<string | null> {
+export async function openPrivatePage(token: string, page: 'key' | 'guide'): Promise<string | null> {
   const win = window.open('about:blank', '_blank')
   const r = await hostFetch<{ ticket: string }>(token, `/api/host/${page}-ticket`, {})
   if (!r.ok) { win?.close(); return plainError(r.error) }
@@ -86,7 +86,7 @@ type Summary = SessionSummary & { broken?: string }
 
 const CODE_RULE = /^[A-Za-z0-9]{4,8}$/
 
-function Login({ onToken }: { onToken: (t: string, name: string) => void }) {
+export function Login({ onToken, title, line }: { onToken: (t: string, name: string) => void; title?: string; line?: string }) {
   const [pass, setPass] = useState('')
   const [name, setName] = useState(() => store.host()?.name ?? '')
   const [err, setErr] = useState<string | null>(null)
@@ -103,8 +103,9 @@ function Login({ onToken }: { onToken: (t: string, name: string) => void }) {
         store.setHost({ token: r.data.token, name: name.trim() })
         onToken(r.data.token, name.trim())
       }}>
-        <div className="panel-head bar">{H.title}</div>
+        <div className="panel-head bar">{title ?? H.title}</div>
         <div className="panel-body">
+          {line && <div className="hint" role="status">{line}</div>}
           <label className="lbl" htmlFor="pass">{H.passcode}</label>
           <input id="pass" className="field" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} aria-describedby="pass-err" />
           {err && <div id="pass-err" className="err" role="alert">{err}</div>}
@@ -282,10 +283,9 @@ function SoloPanel({ token, solo, reload }: { token: string; solo: SoloOverview;
 /** The date and the time, as the name a new session starts with. */
 const defaultLabel = () => new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-function Sessions({ token, open, signOut, manual }: { token: string; open: (code: string) => void; signOut: () => void; manual: () => void }) {
+function Sessions({ token, open, signOut, manual, guide, slides }: { token: string; open: (code: string) => void; signOut: () => void; manual: () => void; guide: () => void; slides: () => void }) {
   const [list, setList] = useState<Summary[]>([])
   const [pack, setPack] = useState<PackInfo | null>(null)
-  const [guideErr, setGuideErr] = useState<string | null>(null)
   const [solo, setSolo] = useState<SoloOverview | null>(null)
   const [label, setLabel] = useState(defaultLabel)
   // The session that runs, when a new one was refused because of it, with what the facilitator asked for.
@@ -384,12 +384,12 @@ function Sessions({ token, open, signOut, manual }: { token: string; open: (code
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <h1>{H.title}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          {pack?.guide && <button className="btn small text" onClick={() => void openPrivatePage(token, 'guide').then(setGuideErr)} title={H.guideLine}>{H.guide}</button>}
+          {pack?.guide && <button className="btn small text" onClick={guide} title={H.guideLine}>{H.guide}</button>}
+          {!!pack?.slides && <button className="btn small text" onClick={slides} title={H.allSlidesLine}>{H.allSlides}</button>}
           <button className="btn small text" onClick={manual}>{H.manual}</button>
           <button className="btn small text" onClick={signOut}>{H.signOut}</button>
         </div>
       </div>
-      {guideErr && <div className="err" role="alert">{guideErr}</div>}
       {pack && (
         <section className="panel">
           <div className="panel-body loaded">
@@ -807,7 +807,7 @@ function RoomStats({ hv }: { hv: HostView }) {
 // ------------------------------------------------------------------------------------------
 const SPEEDS = [1, 5, 10, 50]
 
-function Console({ token, name, code, back, manual }: { token: string; name: string; code: string; back: () => void; manual: () => void }) {
+function Console({ token, name, code, back, manual, guide, slides }: { token: string; name: string; code: string; back: () => void; manual: () => void; guide: () => void; slides: () => void }) {
   const [conn, setConn] = useState<GameConnection | null>(null)
   const [hv, setHv] = useState<HostView | null>(null)
   const [clock, setClock] = useState<ClockRef | null>(null)
@@ -871,7 +871,6 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
   const take = () => { if (ctl.state === 'free') void cmd('take_control', {}, 'take'); else { setTakePass(''); setTakeErr(null); setTakeOpen(true) } }
   const look = (id: string) => { setSpect({ id, view: null }); void cmd('spectate', { playerId: id }, `row:${id}`) }
   const openKey = async () => ref.set('key', await openPrivatePage(token, 'key'))
-  const openGuide = async () => ref.set('guide', await openPrivatePage(token, 'guide'))
 
   return (
     <div className={`hostwrap${manualOpen ? ' with-manual' : ''}`}>
@@ -895,10 +894,10 @@ function Console({ token, name, code, back, manual }: { token: string; name: str
               {ctl.you ? H.youControl : ctl.state === 'held' ? H.inCharge(ctl.holder ?? '') : ctl.state === 'reconnecting' ? H.reconnectingChip(ctl.holder) : H.nobodyChip}
             </span>
             {!ctl.you && <button className="btn small sun takebtn" onClick={take}>{H.takeControl}</button>}
-            {hv.guide && <button className="btn small text" onClick={() => void openGuide()} title={H.guideLine}>{H.guide}</button>}
+            {hv.guide && <button className="btn small text" onClick={guide} title={H.guideLine}>{H.guide}</button>}
+            {hv.deck.count > 0 && <button className="btn small text" onClick={slides} title={H.allSlidesLine}>{H.allSlides}</button>}
             <button className="btn small text" onClick={() => setManualOpen(!manualOpen)} aria-expanded={manualOpen}>{H.manual}</button>
           </div>
-          <Refusal text={ref.map.guide} />
         </header>
         {!ctl.you && (
           <div className="viewonly" role="status">
@@ -1210,7 +1209,10 @@ export function HostPage({ go }: { go: (path: string) => void }) {
   const signOut = useCallback(() => { store.setHost(null); setAuth(null) }, [])
   const back = useCallback(() => go('/host'), [go])
   const manual = useCallback(() => { window.open('/host/manual', 'lab02-manual') }, [])
+  // The guide and all slides are pages of their own, each in one window that a second press brings back.
+  const guide = useCallback(() => { window.open('/host/guide', 'lab02-guide') }, [])
+  const slides = useCallback(() => { window.open('/host/slides', 'lab02-slides') }, [])
   if (!auth || !auth.name) return <Login onToken={(token, name) => setAuth({ token, name })} />
-  if (!code) return <Sessions token={auth.token} open={(c) => go(`/host?s=${c}`)} signOut={signOut} manual={manual} />
-  return <Console key={code} token={auth.token} name={auth.name} code={code} back={back} manual={manual} />
+  if (!code) return <Sessions token={auth.token} open={(c) => go(`/host?s=${c}`)} signOut={signOut} manual={manual} guide={guide} slides={slides} />
+  return <Console key={code} token={auth.token} name={auth.name} code={code} back={back} manual={manual} guide={guide} slides={slides} />
 }

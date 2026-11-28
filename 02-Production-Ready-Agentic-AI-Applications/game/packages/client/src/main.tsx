@@ -9,8 +9,10 @@ import './styles/firstbuild.css'
 import './styles/phase3.css'
 import './styles/slides.css'
 import './styles/card.css'
+import './styles/hostpages.css'
 import { initTheme } from './lib/theme.ts'
 import { HostPage } from './pages/Host.tsx'
+import { GuidePage, SlidesPage } from './pages/HostPages.tsx'
 import { ManualPage } from './pages/Manual.tsx'
 import { JoinPage } from './pages/Join.tsx'
 import { PlayPage } from './pages/Play.tsx'
@@ -36,6 +38,8 @@ function App() {
   if (j) return <JoinPage key={j[1]} code={j[1]!} go={go} />
   if (pathname === '/play') return <PlayPage go={go} />
   if (pathname === '/host/manual') return <ManualPage />
+  if (pathname === '/host/guide') return <GuidePage go={go} />
+  if (pathname === '/host/slides') return <SlidesPage go={go} />
   if (pathname === '/host') return <HostPage go={go} />
   if (pathname === '/screen') return <ScreenPage />
   const res = /^\/result(?:\/([A-Za-z0-9]{4,8}))?\/?$/.exec(pathname)

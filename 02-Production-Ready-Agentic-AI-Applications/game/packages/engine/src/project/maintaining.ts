@@ -14,7 +14,7 @@ import {
   developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
 } from '../phases/maintaining.ts'
 import type { MaintainingReport, MaintainingState, PlayerState, RiskEntry, SessionState } from '../state.ts'
-import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, marksView, missedView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
+import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, marksView, missedView, readsView, referenceViews, runningView, tileView, type BoardShown } from './canvas.ts'
 
 type Files = { b: BuildFile; mt: MaintainFile; b3: BuildFile }
 
@@ -98,6 +98,11 @@ function billLabel(b3: BuildFile, x: BillLine): string {
   }
 }
 
+/** One model of a bill: the tile, its model, and about how much it read for a patient. */
+export function readLabel(m: { name: string; model: string; tokens: number }): string {
+  return `${m.name} on ${m.model} read about ${m.tokens.toLocaleString('en-US')} tokens per patient`
+}
+
 /** What happened to the part that failed most: the symptom of the event that added the risk, or the incident of the part. */
 function partText(mt: MaintainFile, e: RiskEntry): string | null {
   if (e.event !== null) return mt.events.find((x) => x.id === e.event)?.symptom ?? null
@@ -138,7 +143,13 @@ function reportView(f: Files, held: readonly HeldAction[], found: readonly strin
     map: r.map,
     validity: r.validity, test: r.test, reliability: r.reliability, interruptions: r.interruptions,
     value: r.value, off: r.off, runCost: r.runCost, fine: r.fine,
-    bill: r.bill.map((x) => ({ label: billLabel(b3, x), money: x.money })),
+    // Under the model calls of a place: every model that ran there, with what it read.
+    bill: r.bill.map((x) => ({
+      label: billLabel(b3, x), money: x.money,
+      parts: x.kind === 'calls'
+        ? readsView(r.reads, ran, b3).filter((m) => r.reads?.[m.tile]?.place === x.id).map((m) => ({ label: readLabel(m), money: m.money }))
+        : [],
+    })),
     granted: r.granted, account: r.account,
     spent: r.spent, score: r.score,
     rank: rank.rank, of: rank.of,
@@ -268,14 +279,14 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     tileMinutes: show ? { ...tileMinutes(st.map, b3) } : {},
     rushed: overPools(st.map, b3).filter((o) => o.rush).map((o) => ({ pool: o.pool, used: o.used, max: o.max, tiles: [...o.tiles] })),
     flags: { stray: run.stray, incomplete: incompleteTiles(b3, st.map), privateData: run.privateData },
-    running: show ? runningView(run.running) : null,
+    running: show ? runningView(run.running, st.map, b3) : null,
     validationsLeft: Math.max(0, mt.validate.runs - runsUsed(st)),
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v) => ({
       id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null,
       missed: missedView(b3, v.missed, v.map, shown),
       note: v.note ? b3.notes.find((n) => n.id === v.note)?.text ?? null : null,
-      running: show ? runningView(v.running) : null,
+      running: show ? runningView(v.running, v.map, b3) : null,
       origin: v.origin,
       label: v.reference !== null ? refLabel.get(v.reference) ?? null : null,
       reference: v.reference,
@@ -358,6 +369,21 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
   return { holds: holds.slice(0, 4), say: say.slice(0, 4), good: good.slice(0, 4) }
 }
 
+/**
+ * What the models of the system in service read and cost a month. The last report holds the
+ * prices that act now (a provider may have raised them); before the first report of a system
+ * the numbers of its validation stand in.
+ */
+function serviceReads(st: MaintainingState, b3: BuildFile): ReturnType<typeof readsView> {
+  const run = st.deployed === null ? undefined : st.validations.find((v) => v.id === st.deployed)
+  if (!run) return []
+  const last = st.reports[st.reports.length - 1]
+  if (last && last.map === run.id && last.reads) {
+    return readsView(last.reads, run.map, b3).map((x) => ({ ...x, money: x.money / 2 }))
+  }
+  return readsView(run.running.reads, run.map, b3)
+}
+
 /** Phase 3 of one player beside the key, for a host only (section 10.8). */
 export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState): HostInspect['maintaining'] {
   const st = p.maintaining
@@ -381,6 +407,7 @@ export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState):
   const rounds = closed ? Math.max(1, st.reports.length - 1) : roundsNow(s, pack)
   return {
     status: closed ? 'closed' : 'playing',
+    moneyUnit: pack.game.phases.development.money_unit ?? null,
     money: st.money,
     developers: { total: b3.budget.developers, free: developersFreeIn3(pack, p) },
     legend: canvasLegend(b3),
@@ -390,6 +417,7 @@ export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState):
     ready: { ok: reasons.length === 0, reasons: [...reasons] },
     validations: st.validations.map((v) => ({ id: v.id, atMs: v.atMs, accuracy: v.accuracy, map: mapView(v.map), origin: v.origin, label: v.reference !== null ? refLabel.get(v.reference) ?? null : null })),
     deployed: st.deployed,
+    reads: serviceReads(st, b3),
     round: { index: Math.max(1, Math.min(rounds, st.reports.length)), of: rounds },
     reports: st.reports.map((r) => {
       const worst = r.worstPart === null ? undefined : r.components[r.worstPart]

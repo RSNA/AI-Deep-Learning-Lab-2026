@@ -3,14 +3,24 @@
 // will call it every month with tables that its events have changed. Everything is an expected
 // value, so one map always gets one score. The executable reference is
 // `tools/canvas_scoring.py` of the private folder, and the parity vectors hold the engine to it.
-import { defaultPrompt, handoffOrder, mapShape, overPools, peopleMinutes, pickPrepared, preparedBy, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
+import { defaultPrompt, handoffOrder, mapShape, overPools, peopleMinutes, pickPrepared, preparedBy, readingUnits, rushFactors, type CanvasMap, type CanvasTables, type MapShape } from '@lab02/content-schema'
 
 export type NoteId = 'rushed' | 'private_data' | 'overloaded' | 'distracting' | 'prompt' | 'stray'
 export type MissReason = 'missing' | 'weak' | 'decision'
 export type Missed = { case: string; reason: MissReason; fact: string | null }
 
-/** What a map takes to run a month. Counted over every placed tile and line, live or stray. */
-export type Running = { money: number; minutes: Record<string, number>; complexity: number }
+/**
+ * What the model of one tile reads for a case, in reading units, and what that costs a month.
+ * Only in a pack that prices a model by what it reads (`reading`).
+ */
+export type Read = { units: number; money: number; model: string; place: string }
+
+/**
+ * What a map takes to run a month. Counted over every placed tile and line, live or stray.
+ * `reads`: every tile with a model, when the pack prices a model by what it reads. Absent in a
+ * state that was stored before the rule.
+ */
+export type Running = { money: number; minutes: Record<string, number>; complexity: number; reads?: Record<string, Read> }
 
 export type Flags = {
   privateData: string[]     // tiles that send private data through a compute that does not protect it
@@ -88,6 +98,8 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; bill
   const usedCompute = new Set<string>()
   const kindTiles = new Map<string, number>()
   const callsAt = new Map<string, number>()
+  const reads: Record<string, Read> = {}
+  const cap = t.quality_cap ?? 1
   const unprotected: string[] = []
   // Private data travels along the lines, so the tiles are walked in the order of the handoffs.
   const pairs: [string, string][] = []
@@ -104,7 +116,18 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; bill
     if (w.needs_model && tile.model && tile.runsOn) {
       const model = models.get(tile.model)!
       const comp = compute.get(tile.runsOn)!
-      const calls = (w.calls ?? 1) * (model.run ?? 0) * (comp.price_factor ?? 1)
+      // The price of a model is per reading unit when the pack has `reading`, and per call
+      // (`calls` of the worker) when it has none. The reader takes a source behind a row of
+      // tools as the kind it fetches best, with the numbers of its own model and prompt.
+      let units: number | null = null
+      if (t.reading) {
+        const pf = promptEffect(t, w.id, tile.prompt).fetch
+        const fetch: Record<string, number> = {}
+        for (const [e, x] of Object.entries(w.by_model?.[tile.model]?.fetch ?? {})) fetch[e] = Math.min(cap, x * pf)
+        units = readingUnits(n, t, tiles, srcIn, wrkIn, sources, workers, fetch)
+      }
+      const calls = (units ?? w.calls ?? 1) * (model.run ?? 0) * (comp.price_factor ?? 1)
+      if (units !== null) reads[n] = { units, money: calls, model: model.id, place: comp.id }
       money += calls
       usedModels.add(model.id)
       usedCompute.add(comp.id)
@@ -124,7 +147,7 @@ export function running(m: CanvasMap, t: CanvasTables): { running: Running; bill
   complexity += Math.max(0, usedModels.size - 1) + Math.max(0, usedCompute.size - 1)
   const live = mapShape(m, t).live
   return {
-    running: { money, minutes: peopleMinutes(m, t), complexity },
+    running: { money, minutes: peopleMinutes(m, t), complexity, reads },
     bill: bill.filter((b) => b.money > 0),
     privateData: unprotected.sort(),
     stray: [...tiles.keys()].filter((id) => !live.has(id)).sort(),

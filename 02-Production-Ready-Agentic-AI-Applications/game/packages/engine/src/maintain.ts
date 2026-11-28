@@ -5,7 +5,7 @@
 // reference is `tools/maintain_scoring.py` of the private folder, and the parity vectors hold
 // these functions to it.
 import { fromPackMap, rushFactors, type CanvasMap, type CanvasTables } from '@lab02/content-schema'
-import { evaluate, type BillLine, type Evaluation } from './canvas.ts'
+import { evaluate, type BillLine, type Evaluation, type Read } from './canvas.ts'
 import type { EventLoss, PeriodScore, RiskEntry } from './state.ts'
 
 /** A factor: a number, or a list by periods since the event began (the last one holds). */
@@ -354,6 +354,9 @@ export function period(
     }
   }
   for (const e of acting) if (e.fine) bill.push({ kind: 'fine', id: e.id, count: 1, money: e.fine })
+  // What every model of the map read, with the money of the two months (the parts of the `calls` lines).
+  const reads: Record<string, Read> = {}
+  for (const [tile, r] of Object.entries(ev.running.reads ?? {})) reads[tile] = { ...r, money: 2 * r.money }
   return {
     noMap: false, validity, test: evaluate(m, t3).accuracy,
     reliability: rel, interruptions: interruptionsOf(rules, rel),
@@ -361,7 +364,7 @@ export function period(
     value: 100 * validity * rel - off,
     runCost: 2 * ev.running.money + 2 * upkeep,
     fine: acting.reduce((sum, e) => sum + (e.fine ?? 0), 0),
-    bill,
+    bill, reads,
     components: risks, worstPart,
     events, worstEvent,
     perCase: ev.perCase, missed: ev.missed, note: ev.note,

@@ -3,11 +3,12 @@
 // enters a tile on the side the player picked (any of the four), and where none was picked it
 // joins the sides that face each other. It draws any map, editable or read-only, and knows
 // nothing of the phase that shows it. Every action works by click or tap, and a line can also be
-// drawn and re-attached by dragging, with a mouse or a finger.
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+// drawn and re-attached by dragging, with a mouse or a finger. The sources stand in the order the
+// map gives them (`sourceOrder`), and a line that passes behind a tile shows faintly through it.
+import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { CanvasLegend, CanvasLine, CanvasMap, CanvasTile, LineSide } from '@lab02/protocol'
 import { Icon } from './icons.tsx'
-import { lineKey, tileNames, type Marks, type Vocabulary } from './model.ts'
+import { lineKey, orderedSources, tileNames, type Marks, type Vocabulary } from './model.ts'
 import { popHandlers, usePop, type PopInfo } from './Pop.tsx'
 
 /** One color per origin of lines, so that six crossing lines can be told apart. */
@@ -55,6 +56,8 @@ export type GridProps = {
   onDropKind?: (kind: string, col: number, row: number) => void
   onDropTile?: (id: string, col: number, row: number) => void
   onDragLine?: (from: string, to: string, sides?: { from?: LineSide; to?: LineSide }) => void
+  /** A source was dragged to another place of its column, or moved there with Alt and an arrow key. `to` counts from 0 at the top. */
+  onMoveSource?: (id: string, to: number) => void
   /** What a tile without boxes of parts shows in their place: a person's minutes, a tool's task. */
   bodies?: Record<string, { text: string; over?: boolean }>
   /** The tiles (or the result, or the sources) and the box of a tile that the next thing to do is about. */
@@ -86,6 +89,10 @@ export type GridWords = {
   lineEnd: (end: LineEnd, from: string, to: string) => string
   model: string; compute: string; prompt: string
   advice: string; close: string
+  /** What a screen reader hears of a source that can be moved in its column. */
+  moveSource?: string
+  /** The dot on one side of the result, while a line looks for its end. */
+  resultSide?: (side: LineSide) => string
 }
 
 type Box = { x: number; y: number; w: number; h: number }
@@ -103,6 +110,11 @@ export function Grid(p: GridProps) {
   // A line that follows the pointer: a new one out of a port, or one end of the selected line.
   const [drag, setDrag] = useState<({ from: string; side?: LineSide } | { key: string; end: LineEnd }) & { x: number; y: number } | null>(null)
   const [over, setOver] = useState<string | null>(null)
+  // A source that is being dragged to another place of its column, with the place it would take.
+  const [sort, setSort] = useState<{ id: string; to: number } | null>(null)
+  const sorted = useRef(false)
+  const refocus = useRef<string | null>(null)
+  const clipId = `cv${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [hintCol, setHintCol] = useState<number | null>(null)
   // A sentence at the place of an action is brought into view, also where the grid scrolls sideways.
   const noteEl = useRef<HTMLDivElement>(null)
@@ -154,9 +166,10 @@ export function Grid(p: GridProps) {
   const colorOf = (id: string) => LINE_COLORS[Math.max(0, origins.indexOf(id)) % LINE_COLORS.length]!
   const used = new Set(map.lines.map((l) => l.from))
 
-  // Where a line is attached. From a source it leaves the right side, into the result it enters
-  // the left side. At a tile it stands on the side the player picked for that end (`fromSide`,
-  // `toSide`). An end without a pick takes the side that faces the other tile: to a later column
+  // Where a line is attached. From a source it leaves the right side. At a tile, and where it
+  // enters the result, it stands on the side the player picked for that end (`fromSide`,
+  // `toSide`). Into the result it enters the left side without a pick. At a tile an end without
+  // a pick takes the side that faces the other tile: to a later column
   // out of the right side and into the left, to an earlier column out of the left and into the
   // right, inside one column out of the bottom and into the top (or the other way up). When two
   // tiles differ in column and row, the column decides, and the line bends in the gap between
@@ -166,6 +179,11 @@ export function Grid(p: GridProps) {
   const SHORT: Record<LineSide, Side> = { left: 'l', right: 'r', top: 't', bottom: 'b' }
   const LONG: Record<Side, LineSide> = { l: 'left', r: 'right', t: 'top', b: 'bottom' }
   const sourceIds = new Set(v.sources.map((x) => x.id))
+  // The sources in the order of the map. While one is dragged, the column shows where it would stand.
+  const placed = orderedSources(v.sources, map.sourceOrder)
+  const sources = sort && placed.some((x) => x.id === sort.id)
+    ? (() => { const rest = placed.filter((x) => x.id !== sort.id); rest.splice(sort.to, 0, placed.find((x) => x.id === sort.id)!); return rest })()
+    : placed
   const cellOf = new Map(map.tiles.map((t) => [t.id, t]))
   const facing = (l: { from: string; to: string }): [Side, Side] => {
     const a = cellOf.get(l.from), b = cellOf.get(l.to)
@@ -175,7 +193,7 @@ export function Grid(p: GridProps) {
   }
   const sidesOf = (l: CanvasLine): [Side, Side] => {
     const [fa, fb] = facing(l)
-    return [l.fromSide && cellOf.has(l.from) ? SHORT[l.fromSide] : fa, l.toSide && cellOf.has(l.to) ? SHORT[l.toSide] : fb]
+    return [l.fromSide && cellOf.has(l.from) ? SHORT[l.fromSide] : fa, l.toSide && (cellOf.has(l.to) || l.to === v.result.id) ? SHORT[l.toSide] : fb]
   }
   const center = (id: string): P => { const b = boxes[id]; return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: 0, y: 0 } }
   // The ends of the lines on one side of a node are spread along that side, in the order of
@@ -297,9 +315,19 @@ export function Grid(p: GridProps) {
     for (const el of document.elementsFromPoint(x, y)) {
       if (!box.current?.contains(el)) continue
       const node = el.closest<HTMLElement>('[data-node]')
-      if (node) return { node: node.dataset.node ?? null, side: el.closest<HTMLElement>('[data-side]')?.dataset.side as LineSide | undefined }
+      if (!node) continue
+      const dot = el.closest<HTMLElement>('[data-side]')?.dataset.side as LineSide | undefined
+      // A line let go near an edge of the result takes the side of that edge, also beside its dot.
+      return { node: node.dataset.node ?? null, side: dot ?? (node.dataset.node === v.result.id ? nearSide(node, x, y) : undefined) }
     }
     return { node: null }
+  }
+  /** The side of a box that a point lies near: within a third of its height from that edge, and nearer to it than to any other. */
+  const nearSide = (el: HTMLElement, x: number, y: number): LineSide | undefined => {
+    const r = el.getBoundingClientRect()
+    const d: [LineSide, number][] = [['left', x - r.left], ['right', r.right - x], ['top', y - r.top], ['bottom', r.bottom - y]]
+    const [side, dist] = d.reduce((p, q) => (q[1] < p[1] ? q : p))
+    return dist <= Math.min(r.width, r.height) / 3 ? side : undefined
   }
   /**
    * Follow a press that may become a drag, with a mouse or a finger. `begin` is called once the
@@ -384,6 +412,52 @@ export function Grid(p: GridProps) {
       if (node) p.onDropEnd?.(key, end, node, side)
       else p.onPickEnd?.(key, end, false)
     })
+  }
+
+  // A source is dragged up or down to another place of its column. While it moves, the column
+  // and the lines show the order it would make. A press that does not move stays a click.
+  const canSort = !readOnly && !compact && !!p.onMoveSource && mode.kind === 'idle' && p.selection?.kind !== 'line'
+  const startSort = (id: string, e: React.PointerEvent) => {
+    // A finger scrolls the page here: a phone moves a source from its card, and with Tidy map.
+    if (!canSort || e.button !== 0 || e.pointerType === 'touch' || (e.target as HTMLElement).closest('.cport')) return
+    const col = (e.currentTarget as HTMLElement).parentElement
+    if (!col) return
+    const sy = e.clientY
+    let moved = false
+    let to = placed.findIndex((x) => x.id === id)
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientY - sy) < 6) return
+      if (!moved) { moved = true; sorted.current = true; pop.hide() }
+      const r = col.getBoundingClientRect()
+      to = Math.max(0, Math.min(placed.length - 1, Math.floor(((ev.clientY - r.top) / Math.max(1, r.height)) * placed.length)))
+      setSort((x) => (x && x.id === id && x.to === to ? x : { id, to }))
+    }
+    const done = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', done)
+      window.removeEventListener('pointercancel', done)
+      if (!moved) return
+      setSort(null)
+      // The click that follows a drag must not open the card of the source.
+      setTimeout(() => { sorted.current = false }, 0)
+      if (ev.type === 'pointerup') p.onMoveSource?.(id, to)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', done)
+    window.addEventListener('pointercancel', done)
+  }
+  // A source that was moved with the keyboard keeps the focus at its new place.
+  useLayoutEffect(() => {
+    if (!refocus.current) return
+    nodes.current.get(refocus.current)?.focus({ preventScroll: true })
+    refocus.current = null
+  })
+  const sortKey = (id: string, e: React.KeyboardEvent): boolean => {
+    if (!canSort || !e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return false
+    e.preventDefault()
+    refocus.current = id
+    p.onMoveSource?.(id, placed.findIndex((x) => x.id === id) + (e.key === 'ArrowUp' ? -1 : 1))
+    return true
   }
 
   // The round port of a node starts a line from it. A source has one on its right. A tile has
@@ -557,18 +631,20 @@ export function Grid(p: GridProps) {
       })}
       <div className="chdr" style={{ gridColumn: v.cols + 2 }}>{words.result}</div>
       <div className="csources" data-tour={readOnly ? undefined : 'p2-sources'} style={{ gridColumn: 1, gridRow: `2 / span ${v.rows}` }}>
-        {v.sources.map((s) => {
+        {sources.map((s) => {
           const lock = locked(s.id)
           const by = p.lockedBy?.[s.id]
           return (
-            <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && lit(s.id) ? ' lit' : ''}${over === s.id ? ' over' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
+            <div key={s.id} ref={setNode(s.id)} data-node={s.id} className={`csource${lock ? ' is-locked' : ''}${canSort ? ' sortable' : ''}${sort?.id === s.id ? ' sorting' : ''}${joining && mode.from === s.id ? ' from' : ''}${!lock && lit(s.id) ? ' lit' : ''}${over === s.id ? ' over' : ''}${!lock && p.guide?.nodes.includes(s.id) ? ' guided' : ''}`}
               data-target={!lock && lit(s.id) ? s.id : undefined}
               title={p.popOf && !readOnly ? undefined : lock ? (by ? words.locked(by) : words.lockedNoAction) : s.label}
               role={(lock || seeking || selLine) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
               aria-label={lock ? `${s.label}. ${by ? words.locked(by) : words.lockedNoAction}` : lit(s.id) ? `${s.label}. ${words.joinHere(s.label)}` : undefined}
-              {...(p.popOf && !readOnly ? popHandlers(pop, `node:${s.id}`, 'right', () => (drag ? null : p.popOf!(s.id))) : {})}
-              onClick={readOnly ? undefined : () => { if (lock || seeking || selLine) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
-              onKeyDown={(lock || seeking || selLine) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(s.id) } : undefined}>
+              aria-description={canSort ? words.moveSource : undefined} aria-keyshortcuts={canSort ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+              {...(p.popOf && !readOnly ? popHandlers(pop, `node:${s.id}`, 'right', () => (drag || sort ? null : p.popOf!(s.id))) : {})}
+              onPointerDown={canSort ? (e) => startSort(s.id, e) : undefined}
+              onClick={readOnly ? undefined : () => { if (sorted.current) return; if (lock || seeking || selLine) p.onNode?.(s.id); else p.onAbout?.(s.id) }}
+              onKeyDown={readOnly ? undefined : (e) => { if (sortKey(s.id, e)) return; if ((lock || seeking || selLine) && e.key === 'Enter') p.onNode?.(s.id) }}>
               {/* A locked source wears its lock where the others wear their picture, so its name keeps the full width. */}
               {lock ? <Mark tone="lock" title={by ? words.locked(by) : words.lockedNoAction}><Icon name="lock" size={compact ? 10 : 12} /></Mark> : <Icon name={s.icon} size={compact ? 12 : 15} />}
               <span className="cs-name">{s.label}</span>
@@ -580,7 +656,7 @@ export function Grid(p: GridProps) {
       {cells}
       {map.tiles.map(tileEl)}
       <div className="cresult-col" style={{ gridColumn: v.cols + 2, gridRow: `2 / span ${v.rows}` }}>
-        <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${over === res.id ? ' over' : ''}${p.guide?.nodes.includes(res.id) ? ' guided' : ''}`} data-target={resLit ? res.id : undefined} data-node={res.id}
+        <div ref={setNode(res.id)} className={`cresult${resLit ? ' lit' : ''}${heldAt === res.id ? ' ends' : ''}${over === res.id ? ' over' : ''}${p.guide?.nodes.includes(res.id) ? ' guided' : ''}`} data-target={resLit ? res.id : undefined} data-node={res.id}
           data-tour={readOnly ? undefined : 'p2-result'}
           role={(seeking || selLine) && !readOnly ? 'button' : undefined} tabIndex={!readOnly ? 0 : undefined}
           aria-label={resLit ? words.joinHere(res.label) : res.label}
@@ -589,6 +665,12 @@ export function Grid(p: GridProps) {
           onKeyDown={(seeking || selLine) && !readOnly ? (e) => { if (e.key === 'Enter') p.onNode?.(res.id) } : undefined}>
           <Icon name="result" size={compact ? 14 : 18} />
           <span className="cr-name">{res.label}</span>
+          {/* A line may end on any of the four sides of the result. The dots show while a line looks for its end,
+              and while the end that stands here is picked up. A press on the result itself ends the line on the left. */}
+          {!readOnly && (['l', 't', 'b', 'r'] as Side[]).map((sd) => (
+            <span key={sd} className={`cport more rs s-${sd}`} data-side={LONG[sd]} role="button" aria-label={words.resultSide?.(LONG[sd])}
+              onClick={(e) => { e.stopPropagation(); if (seeking) p.onNode?.(res.id, LONG[sd]) }} />
+          ))}
         </div>
       </div>
       <svg className="clines" aria-hidden={readOnly ? true : undefined}>
@@ -637,6 +719,24 @@ export function Grid(p: GridProps) {
           const d = endPath(selLine, drag.end, drag.x, drag.y)
           return d ? <path className="cline-drag" d={d} stroke={colorOf(selLine.from)} /> : null
         })()}
+      </svg>
+      {/* A line that passes behind a tile shows faintly through it, so that no line is lost from sight.
+          Only the part over a tile is drawn here: in the open the line itself is seen. */}
+      <svg className="cover" aria-hidden="true">
+        <defs>
+          <clipPath id={clipId}>
+            {map.tiles.map((t) => { const b = boxes[t.id]; return b ? <rect key={t.id} x={b.x} y={b.y} width={b.w} height={b.h} /> : null })}
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#${clipId})`}>
+          {map.lines.map((l) => {
+            const g = geom(l)
+            if (!g) return null
+            const key = lineKey(l)
+            const faded = (joining && mode.from !== l.from) || (!!reattach && reattach.key !== key) || (!!drag && 'key' in drag && drag.key === key)
+            return <path key={key} d={g.d} className={`cover-ink${sourceIds.has(l.from) ? '' : ' handoff'}${faded ? ' faded' : ''}`} stroke={colorOf(l.from)} />
+          })}
+        </g>
       </svg>
       {/* The heads of the lines, over the tiles: a head in the narrow gap between two neighbours stays whole. */}
       <svg className="cheads" aria-hidden="true">

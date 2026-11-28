@@ -141,51 +141,66 @@ export function hasLoop(m: CanvasMap): boolean {
 export function placeTile(m: CanvasMap, kind: string, col: number, row: number): { map: CanvasMap; id: string } {
   const id = newTileId(m)
   const tile: CanvasTile = { id, kind, col, row, model: null, runsOn: null, prompt: null }
-  return { map: { tiles: [...m.tiles, tile], lines: m.lines }, id }
+  return { map: { ...m, tiles: [...m.tiles, tile] }, id }
 }
 
 /** Move a tile to an empty cell. Its lines go with it: a line may run in any direction. */
 export function moveTile(m: CanvasMap, id: string, col: number, row: number): CanvasMap {
-  return { tiles: m.tiles.map((t) => (t.id === id ? { ...t, col, row } : t)), lines: m.lines }
+  return { ...m, tiles: m.tiles.map((t) => (t.id === id ? { ...t, col, row } : t)) }
 }
 
 /** A removed tile takes its lines with it. */
 export function removeTile(m: CanvasMap, id: string): CanvasMap {
-  return { tiles: m.tiles.filter((t) => t.id !== id), lines: m.lines.filter((l) => l.from !== id && l.to !== id) }
+  return { ...m, tiles: m.tiles.filter((t) => t.id !== id), lines: m.lines.filter((l) => l.from !== id && l.to !== id) }
 }
 
 export const lineKey = (l: CanvasLine) => `${l.from}>${l.to}`
 
 /**
  * Add a line. A second line into the result replaces the first. `sides` are the sides of its
- * two tiles that the player picked: a side counts only at an end that is a tile.
+ * two ends that the player picked: a side counts at an end that is a tile, and where the line
+ * enters the result.
  */
 export function addLine(m: CanvasMap, from: string, to: string, resultId: string, sides?: { from?: LineSide; to?: LineSide }): CanvasMap {
-  if (m.lines.some((l) => l.from === from && l.to === to)) return m
+  // The same line drawn again moves to the sides it was drawn on now, and is no second line.
+  if (m.lines.some((l) => l.from === from && l.to === to)) {
+    let next = m
+    if (sides?.from) next = setLineSide(next, `${from}>${to}`, 'from', sides.from, resultId)
+    if (sides?.to) next = setLineSide(next, `${from}>${to}`, 'to', sides.to, resultId)
+    return next
+  }
   const keep = to === resultId ? m.lines.filter((l) => l.to !== resultId) : m.lines
   const line: CanvasLine = { from, to }
   if (sides?.from && tileOf(m, from)) line.fromSide = sides.from
-  if (sides?.to && tileOf(m, to)) line.toSide = sides.to
-  return { tiles: m.tiles, lines: [...keep, line] }
+  if (sides?.to && (tileOf(m, to) || to === resultId)) line.toSide = sides.to
+  return { ...m, lines: [...keep, line] }
 }
 
-/** Move one end of a line to another side of its tile. The same map when that end is no tile or already there. */
-export function setLineSide(m: CanvasMap, key: string, end: 'from' | 'to', side: LineSide): CanvasMap {
+/**
+ * Move one end of a line to another side of its tile, or of the result (`resultId`) where it
+ * ends there. The same map when that end is neither, or already on that side.
+ */
+export function setLineSide(m: CanvasMap, key: string, end: 'from' | 'to', side: LineSide, resultId?: string): CanvasMap {
   const l = m.lines.find((x) => lineKey(x) === key)
-  if (!l || !tileOf(m, end === 'from' ? l.from : l.to)) return m
+  if (!l || !(tileOf(m, end === 'from' ? l.from : l.to) || (end === 'to' && l.to === resultId))) return m
   const field = end === 'from' ? 'fromSide' : 'toSide'
   if (l[field] === side) return m
-  return { tiles: m.tiles, lines: m.lines.map((x) => (x === l ? { ...x, [field]: side } : x)) }
+  // The two sides are written in one order, whichever was picked first: the server writes them so too.
+  const next = (x: CanvasLine): CanvasLine => {
+    const fromSide = field === 'fromSide' ? side : x.fromSide, toSide = field === 'toSide' ? side : x.toSide
+    return { from: x.from, to: x.to, ...(fromSide ? { fromSide } : {}), ...(toSide ? { toSide } : {}) }
+  }
+  return { ...m, lines: m.lines.map((x) => (x === l ? next(x) : x)) }
 }
 
 export function removeLine(m: CanvasMap, key: string): CanvasMap {
-  return { tiles: m.tiles, lines: m.lines.filter((l) => lineKey(l) !== key) }
+  return { ...m, lines: m.lines.filter((l) => lineKey(l) !== key) }
 }
 
 /** Set a part of an AI tile. A change of model clears a place to run that no longer fits. */
 export function setPart(m: CanvasMap, v: Vocabulary, id: string, part: 'model' | 'runsOn' | 'prompt', value: string | null): CanvasMap {
   return {
-    lines: m.lines,
+    ...m,
     tiles: m.tiles.map((t) => {
       if (t.id !== id) return t
       const next = { ...t, [part]: value }
@@ -239,7 +254,7 @@ export function endTargets(m: CanvasMap, v: Vocabulary, key: string, end: 'from'
 export function moveLineEnd(m: CanvasMap, v: Vocabulary, key: string, end: 'from' | 'to', node: string, side?: LineSide): { map: CanvasMap; key: string } | null {
   const l = m.lines.find((x) => lineKey(x) === key)
   if (!l) return null
-  if (node === (end === 'from' ? l.from : l.to)) return { map: side ? setLineSide(m, key, end, side) : m, key }
+  if (node === (end === 'from' ? l.from : l.to)) return { map: side ? setLineSide(m, key, end, side, v.result.id) : m, key }
   const rest = removeLine(m, key)
   const from = end === 'from' ? node : l.from
   const to = end === 'to' ? node : l.to
@@ -252,11 +267,45 @@ export function sameMap(a: CanvasMap, b: CanvasMap): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-/** Whether two maps are the same map: the same tiles and lines, whatever order they are listed in. */
+/**
+ * Whether two maps are the same system: the same tiles with the same parts, and the same lines,
+ * whatever order they are listed in. Where a tile stands, which side a line takes and the order
+ * of the sources are how a map is drawn and change no score, so they do not count: a map that
+ * was only tidied is still the system it was.
+ */
 export function sameLayout(a: CanvasMap, b: CanvasMap): boolean {
   if (a.tiles.length !== b.tiles.length || a.lines.length !== b.lines.length) return false
-  const tile = (t: CanvasTile) => `${t.id}|${t.kind}|${t.col}|${t.row}|${t.model ?? ''}|${t.runsOn ?? ''}|${t.prompt ?? ''}`
+  const tile = (t: CanvasTile) => `${t.id}|${t.kind}|${t.model ?? ''}|${t.runsOn ?? ''}|${t.prompt ?? ''}`
   const ta = a.tiles.map(tile).sort(), tb = b.tiles.map(tile).sort()
   const la = a.lines.map(lineKey).sort(), lb = b.lines.map(lineKey).sort()
   return ta.every((x, i) => x === tb[i]) && la.every((x, i) => x === lb[i])
+}
+
+// ------------------------------------------------------------------------------------------
+// The order of the sources in their column. It is part of the map and never of a score.
+// ------------------------------------------------------------------------------------------
+/** The sources in the order the map gives them: those it names first, the others after them in the order of the pack. */
+export function orderedSources<S extends { id: string }>(sources: readonly S[], order: readonly string[] | undefined): S[] {
+  if (!order?.length) return [...sources]
+  const at = new Map(order.map((id, i) => [id, i]))
+  const named = sources.filter((s) => at.has(s.id)).sort((x, y) => at.get(x.id)! - at.get(y.id)!)
+  return [...named, ...sources.filter((s) => !at.has(s.id))]
+}
+
+/** The map with its sources in this order. A map in the order of the pack carries no order at all. */
+export function withSourceOrder(m: CanvasMap, sources: readonly { id: string }[], order: readonly string[]): CanvasMap {
+  const ids = orderedSources(sources, order).map((s) => s.id)
+  const rest: CanvasMap = { tiles: m.tiles, lines: m.lines }
+  return ids.every((id, i) => id === sources[i]!.id) ? rest : { ...rest, sourceOrder: ids }
+}
+
+/** Move one source to the place `to` of the column (0 is the top). The same map when it is there already. */
+export function moveSource(m: CanvasMap, sources: readonly { id: string }[], id: string, to: number): CanvasMap {
+  const ids = orderedSources(sources, m.sourceOrder).map((s) => s.id)
+  const from = ids.indexOf(id)
+  const at = Math.max(0, Math.min(ids.length - 1, to))
+  if (from < 0 || from === at) return m
+  ids.splice(from, 1)
+  ids.splice(at, 0, id)
+  return withSourceOrder(m, sources, ids)
 }

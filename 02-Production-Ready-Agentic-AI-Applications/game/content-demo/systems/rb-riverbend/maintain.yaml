@@ -72,7 +72,7 @@ workers:
       cost_line: A little upkeep every month.
     needs_model: false
     prepares: {easy: {as: easy}, hard: {as: hard}}
-    quality: {fetch: {easy: 0.0, hard: 0.0, scan: 0.0}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
+    quality: {fetch: {easy: 0.0, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.0}, decide: {plain: 0.0, hard: 0.0}, catch: 0.0}
     run: 0.2
     complexity: 1
     key: {note: Changes nothing in the reading. A line through it fails a quarter as often.}
@@ -88,8 +88,8 @@ workers:
       cost_line: Minutes of the desk staff for every request.
     needs_model: false
     pool: desk
-    quality: {fetch: {easy: 1.0, hard: 0.85, scan: 0.9}, decide: {plain: 0.7, hard: 0.4}, catch: 0.3, knows: {rb-f-terms: 0.8}}
-    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, scan: 4}}
+    quality: {fetch: {easy: 1.0, hard: 0.85, hard_sorted: 0.89, hard_short: 0.91, scan: 0.9}, decide: {plain: 0.7, hard: 0.4}, catch: 0.3, knows: {rb-f-terms: 0.8}}
+    minutes: {decide: 4, check: 2, per_line: {easy: 1, hard: 6, hard_sorted: 4, hard_short: 3, scan: 4}}
     complexity: 1
     key: {note: Knows the terms without a line, until the partners rewrite them.}
 
@@ -107,8 +107,8 @@ models:
     run: 0.5
     runs_on: [rb-c-rented, rb-c-owned]
     by_worker:
-      rb-w-agent: {fetch: {easy: 0.97, hard: 0.80, scan: 0.34}, decide: {plain: 0.93, hard: 0.76}, catch: 0.3}
-      rb-w-step: {fetch: {easy: 0.95, hard: 0.0, scan: 0.28}, decide: {plain: 0.88, hard: 0.60}, catch: 0.2}
+      rb-w-agent: {fetch: {easy: 0.97, hard: 0.80, hard_sorted: 0.84, hard_short: 0.86, scan: 0.34}, decide: {plain: 0.93, hard: 0.76}, catch: 0.3}
+      rb-w-step: {fetch: {easy: 0.95, hard: 0.0, hard_sorted: 0.0, hard_short: 0.0, scan: 0.28}, decide: {plain: 0.88, hard: 0.60}, catch: 0.2}
     key: {note: Better than Pine on the test set, worse and less steady at the desk (rb-e-open2).}
 
 line_rules:

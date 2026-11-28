@@ -1,9 +1,9 @@
 // Projection of the canvas (engineering spec, section 9): what Phases 2 and 3 both send about
 // the board, a map, a validation and a missed case. Built field by field, like everything that
 // leaves the server. Nothing here spreads, passes through or strips a pack object.
-import { copyLine, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
-import type { BoardMark, CanvasLegend, CanvasMap, DevelopmentContent, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
-import { bestReaders, evaluate, type Running as EngineRunning } from '../canvas.ts'
+import { copyLine, copySourceOrder, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
+import type { BoardMark, CanvasLegend, CanvasMap, DevelopmentContent, ModelRead, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
+import { bestReaders, evaluate, type Read, type Running as EngineRunning } from '../canvas.ts'
 
 export function tileView(t: PackTile): Tile {
   switch (t.type) {
@@ -41,6 +41,7 @@ export function mapView(m: PackCanvasMap): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model, runsOn: t.runsOn, prompt: t.prompt })),
     lines: m.lines.map(copyLine),
+    ...copySourceOrder(m),
   }
 }
 
@@ -153,10 +154,51 @@ export function referenceViews(b: BuildFile, t: BuildFile): ReferenceMap[] {
   return referenceMaps(b).map((r) => ({ id: r.id, label: r.label, summary: r.summary, map: mapView(r.map), accuracy: evaluate(r.map, t).accuracy }))
 }
 
-export function runningView(r: EngineRunning): Running {
+/**
+ * The name of every tile of a map as the board shows it: the short name of its worker, with a
+ * number when the map holds two or more tiles of that kind ("Agent 2"). Numbers follow the order
+ * in which the tiles were placed. The client names tiles by the same rule (`tileNames`).
+ */
+export function tileShortNames(m: PackCanvasMap, b: Pick<BuildFile, 'workers'>): Map<string, string> {
+  const order = [...m.tiles].sort((x, y) => parseInt(x.id.slice(1), 36) - parseInt(y.id.slice(1), 36) || x.id.localeCompare(y.id))
+  const count = new Map<string, number>()
+  for (const t of order) count.set(t.kind, (count.get(t.kind) ?? 0) + 1)
+  const seen = new Map<string, number>()
+  const out = new Map<string, string>()
+  for (const t of order) {
+    const n = (seen.get(t.kind) ?? 0) + 1
+    seen.set(t.kind, n)
+    const short = b.workers.find((w) => w.id === t.kind)?.public.short ?? t.kind
+    out.set(t.id, (count.get(t.kind) ?? 0) > 1 ? `${short} ${n}` : short)
+  }
+  return out
+}
+
+/**
+ * What the model of every tile reads, in the words of the pack and in tokens, in the order of
+ * the names on the board. The sizes of the pack stay on the server: a player sees the tokens
+ * and the money of their own tiles and nothing else.
+ */
+export function readsView(reads: Readonly<Record<string, Read>> | undefined, m: PackCanvasMap, b: BuildFile): ModelRead[] {
+  if (!reads) return []
+  const names = tileShortNames(m, b)
+  const perUnit = b.reading?.tokens_per_unit ?? 1000
+  return [...names.entries()].filter(([tile]) => reads[tile] !== undefined).map(([tile, name]) => {
+    const r = reads[tile]!
+    return {
+      tile, name,
+      model: b.models.find((x) => x.id === r.model)?.public.label ?? r.model,
+      place: b.compute.find((x) => x.id === r.place)?.public.label ?? r.place,
+      tokens: Math.round(r.units * perUnit), money: r.money,
+    }
+  })
+}
+
+/** `m` and `b`: the map the cost is of and its pack, for the names of what each model reads. */
+export function runningView(r: EngineRunning, m: PackCanvasMap, b: BuildFile): Running {
   const minutes: Record<string, number> = {}
   for (const [k, v] of Object.entries(r.minutes)) minutes[k] = v
-  return { money: r.money, minutes, complexity: r.complexity }
+  return { money: r.money, minutes, complexity: r.complexity, reads: readsView(r.reads, m, b) }
 }
 
 /** The words of a missed case: its public text and why the map missed it. */

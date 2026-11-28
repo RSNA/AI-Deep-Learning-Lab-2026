@@ -195,6 +195,33 @@ describe('the four commands', () => {
     expect(view(s).validationsLeft).toBe(0)
     expect(err(cmd(s, 'p1', 'development.validate', {}, t + 1))).toBe('no_validations_left')
   })
+  it('the order of the sources is saved with the map, shown wherever the map is shown, and never scored', () => {
+    const { s, t0 } = playing()
+    const ids = B.sources.map((x) => x.id)
+    const order = [...ids].reverse()
+    // A draft with an order of its own, and with a line that enters the result on its top side.
+    const mine: CanvasMap = { tiles: SMALL.tiles, lines: SMALL.lines.map((l) => (l.to === B.result.id ? { ...l, toSide: 'top' as const } : l)), sourceOrder: order }
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: mine }, t0))).toBe('ok')
+    expect(view(s).map.sourceOrder).toEqual(order)
+    expect(view(s).map.lines.find((l) => l.to === B.result.id)!.toSide).toBe('top')
+    // The engine keeps a copy and nothing of the payload.
+    order.push('changed-after-the-command')
+    expect(view(s).map.sourceOrder).toEqual([...ids].reverse())
+    expect(project.hostInspect(s, demoPack(), 'p1', true)!.development!.map.sourceOrder).toEqual([...ids].reverse())
+    // A validation keeps the order of its map and scores it as the same map without one.
+    expect(err(cmd(s, 'p1', 'development.validate', {}, t0 + 1))).toBe('ok')
+    advance(s, pack, t0 + 1 + B.validate.seconds * 1000)
+    const v = view(s).validations[0]!
+    expect(v.map.sourceOrder).toEqual([...ids].reverse())
+    expect(v.accuracy).toBe(evaluate(SMALL, B).accuracy)
+    // An order that names something else, or a source twice, is refused, and the draft stays.
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: { ...SMALL, sourceOrder: ['rb-w-agent'] } }, t0 + 90_000))).toBe('invalid_map')
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: { ...SMALL, sourceOrder: [ids[0]!, ids[0]!] } }, t0 + 90_001))).toBe('invalid_map')
+    expect(view(s).map.sourceOrder).toEqual([...ids].reverse())
+    // A map without an order has none, as before.
+    expect(err(cmd(s, 'p1', 'development.set_map', { map: SMALL }, t0 + 90_002))).toBe('ok')
+    expect(view(s).map).not.toHaveProperty('sourceOrder')
+  })
   it('a pack with no free validation counts every one', () => {
     const { s, t0 } = playing()
     const was = B.validate.free

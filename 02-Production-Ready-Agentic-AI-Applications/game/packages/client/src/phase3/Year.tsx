@@ -1,7 +1,7 @@
 // The year of Phase 3 (engineering spec, section 10.6): the timer that counts to the next
 // report, the report of a period of two months, and the panel that holds the chart of the year
 // beside the reports. A report shows what the server sent and nothing it worked out itself.
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { InboxItem, MaintainingContent, MaintainingView, Welcome } from '@lab02/protocol'
 import { Portrait, Sheet } from '../components/ui.tsx'
 import { gameNow, useTick } from '../lib/clock.ts'
@@ -139,7 +139,12 @@ export function ReportBody({ r, mapName, details = false }: { r: Report; mapName
       <div className="p3money">
         <div className="eyebrow">{P3.billTitle}</div>
         {r.bill.length === 0 && <p className="muted">{P3.billNothing}</p>}
-        {r.bill.map((x, i) => <div key={i} className="kv part"><span>{x.label}</span><span className="v">{P3.sum(x.money)}</span></div>)}
+        {r.bill.map((x, i) => (
+          <Fragment key={i}>
+            <div className="kv part"><span>{x.label}</span><span className="v">{P3.sum(x.money)}</span></div>
+            {(x.parts ?? []).map((y, j) => <div key={j} className="kv part sub"><span>{y.label}</span><span className="v">{P3.sum(y.money)}</span></div>)}
+          </Fragment>
+        ))}
         {r.bill.length > 0 && <div className="kv sum"><span>{P3.billTotal}</span><span className="v">{P3.sum(r.runCost + r.fine)}</span></div>}
         {r.granted > 0 && <div className="kv"><span>{P3.granted}</span><span className="v">+{P3.sum(r.granted)}</span></div>}
         <div className={`kv sum${r.account < 0 ? ' below' : ''}`}><span>{P3.accountLeft}</span><span className="v">{P3.sum(r.account)}</span></div>

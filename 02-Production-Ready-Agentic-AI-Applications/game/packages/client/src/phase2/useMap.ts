@@ -80,7 +80,7 @@ export function useMap(phase: 'development' | 'maintaining', v: Vocabulary, unlo
           const cur = hRef.current
           const isIt = (l: { from: string; to: string }) => !!d && l.from === d.line.from && l.to === d.line.to
           if (d && cur.map.lines.some(isIt)) {
-            const cleaned = { tiles: cur.map.tiles, lines: cur.map.lines.filter((l) => !isIt(l)) }
+            const cleaned = { ...cur.map, lines: cur.map.lines.filter((l) => !isIt(l)) }
             const h2 = { ...cur, map: cleaned, past: cur.past.length && sameMap(cur.past.at(-1)!, cleaned) ? cur.past.slice(0, -1) : cur.past }
             hRef.current = h2
             setH(h2)

@@ -20,7 +20,16 @@ export type CanvasLine = { from: string; to: string; fromSide?: Side; toSide?: S
 export function copyLine(l: CanvasLine): CanvasLine {
   return { from: l.from, to: l.to, ...(l.fromSide ? { fromSide: l.fromSide } : {}), ...(l.toSide ? { toSide: l.toSide } : {}) }
 }
-export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[] }
+/**
+ * A map. `sourceOrder` is the order in which the player put the sources in their column: it
+ * changes how the board is drawn and never a score. Sources it does not name follow in the
+ * order of the pack.
+ */
+export type CanvasMap = { tiles: CanvasTile[]; lines: CanvasLine[]; sourceOrder?: string[] }
+/** A copy of the order of the sources, as a field to spread into a map: nothing when the map has none. */
+export function copySourceOrder(m: { sourceOrder?: readonly string[] }): { sourceOrder?: string[] } {
+  return m.sourceOrder ? { sourceOrder: [...m.sourceOrder] } : {}
+}
 
 // `knows` is what a worker holds of a fact without a line to any source (a person who knows the
 // guideline by heart, a model that has read about it).
@@ -35,6 +44,12 @@ export type CanvasTables = {
   pools?: readonly { id: string; max: number; over?: 'refuse' | 'rush' }[]
   handoff?: { keep: number }
   quality_cap?: number
+  // A model is paid for what it reads. With `reading`, every kind of effort has a `size` in
+  // reading units, `handoff` is the size of whatever a tile hands on that is not a prepared
+  // source, and the price of a model is per unit. Without it a model is paid per call
+  // (`calls` of the worker). `tokens_per_unit` only turns units into tokens on the screen.
+  reading?: { handoff: number; tokens_per_unit?: number }
+  efforts?: readonly { id: string; size?: number }[]
   facts: readonly { id: string }[]
   sources: readonly {
     id: string; gives: Readonly<Record<string, number>>; effort: string
@@ -70,7 +85,7 @@ export const MAX_LINES = 80
 
 export type MapError =
   | 'bad_tile_id' | 'bad_kind' | 'off_grid' | 'cell_taken' | 'no_parts_here' | 'bad_model' | 'bad_compute'
-  | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end'
+  | 'bad_prompt' | 'model_cannot_run_there' | 'too_many_lines' | 'line_twice' | 'bad_line_end' | 'bad_source_order'
   | 'source_locked' | 'source_to_result' | 'line_loop' | 'result_takes_one_line' | 'line_refused'
 
 /** The items that some action unlocks. Every other item is open from the start. */
@@ -106,7 +121,7 @@ export function movedPlaces(t: { actions?: readonly { id: string; moves?: Readon
 /** The map with every tile on a moved place put on the place it moved to. The same map when nothing moves. */
 export function movedMap(m: CanvasMap, moved: ReadonlyMap<string, string>): CanvasMap {
   if (!m.tiles.some((x) => x.runsOn !== null && moved.has(x.runsOn))) return m
-  return { tiles: m.tiles.map((x) => (x.runsOn !== null && moved.has(x.runsOn) ? { ...x, runsOn: moved.get(x.runsOn)! } : x)), lines: m.lines }
+  return { tiles: m.tiles.map((x) => (x.runsOn !== null && moved.has(x.runsOn) ? { ...x, runsOn: moved.get(x.runsOn)! } : x)), lines: m.lines, ...copySourceOrder(m) }
 }
 
 /** The first prompt of the pack is the default: a tile whose prompt is null carries it. */
@@ -115,10 +130,11 @@ export function defaultPrompt(t: CanvasTables): string | null {
 }
 
 /** A map of a pack file (`runs_on`) in the form of the engine (`runsOn`). */
-export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string; from_side?: Side; to_side?: Side }[] }): CanvasMap {
+export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string; from_side?: Side; to_side?: Side }[]; source_order?: readonly string[] }): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model ?? null, runsOn: t.runs_on ?? null, prompt: t.prompt ?? null })),
     lines: m.lines.map((l) => copyLine({ from: l.from, to: l.to, fromSide: l.from_side, toSide: l.to_side })),
+    ...(m.source_order ? { sourceOrder: [...m.source_order] } : {}),
   }
 }
 
@@ -191,9 +207,9 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
   if (m.lines.length > MAX_LINES) errs.add('too_many_lines')
   for (const ln of m.lines) {
     const a = ln.from, b = ln.to
-    // A side is one of the four, on a tile. A source and the result have one place for a line.
+    // A side is one of the four, on a tile or on the result. A source has one place for a line.
     const sideOk = (x: unknown) => x === undefined || (SIDES as readonly unknown[]).includes(x)
-    if (!sideOk(ln.fromSide) || !sideOk(ln.toSide) || (ln.fromSide !== undefined && sources.has(a)) || (ln.toSide !== undefined && b === t.result.id)) errs.add('bad_line_end')
+    if (!sideOk(ln.fromSide) || !sideOk(ln.toSide) || (ln.fromSide !== undefined && sources.has(a))) errs.add('bad_line_end')
     const key = `${a}\u0000${b}`
     if (seen.has(key)) { errs.add('line_twice'); continue }
     seen.add(key)
@@ -212,6 +228,12 @@ export function mapErrors(m: CanvasMap, t: CanvasTables, unlocked: ReadonlySet<s
   if (intoResult > 1) errs.add('result_takes_one_line')
   // Lines between tiles may run in any direction. They must not form a loop.
   if (between.some(([a, b]) => a === b) || handoffOrder(tiles, between) === null) errs.add('line_loop')
+  // The order of the sources names sources of the pack, each once. A locked source has a place
+  // in the column like any other. The reference scorer does not know this field: it never scores.
+  if (m.sourceOrder !== undefined) {
+    const o = m.sourceOrder
+    if (!Array.isArray(o) || o.some((id) => typeof id !== 'string' || !sources.has(id)) || new Set(o).size !== o.length) errs.add('bad_source_order')
+  }
   return [...errs].sort()
 }
 
@@ -300,6 +322,8 @@ export type Prepared = { effort: string; load: number }
  *
  * Tools may stand in a row. A source that reaches `u` through another tile that prepares goes on
  * through `u`, with one more candidate when `u` names its effort and unchanged when it does not.
+ * A tool behind a tool works on what the one before it made of the source: it looks up the kind
+ * of the last candidate first, and the raw effort of the source when it has no entry for that.
  * The candidates stand in the order of the row, from the source to the reader, and the reader
  * takes one of them (`pickPrepared`). So a second tool on the same source earns nothing and
  * loses nothing. `wrkIn` are the tiles with a line into each tile.
@@ -321,7 +345,7 @@ export function preparedBy(
   const next = new Set(path).add(u)
   for (const v of wrkIn.get(u) ?? []) {
     for (const got of preparedBy(v, tiles, srcIn, wrkIn, sources, workers, next)) {
-      const p = prep[sources.get(got.source)!.effort]
+      const p = prep[got.candidates[got.candidates.length - 1]!.effort] ?? prep[sources.get(got.source)!.effort]
       out.push({ source: got.source, candidates: p === undefined ? got.candidates : [...got.candidates, { effort: p.as, load: p.load ?? 1 }] })
     }
   }
@@ -340,6 +364,32 @@ export function pickPrepared(candidates: readonly Prepared[], fetch: Readonly<Re
     if (x > y + 1e-12 || (Math.abs(x - y) <= 1e-12 && c.load < best.load - 1e-12)) best = c
   }
   return best
+}
+
+/**
+ * How much the model of tile `n` reads for one case, in reading units, or null when the pack
+ * prices a model by a fixed number of calls (no `reading` block). A source on a direct line
+ * counts with the size of its effort. A source behind a tool counts with the size of the kind
+ * the reader takes of it (`pickPrepared`, by the reader's own numbers `fetch`). Whatever else is
+ * handed on (the summary of an agent, the note of a person, the number of a narrow model) counts
+ * `reading.handoff`.
+ */
+export function readingUnits(
+  n: string, t: CanvasTables, tiles: ReadonlyMap<string, CanvasTile>, srcIn: ReadonlyMap<string, readonly string[]>,
+  wrkIn: ReadonlyMap<string, readonly string[]>,
+  sources: ReadonlyMap<string, CanvasTables['sources'][number]>, workers: ReadonlyMap<string, CanvasTables['workers'][number]>,
+  fetch: Readonly<Record<string, number>>,
+): number | null {
+  if (!t.reading) return null
+  const size = new Map((t.efforts ?? []).map((e) => [e.id, e.size ?? 0]))
+  let units = 0
+  for (const s of srcIn.get(n) ?? []) units += size.get(sources.get(s)!.effort) ?? 0
+  for (const u of wrkIn.get(n) ?? []) {
+    const got = preparedBy(u, tiles, srcIn, wrkIn, sources, workers)
+    if (got.length) for (const p of got) units += size.get(pickPrepared(p.candidates, fetch).effort) ?? 0
+    else units += t.reading.handoff
+  }
+  return units
 }
 
 /** Minutes per case that a map asks of each pool of people. Every placed person counts. */
