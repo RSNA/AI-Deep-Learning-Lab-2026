@@ -7,7 +7,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import type { PhaseId } from '@lab02/protocol'
+import { bringIntoView, type Rect } from '../lib/inView.ts'
 import { store } from '../lib/storage.ts'
+import { GUIDE_PAD, placeCard, useCardSize } from './guideCard.ts'
 import { Sheet } from './ui.tsx'
 
 /** One area of the screen: `area` is a CSS selector of the element to light (the first one on screen). */
@@ -41,8 +43,6 @@ export type TourWords = {
   label: string
 }
 
-type Rect = { x: number; y: number; w: number; h: number }
-const PAD = 6
 
 /** The element of an area that is on the screen now (a phone tab may hide the others). */
 function areaElement(area: string): HTMLElement | null {
@@ -69,6 +69,7 @@ export function Tour({ phase, steps, doneKey, autoStart, onTab, onEnd, words }: 
   const [vw, setVw] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }))
   const card = useRef<HTMLDivElement>(null)
   const nextBtn = useRef<HTMLButtonElement>(null)
+  const size = useCardSize(card, mine ? `${phase}:${at}` : '')
 
   // A tour of a phase ends with the screen of that phase (the host moved the room on).
   useEffect(() => () => { if (useTour.getState().open?.phase === phase) useTour.getState().end() }, [phase])
@@ -98,7 +99,7 @@ export function Tour({ phase, steps, doneKey, autoStart, onTab, onEnd, words }: 
     const measure = () => {
       const el = areaElement(step.area)
       if (el) {
-        if (!scrolled) { scrolled = true; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }
+        if (!scrolled) { scrolled = true; bringIntoView(el) }
         const r = el.getBoundingClientRect()
         // An area taller than the window is lit where it shows.
         const y = Math.max(r.top, 0), b = Math.min(r.bottom, window.innerHeight)
@@ -127,29 +128,13 @@ export function Tour({ phase, steps, doneKey, autoStart, onTab, onEnd, words }: 
 
   if (!mine || !step) return null
   const last = at === steps.length - 1
-  // The card stands beside the lit area: right, left, below or above, whichever has room.
-  const narrow = vw.w < 640
-  const cw = Math.min(narrow ? vw.w - 24 : 340, vw.w - 24)
-  const ch = card.current?.offsetHeight ?? 200
-  const place = (): { left: number; top: number } => {
-    if (!rect) return { left: (vw.w - cw) / 2, top: (vw.h - ch) / 2 }
-    const r = { l: rect.x - PAD, t: rect.y - PAD, r: rect.x + rect.w + PAD, b: rect.y + rect.h + PAD }
-    if (!narrow && vw.w - r.r >= cw + 24) return { left: r.r + 12, top: r.t }
-    if (!narrow && r.l >= cw + 24) return { left: r.l - cw - 12, top: r.t }
-    if (vw.h - r.b >= ch + 24) return { left: r.l, top: r.b + 12 }
-    if (r.t >= ch + 24) return { left: r.l, top: r.t - ch - 12 }
-    // An area that fills the screen keeps its top in view: the card stands low, above a phone's tabs.
-    return { left: (vw.w - cw) / 2, top: vw.h - ch - (narrow ? 76 : 12) }
-  }
-  let { left, top } = place()
-  left = Math.max(12, Math.min(left, vw.w - cw - 12))
-  top = Math.max(12, Math.min(top, vw.h - ch - 12))
+  const { left, top, width } = placeCard(rect, vw, size, 'centre')
 
   return (
     <div className="tour" aria-live="polite">
       <div className="tour-dim" onClick={(e) => e.stopPropagation()} />
-      {rect && <div className="tour-light" style={{ left: rect.x - PAD, top: rect.y - PAD, width: rect.w + 2 * PAD, height: rect.h + 2 * PAD }} />}
-      <div ref={card} className="panel tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={{ left, top, width: cw }}>
+      {rect && <div className="tour-light" style={{ left: rect.x - GUIDE_PAD, top: rect.y - GUIDE_PAD, width: rect.w + 2 * GUIDE_PAD, height: rect.h + 2 * GUIDE_PAD }} />}
+      <div ref={card} className="tour-card guide-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={{ left, top, width }}>
         <div className="tour-top">
           <span className="tour-label">{words.label}</span>
           <span className="tour-n">{words.stepOf(at + 1, steps.length)}</span>

@@ -85,6 +85,30 @@ test('the host looks through the deck without showing it, then shows one slide',
   await expect(projectorSlide(screen)).toHaveText('2')
   await expect(look.locator('.looknav .slidecount')).toHaveText('Looking at 4 · Shown 2')
 
+  // The arrow keys move the shown slide for the host in charge, also while a button of the
+  // console has the focus (the one that was just pressed).
+  await look.getByRole('button', { name: 'Back to the shown slide' }).click()
+  await page.keyboard.press('ArrowRight')
+  await expect(projectorSlide(screen)).toHaveText('3')
+  await expect(playerSlide(pp)).toContainText('Slide 3 of 10')
+  // Quick presses count from the slide that was asked for, before the console has heard of it.
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowLeft')
+  await expect(projectorSlide(screen)).toHaveText('1')
+  await page.keyboard.press('ArrowRight')
+  await expect(projectorSlide(screen)).toHaveText('2')
+  await page.locator('.slidenav').getByRole('button', { name: 'Next →' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(projectorSlide(screen)).toHaveText('3')
+  // A step into a later part asks first, and while that window is open the keys move nothing.
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('dialog')).toContainText('These slides come later')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowLeft')
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+  await expect(projectorSlide(screen)).toHaveText('3')
+  await expect(playerSlide(pp)).toContainText('Slide 3 of 10')
+
   const w = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth])
   expect(w[0]).toBeLessThanOrEqual(w[1]!)
   await player.close()

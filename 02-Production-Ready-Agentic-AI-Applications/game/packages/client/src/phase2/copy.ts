@@ -368,7 +368,7 @@ export const P2 = {
   memoCard: 'MEMO',
   phaseStarted: 'Phase 2 has started.',
   briefStart: 'Start building',
-  letterStays: 'This letter stays as the first card under Insights.',
+  letterStays: 'You can read this letter again under Insights. New cards go above it.',
   warn: (s: number) => `${s} seconds left. Your chosen map, or the one with the best accuracy, counts when the time is up.`,
   pct,
   acc1,

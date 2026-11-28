@@ -52,7 +52,7 @@ export const P1 = {
   letterTitle: 'A letter for you',
   phaseStarted: 'Phase 1 has started.',
   clockRuns: 'The clock is running while you read.',
-  letterStays: 'This letter stays as the first card under Evidence.',
+  letterStays: 'You can read this letter again under Evidence. New cards go above it.',
   practiceProfile: 'Your practice',
   baseline: 'What the practice already knows',
   wallEmpty: 'Start an investigation in the list on the left, or click a person with a ! in the reading room. Its insight lands here as a card.',

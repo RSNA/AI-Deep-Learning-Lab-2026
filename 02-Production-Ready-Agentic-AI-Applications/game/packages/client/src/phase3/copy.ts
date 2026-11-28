@@ -149,7 +149,7 @@ export const P3 = {
   // The opening
   phaseStarted: 'Phase 3 has started.',
   briefStart: 'Start the year',
-  letterStays: 'This letter stays as the first card under Letters and insights.',
+  letterStays: 'You can read this letter again under Letters and insights. New cards go above it.',
   warn: (s: number) => `${s} seconds until the last report. Whatever is deployed then runs the last two months.`,
   whyNoneLeft: 'You have no validations left. You can still deploy any map on your list.',
   whyReady: 'This map is ready. Press Validate to test it, and then deploy it to put it to work.',

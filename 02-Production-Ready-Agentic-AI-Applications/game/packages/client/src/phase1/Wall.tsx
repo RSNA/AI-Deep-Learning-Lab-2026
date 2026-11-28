@@ -1,6 +1,7 @@
 // Evidence, the centre column of Phase 1 (engineering spec, section 10.4): one panel with the
-// reading room or the practice facts, then the cards: the opening letter first, then every
-// insight in order of arrival. Two cards per row from 560 px, one below. Nothing is clamped.
+// reading room or the practice facts, then the cards, the newest first: every insight from the
+// last one that arrived back to the first, then the opening letter. Two cards per row from
+// 560 px, one below. Nothing is clamped.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { PlanningContent, PlanningView, Welcome } from '@lab02/protocol'
 import { usePlayer } from '../lib/player.ts'
@@ -30,9 +31,10 @@ function readPanel(phone: boolean): PanelState {
 }
 
 export function useCards(pv: PlanningView, content: PlanningContent): CardItem[] {
+  // The view lists the insights in the order they arrived.
   return useMemo(() => [
+    ...pv.tiles.map((t) => ({ kind: 'tile', investigation: t.investigation, tile: t.tile }) as CardItem).reverse(),
     ...(content.brief ? [{ kind: 'letter' } as CardItem] : []),
-    ...pv.tiles.map((t) => ({ kind: 'tile', investigation: t.investigation, tile: t.tile }) as CardItem),
   ], [pv.tiles, content.brief])
 }
 

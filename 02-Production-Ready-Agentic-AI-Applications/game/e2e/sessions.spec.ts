@@ -144,6 +144,12 @@ test('a single-player game from the start page to its report card, and the games
   await expect.poll(count).not.toBe(first)
   await bar.getByRole('button', { name: /Back/ }).click()
   await expect.poll(count).toBe(first)
+  // The arrow keys do the same, and stop at the first slide of the section.
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(count).not.toBe(first)
+  await page.keyboard.press('ArrowLeft')
+  await expect.poll(count).toBe(first)
   // Buttons of one row share their height.
   const heights = await bar.locator('.btn').evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.getBoundingClientRect().height)))])
   expect(heights).toHaveLength(1)
@@ -151,7 +157,23 @@ test('a single-player game from the start page to its report card, and the games
 
   // On to Phase 1, where the phase can be ended early after a question.
   await soloUntil(page, async () => (await bar.getByRole('button', { name: 'End this phase now' }).isVisible().catch(() => false)) && !(await page.locator('.scrim, [role="dialog"]').first().isVisible().catch(() => false)))
-  if (info.project.name === 'laptop') await expect(bar).toContainText('The phase stays open until you end it.')
+  if (info.project.name === 'laptop') await expect(bar).toContainText('the phase stays open until you end it. Speed lets the clock run slower or faster.')
+  // The speed of the clock: at 4× the timer loses four seconds in one, and the strip says so.
+  const speed = bar.locator('.solo-speed')
+  const left = async () => { const [m, sec] = (await page.locator('.countdown').first().innerText()).trim().split(':').map(Number); return m! * 60 + sec! }
+  await expect(speed.getByRole('button', { pressed: true })).toHaveText('1×')
+  await speed.getByRole('button', { name: 'Run the clock at 4×' }).click()
+  await expect(speed.getByRole('button', { pressed: true })).toHaveText('4×')
+  if (info.project.name === 'laptop') await expect(bar).toContainText('The clock of this phase runs at 4× now.')
+  const before = await left()
+  await page.waitForTimeout(2000)
+  const lost = before - (await left())
+  expect(lost).toBeGreaterThanOrEqual(6)
+  expect(lost).toBeLessThanOrEqual(11)
+  // The keys of the speed are as high as the button beside them.
+  const rowHeights = await bar.locator('.acts button').evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.getBoundingClientRect().height)))])
+  expect(rowHeights).toHaveLength(1)
+  await noOverflow(page)
   await bar.getByRole('button', { name: 'End this phase now' }).click()
   await expect(page.getByRole('dialog')).toContainText('The phase is scored as it stands')
   await page.getByRole('dialog').getByRole('button', { name: 'Stay' }).click()
@@ -161,6 +183,10 @@ test('a single-player game from the start page to its report card, and the games
   // A reload in the middle of the game brings it back as it was.
   await page.reload()
   await expect(bar.getByRole('button', { name: 'End this phase now' })).toBeVisible()
+  // The speed came back with it, and the pace of a room is one press away.
+  await expect(speed.getByRole('button', { pressed: true })).toHaveText('4×')
+  await speed.getByRole('button', { name: 'Run the clock at 1×' }).click()
+  await expect(speed.getByRole('button', { pressed: true })).toHaveText('1×')
 
   // Through the three phases to the end: the report card, then the result page of the game.
   await soloUntil(page, async () => /\/result\//.test(page.url()))

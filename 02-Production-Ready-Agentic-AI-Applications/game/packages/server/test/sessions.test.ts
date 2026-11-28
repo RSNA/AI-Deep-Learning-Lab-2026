@@ -338,7 +338,39 @@ describe('a single-player game', () => {
     expect(view(bot).solo).toBeNull()
     for (const type of ['solo.next', 'solo.end_now']) expect((await bot.conn.command(type)).error).toBe('not_solo')
     expect((await bot.conn.command('solo.slide', { delta: 1 })).error).toBe('not_solo')
+    expect((await bot.conn.command('solo.speed', { speed: 2 })).error).toBe('not_solo')
+    expect(made.room.clockInfo().scale).toBe(srv.app.pack.game.clock.time_scale_default)
     expect(made.room.state.stage).toBe('lobby')
+  })
+
+  it('runs its clock at the speed its player sets, keeps the speed while the player is away, and takes no other speed', async () => {
+    const srv = await server({ soloSweepMs: 40, soloIdleMs: 150 })
+    const bot = await solo(srv, 'Fast Branch')
+    const code = codeOf(bot)
+    await soloTo(bot, 'planning.play')
+    const room = () => srv.app.manager.get(code)!
+    expect(room().clockInfo().scale).toBe(1)
+    for (const speed of [3, 0, -1, 100, '2']) expect((await bot.conn.command('solo.speed', { speed })).error).toBe('bad_message')
+    expect(room().clockInfo().scale).toBe(1)
+    // Four times as fast: the clock of the game gains about four seconds in one.
+    expect((await bot.conn.command('solo.speed', { speed: 4 })).ok).toBe(true)
+    expect(room().clockInfo()).toMatchObject({ running: true, scale: 4 })
+    const from = room().now()
+    await sleep(500)
+    const gained = room().now() - from
+    expect(gained).toBeGreaterThan(1600)
+    expect(gained).toBeLessThan(3200)
+    // The engine does not know the speed: the state of the game holds no trace of it.
+    expect(JSON.stringify(room().state)).not.toMatch(/"(scale|speed)"/)
+    // Set aside and back: the same speed.
+    bot.conn.close()
+    await until(() => srv.app.manager.get(code) === undefined, 5000, 'set aside')
+    const back = attach(srv.ws, bot.token, { playerId: bot.playerId, rejoinCode: bot.rejoinCode })
+    cleanups.push(() => back.conn.close())
+    await until(() => back.stage === 'planning.play', 5000, 'back in the game')
+    expect(room().clockInfo()).toMatchObject({ running: true, scale: 4 })
+    expect((await back.conn.command('solo.speed', { speed: 0.25 })).ok).toBe(true)
+    expect(room().clockInfo().scale).toBe(0.25)
   })
 
   it('is set aside when its player stays away, and comes back as it was', async () => {

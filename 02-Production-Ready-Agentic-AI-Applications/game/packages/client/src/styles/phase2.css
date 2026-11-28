@@ -369,7 +369,11 @@
 .icards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
 .icards .stdcard { height: 420px; }
 .icards .card { cursor: default; }
+/* The strip of a card takes the colour of the group of its action. The groups are content, so a
+   group that has no colour of its own here still gets a strip that its dark words can be read on. */
+[class*="h-g-"] { background: var(--lav); }
 .h-g-learn { background: var(--sky); } .h-g-build { background: var(--go); } .h-g-buy { background: var(--sun); } .h-g-negotiate { background: var(--lav); }
+.h-g-watch { background: var(--rose); } .h-g-maintain { background: var(--sys-1); }
 .p2toast { display: flex; align-items: center; gap: 12px; bottom: 24px; }
 .p2toast .btn { min-height: 32px; }
 
