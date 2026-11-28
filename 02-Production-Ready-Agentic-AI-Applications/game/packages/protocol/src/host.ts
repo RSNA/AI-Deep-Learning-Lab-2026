@@ -2,7 +2,7 @@
 // receive these.
 import { z } from 'zod'
 import { AvatarId, ErrorCode, Mode, PhaseId, SceneId, StageId, Theme } from './ids.ts'
-import { Board, CanvasLegend, CanvasMap, Clock, MaintainingSpent, Running, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
+import { Board, CanvasLegend, CanvasMap, Clock, MaintainingSpent, ModelRead, Running, Rung, ScreenView, SessionInfo, SlideView, Text } from './views.ts'
 
 const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shape)
 const Int = z.number().int()
@@ -125,6 +125,7 @@ export const HostInspect = S({
   // and beside them the key: the share solved of every case for the draft, the flags, the reference map.
   development: S({
     status: z.enum(['playing', 'closed']),
+    moneyUnit: Text.nullable(),               // written after a sum of money, such as k$
     money: z.number(), developers: S({ total: Int, free: Int }),
     legend: CanvasLegend,
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
@@ -163,6 +164,7 @@ export const HostInspect = S({
   // key: what acts on this player, the reference maps, and a few lines for a host who helps.
   maintaining: S({
     status: z.enum(['playing', 'closed']),
+    moneyUnit: Text.nullable(),               // written after a sum of money, such as k$
     money: z.number(), developers: S({ total: Int, free: Int }),
     legend: CanvasLegend,
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
@@ -172,6 +174,9 @@ export const HostInspect = S({
     ready: S({ ok: z.boolean(), reasons: z.array(z.string()) }),
     validations: z.array(S({ id: z.string(), atMs: z.number(), accuracy: z.number(), map: CanvasMap, origin: z.enum(['phase2', 'phase3', 'reference']), label: Text.nullable() })),
     deployed: z.string().nullable(),
+    // What the models of the system in service read for a patient and cost a month, at the
+    // prices of the last report. Empty when no system runs or the pack prices a model per call.
+    reads: z.array(ModelRead),
     round: S({ index: Int, of: Int }),
     reports: z.array(S({
       period: Int, short: Text, map: z.string().nullable(),

@@ -276,6 +276,15 @@ export const P2 = {
   perMonth: (x: number) => `${runCost(x)}${unit} a month, ${money(Math.round(12 * x))}${unit} a year`,
   minutes: (label: string, used: number, max: number) => `${poolPeople(label)}: needs ${num(used)} min per patient, has ${num(max)}`,
   complexity: (n: number) => `complexity ${n}`,
+  // A model is paid by the token. One sentence under the map names every tile with a model, and
+  // the chooser of a tile's model says it at length for that tile.
+  // A tile that reads nothing yet (no line into it) is left out, and with none left the line is
+  // empty. A game that was kept before models were paid by the token has no list at all.
+  reads: (xs: readonly { name: string; model: string; tokens: number; money: number }[] | undefined) => {
+    const reading = (xs ?? []).filter((x) => x.tokens > 0)
+    return reading.length ? `Per patient, ${list(reading.map((x) => `${x.name} reads about ${x.tokens.toLocaleString('en-US')} tokens on ${x.model} (${runCost(x.money)}${unit} a month)`))}.` : ''
+  },
+  readsIntro: (name: string, model: string, tokens: number, cost: number) => `With the lines it has now, ${name} reads about ${tokens.toLocaleString('en-US')} tokens per patient. On ${model} that costs ${runCost(cost)}${unit} a month. A model is paid by the token, so a long source costs more than a short one, and it costs the most on a large model.`,
   privateWarn: 'Private data goes through a service that does not protect it.',
   validate: 'Validate',
   validateLeft: (n: number) => `Validate · ${n} left`,

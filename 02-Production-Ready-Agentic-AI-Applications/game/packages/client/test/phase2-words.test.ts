@@ -42,6 +42,18 @@ describe('money', () => {
     expect(P2.perMonth(0.3)).toBe('0.3 k$ a month, 4 k$ a year')
     expect(P2.perMonth(0)).toBe('0.0 k$ a month, 0 k$ a year')
   })
+  it('says in one sentence what every model reads and what that costs, and leaves out a tile that reads nothing yet', () => {
+    setMoneyUnit('k$')
+    const one = { name: 'Agent 1', model: 'Large', tokens: 6000, money: 1.24 }
+    const two = { name: 'Agent 2', model: 'Small', tokens: 2200, money: 0.02 }
+    const idle = { name: 'Agent 3', model: 'Small', tokens: 0, money: 0 }
+    expect(P2.reads([one])).toBe('Per patient, Agent 1 reads about 6,000 tokens on Large (1.2 k$ a month).')
+    expect(P2.reads([one, two, idle])).toBe('Per patient, Agent 1 reads about 6,000 tokens on Large (1.2 k$ a month) and Agent 2 reads about 2,200 tokens on Small (< 0.1 k$ a month).')
+    expect(P2.reads([idle])).toBe('')
+    expect(P2.reads([])).toBe('')
+    expect(P2.reads(undefined)).toBe('')        // a game kept before the rule
+    expect(P2.readsIntro('Agent 1', 'Large', 6000, 1.24)).toBe('With the lines it has now, Agent 1 reads about 6,000 tokens per patient. On Large that costs 1.2 k$ a month. A model is paid by the token, so a long source costs more than a short one, and it costs the most on a large model.')
+  })
   it('says why an action cannot be paid, also when the account is below zero', () => {
     setMoneyUnit('k$')
     expect(P2.needsMoney(8, 5)).toBe('Costs 8 k$, and you have 5 k$ left.')

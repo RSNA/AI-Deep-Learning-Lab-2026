@@ -513,7 +513,8 @@ type Build = {
           columns?: { label: Text; hint: Text }[] }   // one per column: the stage of the work it
                                             // stands for, and one sentence on it. Names only.
                                             // Without it nothing stands above the columns
-  efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
+  efforts?: { id: string; size?: number     // `size`: what a model reads of a source of this kind for one
+              key?: object }[]              // case, in reading units (needed with `reading`). The kinds of effort a source may name. Never sent
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
   validate: { runs: number; seconds: number
@@ -523,6 +524,8 @@ type Build = {
                                             // default), or these people rush (section 6.6)
   handoff: { keep: number }                 // what survives one line between two tiles, 0 to 1
   quality_cap?: number                      // a prompt cannot lift an AI worker above this. Default 1
+  reading?: { handoff: number               // a model is paid for what it reads: the size of what a tile
+              tokens_per_unit?: number }    // hands on, and tokens per unit for the screen (default 1,000)
   facts: { id: FactId
            miss: { missing: Text            // shown with a missed case: nothing on the map reaches it
                    weak: Text }             // the map reaches it and loses it too often
@@ -593,7 +596,8 @@ type Worker = {
   by_model?: Record<ModelId, Quality>       // with needs_model: one entry per model it may carry
   quality?: Quality                         // without needs_model
   load?: { free: number; factor: number }   // lines in beyond `free` each multiply the judgment by `factor`
-  calls?: number                            // model calls per case, multiplies the price of the model. Default 1
+  calls?: number                            // model calls per case, multiplies the price of the model. Default 1.
+                                            // Not used in a pack with `reading`
   run?: number; complexity?: number
   pool?: PoolId                             // required for a person
   minutes?: { decide: number; check: number; per_line: Record<Effort, number> }   // required for a person
@@ -1361,6 +1365,11 @@ among equals the first of the row. A person pays `per_line` of that kind. So a s
 the same source earns nothing and loses nothing in accuracy, and every tile and line of the
 row still counts toward the complexity of the map (section 6.6, what the map takes to run).
 
+*A tool behind a tool.* A tool in a row looks up its `prepares` entry first by the kind that
+the tool before it made of the source (the last candidate) and only then by the raw effort of
+the source. So a pack can give a tool an entry for a prepared kind: a regex behind patient
+matching works on the matched records. A pack without such entries scores as before.
+
 *The order.* Tiles are scored in the order of the handoffs: a tile comes after every tile that
 hands to it, and among tiles free to come next the one nearer the top left comes first (column,
 row, id). Private data is followed along the lines in the same order. An overloaded worker's
@@ -1376,11 +1385,21 @@ raw       = 1000 × accuracy
 *What the map takes to run*, counted over every placed tile and every line, live or stray:
 
 - **Money a month** = for every tile `w.run`, plus for a tile with a model and a compute
-  `w.calls × model.run × compute.price_factor`, plus `source.run` once for every source that a
+  `amount × model.run × compute.price_factor`, plus `source.run` once for every source that a
   line leaves (however many lines), plus `compute.run_fixed` once for every compute that at
   least one tile uses. `evaluate` also returns this sum as a **bill**: one line for the calls
   of the models at each place, one for the fixed cost of each place, one for the tiles of each
   kind, one for each source, in the order of first use, without the lines that cost nothing.
+  `amount` is `w.calls` in a pack without `reading`. With `reading` **a model is paid for what
+  it reads**, and `amount` is the reading units of the tile: the `size` of the effort of every
+  source on a direct line, the size of the kind the tile takes of every source behind a tool
+  (`pickPrepared`, by its own fetch numbers under its prompt), and `reading.handoff` for every
+  other tile with a line into it (the summary of an agent, the note of a person). `running`
+  returns them as `reads`, per tile with a model: units, money a month, model and place. A
+  browser gets tokens (`units × tokens_per_unit`) and money for the player's own tiles, by the
+  name of each tile on the board, and never a size of the pack. The line under the map says
+  them in one sentence, the chooser of a tile's model says them for that tile, and the bill of
+  a Phase 3 report lists them under the model calls of their place.
 - **Minutes per case, by pool** = for every person tile, `minutes.check` when a tile has a line
   into it and `minutes.decide` when none has, plus `minutes.per_line[source.effort]` for every
   line from a source into it.
