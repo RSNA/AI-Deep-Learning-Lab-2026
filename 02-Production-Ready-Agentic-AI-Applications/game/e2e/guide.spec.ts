@@ -90,7 +90,7 @@ test('the tour of each phase: it starts after the letter, steps back and forth, 
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
   await expect(card).toContainText('1 of 8')
-  await expect(card).toContainText('Where patient data and evidence live')
+  await expect(card).toContainText('where patient data and evidence live')
   for (let i = 0; i < 3; i++) await card.getByRole('button', { name: 'Next' }).click()
   await expect(card).toContainText('When it runs')          // the step that says the map works ahead of the person who signs
   for (let i = 0; i < 4; i++) await card.getByRole('button', { name: 'Next' }).click()
