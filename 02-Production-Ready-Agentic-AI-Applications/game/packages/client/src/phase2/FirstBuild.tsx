@@ -9,7 +9,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import type { DevelopmentContent, DevelopmentView } from '@lab02/protocol'
+import { GUIDE_PAD, placeCard, useCardSize } from '../components/guideCard.ts'
 import { gameNow, useTick } from '../lib/clock.ts'
+import { bringIntoView, shownChildrenRect, shownRect, type Rect } from '../lib/inView.ts'
 import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
 import type { BoardApi, BoardTab } from './Board.tsx'
@@ -23,29 +25,13 @@ export const useFirstBuild = create<{ open: boolean; start: () => void; end: () 
   end: () => set({ open: false }),
 }))
 
-type Rect = { x: number; y: number; w: number; h: number }
 /** Where a step is: before its first press (`a`) or after it (`b`: something is picked, a chooser is open, a line is being drawn). */
 type Half = 'a' | 'b'
-const PAD = 6
 const F = P2.first
 
 /** The first element of a selector that is on the screen now (a phone tab may hide the others). */
 function onScreen(selector: string): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>(selector)].find((el) => el.getClientRects().length > 0) ?? null
-}
-
-/** The part of an element that shows: inside the window and inside every box that scrolls or clips it. */
-function shownRect(el: HTMLElement): Rect | null {
-  const r = el.getBoundingClientRect()
-  let l = Math.max(r.left, 0), t = Math.max(r.top, 0), rt = Math.min(r.right, window.innerWidth), b = Math.min(r.bottom, window.innerHeight)
-  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-    const s = getComputedStyle(p)
-    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
-    const c = p.getBoundingClientRect()
-    if (s.overflowX !== 'visible') { l = Math.max(l, c.left); rt = Math.min(rt, c.right) }
-    if (s.overflowY !== 'visible') { t = Math.max(t, c.top); b = Math.min(b, c.bottom) }
-  }
-  return rt - l > 8 && b - t > 8 ? { x: l, y: t, w: rt - l, h: b - t } : null
 }
 
 /** A label inside a sentence: "radiologist", and "AI agent" as it is. */
@@ -136,6 +122,7 @@ export function FirstBuild({ api, dv, content, who }: {
   const card = useRef<HTMLDivElement>(null)
   // What changes the place of the ring: the step, and what it names.
   const stepKey = step ? JSON.stringify({ ...step, seconds: undefined, left: undefined, choices: undefined }) : ''
+  const size = useCardSize(card, step ? `${stepKey}:${seen.half}:${seen.covered}` : '')
 
   // A phone shows the tab that holds a new step, once. The player may go elsewhere afterwards.
   const stepId = step?.id ?? null
@@ -152,14 +139,12 @@ export function FirstBuild({ api, dv, content, who }: {
       const t = targetOf(step)
       let rect: Rect | null = null
       if (t.el) {
-        // The page comes to each half of a step once. After that the player scrolls as they like.
-        // On a laptop the board is the top of the page, and what a phase keeps is below it.
-        if (scrolledFor !== t.half) {
-          scrolledFor = t.half
-          if (apiRef.current.phone || tabOf(step) === 'results') t.el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-          else if (window.scrollY > 0 && !t.el.closest('.scrim')) window.scrollTo({ top: 0 })
-        }
-        rect = shownRect(t.el)
+        // The page comes to each half of a step once, wherever its part of the screen is: a row of
+        // the board below the fold, a card under the board, a choice far down a list. After that
+        // the player scrolls as they like.
+        if (scrolledFor !== t.half) { scrolledFor = t.half; bringIntoView(t.el) }
+        // The row of prompts is as wide as its window: the ring goes around the prompts that are in it.
+        rect = t.el.classList.contains('pcards') ? shownChildrenRect(t.el) : shownRect(t.el)
       }
       const sheet = !!t.el?.closest('.scrim')
       // A window that the step is not about (a question, a letter, a card opened to read) comes
@@ -207,34 +192,15 @@ export function FirstBuild({ api, dv, content, who }: {
     case 'done': title = F.done.title; text = F.done.text(step.free, step.left); more = F.done.more; primary = { label: F.done.ok, press: () => { finish(); apiRef.current.show('map') } }; break
   }
 
-  // The card stands beside the ring: right, left, below or above, whichever has room. With no
-  // room, it stands in the corner of the screen where it covers least of what the ring is around.
+  // The card stands beside the ring and never over it while there is room (components/guideCard.ts).
   const { n, of } = firstStepNumber(plan, step.id)
-  const narrow = vw.w < 640
-  const cw = Math.min(narrow ? vw.w - 24 : 340, vw.w - 24)
-  const ch = card.current?.offsetHeight ?? 190
-  const low = vw.h - ch - (narrow ? 76 : 12)
-  const place = (): { left: number; top: number } => {
-    if (!rect) return { left: narrow ? 12 : vw.w - cw - 12, top: low }
-    const r = { l: rect.x - PAD, t: rect.y - PAD, r: rect.x + rect.w + PAD, b: rect.y + rect.h + PAD }
-    if (!narrow && vw.w - r.r >= cw + 24) return { left: r.r + 12, top: r.t }
-    if (!narrow && r.l >= cw + 24) return { left: r.l - cw - 12, top: r.t }
-    if (vw.h - r.b >= ch + (narrow ? 88 : 24)) return { left: r.l, top: r.b + 12 }
-    if (r.t >= ch + 24) return { left: r.l, top: r.t - ch - 12 }
-    const covers = (c: { left: number; top: number }) =>
-      Math.max(0, Math.min(c.left + cw, r.r) - Math.max(c.left, r.l)) * Math.max(0, Math.min(c.top + ch, r.b) - Math.max(c.top, r.t))
-    const corners = [{ left: 12, top: low }, { left: vw.w - cw - 12, top: low }, { left: 12, top: 12 }, { left: vw.w - cw - 12, top: 12 }]
-    return corners.reduce((best, c) => (covers(c) < covers(best) ? c : best))
-  }
-  let { left, top } = place()
-  left = Math.max(12, Math.min(left, vw.w - cw - 12))
-  top = Math.max(12, Math.min(top, low))
+  const { left, top, width } = placeCard(rect, vw, size, 'corner')
 
   if (at.covered) return null
   return (
     <div className="fb">
-      {rect && <div className={`fb-ring${at.sheet ? ' in-sheet' : ''}`} style={{ left: rect.x - PAD, top: rect.y - PAD, width: rect.w + 2 * PAD, height: rect.h + 2 * PAD }} />}
-      <div ref={card} className="panel fb-card" role="status" aria-live="polite" data-first-build={step.id} data-half={half} style={{ left, top, width: cw }}>
+      {rect && <div className={`fb-ring${at.sheet ? ' in-sheet' : ''}`} style={{ left: rect.x - GUIDE_PAD, top: rect.y - GUIDE_PAD, width: rect.w + 2 * GUIDE_PAD, height: rect.h + 2 * GUIDE_PAD }} />}
+      <div ref={card} className="fb-card guide-card" role="status" aria-live="polite" data-first-build={step.id} data-half={half} style={{ left, top, width }}>
         <div className="tour-top">
           <span className="tour-label">{F.label}</span>
           <span className="tour-n">{F.stepOf(n, of)}</span>

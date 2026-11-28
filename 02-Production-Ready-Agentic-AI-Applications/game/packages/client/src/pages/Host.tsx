@@ -594,27 +594,38 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
   // later section may show answers (section 10.8). Nobody is asked while no one can see the slides.
   const sectionAt = (i: number) => deck.sections.find((x) => i >= x.start && i < x.start + x.count)
   const roomSees = sc.shown === 'slides' && (sc.screens > 0 || sc.mirror)
+  // The console hears of the slide it asked for up to a second later, because the views of a
+  // host are sent at most once a second. A step by Back, Next or an arrow key therefore counts
+  // from the slide that was asked for last, so that two quick presses move two slides.
+  const asked = useRef<{ index: number; at: number } | null>(null)
+  useEffect(() => { if (asked.current?.index === sc.slide) asked.current = null }, [sc.slide])
+  const slideNow = () => (asked.current && performance.now() - asked.current.at < 3000 ? asked.current.index : sc.slide)
+  const send = (to: number, at: string) => {
+    asked.current = { index: to, at: performance.now() }
+    void cmd('slide_to', { index: to }, at).then((r) => { if (!r?.ok && asked.current?.index === to) asked.current = null })
+  }
   const slideTo = (index: number, at = 'slides') => {
     const to = Math.max(0, Math.min(deck.count - 1, index))
-    if (to === sc.slide) return
-    const from = sectionAt(sc.slide)
+    if (to === slideNow()) return
+    const from = sectionAt(slideNow())
     const target = sectionAt(to)
     // A section is due from the stage before its own: the welcome in the lobby, a recap at the reveal.
     const later = !!target && STAGES.indexOf(target.stage) > STAGES.indexOf(hv.stage) + 1
     if (roomSees && target && later && target.id !== from?.id) {
-      ask({ title: H.aheadTitle, text: H.ahead(target.title, STAGE_TITLE[hv.stage]), options: [{ label: H.aheadGo, tone: 'danger', run: () => void cmd('slide_to', { index: to }, at) }] })
+      ask({ title: H.aheadTitle, text: H.ahead(target.title, STAGE_TITLE[hv.stage]), options: [{ label: H.aheadGo, tone: 'danger', run: () => send(to, at) }] })
       return
     }
-    void cmd('slide_to', { index: to }, at)
+    send(to, at)
   }
+  const stepSlide = (delta: number) => slideTo(slideNow() + delta)
   // The look through the deck: a cursor of this tab only (section 10.8). Null means it follows the
   // shown slide. Once the shown slide reaches it, it follows again.
   const [look, setLook] = useState<number | null>(null)
   const at = look === null ? sc.slide : Math.max(0, Math.min(deck.count - 1, look))
   const lookTo = (i: number) => { const to = Math.max(0, Math.min(deck.count - 1, i)); setLook(to === sc.slide ? null : to) }
   useEffect(() => { setLook((l) => (l === sc.slide ? null : l)) }, [sc.slide])
-  const slideRef = useRef(slideTo)
-  slideRef.current = slideTo
+  const stepRef = useRef(stepSlide)
+  stepRef.current = stepSlide
   const lookRef = useRef(lookTo)
   lookRef.current = lookTo
   const atRef = useRef(at)
@@ -636,8 +647,9 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
     return () => ro.disconnect()
   }, [])
 
-  // The left and right arrow keys, while no field has the focus: for the host in charge they move
-  // the shown slide, with Shift only the look. For any other host they move the look.
+  // The left and right arrow keys, while no field has the focus and no window is open: for the
+  // host in charge they move the shown slide, with Shift only the look. For any other host they
+  // move the look. The focus may sit on any button of the console.
   useEffect(() => {
     if (deck.count === 0) return
     const on = (e: KeyboardEvent) => {
@@ -645,14 +657,15 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const t = e.target as HTMLElement | null
       if (t && (t.closest('input, select, textarea, [contenteditable]') || t.closest('[role="dialog"]'))) return
+      if (document.querySelector('.scrim')) return
       const step = e.key === 'ArrowRight' ? 1 : -1
       e.preventDefault()
-      if (canAct && !e.shiftKey) slideRef.current(sc.slide + step)
+      if (canAct && !e.shiftKey) stepRef.current(step)
       else lookRef.current(atRef.current + step)
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [canAct, deck.count, sc.slide])
+  }, [canAct, deck.count])
 
   return (
     <section className="panel">
@@ -722,9 +735,9 @@ function Projector({ hv, clock, cmd, refusals, ask, token, code, canAct }: {
           {deck.count === 0 ? <div className="hint">{H.noSlides}</div> : (
             <>
               <div className="slidenav">
-                <button className="btn small" onClick={() => slideTo(sc.slide - 1)} disabled={sc.slide <= 0}>{H.prev}</button>
+                <button className="btn small" onClick={() => stepSlide(-1)} disabled={sc.slide <= 0}>{H.prev}</button>
                 <span className="num slidecount">{H.slideOf(sc.slide + 1, deck.count)}</span>
-                <button className="btn small" onClick={() => slideTo(sc.slide + 1)} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
+                <button className="btn small" onClick={() => stepSlide(1)} disabled={sc.slide >= deck.count - 1}>{H.next}</button>
               </div>
               {section && <div className="sectitle">{section.title}</div>}
               {canAct && <div className="hint">{H.keysLine}</div>}

@@ -53,6 +53,8 @@ a { color: var(--ink); font-weight: 800; }
 .panel-head.sky { background: var(--sky); }
 .panel-head.sun { background: var(--sun); }
 .panel-head.lav { background: var(--lav); }
+.panel-head.rose { background: var(--rose); }
+.panel-head.orange { background: var(--sys-1); }
 .panel-head.bar { background: var(--bar); color: #fff; }
 .panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 
@@ -495,9 +497,26 @@ input.field.bad { border-color: var(--bad); }
 .solobar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 16px; border-bottom: 3px solid var(--line); background: var(--sun-bg); font-weight: 700; font-size: 14px; }
 .solo-tag { font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; font-size: 12px; }
 .solo-say { flex: 1 1 200px; min-width: 0; }
-.solobar .acts { display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto; }
+.solobar .acts { display: flex; gap: 8px; align-items: center; flex: 0 1 auto; min-width: 0; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+/* The speed of the clock: one row of small keys, as high as the buttons beside it. */
+.solo-speed { display: inline-flex; align-items: center; }
+.solo-speed-l { margin-right: 8px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
+.solo-speed button { min-width: 38px; height: 36px; padding: 0 6px; font-family: var(--text); font-size: 14px; font-weight: 800; background: var(--panel); color: var(--ink); border: 3px solid var(--line); cursor: pointer; }
+.solo-speed button + button { margin-left: -3px; }
+.solo-speed button[aria-pressed="true"] { background: var(--sun); color: var(--on); position: relative; }
+.solo-speed button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; position: relative; z-index: 1; }
+.solo-speed button:disabled { cursor: default; }
 /* A phone keeps the strip to one row: the buttons say what happens. */
-@media (max-width: 700px) { .solobar { padding: 6px 10px; } .solo-say { display: none; } }
+@media (max-width: 700px) {
+  .solobar { padding: 6px 10px; } .solo-say { display: none; }
+  /* A phone in a phase: the speed stands beside the name of the strip, the button to end the phase under it. */
+  .solobar.timed { row-gap: 6px; }
+  .solobar.timed .acts { display: contents; }
+  .solobar.timed .solo-tag { margin-right: auto; }
+  .solobar.timed .acts > .btn { margin-left: auto; }
+  .solo-speed button { min-width: 32px; padding: 0 4px; }
+  .solo-speed-l { margin-right: 6px; }
+}
 .startsolo { font-size: clamp(20px, 5.6vw, 32px); }
 /* The waiting room of a late joiner */
 .waitroom { padding: 14px 16px 24px; width: 100%; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
@@ -548,7 +567,13 @@ input.field.bad { border-color: var(--bad); }
   box-shadow: 0 0 0 200vmax rgba(15, 15, 36, 0.58), 0 0 0 6px rgba(255, 185, 60, 0.35);
   transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease;
 }
-.tour-card { position: fixed; pointer-events: auto; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 5px 5px 0 var(--shade); }
+.tour-card { position: fixed; pointer-events: auto; padding: 0 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+/* A card of a tour or of the guided first build is no part of the game, and it must not pass for
+   one of its menus: a dashed border in the yellow of the box it points with, a tinted ground, and
+   a yellow strip that names it. */
+.guide-card { border: 3px dashed var(--sun); background: var(--sun-bg); color: var(--ink); box-shadow: 0 0 0 3px var(--on), 6px 6px 0 3px var(--shade); }
+.guide-card .tour-top { margin: 0 -14px 2px; padding: 4px 14px; background: var(--sun); color: var(--on); }
+.guide-card .tour-label::before { content: '?'; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 7px; border: 2px solid var(--on); border-radius: 50%; font-size: 11px; line-height: 1; }
 .tour-card h3 { margin: 0; font-family: var(--face); font-weight: 400; font-size: 24px; line-height: 1.05; }
 .tour-card p { margin: 0; font-size: 15.5px; line-height: 1.4; }
 .tour-card .tour-clock { font-size: 14px; color: var(--muted); font-weight: 700; }

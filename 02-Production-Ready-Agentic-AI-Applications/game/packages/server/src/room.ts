@@ -645,6 +645,19 @@ export class Room {
     const { pack, db, config } = this.deps
     const now = this.now()
     this.handle(advance(this.state, pack, now))
+    // The speed of a single-player game is the scale of its clock, which the server keeps and
+    // stores with the session. The engine counts in game time and never sees the scale, so a
+    // faster or slower game is scored like any other and comes back at its speed after a restart.
+    if (parsed.data.type === 'solo.speed') {
+      if (this.kind !== 'solo') return ack({ ok: false, error: 'not_solo' })
+      if (this.state.closed) return ack({ ok: false, error: 'wrong_stage' })
+      const { speed } = parsed.data.payload
+      if (speed !== this.clock.scale) {
+        this.setClock(this.clock.running, speed)
+        db.logEvent(this.code, 'speed', this.now(), config.wallNow(), { speed })
+      }
+      return ack({ ok: true })
+    }
     // The player of a single-player game moves it on (section 6.14). Each of those commands is
     // applied and logged as the facilitator's command it stands for, so a restore replays it.
     let actor: 'player' | 'host' = 'player'

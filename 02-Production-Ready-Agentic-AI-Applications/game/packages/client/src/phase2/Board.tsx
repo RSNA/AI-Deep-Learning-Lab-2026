@@ -153,15 +153,16 @@ function ValidateButton({ dv, guide, first, free, onValidate, onWhy, refused, re
   )
 }
 
-/**
- * The letters and the insights of the phase: the opening letter first, then the letters and memos
- * that arrived since (Phase 3), the newest first, then a card per action that brought an insight.
- */
 /** The bar of a card that is opened in a window takes the color of the group of its action. */
-const POP_HEAD: Record<string, string> = { learn: 'sky', build: '', buy: 'sun', negotiate: 'lav' }
+const POP_HEAD: Record<string, string> = { learn: 'sky', build: '', buy: 'sun', negotiate: 'lav', watch: 'rose', maintain: 'orange' }
 
+/**
+ * The letters and the insights of the phase as one row of cards, the newest first: the letters
+ * and memos that arrived (Phase 3), a card per action that brought an insight, and the letter
+ * that opened the phase, each at the time it came.
+ */
 export function InsightsPanel({ w, content, dv, fresh, phase = 'development', letters = [], title = P2.insights, freshLetters }: {
-  w: Welcome; content: BoardContent; dv: Pick<BoardView, 'insights'>; fresh: Set<string>
+  w: Welcome; content: BoardContent; dv: Pick<BoardView, 'insights' | 'actionsDone'>; fresh: Set<string>
   phase?: BoardPhase
   /** Letters and memos of the inbox that stay as cards, the newest first. */
   letters?: InboxItem[]
@@ -174,43 +175,50 @@ export function InsightsPanel({ w, content, dv, fresh, phase = 'development', le
   const idx = b ? w.system.cast.findIndex((c) => c.id === b.from) : -1
   const from = idx >= 0 ? w.system.cast[idx] : undefined
   const person = (id: string) => { const i = w.system.cast.findIndex((c) => c.id === id); return i >= 0 ? { c: w.system.cast[i]!, i } : null }
+  // When the insight of an action came: with its last run.
+  const doneAt = new Map<string, number>()
+  for (const d of dv.actionsDone) doneAt.set(d.id, Math.max(d.atMs, doneAt.get(d.id) ?? 0))
+  const cards: { at: number; card: ReactNode }[] = []
+  for (const m of letters) {
+    const p = person(m.from)
+    cards.push({ at: m.atMs, card: (
+      <ClampCard key={m.id} className={`card letter${freshLetters?.has(m.id) ? ' fresh' : ''}`} bodyClass="cbody" data-letter={m.id} words={{ more: P2.showMore, less: P2.showLess }}
+        pop={{ title: `${m.kind === 'announcement' ? P2.memoCard : P2.letterCard}${p ? ` · ${p.c.role}` : ''}`, head: m.kind === 'announcement' ? 'sky' : 'sun', close: P2.close }}
+        head={<div className={`chead ${m.kind === 'announcement' ? 'h-memo' : 'h-letter'}`}><span className="src">{m.kind === 'announcement' ? P2.memoCard : P2.letterCard}{p ? ` · ${p.c.role}` : ''}</span></div>}>
+        {m.title && <h3>{m.title}</h3>}
+        {p && <div className="speaker"><Portrait c={p.c} cast={w.system.cast} index={p.i} size={48} /><div><div className="nm">{p.c.name}</div><div className="rl">{p.c.role}</div></div></div>}
+        <div className="letter-text"><Paragraphs text={m.text} /></div>
+      </ClampCard>
+    ) })
+  }
+  if (b) {
+    cards.push({ at: inbox?.atMs ?? 0, card: (
+      <ClampCard key="brief" className="card letter" bodyClass="cbody" data-letter="brief" words={{ more: P2.showMore, less: P2.showLess }} pop={{ title: `${P2.letterCard}${from ? ` · ${from.role}` : ''}`, head: 'sun', close: P2.close }}
+        head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
+        <h3>{b.title}</h3>
+        {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
+        <div className="letter-text"><Paragraphs text={b.text} /></div>
+      </ClampCard>
+    ) })
+  }
+  for (const x of [...dv.insights].reverse()) {
+    const a = content.actions.find((y) => y.id === x.action)
+    cards.push({ at: doneAt.get(x.action) ?? 0, card: (
+      <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
+        pop={{ title: P2.fromAction(a?.title ?? ''), head: POP_HEAD[a?.group ?? 'learn'] ?? 'lav', close: P2.close }}
+        head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
+        <h3>{x.tile.headline}</h3>
+        <TileBody tile={x.tile} cast={w.system.cast} />
+      </ClampCard>
+    ) })
+  }
+  // Each kind is listed above with its newest first, and cards of one moment keep that order.
+  const row = [...cards].sort((x, y) => y.at - x.at)
   return (
     <section className="panel p2insights" id="p2-insights">
       <div className="panel-head lav"><span>{title}</span><span className="sub">{dv.insights.length + letters.length}</span></div>
       <div className="panel-body">
-        <div className="icards">
-          {letters.map((m) => {
-            const p = person(m.from)
-            return (
-              <ClampCard key={m.id} className={`card letter${freshLetters?.has(m.id) ? ' fresh' : ''}`} bodyClass="cbody" data-letter={m.id} words={{ more: P2.showMore, less: P2.showLess }}
-                pop={{ title: `${m.kind === 'announcement' ? P2.memoCard : P2.letterCard}${p ? ` · ${p.c.role}` : ''}`, head: m.kind === 'announcement' ? 'sky' : 'sun', close: P2.close }}
-                head={<div className={`chead ${m.kind === 'announcement' ? 'h-memo' : 'h-letter'}`}><span className="src">{m.kind === 'announcement' ? P2.memoCard : P2.letterCard}{p ? ` · ${p.c.role}` : ''}</span></div>}>
-                {m.title && <h3>{m.title}</h3>}
-                {p && <div className="speaker"><Portrait c={p.c} cast={w.system.cast} index={p.i} size={48} /><div><div className="nm">{p.c.name}</div><div className="rl">{p.c.role}</div></div></div>}
-                <div className="letter-text"><Paragraphs text={m.text} /></div>
-              </ClampCard>
-            )
-          })}
-          {b && (
-            <ClampCard className="card letter" bodyClass="cbody" words={{ more: P2.showMore, less: P2.showLess }} pop={{ title: `${P2.letterCard}${from ? ` · ${from.role}` : ''}`, head: 'sun', close: P2.close }}
-              head={<div className="chead h-letter"><span className="src">{P2.letterCard}{from ? ` · ${from.role}` : ''}</span></div>}>
-              <h3>{b.title}</h3>
-              {from && <div className="speaker"><Portrait c={from} cast={w.system.cast} index={idx} size={48} /><div><div className="nm">{from.name}</div><div className="rl">{from.role}</div></div></div>}
-              <div className="letter-text"><Paragraphs text={b.text} /></div>
-            </ClampCard>
-          )}
-          {dv.insights.map((x) => {
-            const a = content.actions.find((y) => y.id === x.action)
-            return (
-              <ClampCard key={x.action} className={`card${fresh.has(x.action) ? ' fresh' : ''}`} bodyClass="cbody" data-insight={x.action} words={{ more: P2.showMore, less: P2.showLess }}
-                pop={{ title: P2.fromAction(a?.title ?? ''), head: POP_HEAD[a?.group ?? 'learn'] ?? 'sky', close: P2.close }}
-                head={<div className={`chead h-g-${a?.group ?? 'learn'}`}><span className="src">{P2.fromAction(a?.title ?? '')}</span></div>}>
-                <h3>{x.tile.headline}</h3>
-                <TileBody tile={x.tile} cast={w.system.cast} />
-              </ClampCard>
-            )
-          })}
-        </div>
+        <div className="icards">{row.map((c) => c.card)}</div>
         {!dv.insights.length && <p className="muted">{P2.insightsEmpty}</p>}
       </div>
     </section>

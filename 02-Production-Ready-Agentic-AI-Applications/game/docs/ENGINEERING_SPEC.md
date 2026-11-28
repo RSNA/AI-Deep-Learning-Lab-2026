@@ -1970,13 +1970,22 @@ A session has a `kind`: `multi`, played by a room with a facilitator, or `solo`,
 person alone. A state saved before kinds existed is `multi`.
 
 - A solo session takes one player: once it has one, joining is closed. Its mode is
-  `rehearsal`, so the game runs at real speed.
+  `rehearsal`, so the game starts at real speed.
 - **Its player moves it on.** Three player commands exist for it, and each stands for one
   host command that the engine then applies: `solo.next` for `next` in an untimed stage,
   `solo.end_now` for `end_now` in a timed one, and `solo.slide {delta}` for `slide`, inside
   the section of the stage only (the last slide is left with `solo.next`). In a `multi`
   session each is refused with `not_solo`. Anything else a facilitator can do does not exist
-  in a solo game: no reset, no restart, no pause, no change of speed.
+  in a solo game: no reset, no restart, no pause.
+- **Its player sets the speed.** A fourth command, `solo.speed {speed}`, sets the scale of the
+  clock to one of `SOLO_SPEEDS` (¼, ½, 1, 2, 4). It acts on the server's clock like
+  `set_scale` and never reaches the engine, which counts in game time: the timer of a phase,
+  the duration of an action or a validation and the reports of Phase 3 all run faster or
+  slower, and the score of a game does not depend on its speed. The scale is stored with the
+  clock, so it survives a reload, a reconnect, a game set aside and a restart of the server,
+  and it stays as set from one phase to the next. Refused with `not_solo` in a `multi`
+  session. The strip of section 10.1 shows the five speeds during a phase, with the one in
+  use pressed in, and says in a sentence what the speed is while it is not 1.
 - **The clock closes nothing.** A timed stage of a solo session does not end when its time is
   over: `advance` leaves it open, and it ends with `solo.end_now`, before its time or after.
   `stageEndsAtMs` stays where it was, so the timer of the player stands at zero. In Phase 3
@@ -2929,7 +2938,14 @@ system badge, the phase and its label, the countdown, the rank, a connection dot
   one or two sentences on what the area is and what the player does there (at most 30 words, the
   screen and never the answer), "2 of 6", Back, Next and End tour. The first card says once that
   the clock keeps running. Escape ends it, the arrow keys step it, and on a phone it switches to
-  the tab that holds the area and returns to the first tab at the end. A tour that was ended or
+  the tab that holds the area and returns to the first tab at the end. Each step brings its
+  area into view first (`lib/inView.ts`): the page and every box around the area scroll until
+  it shows, to the middle of the window when it fits. The card then stands beside the area
+  (right, left, below, above, narrower when a side is narrow), and with no free side in the
+  corner where it covers least (`components/guideCard.ts`). **A card of a tour is no panel of
+  the game** and must not pass for one: a dashed border in the yellow of the lit box, a
+  tinted ground and a yellow strip with a question mark that names it (`.guide-card`). The
+  guided first build of section 10.5 uses the same card, the same ring and the same rules. A tour that was ended or
   finished does not start by itself again in that browser (a flag per player, run and phase). A
   phase only passes a list of steps (`components/Tour.tsx`), so Phase 3 adds a list. The host
   console gets nothing for it.
@@ -3254,8 +3270,8 @@ and a switch between them. It does not scroll away with the cards.
   or the number, then the body and the note with their bold and italic marks. Nothing is
   clamped, cut or hidden behind a click. Body text is 14 px or more. The cards of a row start
   at the same height and may end at different heights.
-- **Order.** The opening letter is first. The insight cards follow in order of arrival, and a
-  card never changes its place afterwards, so a player finds it again where it was. The count
+- **Order.** The newest card is first: every insight from the last one that arrived back to
+  the first, then the opening letter. A new card pushes the others down by one place. The count
   on the title line counts insights and leaves the letter out.
 - **Arrival.** A new card appears with a short highlight and a "New" tag that goes when the
   card has been on screen for a few seconds.
@@ -3639,8 +3655,11 @@ can be opened from its chip, loaded back onto the map with "Load this map", or c
 this map". The chosen one says "This map will be sent", and "Send the best one again" returns to
 the default. A line says that the best map is sent unless the player picks another.
 
-**Insights.** The opening letter, then a card per action that brought one, with a head in the
-color of its group and the tile drawn as in Phase 1. A new card is highlighted, and a notice says
+**Insights.** A card per action that brought one, the newest first, and the opening letter
+after them (in Phase 3 the letters of the year stand among them, each at the time it came).
+A card has a head in the color of the group of its action (a group without a color of its
+own gets the lavender one, so the dark words of a head are never on a dark ground) and the
+tile drawn as in Phase 1. A new card is highlighted, and a notice says
 "New insight: <title>" with Show.
 
 **Phone.** Below 1024 px the screen is four tabs at the bottom: Map, Actions, Toolbox, Results.
@@ -3713,7 +3732,9 @@ does now.
   has prompts, its prompt (the card says how many choices there are now and that more will
   come); join a source to it; put the person the pack requires behind it and join the two; join
   that person to the result; press Validate. When that validation is done the card says that
-  it was free and how many are left. "Skip the tutorial" ends it at any step. On a phone it
+  it was free and how many are left. Each step scrolls the page to its part of the screen
+  (Validate may be below the fold of a low window), and the ring of the row of prompts goes
+  around the prompts that are there. "Skip the tutorial" ends it at any step. On a phone it
   shows the tab that holds the step. Where the first validation is free (`validate.free`), the
   button, the list of validations and the purse say so.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
@@ -3861,7 +3882,8 @@ pass their own panels and words. Nothing of the board is copied.
   again: its button says so, and a quiet word under its title says how often it was done. An
   action with `upkeep` says what it costs a month from the period after it finished.
 - **Letters and memos.** Everything that arrives in the inbox during the year stays as a card
-  under "Letters and insights", the newest first, before the opening letter. Its arrival is said
+  under "Letters and insights", in one row with the insight cards and the opening letter,
+  the newest first. Its arrival is said
   in a toast with "Show", and money that arrives is said in a toast of its own. Nothing covers
   the board.
 - **The reveal.** The annual review beside the score: the mean of the periods, the money
@@ -3949,7 +3971,12 @@ pass their own panels and words. Nothing of the board is copied.
   "Next slide" with "Slide 3 of 5" on a slide and the name of what comes next on the last one
   of a section ("Start Phase 1"), "Continue" at a reveal, "End this phase now" in a phase
   (after a question, since the phase is then scored as it stands), and "Finish the game" at
-  the end. A phase stays open when its timer reaches zero: the timer then says "Over time",
+  the end. On a slide the left and right arrow keys do what "Back" and "Next slide" do, and
+  stop at the ends of the section: the step from its last slide starts a phase and stays
+  with the button. They do nothing while a field has the focus or a window is open. In a
+  phase the strip also holds "Speed" with the five speeds of section 6.14 as one row of keys
+  as high as the buttons, the one in use pressed in. On a phone the speed stands beside the
+  name of the strip and the button under it. A phase stays open when its timer reaches zero: the timer then says "Over time",
   the strip says that time is up and that the player may take the time they need, and its
   button ("End this phase") stands out. The notices of the last minutes say that the phase
   stays open. In Phase 3 the round timer says that the last report comes when the player
@@ -4130,7 +4157,8 @@ game moving into a break move both. A look elsewhere stays where it is while the
 moves, and once the shown slide reaches it, it follows again. After "Show this slide" the two
 agree. **The keys.** For the host in charge, the left and right arrow keys move the shown slide
 and, with Shift, only the look. For a host who is not in charge, they move the look. Nothing
-moves while a field or a dialog has the focus. The look stands outside the controls that need
+moves while a field has the focus or a dialog is open. A button of the console may have the
+focus. The look stands outside the controls that need
 control, so a host who is watching can prepare or check a slide while someone else presents.
 
 *Slides that run ahead of the game.* A section is due from the stage before its own: the

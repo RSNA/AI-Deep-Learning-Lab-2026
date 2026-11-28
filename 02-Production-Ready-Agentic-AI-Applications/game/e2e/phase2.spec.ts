@@ -468,12 +468,25 @@ async function followFirstBuild(page: Page): Promise<string[]> {
     if (id !== 'wait' && id !== 'validating') await expect(page.locator('.fb-ring')).toBeVisible()
     const box = (await card.boundingBox())!, vp = page.viewportSize()!
     expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1).toBe(true)
+    // The page has come to what the step is about: a part that fits the window shows whole, and
+    // on a laptop the card does not stand on it while a side of it has room for a card.
+    if (id !== 'wait' && id !== 'validating') {
+      const where = async () => {
+        const ring = await page.locator('.fb-ring').boundingBox(), c = await card.boundingBox()
+        if (!ring || !c || (await card.getAttribute('data-first-build')) !== id || (await card.getAttribute('data-half')) !== half) return 'gone'
+        if (ring.height < vp.height - 40 && (ring.y < -1 || ring.y + ring.height > vp.height + 1)) return 'the ring is outside the window'
+        const room = Math.max(ring.x, vp.width - ring.x - ring.width) >= 370 || Math.max(ring.y, vp.height - ring.y - ring.height) >= c.height + 30
+        const over = Math.max(0, Math.min(c.x + c.width, ring.x + ring.width) - Math.max(c.x, ring.x)) * Math.max(0, Math.min(c.y + c.height, ring.y + ring.height) - Math.max(c.y, ring.y))
+        return vp.width >= 1024 && room && over > 0 ? 'the card stands on the ring' : 'ok'
+      }
+      await expect.poll(where, { message: `step ${key}`, timeout: 4000 }).toMatch(/^(ok|gone)$/)
+    }
     if (id === 'action') await page.locator('.arow', { hasText: quoted(text) }).getByRole('button', { name: /^Start/ }).click()
     else if (id === 'card') await card.getByRole('button', { name: 'I have read it' }).click()
     else if (id === 'place' && half === 'a') await tool(page, /^Put your first (.+) on the map$/.exec(title)![1]!).click()
     else if (id === 'person' && half === 'a') await page.locator('.tbrow.k-person', { hasText: new RegExp(/^Now bring in the (.+)$/.exec(title)![1]!, 'i') }).first().click()
     else if (id === 'place' || id === 'person') await cell(page, id === 'place' ? 2 : 3, 2).click()
-    else if ((id === 'model' || id === 'runsOn' || id === 'prompt') && half === 'a') await agent.locator('.ct-part').nth(id === 'model' ? 0 : id === 'runsOn' ? 1 : 2).click()
+    else if ((id === 'model' || id === 'runsOn' || id === 'prompt') && half === 'a') await agent.locator('.ct-part').nth(id === 'model' ? 0 : id === 'runsOn' ? 1 : 2).click({ position: { x: 8, y: 4 } })
     else if (id === 'model' || id === 'runsOn') await page.locator('.scrim .partrow:not([disabled])').first().click()
     else if (id === 'prompt') await page.locator('.scrim .pcard .btn.go').last().click()
     else if (id === 'source' && half === 'a') await page.locator('.csource:not(.is-locked) .cport').first().click()
@@ -526,6 +539,25 @@ test('the guided first build: every step in turn, a free first validation, and t
   await expect(card).toContainText('You built a working system')
   await card.getByRole('button', { name: 'Keep building' }).click()
   await expect(card).toHaveCount(0)
+  s.close()
+})
+
+test('the guided first build in a low window: the page scrolls to each step, down to Validate below the fold', async ({ page }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  test.setTimeout(150_000)
+  await page.setViewportSize({ width: 1366, height: 640 })
+  const s = await setup(page, 'E2E first build low', 3)
+  await joinPicked(page, s.code, 'First Low', /Riverbend/)
+  await toDevelopment(page, s, 'keep')
+  // The card of the tutorial does not look like a panel of the game: a dashed border in the yellow of the ring.
+  const card = page.locator('.fb-card')
+  expect(await card.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('dashed')
+  expect(await card.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe(await page.locator('.fb-ring').evaluate((el) => getComputedStyle(el).borderTopColor))
+  const seen = await followFirstBuild(page)
+  expect(seen.at(-1)).toBe('done:a')
+  // The cards under the board, the newest first: the insight of the action, then the letter that opened the phase.
+  const order = await page.locator('#p2-insights .icards > *').evaluateAll((els) => els.map((el) => (el.hasAttribute('data-insight') ? 'insight' : el.getAttribute('data-letter'))))
+  expect(order).toEqual(['insight', 'brief'])
   s.close()
 })
 

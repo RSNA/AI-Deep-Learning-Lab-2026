@@ -8,6 +8,10 @@ const S = <T extends Record<string, z.ZodType>>(shape: T) => z.strictObject(shap
 // ------------------------------------------------------------------------------------------
 // Commands a player may send. Each phase step adds its commands here.
 // ------------------------------------------------------------------------------------------
+/** The speeds the clock of a single-player game may run at. 1 is the pace of a room, 2 makes every second count twice. */
+export const SOLO_SPEEDS = [0.25, 0.5, 1, 2, 4] as const
+export type SoloSpeed = (typeof SOLO_SPEEDS)[number]
+
 export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('planning.investigate'), payload: S({ id: z.string().max(80) }) }),
   S({ type: z.literal('planning.set_report'), payload: S({ picks: z.record(z.string().max(80), z.string().max(40)) }) }),
@@ -26,6 +30,8 @@ export const PlayerCommand = z.discriminatedUnion('type', [
   S({ type: z.literal('solo.next'), payload: S({}) }),
   S({ type: z.literal('solo.slide'), payload: S({ delta: z.union([z.literal(1), z.literal(-1)]) }) }),
   S({ type: z.literal('solo.end_now'), payload: S({}) }),
+  // The speed of the clock of a single-player game. It acts on the server's clock, not on the engine.
+  S({ type: z.literal('solo.speed'), payload: S({ speed: z.union(SOLO_SPEEDS.map((x) => z.literal(x))) }) }),
 ])
 export type PlayerCommand = z.infer<typeof PlayerCommand>
 export type PlayerCommandType = PlayerCommand['type']
