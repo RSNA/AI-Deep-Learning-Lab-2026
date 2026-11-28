@@ -85,7 +85,7 @@ test('the laptop: the first report, a reference map, the tour, validate and depl
   // No map came out of Phase 2, so nothing ran: the report says so.
   await expect(first).toContainText('No map ran')
   // The bill: nothing ran, so nothing was paid, and the report says what the account holds.
-  await expect(first.locator('.p3money')).toContainText('Nothing to pay. No system ran.')
+  await expect(first.locator('.p3money')).toContainText('There is nothing to pay, because no system ran.')
   await expect(first.locator('.p3money')).toContainText('Left in your account')
   await first.getByRole('button', { name: 'Back to the board' }).click()
   // A memo of the first round opens in a window of its own, after the report.
