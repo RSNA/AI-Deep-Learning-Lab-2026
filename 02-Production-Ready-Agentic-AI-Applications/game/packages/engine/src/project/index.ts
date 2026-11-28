@@ -254,7 +254,7 @@ function developmentView(s: SessionState, pack: Pack, p: PlayerState): Developme
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v) => ({
       id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null, rank: v.rank, of: v.of,
-      missed: missedView(b, v.missed),
+      missed: missedView(b, v.missed, v.map, { unlocked: unlockedOf(pack, p), actions: shownActions(pack, p) }),
       note: v.note ? b.notes.find((n) => n.id === v.note)?.text ?? null : null,
       running: show ? runningView(v.running) : null,
     })),

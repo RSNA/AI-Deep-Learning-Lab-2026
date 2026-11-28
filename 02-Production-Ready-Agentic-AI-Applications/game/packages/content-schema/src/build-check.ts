@@ -117,6 +117,11 @@ export function checkBuild(
     a.requires.forEach((r, j) => { if (!actionIds.has(r)) err(`${at}.requires[${j}]`, `unknown action "${r}"`); else if (r === a.id) err(`${at}.requires[${j}]`, 'an action cannot require itself') })
     a.unlocks.forEach((u, j) => { if (!items.has(u) || u === b.result.id) err(`${at}.unlocks[${j}]`, `unknown item "${u}"`) })
     if (!a.unlocks.length && !a.insight) err(at, 'an action unlocks nothing and has no insight')
+    for (const [from, to] of Object.entries(a.moves ?? {})) {
+      const places = new Set((b.compute ?? []).map((c) => c.id))
+      if (!places.has(from) || !places.has(to) || from === to) err(`${at}.moves`, `moves "${from}" to "${to}": both must be places to run, and not the same one`)
+      else if (b.models.some((m) => m.runs_on.includes(from) && !m.runs_on.includes(to))) err(`${at}.moves`, `a model runs on "${from}" and not on "${to}"`)
+    }
     if (a.insight?.type === 'quote' && !ctx.insightTileOk(a.insight.data.speaker)) err(`${at}.insight.data.speaker`, `unknown character "${a.insight.data.speaker}"`)
     if (a.developers > b.budget.developers) err(`${at}.developers`, `needs ${a.developers} developers, the practice has ${b.budget.developers}`)
   })

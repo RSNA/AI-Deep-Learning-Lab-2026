@@ -239,6 +239,7 @@ actions:
     developers: 0
     seconds: 25
     unlocks: [ls-c-private]
+    moves: {ls-c-api: ls-c-private}
     insight:
       type: stat
       headline: The private link is signed

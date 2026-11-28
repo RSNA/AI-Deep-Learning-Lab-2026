@@ -4,7 +4,7 @@
 // and whatever action has finished when the round ends. The scoring of a period is in
 // ../maintain.ts.
 import {
-  mapErrors, phase3Build, readyReasons, referenceMaps, ruledLines, startUnlocked,
+  mapErrors, movedPlaces, phase3Build, readyReasons, referenceMaps, ruledLines, startUnlocked,
   type BuildFile, type CanvasMap, type MaintainFile, type Pack, type ReferenceEntry,
 } from '@lab02/content-schema'
 import type { ErrorCode } from '@lab02/protocol'
@@ -14,7 +14,7 @@ import type {
   EngineEvent, FeedEntry, GameMs, MaintainingReport, MaintainingState, MaintainingValidation, PlayerState, SessionState,
 } from '../state.ts'
 import { fireDialogue } from '../story.ts'
-import { EMPTY_MAP, copyMap } from './development.ts'
+import { EMPTY_MAP, copyMap, moveMaps } from './development.ts'
 import type { PhaseModule } from './types.ts'
 
 export function maintainOf(pack: Pack, p: PlayerState): MaintainFile {
@@ -53,6 +53,7 @@ export function unlockedIn3(pack: Pack, p: PlayerState): Set<string> {
   const st = p.maintaining
   const out = startUnlocked(b3)
   for (const d of st?.actionsDone ?? []) for (const id of b3.actions.find((a) => a.id === d.id)?.unlocks ?? []) out.add(id)
+  for (const from of movedPlaces(b3, (st?.actionsDone ?? []).map((d) => d.id)).keys()) out.delete(from)
   for (const mo of maintainOf(pack, p).models) if (!st || !appeared(st, mo.appears)) out.delete(mo.id)
   return out
 }
@@ -232,6 +233,7 @@ function finishAction(pack: Pack, p: PlayerState, r: { id: string; started: numb
   st.actionsDone.push({ id: r.id, atMs: at, started: r.started, done: st.reports.length, ...(found !== null ? { found } : {}) })
   if (found !== null && !st.found.includes(found)) st.found.push(found)
   const a = build3Of(pack, p).actions.find((x) => x.id === r.id)
+  if (a?.moves) moveMaps(build3Of(pack, p), st.actionsDone, st)
   const events: EngineEvent[] = []
   if (a?.insight || found !== null) events.push({ kind: 'moment', playerId: p.id, atMs: at, ref: { type: 'insight', action: r.id } })
   events.push(...alarmsFor(pack, p, r.id, at))
@@ -484,6 +486,7 @@ export const maintaining: PhaseModule = {
       const offer = referenceOffer(pack, p, ref)
       if (!affords(st, offer.price)) return fail('not_enough_money')
       for (const need of offer.needs) st.actionsDone.push({ id: need.id, atMs: now, started: seen, done: seen })
+      moveMaps(b3, st.actionsDone, st)
       st.money -= offer.price
       st.paidAdoption += offer.price
       const ev = evaluate(ref.map, b3)

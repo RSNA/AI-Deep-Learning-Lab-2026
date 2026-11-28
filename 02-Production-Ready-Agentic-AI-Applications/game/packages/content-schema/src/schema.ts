@@ -382,6 +382,10 @@ const ActionShape = {
   seconds: PosInt,
   requires: z.array(Id).default([]),
   unlocks: z.array(Id).default([]),
+  // `moves`: when the action is done, every tile that runs on a place named as a key runs on the
+  // place named as its value, on every map the player holds, and the first place leaves the
+  // shelf (an agreement that covers the calls a practice already makes).
+  moves: z.record(Id, Id).optional(),
   insight: Tile.nullable().optional(),
   story_time: Text.optional(),
   key: K({}).optional(),

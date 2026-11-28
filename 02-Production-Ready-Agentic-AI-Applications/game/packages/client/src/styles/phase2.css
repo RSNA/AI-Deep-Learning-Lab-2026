@@ -349,6 +349,7 @@
 .vfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .vmiss p { font-size: 15px; line-height: 1.45; }
 .vmiss .why { color: var(--muted); }
+.vmiss .vhint { margin-top: 4px; }
 .vnote { padding: 6px 10px; background: var(--sun-bg); border-left: 5px solid var(--sun); font-size: 14.5px; line-height: 1.4; }
 .vacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vacts .flag { margin-left: 0; font-size: 12px; padding: 4px 10px; }

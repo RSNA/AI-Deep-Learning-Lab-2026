@@ -60,6 +60,7 @@ export function ResultsPanel({ dv, runs, pools, current, onLoad, onChoose, readO
                       <div className="vmiss">
                         <div className="eyebrow">{P2.missedOne}</div>
                         <p><b>{v.missed.title}.</b> {v.missed.text} <span className="why">{v.missed.why}</span></p>
+                        <p className="vhint"><b>{P2.hintLabel}</b> {v.missed.hint}</p>
                       </div>
                     )}
                     {rushed.length > 0 && <div className="vnote rush">{rushed.map((x, k) => <p key={k}>{x}</p>)}</div>}

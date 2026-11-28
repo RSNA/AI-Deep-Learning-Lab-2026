@@ -560,6 +560,8 @@ type Build = {
               seconds: number
               requires?: ActionId[]         // actions that must be done first
               unlocks?: ItemId[]            // an item that no action unlocks is open from the start
+              moves?: Record<ComputeId, ComputeId>   // once done, every tile on the first place runs on the second, on every
+                                            // map the player holds, and the first place leaves the shelf
               insight?: Tile | null         // a tile in the format of insights.yaml
               story_time?: Text; key?: object }[]
   cases: { id: CaseId; weight: number
@@ -1196,7 +1198,7 @@ actions. Validation ids are `v1`, `v2` and so on.
 | Command | Accepted when | Effect |
 | --- | --- | --- |
 | `development.set_map {map}` | Stage is `development.play`. The map passes every rule below | Replaces the draft |
-| `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled |
+| `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled. When an action with `moves` is done (also in Phase 3, and when a reference map buys it), every tile that runs on a place it moves from runs on the place it moves to, on the draft, on the map being validated and on every validated map, with what they cost to run. The validation in service keeps its id, so it is not a new map. The place moved from leaves the shelf, and a map that still names it is refused (`invalid_map`) |
 | `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft |
 | `development.choose {id or null}` | Stage is `development.play`. The validation is the player's own and finished | Marks the map to submit. `null` returns to the default |
 
@@ -2556,7 +2558,7 @@ type DevelopmentView = {
   validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
                  unhurried: number | null               // set when people rushed: the accuracy with the time
                  rank: number | null; of: number        // the rank in the live column right after it
-                 missed: { title: Text; text: Text; why: Text } | null
+                 missed: { title: Text; text: Text; why: Text; hint: Text } | null
                  note: Text | null
                  running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null }[]
   submitId: string | null                               // what would be submitted now, or was
@@ -2585,7 +2587,7 @@ type MaintainingReport = {
   rank: number | null; of: number                 // among the practices that hold this report
   sentences: { validity: Text | null; reliability: Text | null; gap: Text | null
                people: Text | null; steady: Text | null; noMap: Text | null }
-  missed: { title: Text; text: Text; why: Text } | null
+  missed: { title: Text; text: Text; why: Text; hint: Text } | null
   note: Text | null
   worstPart: { label: Text; text: Text } | null   // the part that failed most, and what happened
   worstChange: { symptom: Text; cause: Text | null } | null   // the cause only with its lens
@@ -3762,15 +3764,26 @@ pass their own panels and words. Nothing of the board is copied.
 - **A report** shows what the server sent for that period and works nothing out: validity and
   reliability out of 100 and the score of the two months, each in a box of its own color. Under
   the validity stands what the same map scored on the test set and how far the validity lies
-  under it. Under the reliability the number of interruptions. Then the map that ran, the
-  sentences of the pack, the worst change as a symptom (its cause only when the view carries
-  it, and otherwise one line that some actions make reports say more), the part that failed
-  most, one failed case, what the people who check say with the points they take off, a note,
-  the tables of the lenses when the view carries them (every part that failed, every kind of
-  case), and the money: the bill of the two months line by line (`bill`), what was paid from
-  the account, money that arrived with the report, what is left in the account, the score of
-  the year so far and the rank. An account below zero is red, and a sentence under it says
-  that nothing can be bought until it is positive again and that the system keeps running.
+  under it. Under the reliability the number of interruptions. Then the map that ran, and
+  the money: the bill of the two months line by line (`bill`), what was paid from the
+  account, money that arrived with the report, what is left in the account, the score of the
+  year so far and the rank. An account below zero is red, and a sentence under it says that
+  nothing can be bought until it is positive again and that the system keeps running. **The
+  sheet of a report holds nothing else.** What else is known of the two months (the sentences
+  of the pack, the worst change as a symptom with its cause when the view carries it, the part
+  that failed most, what the people who check say, a note, the tables of the lenses) is one
+  press away in the panel of the year ("More about these two months").
+- **Letters and memos.** Every letter and memo of the year (`news:` in the inbox, an alarm
+  included) opens once in a window of its own, the oldest first, after the report it came
+  with is closed and before the reference maps are offered: who writes, with the portrait,
+  the title, the text, and one button. It then stays as a card under "Letters and insights".
+  What was opened is kept in the browser. Money that arrives is said by the letter that
+  brings it and by the report, and by no toast.
+- **A lost patient, with a hint.** A lost case (`missed`) carries `hint`, a sentence or two on
+  what would have saved it: the source it needed and how to reach or read it better. It names
+  a tool or an action only when that is on the player's board, and otherwise says that more
+  will show up. In Phase 2 it stands under the validation, in Phase 3 under the map in
+  service (the case of the last report) or under the newest validation.
 - **The year.** One cell across both columns under the map, above the list of maps and the
   letters: on the left the chart (one slot for each period of the year as its clock stands: more slots when time is added, with a label left out where slots get narrow, and the calendar year marked where one begins; with validity, reliability and
   the score of every period that has a report, the test-set accuracy of that period's map as a

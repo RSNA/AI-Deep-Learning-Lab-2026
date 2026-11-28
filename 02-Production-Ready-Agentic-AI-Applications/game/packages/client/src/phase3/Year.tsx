@@ -2,9 +2,10 @@
 // report, the report of a period of two months, and the panel that holds the chart of the year
 // beside the reports. A report shows what the server sent and nothing it worked out itself.
 import { useEffect, useState } from 'react'
-import type { MaintainingContent, MaintainingView } from '@lab02/protocol'
-import { Sheet } from '../components/ui.tsx'
+import type { InboxItem, MaintainingContent, MaintainingView, Welcome } from '@lab02/protocol'
+import { Portrait, Sheet } from '../components/ui.tsx'
 import { gameNow, useTick } from '../lib/clock.ts'
+import { Paragraphs } from '../lib/marks.tsx'
 import { usePlayer } from '../lib/player.ts'
 import { useNarrow } from '../phase1/Phase1.tsx'
 import { YearChart } from './Chart.tsx'
@@ -50,8 +51,12 @@ function Bar({ share, tone }: { share: number; tone: 'go' | 'bad' }) {
   return <span className={`p3bar ${tone}`}><i style={{ width: `${Math.max(0, Math.min(100, 100 * share))}%` }} /></span>
 }
 
-/** One report, in full. `mapName`: what the map that ran is called in the player's list. */
-export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }) {
+/**
+ * One report: validity, reliability, the score and the bill. `details` adds what else is known of
+ * the two months (the sentences, the part that failed most, what an action under Watch made the
+ * report say). `mapName`: what the map that ran is called in the player's list.
+ */
+export function ReportBody({ r, mapName, details = false }: { r: Report; mapName: string | null; details?: boolean }) {
   const gap = gapOf(r)
   const s = r.sentences
   // The bars of the parts are drawn against the part that lost the most.
@@ -76,6 +81,8 @@ export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }
         </div>
       </div>
       <div className="p3ran">{mapName ? P3.ran(mapName) : P3.ranNoMap}</div>
+      {details && (
+        <>
       {(s.noMap || s.validity || s.reliability || s.gap || s.steady) && (
         <div className="p3says">
           {s.noMap && <p>{s.noMap}</p>}
@@ -97,12 +104,6 @@ export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }
           <div className="p3block part">
             <div className="eyebrow">{P3.failedMost}</div>
             <p><b>{r.worstPart.label}.</b> {r.worstPart.text}</p>
-          </div>
-        )}
-        {r.missed && (
-          <div className="p3block missed">
-            <div className="eyebrow">{P3.failedPatient}</div>
-            <p><b>{r.missed.title}.</b> {r.missed.text} <span className="why">{r.missed.why}</span></p>
           </div>
         )}
         {(s.people || r.off > 0) && (
@@ -133,6 +134,8 @@ export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }
           )}
         </div>
       )}
+        </>
+      )}
       <div className="p3money">
         <div className="eyebrow">{P3.billTitle}</div>
         {r.bill.length === 0 && <p className="muted">{P3.billNothing}</p>}
@@ -144,6 +147,28 @@ export function ReportBody({ r, mapName }: { r: Report; mapName: string | null }
         <div className="kv total"><span>{P3.scoreYear}</span><span className="v">{P3.out100(r.score)}{r.rank !== null && <span className="p3rank"> · {P3.rank(r.rank, r.of)}</span>}</span></div>
       </div>
     </div>
+  )
+}
+
+/** A letter or a memo of the year, in a window of its own when it arrives. It stays as a card. */
+export function LetterSheet({ w, m, onClose }: { w: Welcome; m: InboxItem; onClose: () => void }) {
+  const idx = w.system.cast.findIndex((c) => c.id === m.from)
+  const c = w.system.cast[idx]
+  return (
+    <Sheet title={m.kind === 'announcement' ? P3.memoTitle : P3.letterTitle} head="sun" onClose={onClose} wide className="p3letter">
+      {c && (
+        <div className="speaker">
+          <Portrait c={c} cast={w.system.cast} index={idx} size={64} />
+          <div><div className="nm">{c.name}</div><div className="rl">{c.role}</div></div>
+        </div>
+      )}
+      {m.title && <h2 className="brief-title">{m.title}</h2>}
+      <div className="brief-text"><Paragraphs text={m.text} /></div>
+      <div className="brief-foot">
+        <span className="muted">{P3.letterKept}</span>
+        <button type="button" className="btn go big" autoFocus onClick={onClose}>{P3.letterClose}</button>
+      </div>
+    </Sheet>
   )
 }
 
@@ -170,6 +195,7 @@ export function YearPanel({ mv, content, names, onOpen, readOnly = false }: {
 }) {
   const n = mv.reports.length
   const [at, setAt] = useState(Math.max(0, n - 1))
+  const [more, setMore] = useState(false)
   // A new report is the one shown, until the player steps away from it.
   useEffect(() => { setAt(Math.max(0, n - 1)) }, [n])
   const r = mv.reports[Math.min(at, n - 1)]
@@ -210,7 +236,8 @@ export function YearPanel({ mv, content, names, onOpen, readOnly = false }: {
                 <button type="button" className="btn small" disabled={at >= n - 1} title={at >= n - 1 ? P3.lastReportYet : P3.newerReport} onClick={() => setAt(at + 1)} aria-label={P3.newerReport}>›</button>
                 {!readOnly && onOpen && <button type="button" className="btn small text p3open" onClick={() => onOpen(r.period)}>{P3.openReport}</button>}
               </div>
-              <ReportBody r={r} mapName={r.map ? names.get(r.map) ?? null : null} />
+              <ReportBody r={r} mapName={r.map ? names.get(r.map) ?? null : null} details={more} />
+              <button type="button" className="btn small text p3more" aria-expanded={more} onClick={() => setMore(!more)}>{more ? P3.lessAbout : P3.moreAbout}</button>
             </>
           ) : <p className="muted">{P3.noReportYet}</p>}
         </div>

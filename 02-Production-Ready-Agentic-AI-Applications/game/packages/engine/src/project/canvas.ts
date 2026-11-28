@@ -3,7 +3,7 @@
 // leaves the server. Nothing here spreads, passes through or strips a pack object.
 import { copyLine, referenceMaps, type BuildFile, type CanvasMap as PackCanvasMap, type Pack, type ReadyDetail as PackReadyDetail, type SystemPack, type Tile as PackTile } from '@lab02/content-schema'
 import type { CanvasLegend, CanvasMap, DevelopmentContent, ReadyDetail, ReferenceMap, Running, Tile } from '@lab02/protocol'
-import { evaluate, type Running as EngineRunning } from '../canvas.ts'
+import { bestReaders, evaluate, type Running as EngineRunning } from '../canvas.ts'
 
 export function tileView(t: PackTile): Tile {
   switch (t.type) {
@@ -149,13 +149,61 @@ export function runningView(r: EngineRunning): Running {
 }
 
 /** The words of a missed case: its public text and why the map missed it. */
-export function missedView(b: BuildFile, m: { case: string; reason: 'missing' | 'weak' | 'decision'; fact: string | null } | null) {
+type MissedCase = { case: string; reason: 'missing' | 'weak' | 'decision'; fact: string | null }
+
+const readersOf = new WeakMap<object, ReturnType<typeof bestReaders>>()
+
+/**
+ * One sentence or two for a player: what would have saved the case that the map lost. It names
+ * the source, and a tool, an operator or an action only when that is on the player's board, so
+ * that nothing hidden is given away.
+ */
+export function hintOf(b: BuildFile, m: MissedCase, map: PackCanvasMap, shown: BoardShown): string {
+  if (m.reason === 'decision' || m.fact === null) {
+    return evaluate(map, b).flags.overloaded.length
+      ? 'Everything this patient needed arrived, and the decision was still wrong. The tile that decides reads too many things at once. Hand it fewer of them, already sorted.'
+      : 'Everything this patient needed arrived, and the decision was still wrong. A stronger model on the tile that decides, or a prompt written for deciding, would help.'
+  }
+  const fact = m.fact
+  const source = b.sources.find((x) => (x.gives[fact] ?? 0) >= 1) ?? b.sources.find((x) => x.gives[fact] !== undefined)
+  if (!source) return 'Nothing your practice can reach holds what this patient needed.'
+  const name = source.public.label
+  // How to get something that is not on the board yet: by the action that opens it, when the player can see that action.
+  const opener = (item: string): string => {
+    const a = b.actions.find((x) => x.unlocks.includes(item))
+    return a && shown.actions.some((x) => x.id === a.id)
+      ? `"${a.public.title}" in your actions opens it.`
+      : 'Keep learning, and the way to it will show up in your actions.'
+  }
+  if (!shown.unlocked.has(source.id)) return `This patient needed ${name}, which your practice cannot reach yet. ${opener(source.id)}`
+  if (!map.lines.some((ln) => ln.from === source.id)) return `Nothing on this map reads ${name}. Give it a line to a tile that can read it.`
+  let readers = readersOf.get(b)
+  if (!readers) { readers = bestReaders(b); readersOf.set(b, readers) }
+  const best = readers[source.id]
+  const kinds = new Set(map.tiles.map((x) => x.kind))
+  const label = (id: string) => b.workers.find((w) => w.id === id)?.public.label ?? 'a better tool'
+  const start = `${name} was read, and too little came out of it.`
+  if (best?.via && !kinds.has(best.via)) {
+    return shown.unlocked.has(best.via)
+      ? `${start} Put ${label(best.via)} between ${name} and the tile that reads it.`
+      : `${start} There is a tool that readies it for its reader. ${opener(best.via)}`
+  }
+  if (best && !kinds.has(best.worker)) {
+    return shown.unlocked.has(best.worker)
+      ? `${start} ${label(best.worker)} gets more out of it.`
+      : `${start} Something else reads it better. ${opener(best.worker)}`
+  }
+  return `${start} A stronger model on the tile that reads it, or fewer other things on that tile, would help.`
+}
+
+/** A lost case for the player: what it was, why the map lost it, and what would have saved it. */
+export function missedView(b: BuildFile, m: MissedCase | null, map: PackCanvasMap, shown: BoardShown) {
   if (!m) return null
   const k = b.cases.find((x) => x.id === m.case)
   if (!k) return null
   const f = m.fact ? b.facts.find((x) => x.id === m.fact) : undefined
   const why = m.reason === 'missing' ? f?.miss.missing : m.reason === 'weak' ? f?.miss.weak : k.decision_miss
-  return { title: k.public.title, text: k.public.text, why: why ?? k.decision_miss }
+  return { title: k.public.title, text: k.public.text, why: why ?? k.decision_miss, hint: hintOf(b, m, map, shown) }
 }
 
 /** A reason the draft cannot be validated, field by field (the index of a required entry stays here). */

@@ -4,12 +4,12 @@
 // lens it asks for, and its lesson at the reveal.
 import {
   overPools, periodName, phase3Build, readyDetails, readyReasons, referenceMaps, ruledLines, tileMinutes,
-  type BuildFile, type MaintainFile, type Pack,
+  type BuildFile, type CanvasMap, type MaintainFile, type Pack,
 } from '@lab02/content-schema'
 import type { MaintainingContent, MaintainingReport as ReportView, MaintainingSpent, MaintainingView } from '@lab02/protocol'
 import type { HostInspect } from '@lab02/protocol/host'
 import { running as runningOf, type BillLine } from '../canvas.ts'
-import { counts, lensHeld, year, type HeldAction } from '../maintain.ts'
+import { baselineMap, counts, lensHeld, year, type HeldAction } from '../maintain.ts'
 import {
   developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
 } from '../phases/maintaining.ts'
@@ -124,7 +124,7 @@ function partsView(b3: BuildFile, r: MaintainingReport): { label: string; share:
   return [...groups.values()].sort((x, y) => y.share - x.share)
 }
 
-function reportView(f: Files, held: readonly HeldAction[], found: readonly string[], r: MaintainingReport, before: MaintainingReport | undefined, rank: { rank: number | null; of: number }): ReportView {
+function reportView(f: Files, held: readonly HeldAction[], found: readonly string[], r: MaintainingReport, before: MaintainingReport | undefined, rank: { rank: number | null; of: number }, ran: CanvasMap, shown: BoardShown): ReportView {
   const { mt, b3 } = f
   const label = periodName(mt, r.period)
   const lens = (name: string) => lensHeld(mt, name, held, r.period)
@@ -150,7 +150,7 @@ function reportView(f: Files, held: readonly HeldAction[], found: readonly strin
       steady: !r.noMap && !event && !worse ? mt.report.steady ?? null : null,
       noMap: r.noMap ? mt.report.no_map ?? null : null,
     },
-    missed: missedView(b3, r.missed),
+    missed: missedView(b3, r.missed, ran, shown),
     note: r.note ? b3.notes.find((n) => n.id === r.note)?.text ?? null : null,
     worstPart: worst && worstText !== null ? { label: partLabel(b3, worst), text: worstText } : null,
     worstChange: event?.symptom !== undefined ? { symptom: event.symptom, cause: event.cause && (event.cause.lens !== undefined ? lens(event.cause.lens) : found.includes(event.id)) ? event.cause.text : null } : null,
@@ -219,6 +219,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
   const rounds = closed ? Math.max(1, seen - 1) : roundsNow(s, pack)
   const total = Math.max(seen, rounds + 1)
   const held = heldActions(st)
+  const shown = boardShown(pack, p)
   const reasons = readyReasons(st.map, b3)
   const run = runningOf(st.map, b3)
   const refLabel = new Map(referenceMaps(b).map((r) => [r.id, r.label]))
@@ -255,7 +256,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
   return {
     money: st.money,
     developers: { total: b3.budget.developers, free: developersFreeIn3(pack, p) },
-    board: boardNumber(boardShown(pack, p)),
+    board: boardNumber(shown),
     unlocked: [...unlockedIn3(pack, p)].sort(),
     actionsDone: st.actionsDone.map((d) => ({ id: d.id, atMs: d.atMs, phase: d.started === 0 ? 'development' as const : 'maintaining' as const })),
     actionsRunning: st.actionsRunning.map((r) => ({ id: r.id, startedAtMs: r.startedAtMs, completesAtMs: r.completesAtMs })),
@@ -271,7 +272,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     validating: st.validating ? { id: st.validating.id, startedAtMs: st.validating.startedAtMs, completesAtMs: st.validating.completesAtMs } : null,
     validations: st.validations.map((v) => ({
       id: v.id, atMs: v.atMs, map: mapView(v.map), accuracy: v.accuracy, unhurried: v.unhurried ?? null,
-      missed: missedView(b3, v.missed),
+      missed: missedView(b3, v.missed, v.map, shown),
       note: v.note ? b3.notes.find((n) => n.id === v.note)?.text ?? null : null,
       running: show ? runningView(v.running) : null,
       origin: v.origin,
@@ -285,7 +286,7 @@ export function maintainingView(s: SessionState, pack: Pack, p: PlayerState): Ma
     slots: Array.from({ length: total }, (_x, i) => { const name = periodName(mt, i + 1); return { tick: name.tick, mark: name.mark } }),
     next: closed || seen >= total ? null : { label: periodName(mt, seen + 1).label, short: periodName(mt, seen + 1).short },
     seen,
-    reports: st.reports.map((r, i) => reportView(f, held, st.found, r, st.reports[i - 1], reportRank(s, p, i))),
+    reports: st.reports.map((r, i) => reportView(f, held, st.found, r, st.reports[i - 1], reportRank(s, p, i), st.validations.find((v) => v.id === r.map)?.map ?? baselineMap(mt), shown)),
     adopted: [...st.adopted],
     offers: referenceMaps(b).filter((r) => !st.adopted.includes(r.id)).map((r) => {
       const o = referenceOffer(pack, p, r)

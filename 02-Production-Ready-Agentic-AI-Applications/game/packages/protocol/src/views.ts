@@ -278,7 +278,8 @@ export const PlanningView = S({
 })
 export type PlanningView = z.infer<typeof PlanningView>
 
-const Missed = S({ title: Text, text: Text, why: Text })
+// `hint`: what would have saved the case, in a sentence or two that name only what is on the player's board.
+const Missed = S({ title: Text, text: Text, why: Text, hint: Text })
 export const ReadyDetail = z.discriminatedUnion('reason', [
   S({ reason: z.literal('nothing_reaches_result') }),
   S({ reason: z.literal('no_source_connected') }),

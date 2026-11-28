@@ -3,7 +3,7 @@
 // service adds. A timer that counts to the next report, the chart of the year beside the
 // reports, the list of maps with the one that is deployed, the reference maps to take, and the
 // letters and memos that arrive at the start of a round. Then the reveal.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { MaintainingContent, MaintainingView, Welcome } from '@lab02/protocol'
 import { usePlayer } from '../lib/player.ts'
 import { store } from '../lib/storage.ts'
@@ -14,7 +14,7 @@ import { P3, setUnit3 } from './copy.ts'
 import { MapsPanel, RefPanel } from './Maps.tsx'
 import { lettersOf, mapNames, type MapEntry } from './model.ts'
 import { YearReveal } from './Reveal.tsx'
-import { NowLine, ReportSheet, RoundTimer, YearPanel } from './Year.tsx'
+import { LetterSheet, NowLine, ReportSheet, RoundTimer, YearPanel } from './Year.tsx'
 
 export { RoundTimer } from './Year.tsx'
 
@@ -32,16 +32,18 @@ const WORDS: BoardWords = {
  * What opens by itself over the board, in order: the report that has just arrived, and once, at
  * the start of the phase, the reference maps. Each waits for the opening letter and for the tour.
  */
-function Arrivals({ api, pending, onReport, offerRefs, onRefs }: {
-  api: BoardApi; pending: number | null; onReport: (period: number) => void; offerRefs: boolean; onRefs: () => void
+function Arrivals({ api, pending, onReport, letter, onLetter, offerRefs, onRefs }: {
+  api: BoardApi; pending: number | null; onReport: (period: number) => void
+  letter: string | null; onLetter: (id: string) => void; offerRefs: boolean; onRefs: () => void
 }) {
   const quiet = api.briefOpen || api.touring
   useEffect(() => {
     if (quiet) return
     if (pending !== null) onReport(pending)
+    else if (letter !== null) onLetter(letter)
     else if (offerRefs) onRefs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quiet, pending, offerRefs])
+  }, [quiet, pending, letter, offerRefs])
   return null
 }
 
@@ -73,34 +75,25 @@ function YearPlay({ w, content }: { w: Welcome; content: MaintainingContent }) {
   const offerRefs = !refsOffered && content.references.length > 0 && mv.adopted.length === 0 && mv.seen <= 1 && pending === null && !open
   const closeRefs = () => { store.setFlag(refsFlag); setRefsOffered(true); setRefs(null) }
 
-  // --- letters and memos that arrive are said without covering the board, and so is money
+  // --- every letter and memo of the year opens once in a window of its own, the oldest first,
+  // after the report it came with is closed. What was opened is kept in this browser.
   const letters = lettersOf(view.inbox)
-  const seenLetters = useRef(letters.length)
+  const letterFlag = (id: string) => `p3-letter-${who}-${id}`
+  const [openLetter, setOpenLetter] = useState<string | null>(null)
+  const [lettersRead, setLettersRead] = useState(0)
+  const unread = letters.findLast((m) => !store.flag(letterFlag(m.id)))
+  const pendingLetter = unread && !open && !openLetter && pending === null ? unread.id : null
   const [freshLetters, setFreshLetters] = useState<Set<string>>(new Set())
-  const apiRef = useRef<BoardApi | null>(null)
-  useEffect(() => {
-    if (letters.length > seenLetters.current) {
-      const m = letters[0]!
-      apiRef.current?.toast(P3.newsToast(m.title ?? ''), () => apiRef.current?.show('results', 'p2-insights'))
-      setFreshLetters((f) => new Set([...f, m.id]))
-      setTimeout(() => setFreshLetters((f) => { const n = new Set(f); n.delete(m.id); return n }), 12000)
-    }
-    seenLetters.current = letters.length
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [letters.length])
-  // Money that a report brings is said once, when that report arrives.
-  const [grant, setGrant] = useState<number | null>(null)
-  const seenReports = useRef(mv.reports.length)
-  useEffect(() => {
-    const fresh = mv.reports.length > seenReports.current
-    seenReports.current = mv.reports.length
-    const up = mv.reports.at(-1)?.granted ?? 0
-    if (!fresh || up <= 0) return
-    setGrant(up)
-    const id = setTimeout(() => setGrant(null), 7000)
-    return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mv.reports.length])
+  const closeLetter = () => {
+    if (!openLetter) return
+    const id = openLetter
+    store.setFlag(letterFlag(id))
+    setOpenLetter(null)
+    setLettersRead(lettersRead + 1)
+    setFreshLetters((f) => new Set([...f, id]))
+    setTimeout(() => setFreshLetters((f) => { const n = new Set(f); n.delete(id); return n }), 12000)
+  }
+  const shownLetter = openLetter ? letters.find((m) => m.id === openLetter) : undefined
 
   // A validation of the same map says the same, unless a lens makes validations say more.
   const sameAs = (map: Parameters<typeof sameLayout>[0]) => {
@@ -113,7 +106,7 @@ function YearPlay({ w, content }: { w: Welcome; content: MaintainingContent }) {
   return (
     <MapBoard w={w} phase="maintaining" content={content} dv={mv} words={WORDS} sameAs={sameAs}
       letters={letters} freshLetters={freshLetters}
-      held={pending !== null || open !== null || refs !== null || offerRefs}
+      held={pending !== null || open !== null || pendingLetter !== null || openLetter !== null || refs !== null || offerRefs}
       tabCounts={{ year: latest ? P3.out100(latest.value) : '', results: `${mv.validations.length}` }}
       strip={<RoundTimer mv={mv} variant="strip" />}
       status={() => <NowLine mv={mv} names={names} onOpen={(period) => setOpen({ period, fresh: false })} />}
@@ -123,13 +116,12 @@ function YearPlay({ w, content }: { w: Welcome; content: MaintainingContent }) {
           onLoad={(m, name) => api.load(m, P3.restored(name))} onRefs={() => setRefs({ first: false })} />
       )}
       overlays={(api) => {
-        apiRef.current = api
         return (
           <>
-            <Arrivals api={api} pending={pending} onReport={openFresh} offerRefs={offerRefs} onRefs={() => setRefs({ first: true })} />
+            <Arrivals api={api} pending={pending} onReport={openFresh} letter={pendingLetter} onLetter={setOpenLetter} offerRefs={offerRefs && pendingLetter === null && !openLetter} onRefs={() => setRefs({ first: true })} />
             {shown && open && <ReportSheet r={shown} mapName={shown.map ? names.get(shown.map) ?? null : null} fresh={open.fresh} onClose={() => setOpen(null)} />}
-            {refs && !open && <RefPanel content={content} mv={mv} v={v} send={send} first={refs.first} onClose={closeRefs} onTook={() => undefined} />}
-            {grant !== null && <div className="toast p3grant" role="status">{P3.grantToast(grant)}</div>}
+            {shownLetter && !open && <LetterSheet w={w} m={shownLetter} onClose={closeLetter} />}
+            {refs && !open && !shownLetter && <RefPanel content={content} mv={mv} v={v} send={send} first={refs.first} onClose={closeRefs} onTook={() => undefined} />}
           </>
         )
       }} />

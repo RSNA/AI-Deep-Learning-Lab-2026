@@ -113,6 +113,7 @@
 .p3money .kv.sum { font-weight: 800; }
 .p3money .kv.below .v, .p3below { color: var(--bad); }
 .p3below { margin: 2px 0 4px; font-size: 13px; font-weight: 800; line-height: 1.3; }
+.p3more { align-self: flex-start; margin-top: 6px; }
 .p3money .kv.total { border-bottom: 0; font-weight: 800; }
 .p3money .kv.total .v { font-size: 26px; }
 .p3rank { font-family: var(--text); font-size: 13px; font-weight: 800; color: var(--muted); }
@@ -142,7 +143,6 @@
 .p3mapfoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .p3mapfoot .btn.small { min-height: 36px; height: 36px; }
 .p3mapfoot .p3stop { margin-left: auto; }
-.toast.p3grant { bottom: 84px; background: var(--go); color: var(--on); }
 
 /* ---------------------------------------------------------------- reference maps */
 .sheet.p3refs { width: min(980px, 100%); }
@@ -216,7 +216,6 @@
   .p3ref-h { grid-template-columns: 86px minmax(0, 1fr); }
   .p3ref-h .p3map-acc .num { font-size: 30px; }
   .p3evs { grid-template-columns: minmax(0, 1fr); }
-  .toast.p3grant { bottom: 128px; }
 }
 
 /* The top bar of Phase 3 holds the timer of the round and the money: the name of the health

@@ -172,6 +172,7 @@ export const P2 = {
       ? `Your account is below zero, so it cannot pay ${moneyOf(n)}${unit || ' money'}.`
       : `Costs ${moneyOf(n)}${unit || ' money'}, and you have ${moneyOf(have)}${unit || ''} left.`,
   belowZero: 'Your account is below zero. Nothing can be bought until it is positive again.',
+  hintLabel: 'What would help:',
   needsDevs: (n: number, free: number) => `Needs ${n} developer${n === 1 ? '' : 's'}, ${free} free.`,
   // Said once, when a player has started this many actions.
   spendAfter: 4,

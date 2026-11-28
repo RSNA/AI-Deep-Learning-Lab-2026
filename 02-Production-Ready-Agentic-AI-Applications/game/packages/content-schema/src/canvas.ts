@@ -93,6 +93,22 @@ export function startUnlocked(t: CanvasTables): Set<string> {
   return new Set(allItems(t).filter((id) => !locked.has(id)))
 }
 
+/**
+ * Where the tiles of a player run once some actions are done: every place that an action
+ * `moves` away from, with the place it moves to. A place that was moved from is off the shelf.
+ */
+export function movedPlaces(t: { actions?: readonly { id: string; moves?: Readonly<Record<string, string>> }[] }, done: readonly string[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const a of t.actions ?? []) if (a.moves && done.includes(a.id)) for (const [from, to] of Object.entries(a.moves)) out.set(from, to)
+  return out
+}
+
+/** The map with every tile on a moved place put on the place it moved to. The same map when nothing moves. */
+export function movedMap(m: CanvasMap, moved: ReadonlyMap<string, string>): CanvasMap {
+  if (!m.tiles.some((x) => x.runsOn !== null && moved.has(x.runsOn))) return m
+  return { tiles: m.tiles.map((x) => (x.runsOn !== null && moved.has(x.runsOn) ? { ...x, runsOn: moved.get(x.runsOn)! } : x)), lines: m.lines }
+}
+
 /** The first prompt of the pack is the default: a tile whose prompt is null carries it. */
 export function defaultPrompt(t: CanvasTables): string | null {
   return t.prompts?.[0]?.id ?? null

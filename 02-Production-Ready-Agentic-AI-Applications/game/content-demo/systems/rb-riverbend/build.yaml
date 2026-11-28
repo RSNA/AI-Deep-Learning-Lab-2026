@@ -343,6 +343,7 @@ actions:
     developers: 0
     seconds: 25
     unlocks: [rb-c-private]
+    moves: {rb-c-api: rb-c-private}
     insight:
       type: stat
       headline: The private link is signed
