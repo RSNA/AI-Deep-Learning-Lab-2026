@@ -10,12 +10,12 @@ import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { loadPack, type Pack } from '@lab02/content-schema'
 import { gunzipSync } from 'node:zlib'
-import { canPickSystem, checkName, joinOpen, joinWaitsFor, kindOf, project } from '@lab02/engine'
+import { canPickSystem, checkName, createSession, deckSlides, joinOpen, joinWaitsFor, kindOf, project } from '@lab02/engine'
 import {
   CLOSE, CmdEnvelope, Hello, JoinBody, PHASES, PhaseContent, RejoinBody, ReportCard, ResultBody, ResultsBody, Review, SoloBody, normalizeCode,
   type GameSummary, type OpenSession, type PhaseId, type SessionPublic,
 } from '@lab02/protocol'
-import { CreateSessionBody, HostCmdEnvelope, HostDeck, RenameSessionBody, SoloGate, type SessionSummary, type SoloOverview } from '@lab02/protocol/host'
+import { CreateSessionBody, HostCmdEnvelope, HostDeck, HostSlides, RenameSessionBody, SoloGate, type SessionSummary, type SoloOverview } from '@lab02/protocol/host'
 import { hashToken, newToken, samePasscode } from './auth.ts'
 import { configFromEnv, type Config } from './config.ts'
 import { Storage } from './db.ts'
@@ -23,6 +23,7 @@ import { exportSession } from './export.ts'
 import { createLogger, type Logger } from './log.ts'
 import { Manager } from './manager.ts'
 import type { Room, Sock } from './room.ts'
+import { soloPasscodeAsked } from './soloGate.ts'
 
 export type App = {
   config: Config
@@ -426,6 +427,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
         phasesAvailable: pack.phasesAvailable, provisional: pack.provisional,
         pickModes: pack.game.join.choose_system_in_modes ?? [],
         guide: !!config.facilitatorGuideFile && existsSync(config.facilitatorGuideFile),
+        slides: deckSlides(pack).length,
       },
     }
   })
@@ -529,6 +531,37 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
   privatePage('key', () => config.answerKeyFile, 'no_answer_key')
   privatePage('guide', () => config.facilitatorGuideFile, 'no_guide')
 
+  // What the pages of a facilitator can link to (section 10.8): the two private pages that this
+  // server holds, and the number of slides in the deck.
+  fastify.get('/api/host/pages', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    reply.header('cache-control', 'no-store')
+    return {
+      guide: !!config.facilitatorGuideFile && existsSync(config.facilitatorGuideFile),
+      key: !!config.answerKeyFile && existsSync(config.answerKeyFile),
+      slides: deckSlides(pack).length,
+    }
+  })
+
+  // Every slide of the deck from the first to the last, for the page /host/slides (section 10.8).
+  // It needs no session. While a session with a facilitator is open, the slides carry the numbers
+  // of that room. Otherwise they are drawn as they stand before anybody has joined.
+  fastify.get('/api/host/slides', async (req, reply) => {
+    if (!isHost(req)) return bad(reply, 401, 'unauthorized')
+    const room = manager.newestOpen()
+    const deck = room
+      ? room.hostDeck()
+      : project.hostDeck(createSession(pack, { code: 'SLIDES', label: '', mode: 'rehearsal', nowMs: 0 }), pack, { soloPasscode: soloPasscodeAsked(db, config) })
+    const out = { slides: deck.slides, joinUrl: config.publicUrl.replace(/\/$/, '') }
+    const checked = HostSlides.safeParse(out)
+    if (!checked.success) {
+      log.error('slides refused by their schema', { issue: checked.error.issues[0]?.path.join('.') })
+      return bad(reply, 500, 'internal')
+    }
+    reply.header('cache-control', 'no-store')
+    return out
+  })
+
   // The whole deck with its notes, for a host who looks through the slides alone (section 10.8).
   fastify.get<{ Params: { code: string } }>('/api/host/deck/:code', async (req, reply) => {
     if (!isHost(req)) return bad(reply, 401, 'unauthorized')
@@ -577,7 +610,7 @@ export function createApp(overrides: Partial<Config> = {}, env: NodeJS.ProcessEn
     if (room) return reply.redirect(`/j/${room.code}`)
     return sendIndex(reply)
   })
-  for (const route of ['/j/:code', '/home', '/play', '/host', '/host/manual', '/screen', '/rejoin', '/result', '/result/:code']) fastify.get(route, async (_req, reply) => sendIndex(reply))
+  for (const route of ['/j/:code', '/home', '/play', '/host', '/host/manual', '/host/guide', '/host/slides', '/screen', '/rejoin', '/result', '/result/:code']) fastify.get(route, async (_req, reply) => sendIndex(reply))
 
   // The key page keeps its own scripts, so it gets a looser policy than the game.
   fastify.addHook('onSend', async (_req, reply, payload) => {

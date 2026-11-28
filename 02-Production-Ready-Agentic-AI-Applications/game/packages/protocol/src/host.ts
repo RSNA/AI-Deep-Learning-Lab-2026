@@ -202,6 +202,10 @@ export const HostDeck = S({
 })
 export type HostDeck = z.infer<typeof HostDeck>
 
+/** Every slide of the deck for the page of all slides, with the address a join slide shows (section 10.8). */
+export const HostSlides = S({ slides: HostDeck.shape.slides, joinUrl: z.string() })
+export type HostSlides = z.infer<typeof HostSlides>
+
 /** Control of the session moved from one console to another. */
 export const ControlMsg = S({ t: z.literal('control'), from: Text.nullable(), to: Text })
 

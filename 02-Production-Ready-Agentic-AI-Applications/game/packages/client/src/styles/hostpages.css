@@ -1,0 +1,89 @@
+/* The two pages for facilitators beside the console: the guide and all slides (section 10.8). */
+.hostpage { min-height: 100%; display: flex; flex-direction: column; }
+.guidepage { height: 100vh; height: 100dvh; }
+
+/* The bar at the very top, the same on both pages. */
+.hostbar {
+  flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 8px 16px;
+  background: var(--bar); color: var(--bar-ink);
+}
+.hostbar-title { font-family: var(--face); font-size: 28px; line-height: 1; white-space: nowrap; }
+.hostbar-links { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.hostbar-links .btn { text-decoration: none; box-shadow: none; }
+.hostbar-links .btn.on { background: var(--sun); color: var(--on); cursor: default; }
+.hostbar-err { flex-basis: 100%; color: #ffd0cb; }
+
+/* The row under the bar: the menu on a narrow screen, and the search. */
+.guidetools {
+  flex-shrink: 0; display: flex; align-items: flex-end; gap: 10px; padding: 8px 16px;
+  background: var(--panel); border-bottom: 3px solid var(--line);
+}
+.guidemenu-btn { display: none; }
+.guidesearch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; flex: 1; }
+.guidesearch .lbl { white-space: nowrap; }
+.guidesearch input.field { width: 260px; max-width: 100%; flex: 0 1 260px; }
+.guidesearch-status { font-size: 14px; font-weight: 700; color: var(--muted); min-width: 0; }
+.guidesearch-status.none { color: var(--bad); }
+
+.guidewrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr); position: relative; }
+.guideside {
+  min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  background: var(--panel); border-right: 3px solid var(--line);
+}
+.guideside-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guideside-close, .guideside-shade { display: none; }
+.guideparts, .guidesubs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.guideparts { gap: 4px; }
+.guidepart, .guidesub {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+  background: none; border: 0; border-left: 4px solid transparent; color: var(--ink); cursor: pointer; font-family: var(--text);
+}
+.guidepart { min-height: 36px; padding: 6px 8px; font-size: 15px; font-weight: 800; }
+.guidesub { min-height: 30px; padding: 4px 8px 4px 20px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.guidepart:hover, .guidesub:hover { background: var(--inset); }
+.guidepart.open { border-left-color: var(--soft); }
+.guidepart.at, .guidesub.at { border-left-color: var(--go); background: var(--go-bg); color: var(--ink); }
+.guidepart:focus-visible, .guidesub:focus-visible { outline: 3px solid var(--sky); outline-offset: -3px; }
+.guidehits { flex-shrink: 0; min-width: 24px; padding: 1px 6px; text-align: center; font-size: 12px; font-weight: 800; background: var(--sun); color: var(--on); border: 2px solid var(--line); }
+.guidebody { min-width: 0; min-height: 0; display: flex; background: #ebe8df; }
+.guideframe { flex: 1; width: 100%; height: 100%; border: 0; background: #ebe8df; }
+.guidemsg { margin: 40px auto; padding: 0 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; font-size: 16px; font-weight: 700; }
+
+/* All slides */
+.slideslist { width: 100%; max-width: 1180px; margin: 0 auto; padding: 16px 16px 64px; display: flex; flex-direction: column; gap: 14px; }
+.slides-line { margin: 0; font-size: 15px; color: var(--muted); font-weight: 700; }
+.slidestools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; }
+.slidestool { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.slidestool select.field { width: 280px; max-width: 100%; }
+.slidestool .seg button { min-height: 36px; }
+.slidesbox { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.slidecard { display: flex; flex-direction: column; gap: 8px; min-width: 0; scroll-margin-top: 12px; }
+.slidehead { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-family: var(--text); font-size: 17px; font-weight: 800; line-height: 1.25; }
+.slidehead-n { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.slidehead-t { min-width: 0; overflow-wrap: anywhere; }
+.slidehead-s { font-size: 13px; color: var(--muted); font-weight: 700; margin-left: auto; }
+.slideframe { align-self: flex-start; display: flex; border: 3px solid var(--line); box-shadow: 4px 4px 0 var(--shade); }
+.slidecard .notes { max-height: none; }
+
+/* A narrow screen: the menu folds into a button and opens over the guide. */
+@media (max-width: 820px) {
+  /* The pressed link names the page, so the title gives its room to the links. */
+  .hostbar { padding: 6px 10px; }
+  .hostbar-title { display: none; }
+  .hostbar-links { margin-left: 0; gap: 6px; }
+  .hostbar-links .btn { min-height: 32px; font-size: 13px; padding: 0 8px; }
+  /* Two rows: the menu and the field, then the three buttons and what was found. */
+  .guidetools { padding: 8px 10px; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .guidemenu-btn { display: inline-flex; }
+  .guidesearch { display: contents; }
+  .guidesearch .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .guidesearch input.field { flex: 1 1 calc(100% - 120px); width: auto; min-width: 0; }
+  .guidesearch-status { flex: 1 1 100px; font-size: 13px; }
+  .guidewrap { grid-template-columns: minmax(0, 1fr); }
+  .guideside { display: none; position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: min(320px, 88vw); border-right: 3px solid var(--line); box-shadow: 6px 0 0 rgba(0, 0, 0, 0.2); }
+  .guideside.open { display: flex; }
+  .guideside-close { display: inline-flex; }
+  .guideside-shade { display: block; position: absolute; z-index: 2; inset: 0; border: 0; background: rgba(20, 18, 43, 0.45); cursor: pointer; }
+  .slideslist { padding: 12px 10px 48px; }
+  .slidehead-s { margin-left: 0; flex-basis: 100%; }
+}

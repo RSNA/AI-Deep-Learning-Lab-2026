@@ -2058,12 +2058,14 @@ session and closing.
 | `GET /api/host/deck/:code` | Host | Every slide of the deck as a `SlideView`, with its notes, its placeholder mark and the id of its section, for a host who looks through the deck alone (section 10.8). Never cached. A player token and a screen token are refused |
 | `GET /api/host/key?ticket=` | A valid ticket | The answer key page, from the file in `ANSWER_KEY_FILE` |
 | `POST /api/host/guide-ticket`, `GET /api/host/guide?ticket=` | Host, then a valid ticket | The facilitator guide, a second private page served the same way, from the file in `FACILITATOR_GUIDE_FILE`. Without the file: 404 `no_guide`, and the console shows no button for it (`guide` of the host view and of the pack info is false) |
+| `GET /api/host/pages` | Host | What the pages for facilitators can link to: `{guide, key, slides}`, whether this server holds a facilitator guide and an answer key, and the number of slides in the deck. Never cached |
+| `GET /api/host/slides` | Host | Every slide of the deck from the first to the last, as `GET /api/host/deck/:code` gives it, with `joinUrl`, for the page `/host/slides` (section 10.8). It needs no session. While a session with a facilitator is open the slides carry the numbers of that room, and otherwise they are drawn as before anybody has joined. The slide with `solo_passcode` carries the passcode that a single-player game asks for now, as on the projector. Never cached. A player token and a screen token are refused |
 | `GET /healthz` | Anyone | Build id, uptime, for each open session with a facilitator its stage and its number of players, and the number of single-player games in memory. Never a join code, a label or a name, because anyone can read this address |
 
 The root URL sends a visitor to the join page of the open session with a facilitator. Without
 one it serves the start page (section 10.2), which `/home` always does. The QR code and the
 address on the big screen are `PUBLIC_URL` alone, with no code, so a room reads and types one
-short address (`joinUrl` of the session). `/j/<code>` still opens its session. The screen link, the deck and the export of a single-player game do not
+short address (`joinUrl` of the session). `/j/<code>` still opens its session. `/host/guide` and `/host/slides` are pages of the client like `/host` and `/host/manual`: the server sends the same application, which carries nothing private, and the page asks for the passcode before it reads anything. The screen link, the deck and the export of a single-player game do not
 exist (404), and a console that names one in its `hello` is refused.
 
 ### 7.3 WebSocket
@@ -2698,6 +2700,7 @@ type HostViewAdditions = {
 }
 type HostSlide = { slide: SlideView; notes: Text | null; placeholder: boolean }
 type HostDeck = { slides: (HostSlide & { section: string })[] }   // GET /api/host/deck/:code
+type HostSlides = HostDeck & { joinUrl: string }                  // GET /api/host/slides
 ```
 
 `screen.pinned` is not sent. A scene other than `auto` is pinned. `available` says which scenes
@@ -4155,6 +4158,32 @@ projector without being picked carries the flag "On now".
 of 6" between them, the title of the section, the line "Back and Next change the slide the room
 sees. So do the left and right arrow keys.", and a menu "Go to section" that jumps the shown
 slide to the first slide of a section. These move what the room sees.
+
+*The guide and all slides, as pages.* Two pages of the client stand beside the console, and the
+console links both from its first page and from the bar of a session, each in one window of its
+own that a second press brings back. They ask for the facilitator passcode with the console's
+sign-in form and keep the same sign-in in the browser, so a facilitator signs in once for all
+three. A sign-in that has ended is asked for again with the sentence that says so.
+
+- `/host/guide` shows the facilitator guide. The page asks for a ticket and reads the guide with
+  it (section 7.2), so no ticket ever stands in an address, and it shows the guide in a frame of
+  the same origin, where the guide keeps its own styles. A script inside the guide does not run.
+  The page builds a menu from the headings that the guide holds, which names no section of its
+  own: the parts are the headings of the highest level that occurs more than once, with the next
+  level under each. A press jumps there, the heading the reader is at is marked, and on a narrow
+  screen the menu folds into a button "Contents". A search field finds a word or a phrase, also
+  one that runs over a bold word, with any capitals. It marks every place, says "This is place 2
+  of 29.", steps with Next and Previous and with Enter and Shift+Enter, and shows beside each
+  part of the menu how many places it has. With nothing found it says "The guide does not have
+  "…" anywhere.", and with one letter "Type two letters or more." A table with four columns or
+  more scrolls sideways in a box of its own on a phone.
+- `/host/slides` shows every slide of the deck from the first to the last (`GET /api/host/slides`),
+  each drawn by the slide component of the projector at the width of the page, with its number,
+  its title, the name of its part and its notes. A list jumps to a part of the deck, and a switch
+  shows the slides in the light or the dark theme of the projector. It needs no session.
+- A bar at the very top of both pages links the guide, all slides, the console, the console
+  manual and, on a server that has one, the answer key. The page that is open stays in the row
+  as a pressed link.
 
 *Look through the deck.* Under the two groups, across the whole panel, a look at the deck that
 only this console sees. It keeps a cursor of its own in the browser tab ("looking at") beside the
