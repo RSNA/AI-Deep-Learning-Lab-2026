@@ -4,7 +4,7 @@ problem: ls-q-grant
 
 grid: {cols: 4, rows: 5}
 budget: {money: 90, developers: 3}
-validate: {runs: 6, seconds: 6}
+validate: {runs: 6, seconds: 6, free: 1}   # the first validation is free: the guided first build ends with it
 pools:
   # A map may ask the officer for more minutes than there are. The officer then rushes and gets
   # through a share of the reports. The aides keep the plain limit.

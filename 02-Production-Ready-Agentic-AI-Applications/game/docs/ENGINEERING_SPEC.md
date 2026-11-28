@@ -516,7 +516,8 @@ type Build = {
   efforts?: { id: string; key?: object }[]  // the kinds of effort a source may name. Never sent
   toolbox_groups?: { id: string; label: Text }[]   // the headings of the toolbox, in this order
   budget: { money: number; developers: number }
-  validate: { runs: number; seconds: number }
+  validate: { runs: number; seconds: number
+              free?: number }                 // the first validations of Phase 2 that do not count against `runs` (default 0)
   pools?: { id: PoolId; public: { label: Text }; max: number      // minutes per case the people can give
             over?: 'refuse' | 'rush' }[]    // a map that asks more: it cannot be validated (the
                                             // default), or these people rush (section 6.6)
@@ -1197,7 +1198,7 @@ actions. Validation ids are `v1`, `v2` and so on.
 | --- | --- | --- |
 | `development.set_map {map}` | Stage is `development.play`. The map passes every rule below | Replaces the draft |
 | `development.act {id}` | Stage is `development.play`. The action exists, is neither done nor running, every action in `requires` is done, the money is there and enough developers are free | The money is paid. The developers are held for `seconds`. It cannot be cancelled |
-| `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft |
+| `development.validate {}` | Stage is `development.play`. No validation runs, at least one is left, and the draft is ready | Uses one validation and runs for `validate.seconds` on a copy of the draft. The first `validate.free` validations of a player are free: they do not count against `validate.runs`, so `validationsLeft` stays where it was, and the view marks them (`free`) |
 | `development.choose {id or null}` | Stage is `development.play`. The validation is the player's own and finished | Marks the map to submit. `null` returns to the default |
 
 Refusals: `wrong_stage`, `invalid_map`, `unknown_action`, `action_taken`, `requires_action`,
@@ -2406,7 +2407,8 @@ type DevelopmentContent = {
   problem: { id: ProblemId; title: Text; description: Text }
   rules: { cols: number; rows: number; money: number; developers: number
            columns: { label: Text; hint: Text }[] | null   // the stages of the columns, or numbers
-           validations: number; validateSeconds: number; showRunning: boolean
+           validations: number; freeValidations: number   // those that count, and the first ones of Phase 2 that do not
+           validateSeconds: number; showRunning: boolean
            moneyUnit: Text | null              // money_unit, written after every sum of money
            pools: { id: PoolId; label: Text; max: number }[]
            actionGroups: { id: string; label: Text }[]
@@ -2556,6 +2558,7 @@ type DevelopmentView = {
   validations: { id: string; atMs: GameMs; map: CanvasMap; accuracy: number
                  unhurried: number | null               // set when people rushed: the accuracy with the time
                  rank: number | null; of: number        // the rank in the live column right after it
+                 free: boolean                          // it did not count against the validations of the phase
                  missed: { title: Text; text: Text; why: Text } | null
                  note: Text | null
                  running: { money: number; minutes: Record<PoolId, number>; complexity: number } | null }[]
@@ -3672,6 +3675,20 @@ does now.
   a longer text is cut with "Show more".
 - *The tour* has eight steps. The new one says when the map runs: ahead of time, so that the
   result is waiting when the person who signs opens the case.
+- *The guided first build* (`phase2/FirstBuild.tsx`) follows the tour of Phase 2, once for each
+  player in a browser, and the help panel starts it again. It is hands-on, like the first minutes
+  of a video game: one part of the screen has a ring around it, a card says in a sentence or two
+  what to do there, and the next step comes only when the player has done it. The rest of the
+  screen is dimmed and stays usable, so nothing is blocked. The steps are read off the pack and
+  the state, never off clicks, so a player who does a later step on their own is caught up with:
+  start the first action that costs nothing and returns a card, and open that card; put the AI
+  operator that needs a model on the map; choose its model, where it runs and, when the pack
+  has prompts, its prompt (the card says how many choices there are now and that more will
+  come); join a source to it; put the person the pack requires behind it and join the two; join
+  that person to the result; press Validate. When that validation is done the card says that
+  it was free and how many are left. "Skip the tutorial" ends it at any step. On a phone it
+  shows the tab that holds the step. Where the first validation is free (`validate.free`), the
+  button, the list of validations and the purse say so.
 - *Validate waits for the saved draft*, so a press right after an edit is not refused.
 - *A notice* (a validation is done, an insight has arrived) stands over the head of the left
   column on a laptop and above the tab bar on a phone, never over the line beside Validate or

@@ -37,8 +37,8 @@ async function joinPicked(page: Page, code: string, name: string, system: RegExp
   await page.getByRole('button', { name: 'Got it' }).click()
 }
 
-/** From the lobby to Phase 2, the opening letter closed. */
-async function toDevelopment(page: Page, s: Awaited<ReturnType<typeof setup>>) {
+/** From the lobby to Phase 2, the opening letter and the tour closed. `tutorial`: what to do with the guided first build that follows. */
+async function toDevelopment(page: Page, s: Awaited<ReturnType<typeof setup>>, tutorial: 'skip' | 'keep' = 'skip') {
   await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start investigating' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
@@ -46,6 +46,8 @@ async function toDevelopment(page: Page, s: Awaited<ReturnType<typeof setup>>) {
   await expect(page.getByText('A letter for you')).toBeVisible()
   await page.getByRole('button', { name: 'Start building' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
+  await expect(page.locator('.fb-card')).toBeVisible()
+  if (tutorial === 'skip') await page.getByRole('button', { name: 'Skip the tutorial' }).click()
 }
 
 async function noOverflow(page: Page) {
@@ -127,7 +129,8 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await expect(page.locator('.ct-part', { hasText: 'Says everything' })).toBeVisible()
 
   // Validate. The map stays usable while it runs: a rule goes on the map meanwhile.
-  await page.getByRole('button', { name: /Validate · 6 left/ }).click()
+  // The first validation of the demo pack is free, and the button says so.
+  await page.getByRole('button', { name: 'Validate · free' }).click()
   await expect(page.locator('.vbtn.running')).toBeVisible()
   await tool(page, 'Rule').click()
   await cell(page, 1, 4).click()
@@ -172,7 +175,8 @@ test('the laptop screen: a map by clicks only, a validation, actions, the prompt
   await page.locator('.cline .hit').first().click({ force: true })
   await page.keyboard.press('Delete')
   await expect(page.locator('.cline')).toHaveCount(4)
-  await expect(page.locator('#p2-results')).toContainText('Validation 1 of 6')
+  await expect(page.locator('#p2-results .vrun-h')).toContainText('Validation 1')
+  await expect(page.locator('#p2-results .vrun-h')).toContainText('Free')
   await page.getByRole('button', { name: 'Restore this map' }).click()
   await expect(page.locator('.cline')).toHaveCount(5)
   await expect(page.locator('#p2-results .vrun')).toContainText('On your canvas now')
@@ -337,5 +341,110 @@ test('the phone: four tabs, a worker placed by taps, and the host looks at the p
   await expect(look.locator('.inspect-done .cgrid')).toBeVisible()
   expect(await hp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await ctx.close()
+  s.close()
+})
+
+// ------------------------------------------------------------------------------------------
+// The guided first build (section 10.5): hands-on, one step at a time, after the tour.
+// ------------------------------------------------------------------------------------------
+/** Does what the card of the guided first build asks, step by step, until its last card. Returns the steps it saw. */
+async function followFirstBuild(page: Page): Promise<string[]> {
+  const card = page.locator('.fb-card')
+  const seen: string[] = []
+  const quoted = (s: string) => /“([^”]+)”/.exec(s)?.[1] ?? ''
+  const agent = page.locator('.ctile.k-ai'), person = page.locator('.ctile.k-person')
+  for (let i = 0; i < 80; i++) {
+    const id = await card.getAttribute('data-first-build'), half = await card.getAttribute('data-half')
+    const key = `${id}:${half}`
+    if (seen.at(-1) !== key) seen.push(key)
+    if (id === 'done') return seen
+    const title = (await card.locator('h3').textContent()) ?? '', text = (await card.locator('p').first().textContent()) ?? ''
+    // Every step has a ring around what it is about, and the card never leaves the screen.
+    if (id !== 'wait' && id !== 'validating') await expect(page.locator('.fb-ring')).toBeVisible()
+    const box = (await card.boundingBox())!, vp = page.viewportSize()!
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1).toBe(true)
+    if (id === 'action') await page.locator('.arow', { hasText: quoted(text) }).getByRole('button', { name: /^Start/ }).click()
+    else if (id === 'card') await card.getByRole('button', { name: 'I have read it' }).click()
+    else if (id === 'place' && half === 'a') await tool(page, /^Put your first (.+) on the map$/.exec(title)![1]!).click()
+    else if (id === 'person' && half === 'a') await page.locator('.tbrow.k-person', { hasText: new RegExp(/^Now bring in the (.+)$/.exec(title)![1]!, 'i') }).first().click()
+    else if (id === 'place' || id === 'person') await cell(page, id === 'place' ? 2 : 3, 2).click()
+    else if ((id === 'model' || id === 'runsOn' || id === 'prompt') && half === 'a') await agent.locator('.ct-part').nth(id === 'model' ? 0 : id === 'runsOn' ? 1 : 2).click()
+    else if (id === 'model' || id === 'runsOn') await page.locator('.scrim .partrow:not([disabled])').first().click()
+    else if (id === 'prompt') await page.locator('.scrim .pcard .btn.go').last().click()
+    else if (id === 'source' && half === 'a') await page.locator('.csource:not(.is-locked) .cport').first().click()
+    else if (id === 'source') await agent.click()
+    else if (id === 'handoff' && half === 'a') await agent.locator('.cport').first().click()
+    else if (id === 'handoff') await person.click()
+    else if (id === 'result' && half === 'a') await person.locator('.cport').first().click()
+    else if (id === 'result') await page.locator('[data-tour="p2-result"]').click()
+    else if (id === 'validate') await page.locator('.vbtn').click()
+    // The card moves on only when the step is done: the next step, or the next half of this one.
+    await expect.poll(async () => `${await card.getAttribute('data-first-build')}:${await card.getAttribute('data-half')}`, { timeout: 30_000 }).not.toBe(key)
+  }
+  return seen
+}
+
+test('the guided first build: every step in turn, a free first validation, and the help panel starts it again', async ({ page }) => {
+  test.setTimeout(150_000)
+  const s = await setup(page, 'E2E first build', 3)
+  await joinPicked(page, s.code, 'First Build', /Riverbend/)
+  await toDevelopment(page, s, 'keep')
+  const card = page.locator('.fb-card')
+  await expect(card).toContainText('Step 1 of 11')
+  await expect(card).toContainText('Start by learning something')
+  // The tour is over: the card of the tutorial is the only one, and it is not a dialog that takes the board away.
+  await expect(page.locator('.tour-card')).toHaveCount(0)
+  const seen = await followFirstBuild(page)
+  expect(seen.filter((x) => !x.startsWith('wait') && !x.startsWith('validating'))).toEqual([
+    'action:a', 'card:a', 'place:a', 'place:b', 'model:a', 'model:b', 'runsOn:a', 'runsOn:b', 'prompt:a', 'prompt:b',
+    'source:a', 'source:b', 'person:a', 'person:b', 'handoff:a', 'handoff:b', 'result:a', 'result:b', 'validate:a', 'done:a',
+  ])
+  await expect(card).toContainText('This validation was free. You still have six validations left. Keep going until you find the system you want.')
+  await card.getByRole('button', { name: 'Keep building' }).click()
+  await expect(card).toHaveCount(0)
+  // The validation did not count: six are left, the list says which one was free.
+  if (await page.locator('.ptabs').count()) await page.locator('.ptabs button', { hasText: 'Map' }).click()
+  await expect(page.locator('.vbtn')).toHaveText('Validate · 6 left')
+  if (await page.locator('.ptabs').count()) await page.locator('.ptabs button', { hasText: 'Results' }).click()
+  await expect(page.locator('#p2-results .panel-head')).toContainText('0 of 6 used · the first one was free')
+  await expect(page.locator('#p2-results .vrun').first()).toContainText('Free')
+  await noErrorNames(page)
+  // It does not come back by itself after a refresh.
+  await page.reload()
+  await expect(page.locator('.purse').first()).toBeVisible()
+  await page.waitForTimeout(800)
+  await expect(card).toHaveCount(0)
+  // The help panel starts it again.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /^Help/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Do the guided first build' }).click()
+  await expect(card).toContainText('You built a working system')
+  await card.getByRole('button', { name: 'Keep building' }).click()
+  await expect(card).toHaveCount(0)
+  s.close()
+})
+
+test('the guided first build can be skipped, catches up with a player who goes ahead, and stays away after a refresh', async ({ page }, info) => {
+  test.skip(info.project.name !== 'laptop', 'laptop only')
+  const s = await setup(page, 'E2E first build skip', 3)
+  await joinPicked(page, s.code, 'First Skip', /Riverbend/)
+  await toDevelopment(page, s, 'keep')
+  const card = page.locator('.fb-card')
+  await expect(card).toHaveAttribute('data-first-build', 'action')
+  await expect(page.locator('.vbtn')).toHaveText('Validate · free')
+  // The board stays usable under the tutorial: a tile placed out of turn is caught up with.
+  await page.locator('.arow .ibtn.start').first().click()
+  await tool(page, 'Agent').click(); await cell(page, 4, 4).click()
+  await expect.poll(async () => card.getAttribute('data-first-build'), { timeout: 30_000 }).toMatch(/^(wait|card)$/)
+  await expect.poll(async () => card.getAttribute('data-first-build'), { timeout: 30_000 }).toBe('card')
+  await card.getByRole('button', { name: 'I have read it' }).click()
+  await expect(card).toHaveAttribute('data-first-build', 'model')
+  await card.getByRole('button', { name: 'Skip the tutorial' }).click()
+  await expect(card).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('.ctile')).toHaveCount(1)
+  await page.waitForTimeout(800)
+  await expect(card).toHaveCount(0)
+  await expect(page.locator('.tour-card')).toHaveCount(0)
   s.close()
 })

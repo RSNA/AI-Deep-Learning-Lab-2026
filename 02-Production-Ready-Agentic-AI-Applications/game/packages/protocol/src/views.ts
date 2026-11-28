@@ -157,7 +157,8 @@ const CanvasContent = {
   rules: S({
     cols: Int, rows: Int, money: z.number(), developers: Int,
     columns: z.array(CanvasColumn).nullable(),
-    validations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
+    // `validations`: how many validations count. `freeValidations`: the first ones of Phase 2 that do not.
+    validations: Int, freeValidations: Int, validateSeconds: z.number(), showRunning: z.boolean(),
     moneyUnit: Text.nullable(),         // written after a sum of money, such as k$
     pools: z.array(S({ id: z.string(), label: Text, max: z.number() })),
     actionGroups: z.array(S({ id: z.string(), label: Text })),
@@ -314,6 +315,7 @@ export const DevelopmentView = S({
     id: z.string(), atMs: Ms, map: CanvasMap, accuracy: z.number(),
     unhurried: z.number().nullable(),               // what the map would reach if nobody rushed
     rank: Int.nullable(), of: Int,                  // the rank in the live column right after it
+    free: z.boolean(),                              // it did not count against the validations of the phase
     missed: Missed.nullable(),
     note: Text.nullable(),
     running: Running.nullable(),

@@ -86,7 +86,7 @@ export function boardNumber(shown: BoardShown): number {
  */
 export function canvasContent(
   pack: Pack, sp: SystemPack, b: BuildFile,
-  own: { brief: { from: string; title: string; text: string } | undefined; validations: number; validateSeconds: number; actionGroups: readonly { id: string; label: string }[] },
+  own: { brief: { from: string; title: string; text: string } | undefined; validations: number; freeValidations?: number; validateSeconds: number; actionGroups: readonly { id: string; label: string }[] },
   shown: BoardShown,
 ): Omit<DevelopmentContent, 'phase' | 'actions'> {
   const rules = pack.game.phases.development
@@ -102,7 +102,7 @@ export function canvasContent(
     rules: {
       cols: b.grid.cols, rows: b.grid.rows, money: b.budget.money, developers: b.budget.developers,
       columns: columnsView(b),
-      validations: own.validations, validateSeconds: own.validateSeconds, showRunning: rules.show_running ?? true,
+      validations: own.validations, freeValidations: own.freeValidations ?? 0, validateSeconds: own.validateSeconds, showRunning: rules.show_running ?? true,
       moneyUnit: rules.money_unit ?? null,
       pools: b.pools.map((x) => ({ id: x.id, label: x.public.label, max: x.max })),
       actionGroups: own.actionGroups.map((g) => ({ id: g.id, label: g.label })),

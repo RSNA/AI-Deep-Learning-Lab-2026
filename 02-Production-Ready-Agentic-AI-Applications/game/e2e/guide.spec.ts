@@ -96,10 +96,13 @@ test('the tour of each phase: it starts after the letter, steps back and forth, 
   for (let i = 0; i < 4; i++) await card.getByRole('button', { name: 'Next' }).click()
   await expect(card).toContainText('8 of 8')
   await card.getByRole('button', { name: 'End tour' }).click()
+  // The guided first build follows the tour. Skipped here, and the help panel offers it again.
+  await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /^Help/ }).click()
   await expect(page.getByRole('dialog').locator('.help-list li')).toHaveCount(8)
   await expect(page.getByRole('dialog')).toContainText('An i on a line')
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Do the guided first build' })).toBeVisible()
   s.close()
 })
 
@@ -114,6 +117,7 @@ test('Validate always says why, and every refused placement or line says why at 
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
+  await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   const why = page.locator('.vwhy')
   const vbtn = page.locator('.vbtn')
   const note = page.locator('.cnote')

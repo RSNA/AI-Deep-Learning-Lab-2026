@@ -115,6 +115,7 @@ test('nothing is cut on the screens of a player or of the host, from 360 to 1440
   await s.host('end_now'); await s.host('next'); await s.host('next')
   await page.getByRole('button', { name: 'Start building' }).click()
   await page.getByRole('button', { name: 'End tour' }).click()
+  await page.getByRole('button', { name: 'Skip the tutorial' }).click()
   // A first map at laptop width: an agent with its parts and a person who signs, then a validation.
   await tool(page, 'Agent').click(); await cell(page, 2, 2).click()
   await tool(page, 'Reference librarian').click(); await cell(page, 3, 2).click()

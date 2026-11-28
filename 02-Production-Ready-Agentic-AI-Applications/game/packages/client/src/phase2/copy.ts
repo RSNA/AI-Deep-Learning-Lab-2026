@@ -32,6 +32,11 @@ export const reach = (used: number, max: number, past = false): string => {
   return `only ${who} ${past ? 'got' : even ? 'gets' : 'get'} a full look`
 }
 
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+/** A small count in words, as a person would say it: "two models", "one place". */
+export const count = (n: number, one: string, many: string) => `${WORDS[n] ?? String(n)} ${n === 1 ? one : many}`
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
 export const P2 = {
   phase: 'Phase 2',
   actions: 'Actions',
@@ -92,6 +97,87 @@ export const P2 = {
     { area: '[data-tour="p2-validate"]', tab: 'map', title: 'Validate', text: 'Test the map against patients whose answers people checked. While the button cannot act, the line beside it says what to do next.' },
     { area: '[data-tour="p2-below"]', tab: 'results', title: 'Results and insights', text: 'Every validation stays here with its accuracy and one patient the map got wrong, and you can bring back the map of any of them. The opening letter and the insights of actions wait here too.' },
   ],
+  // The guided first build (section 10.5): hands-on, one step at a time, after the tour. Every
+  // sentence is said the way a friendly colleague would say it over the player's shoulder.
+  first: {
+    label: 'Your first build',
+    stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
+    skip: 'Skip the tutorial',
+    again: 'Do the guided first build',
+    action: {
+      title: 'Start by learning something',
+      text: (action: string) => `Good teams learn before they build. Press Start on “${action}”. It costs nothing, and your team comes back with a card that is worth reading.`,
+    },
+    wait: {
+      title: 'Your team is on it',
+      text: (s: number) => `Give them a moment. The card arrives in about ${s} ${s === 1 ? 'second' : 'seconds'}. The clock of the phase keeps running in the meantime, just like in real life.`,
+    },
+    card: {
+      title: 'Your first insight is in',
+      text: 'This card is what your team brought back. Have a look at it, because cards like this one tell you what your map needs. Every action that teaches you something leaves a card here.',
+      ok: 'I have read it',
+    },
+    pick: {
+      title: (label: string) => `Put your first ${label} on the map`,
+      text: (label: string) => `Press ${label} in the toolbox. It is the operator that works things out for itself, which is why it needs a model, a place to run and a prompt.`,
+    },
+    cell: {
+      title: 'Give it a spot',
+      text: (label: string) => `Now press any empty cell of the map. The ${label} works the same in every cell, so pick the spot you like.`,
+    },
+    model: {
+      title: 'Choose its model',
+      open: (name: string) => `Your ${name} cannot think without a model. Press the box that says “+ Model” on its tile.`,
+      choose: (n: number) => `You have ${count(n, 'model', 'models')} for now. Pick ${n === 1 ? 'it' : 'the one you want'}. Keep learning and building, and more will show up here.`,
+    },
+    runsOn: {
+      title: 'Choose where it runs',
+      open: 'A model has to run somewhere. Press the box that says “+ Runs on”.',
+      choose: (n: number) => `You have ${count(n, 'place', 'places')} to run it for now. Pick ${n === 1 ? 'it' : 'one'}. Keep learning and building, and more will show up here.`,
+    },
+    prompt: {
+      title: 'Have a look at its prompt',
+      open: 'The third box is the prompt, which is what you tell your agent to do. It came with a plain one. Press the box to see your choices.',
+      choose: (n: number) => `You have ${count(n, 'prompt', 'prompts')} for now. Read how each one starts and pick the one you would hand to a new colleague. Keep learning, and more will show up here.`,
+      keep: 'Keep the one it has',
+    },
+    source: {
+      title: 'Give it something to read',
+      from: (name: string, source: string | null) => `Right now your ${name} knows nothing about the patient. Press the round dot of a source on the left${source ? `, for example ${source}` : ''}.`,
+      to: (name: string) => `Now press your ${name}. The line you draw lets it read that source. You can add more sources later in the same way.`,
+    },
+    person: {
+      title: (label: string) => `Now bring in the ${label}`,
+      pick: (label: string) => `An agent should not send its work out unchecked. Press ${label} in the toolbox.`,
+      cell: (name: string) => `Press an empty cell to the right of your ${name}, so that the work flows from left to right.`,
+    },
+    handoff: {
+      title: 'Hand the work on',
+      from: (name: string) => `Press one of the round dots on your ${name}.`,
+      to: (from: string, to: string) => `Now press the ${to}. The thick line means that your ${from} hands its work on.`,
+    },
+    result: {
+      title: 'Bring it home',
+      from: (name: string) => `One more line and you have a system. Press a round dot on the ${name}.`,
+      to: (result: string) => `Now press “${result}” on the right. That is where the finished work goes.`,
+    },
+    validate: {
+      title: 'Put it to the test',
+      text: (free: boolean) => `Press Validate.${free ? ' This first one is free, so you have nothing to lose.' : ''} If the button is grey, the line beside it tells you what is still missing.`,
+    },
+    validating: {
+      title: 'The test is running',
+      text: 'Your map is working through patients whose answers people have already checked. The result is here in a few seconds.',
+    },
+    done: {
+      title: 'You built a working system',
+      text: (free: boolean, left: number) =>
+        `${free ? 'This validation was free.' : 'That was your first validation.'} You still have ${count(left, 'validation', 'validations')} left. Keep going until you find the system you want.`,
+      more: 'Your accuracy is in the list of validations, together with one patient the map got wrong.',
+      ok: 'Keep building',
+    },
+    cap,
+  },
   helpTitle: 'Help · Phase 2',
   helpIntro: 'Build a map that solves the problem of the letter, then validate it. The accuracy of your chosen map is your score.',
   helpMarks: 'What the marks on the map mean',
@@ -186,6 +272,7 @@ export const P2 = {
   privateWarn: 'Private data goes through a service that does not protect it.',
   validate: 'Validate',
   validateLeft: (n: number) => `Validate · ${n} left`,
+  validateFree: 'Validate · free',
   validating: (s: number) => `Validating · ${secs(s)}`,
   noneLeft: 'No validations left',
   sameTitle: 'Validate the same map again?',
@@ -233,6 +320,10 @@ export const P2 = {
   validationsTitle: 'Your validations',
   usedOf: (n: number, of: number) => `${n} of ${of} used`,
   validationN: (n: number, of: number) => `Validation ${n} of ${of}`,
+  // A pack whose first validations are free numbers every validation and says which ones did not count.
+  validationPlain: (n: number) => `Validation ${n}`,
+  freeTag: 'Free',
+  usedOfFree: (n: number, of: number, free: number) => `${n} of ${of} used · ${free === 1 ? 'the first one was free' : `the first ${free} were free`}`,
   latest: 'Latest',
   accuracy: 'Accuracy',
   rank: (r: number, of: number) => `Rank ${r} of ${of}`,
