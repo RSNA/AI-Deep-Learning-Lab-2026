@@ -10,6 +10,7 @@ import { Avatar, SystemShape } from '../components/ui.tsx'
 import { SlideThumb } from '../components/slide.tsx'
 import { Marks } from '../lib/marks.tsx'
 import { H } from './hostCopy.ts'
+import { hintLines } from './hostHints.ts'
 import { Grid } from '../canvas/Grid.tsx'
 import { tileNames } from '../canvas/model.ts'
 import { gridWords, reasonText } from '../phase2/Phase2.tsx'
@@ -119,21 +120,35 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
   ))
   const joined = (ids: string[]) => list(ids).flatMap((x, i) => (i ? [', ', x] : [x]))
   const guide = c.guide.find((g) => g.id === guideOf)
-  // What holds the map back: the largest losses first, then what the scoring flags.
-  const back = c.losses.slice(0, 3).map((l, i) => {
+  // The hints on the shape of the map come first. They are about the map the coaching is about:
+  // the draft, or the chosen system while the draft is not ready.
+  const coachMap = c.of === 'chosen' ? d.validations.find((x) => x.id === c.chosen?.id)?.map ?? d.map : d.map
+  const coachNames = tileNames(coachMap, d.legend)
+  const hint = hintLines(c.hints, c.good, {
+    tile: (id) => coachNames.get(id)?.short ?? id, source: (id) => source(id), worker,
+    model: (id) => d.legend.models.find((x) => x.id === id)?.label ?? id,
+    action: (id) => d.actions.find((x) => x.id === id)?.title ?? null,
+    money: (x) => `${runCost(x)}${d.moneyUnit ? ` ${d.moneyUnit}` : ''}`, billed: false,
+  })
+  // What holds the map back: the hints, then the largest losses that no hint names, then what
+  // the scoring flags. Four lines at most.
+  const losses = c.losses.filter((l) => l.source === null || !hint.sources.has(l.source))
+  const lossBack = losses.slice(0, 3).map((l, i) => {
     const n = C.patients(l.lost, c.total)
     const line = l.reason === 'decision' ? C.decision(n) : l.reason === 'missing' ? C.missing(source(l.source), n) : C.weak(source(l.source), n)
     return <li key={`l${i}`}>{line}{l.best && l.reason !== 'decision' ? ` ${C.best(worker(l.best.worker), l.best.via ? worker(l.best.via) : null, l.best.quality)}` : ''}</li>
   })
   // The flags in one line, so that the list stays short.
-  const flagLines = raised.length ? [<li key="flags">{C.flags}{raised.map(([k, ids]) => `${H.dev.flagName[k]} (${ids.map((id) => names.get(id)?.label ?? id).join(', ')})`).join('; ')}.</li>] : []
+  const flagLines = raised.length ? [<li key="flags">{C.flags}{raised.map(([k, ids]) => `${H.dev.flagName[k]} (${ids.map((id) => names.get(id)?.short ?? id).join(', ')})`).join('; ')}.</li>] : []
+  const back = [...hint.holds.map((x, i) => <li key={`h${i}`} data-testid="coach-hint">{x}</li>), ...lossBack].slice(0, flagLines.length ? 3 : 4)
   // Worth saying, three lines at most: one for each of the two largest losses, and one for the
   // flag that costs the most. Then what the reference map has that this map lacks.
   const worst = FLAG_ORDER.find((k) => raised.some(([x]) => x === k))
   const say = [
-    ...c.losses.slice(0, 2).map((l, i) => <li key={`s${i}`}>{l.reason === 'decision' || !l.best ? C.sayDecision : C.sayRead(source(l.source), worker(l.best.worker), l.best.via ? worker(l.best.via) : null)}</li>),
+    ...hint.say.map((x, i) => <li key={`h${i}`} data-testid="coach-ask">{x}</li>),
+    ...losses.slice(0, 2).map((l, i) => <li key={`s${i}`}>{l.reason === 'decision' || !l.best ? C.sayDecision : C.sayRead(source(l.source), worker(l.best.worker), l.best.via ? worker(l.best.via) : null)}</li>),
     ...(worst && C.sayFlag[worst] ? [<li key="flag">{C.sayFlag[worst]}</li>] : []),
-  ]
+  ].slice(0, c.missing.length ? 3 : 4)
   const acc = (x: number) => P2.acc1(x)
   return (
     <div className="inspect">
@@ -161,7 +176,8 @@ function DevelopmentInspect({ d }: { d: NonNullable<HostInspect['development']> 
           </div>
           <div>
             <div className="eyebrow">{C.good}</div>
-            {c.shared.length ? <p>{C.shared}{joined(c.shared)}</p> : <div className="muted">{C.nothingGood}</div>}
+            {hint.good.length > 0 && <ul>{hint.good.slice(0, 2).map((x, i) => <li key={i} data-testid="coach-good">{x}</li>)}</ul>}
+            {c.shared.length ? <p>{C.shared}{joined(c.shared)}</p> : hint.good.length === 0 && <div className="muted">{C.nothingGood}</div>}
             {c.extra.length > 0 && <p>{C.extra}{joined(c.extra)}</p>}
           </div>
         </div>
@@ -233,18 +249,36 @@ function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> 
   const M = H.mnt
   // What a map of their list is called, as on the player's screen.
   const names = new Map(m.validations.map((v, i) => [v.id, M.systemN(i + 1, v.origin === 'reference')]))
-  const nameOf = (id: string) => m.legend.workers.find((w) => w.id === id)?.label ?? m.actions.find((a) => a.id === id)?.title ?? id
+  // A guide may be about a worker, an action, a model, a place to run or a source.
+  const nameOf = (id: string) => m.legend.workers.find((w) => w.id === id)?.label ?? m.actions.find((a) => a.id === id)?.title
+    ?? m.legend.models.find((x) => x.id === id)?.label ?? m.legend.compute.find((x) => x.id === id)?.label ?? m.legend.sources.find((x) => x.id === id)?.label ?? id
   const runs = m.validations.find((v) => v.id === m.deployed) ?? null
   const guide = m.key.guide.find((g) => g.id === guideOf)
   const v = m.validations.find((x) => x.id === shown)
   const ref = m.key.references.find((x) => x.id === refAt)
   const out1 = (x: number) => (Math.round(1000 * x) / 10).toFixed(1)
-  const col = (title: string, lines: string[]) => (
+  const col = (title: string, lines: string[], test?: string) => (
     <div>
       <div className="eyebrow">{title}</div>
-      {lines.length ? <ul>{lines.map((x, i) => <li key={i}>{x}</li>)}</ul> : <div className="muted">{M.nothing}</div>}
+      {lines.length ? <ul data-testid={test}>{lines.map((x, i) => <li key={i}>{x}</li>)}</ul> : <div className="muted">{M.nothing}</div>}
     </div>
   )
+  // The hints on the shape of the system in service stand after what the year did to this
+  // player (`first`) and before the rest. Four lines a column at most.
+  const runNames = runs ? tileNames(runs.map, m.legend) : new Map<string, { short: string; label: string }>()
+  const hint = hintLines(m.hints, m.good, {
+    tile: (id) => runNames.get(id)?.short ?? id,
+    source: (id) => m.legend.sources.find((x) => x.id === id)?.label ?? id,
+    worker: (id) => m.legend.workers.find((w) => w.id === id)?.label ?? id,
+    model: (id) => m.legend.models.find((x) => x.id === id)?.label ?? id,
+    action: (id) => m.actions.find((x) => x.id === id)?.title ?? null,
+    money: (x) => `${runCost(x)}${m.moneyUnit ? ` ${m.moneyUnit}` : ''}`,
+    billed: m.reports.length > 0 && m.reports[m.reports.length - 1]!.map === m.deployed,
+  })
+  const g = m.glimpse
+  const holds = [...g.holds.slice(0, g.first.holds), ...hint.holds, ...g.holds.slice(g.first.holds)].slice(0, 4)
+  const say = [...g.say.slice(0, g.first.say), ...hint.say, ...g.say.slice(g.first.say)].slice(0, 4)
+  const well = [...hint.good, ...g.good].slice(0, 4)
   return (
     <div className="inspect">
       <div className="inspect-top">
@@ -258,9 +292,9 @@ function MaintainingInspect({ m }: { m: NonNullable<HostInspect['maintaining']> 
       <section className="coach" aria-label={M.title}>
         <div className="coach-head"><b>{M.title}</b></div>
         <div className="coach-cols">
-          {col(M.holds, m.glimpse.holds)}
-          {col(M.say, m.glimpse.say)}
-          {col(M.good, m.glimpse.good)}
+          {col(M.holds, holds, 'glimpse-holds')}
+          {col(M.say, say, 'glimpse-say')}
+          {col(M.good, well, 'glimpse-good')}
         </div>
         {m.key.guide.length > 0 && (
           <div className="hint">{M.guideLine}{m.key.guide.map((g, i) => (

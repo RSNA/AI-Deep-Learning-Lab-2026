@@ -14,6 +14,7 @@ import { PHASE_MODULES } from '../phases/index.ts'
 import { bandwidthFree, markOf } from '../phases/planning.ts'
 import { developersFree, runsUsed, shownActions, submitted, unlockedOf } from '../phases/development.ts'
 import { bestReaders, evaluate, running as runningOf, type Evaluation } from '../canvas.ts'
+import { mapHints } from '../hints.ts'
 import { actionView, boardNumber, canvasContent, canvasLegend, detailView, incompleteTiles, mapView, marksView, missedView, referenceViews, runningView, tileView } from './canvas.ts'
 import { maintainingContent, maintainingInspect, maintainingStatus, maintainingView } from './maintaining.ts'
 import { deckSlides, sectionOf } from '../deck.ts'
@@ -816,6 +817,32 @@ function playerStatus(s: SessionState, pack: Pack, p: PlayerState): string {
   return maintainingStatus(pack, p)
 }
 
+/** After this long in Phase 2 with no validation, a player is marked for a visit. */
+const HELP_AFTER_MS = 180_000
+
+/**
+ * Why a facilitator might visit this player first, or null. Only what is cheap to know and
+ * hard to get wrong: no validation three minutes into Phase 2, and in Phase 3 no system in
+ * service or an account below zero.
+ */
+function playerHelp(s: SessionState, p: PlayerState, nowGame: number): HostPlayerRow['help'] {
+  if (p.removed) return null
+  const ph = phaseOfStage(s.stage)
+  if (!ph || s.closedPhases.includes(ph) || s.stageEndsAtMs === null) return null
+  if (ph === 'development') {
+    const st = p.development
+    if (!st || st.validations.length > 0 || st.validating) return null
+    return nowGame - s.stageStartedMs >= HELP_AFTER_MS ? 'no_validation' : null
+  }
+  if (ph === 'maintaining') {
+    const st = p.maintaining
+    if (!st) return null
+    if (st.money < 0) return 'below_zero'
+    return st.deployed === null ? 'no_system' : null
+  }
+  return null
+}
+
 /**
  * One player beside the key, for a host (section 10.8). The classes of the player are those held
  * now, or those sent. The key is on it in every stage, so it never goes to a player or a screen.
@@ -901,7 +928,7 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
       running: runningView(run.running, st.map, b),
       reference: { map: mapView(ref), summary: b.key.reference.public_summary, accuracy: evaluate(ref, b).accuracy },
     },
-    coach: coachView(b, st, ev, ref),
+    coach: coachView(b, st, ev, ref, unlockedOf(pack, p)),
   }
 }
 
@@ -910,7 +937,7 @@ function developmentInspect(s: SessionState, pack: Pack, p: PlayerState): HostIn
  * would read each of those sources best, and how its tiles compare with the reference map. It
  * judges the draft when the draft is ready, and the chosen map otherwise.
  */
-function coachView(b: BuildFile, st: DevelopmentState, draft: Evaluation | null, ref: PackCanvasMap): NonNullable<HostInspect['development']>['coach'] {
+function coachView(b: BuildFile, st: DevelopmentState, draft: Evaluation | null, ref: PackCanvasMap, unlocked: ReadonlySet<string>): NonNullable<HostInspect['development']>['coach'] {
   const chosenV = submitted(st)
   const chosenEv = !draft && chosenV ? evaluate(chosenV.map, b) : null
   const ev = draft ?? chosenEv
@@ -937,6 +964,7 @@ function coachView(b: BuildFile, st: DevelopmentState, draft: Evaluation | null,
     accuracy: ev ? ev.accuracy : null,
     chosen: chosenV ? { id: chosenV.id, accuracy: chosenV.accuracy } : null,
     total, losses, shared, missing, extra, guide,
+    ...mapHints(map, b, unlocked, ref),
   }
 }
 
@@ -974,6 +1002,7 @@ export function hostView(s: SessionState, pack: Pack, x: HostExtras): HostView {
     id: p.id, name: p.name, avatar: p.avatar, system: p.system,
     connected: x.connected(p.id), removed: p.removed,
     status: playerStatus(s, pack, p),
+    help: playerHelp(s, p, nowGame),
     points: {
       planning: p.results.planning?.points ?? null, development: p.results.development?.points ?? null,
       maintaining: p.results.maintaining?.points ?? null, total: overallPoints(s, p),

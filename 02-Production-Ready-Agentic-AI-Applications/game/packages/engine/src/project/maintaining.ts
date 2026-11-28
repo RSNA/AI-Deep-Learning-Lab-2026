@@ -9,6 +9,7 @@ import {
 import type { MaintainingContent, MaintainingReport as ReportView, MaintainingSpent, MaintainingView } from '@lab02/protocol'
 import type { HostInspect } from '@lab02/protocol/host'
 import { running as runningOf, type BillLine } from '../canvas.ts'
+import { costFirst, mapHints, type MapHints } from '../hints.ts'
 import { baselineMap, counts, lensHeld, year, type HeldAction } from '../maintain.ts'
 import {
   developersFreeIn3, heldActions, paidOf, referenceOffer, roundEndMs, roundsNow, runsUsed, scoreSoFar, shownActionsIn3, unlockedIn3, unseenModels,
@@ -339,6 +340,11 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
     holds.push('No system of theirs runs. The practice works as it did before the project.')
     say.push(st.validations.length ? 'They have a system on their list. Ask why it is not deployed.' : 'Ask whether they want to start from the proposed system, and deploy it.')
   }
+  // An account below zero stops every purchase, so it stands before everything else that is said.
+  if (st.money < 0) {
+    holds.push('Their account is below zero, so they cannot buy anything. Every report takes the running cost of the system in service.')
+    if (last && last.runCost > 0) say.push('Ask which line of their last bill is the largest. A text tool in front of a long source, a smaller model for the agent that gathers, or another place to run the models would each make it smaller.')
+  }
   // What acts on them now: every event that cost them something in the last report.
   for (const x of last?.events ?? []) {
     if (!x.hit) continue
@@ -347,6 +353,8 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
     if (holds.length < 4) holds.push(coach.holds)
     if (say.length < 4) say.push(coach.say)
   }
+  // Up to here the lines stand before the hints on the shape of the system (`first`).
+  const first = { holds: holds.length, say: say.length }
   if (last && !last.noMap) {
     if (last.reliability < 0.85 && run) holds.push(`Their map stops often: ${run.map.tiles.length} tiles and ${run.map.lines.length} lines, and each one can fail.`)
     if (last.off > 0) holds.push('The people who check are asked more than once, or for more minutes than they have.')
@@ -361,12 +369,29 @@ function glimpse(f: Files, st: MaintainingState, held: readonly HeldAction[]): N
   if (lenses > 0) good.push(`They look before they change: ${lenses} of the actions that make a report say more are done.`)
   const repaired = mt.events.filter((e) => e.from <= seen && counts(held, e.repaired_by, seen + 1, e.from) && e.reveal).map((e) => e.reveal!.title)
   if (repaired.length) good.push(`They repaired what broke: ${repaired.join(', ')}.`)
-  if (st.money < 0) holds.push('Their account is below zero, so they cannot buy anything. Every report takes the running cost of the system in service.')
-  if (st.money < 0 && last && last.runCost > 0) say.push('Ask which line of their last bill is the largest, and whether another place to run the models would cost less.')
   const start = mt.grants.reduce((sum, g) => sum + (g.round <= st.roundsOpened ? g.money : 0), 0)
   if (seen >= 3 && st.money > 0.6 * start && (last?.events.some((x) => x.hit) ?? false)) say.push('They still hold most of their money. Ask what the last report says is worth paying for.')
   if (run && b3.sources.length && st.adopted.length === 0 && run.origin !== 'reference') good.push('They run a system of their own.')
-  return { holds: holds.slice(0, 4), say: say.slice(0, 4), good: good.slice(0, 4) }
+  return { holds, say, good, first }
+}
+
+/**
+ * What the shape of the system in service says to a host who helps (`mapHints`). The money is
+ * that of the last bill, per month, when that bill was for this system. When the bill is the
+ * trouble (an account below zero, or the models as its largest line), the hints about cost
+ * come first. The locked sources are a matter of Phase 2 and are left out.
+ */
+function serviceHints(pack: Pack, p: PlayerState, st: MaintainingState, b3: BuildFile): MapHints {
+  const run = st.deployed === null ? undefined : st.validations.find((v) => v.id === st.deployed)
+  if (!run) return { hints: [], good: [] }
+  const last = st.reports[st.reports.length - 1]
+  const billed = last && last.map === run.id && last.reads
+    ? Object.fromEntries(Object.entries(last.reads).map(([tile, r]) => [tile, { money: r.money / 2 }]))
+    : undefined
+  const h = mapHints(run.map, b3, unlockedIn3(pack, p), null, billed)
+  const calls = (last?.bill ?? []).filter((x) => x.kind === 'calls').reduce((sum, x) => sum + x.money, 0)
+  const other = Math.max(0, ...(last?.bill ?? []).filter((x) => x.kind !== 'calls').map((x) => x.money))
+  return st.money < 0 || (calls > 0 && calls >= other) ? costFirst(h) : h
 }
 
 /**
@@ -436,5 +461,6 @@ export function maintainingInspect(s: SessionState, pack: Pack, p: PlayerState):
       guide,
     },
     glimpse: glimpse(f, st, held),
+    ...serviceHints(pack, p, st, b3),
   }
 }

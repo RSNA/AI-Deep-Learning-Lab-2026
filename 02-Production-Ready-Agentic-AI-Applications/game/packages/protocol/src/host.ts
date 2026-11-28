@@ -42,6 +42,9 @@ export const HostPlayerRow = S({
   id: z.string(), name: Text, avatar: AvatarId, system: z.string(),
   connected: z.boolean(), removed: z.boolean(),
   status: Text,
+  // Why a facilitator might visit this player first, or null: no validation three minutes into
+  // Phase 2, no system in service or an account below zero in Phase 3.
+  help: z.enum(['no_validation', 'no_system', 'below_zero']).nullable(),
   points: S({ planning: Int.nullable(), development: Int.nullable(), maintaining: Int.nullable(), total: Int }),
   idleSeconds: z.number().nullable(),
   joinedAtMs: z.number(),
@@ -99,6 +102,33 @@ export type HostView = z.infer<typeof HostView>
 export const HostWelcome = S({ t: z.literal('welcome'), protocol: Int, build: z.string(), role: z.literal('host'), view: HostView })
 export const HostViewMsg = S({ t: z.literal('host_view'), view: HostView })
 export const HostAck = S({ t: z.literal('ack'), cid: z.string(), ok: z.boolean(), error: ErrorCode.optional(), data: z.unknown().optional() })
+/**
+ * What a host can say to a player about the shape of a map (section 10.8), as data: the console
+ * writes the sentences with the names of the legend. `tile`, `via`, `decider` and `required` are
+ * tiles of the map the hints are about, `source`, `model`, `cheaper` and `tool` are ids of the
+ * legend, and `action` is an id of the list of actions. Host only.
+ */
+export const CoachHint = z.discriminatedUnion('kind', [
+  // A source that the proposed system reads is still locked for this player.
+  S({ kind: z.literal('locked_source'), source: z.string(), action: z.string().nullable() }),
+  // A tile stands behind the last required worker on the way to the result.
+  S({ kind: z.literal('after_required'), tile: z.string(), required: z.string() }),
+  // A source that every case needs reaches the agent that decides only through another agent.
+  S({ kind: z.literal('through_agent'), source: z.string(), via: z.string(), decider: z.string(), lossPercent: z.number() }),
+  // A model that costs money reads long sources whole, and a tool they have would shorten them.
+  // `cheapest`: no model of theirs costs less, so a smaller model is not the advice.
+  S({ kind: z.literal('reads_whole'), tile: z.string(), model: z.string(), sources: z.array(z.string()), tokens: z.number(), money: z.number(), tool: z.string(), cheapest: z.boolean() }),
+  // An agent that only gathers runs on the dearest model, and a cheaper one finds as much.
+  S({ kind: z.literal('dear_gatherer'), tile: z.string(), model: z.string(), cheaper: z.string(), money: z.number() }),
+])
+export type CoachHint = z.infer<typeof CoachHint>
+export const CoachGood = z.discriminatedUnion('kind', [
+  S({ kind: z.literal('required_last'), required: z.string() }),
+  S({ kind: z.literal('decider_direct'), decider: z.string() }),
+  S({ kind: z.literal('reads_short') }),
+])
+export type CoachGood = z.infer<typeof CoachGood>
+
 /**
  * One player as a host sees them (section 10.8): what they did in each phase so far, beside the
  * key. Only a host socket receives this, in any stage, so a host can help a player who is stuck.
@@ -158,6 +188,10 @@ export const HostInspect = S({
       missing: z.array(z.string()),                         // kinds of the reference map that this map lacks
       extra: z.array(z.string()),                           // kinds on this map that the reference map does not use
       guide: z.array(S({ id: z.string(), best: Text, wrong: Text })),   // for the kinds named above
+      // What the shape of the map says, the most pressing first, and what is good about it. They
+      // are about the same map as the rest (`of`), and about the draft when there is none to judge.
+      hints: z.array(CoachHint),
+      good: z.array(CoachGood),
     }),
   }).nullable(),
   // Phase 3 (section 10.8): the year so far as numbers, the map that runs, and beside them the
@@ -194,7 +228,13 @@ export const HostInspect = S({
       guide: z.array(S({ id: z.string(), best: Text, wrong: Text })),
     }),
     // What holds this player back, what to say, and what is good. A few lines each, for a host.
-    glimpse: S({ holds: z.array(Text), say: z.array(Text), good: z.array(Text) }),
+    // `first`: how many lines of `holds` and of `say` come before the hints (that no system runs,
+    // an account below zero, and what the events of the pack did to this player).
+    glimpse: S({ holds: z.array(Text), say: z.array(Text), good: z.array(Text), first: S({ holds: Int, say: Int }) }),
+    // What the shape of the system in service says, and what is good about it. When the bill is
+    // the trouble, the hints about cost come first, with the money of the last bill per month.
+    hints: z.array(CoachHint),
+    good: z.array(CoachGood),
   }).nullable(),
 })
 export type HostInspect = z.infer<typeof HostInspect>

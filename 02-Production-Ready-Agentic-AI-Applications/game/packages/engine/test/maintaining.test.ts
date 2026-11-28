@@ -732,6 +732,16 @@ describe('the host and the projector', () => {
     expect(h.legend.workers.map((w) => w.id)).toContain('rb-w-gateway')
     const none = project.hostInspect(s, pack, 'p3', true)!.maintaining!
     expect(none.glimpse.holds[0]).toMatch(/No system/)
+    // The lines of the year stand before the hints on the shape of the system in service.
+    expect(h.glimpse.first.holds).toBeGreaterThanOrEqual(1)
+    expect(h.glimpse.first.holds).toBeLessThanOrEqual(h.glimpse.holds.length)
+    expect(none.glimpse.first).toEqual({ holds: 1, say: 1 })
+    expect(none.hints).toEqual([])
+    expect(Array.isArray(h.hints) && Array.isArray(h.good)).toBe(true)
+    expect(h.hints.some((x) => x.kind === 'locked_source')).toBe(false)
+    const rows = project.hostView(s, pack, { clock: { gameMs: boundary(t0, 5) - 10, running: true, scale: 1 }, connected: () => true, publicUrl: 'http://x', wallNowMs: 0, stageWall: {}, answerKey: false, guide: false, screens: 0 }).players
+    expect(rows.find((r) => r.id === 'p3')!.help).toBe('no_system')
+    expect(rows.find((r) => r.id === 'p1')!.help).toBe(s.players.p1!.maintaining!.money < 0 ? 'below_zero' : null)
     // Nothing of the key is in the player's own view.
     expect(JSON.stringify(view(s))).not.toContain(M.events.find((e) => e.id === 'rb-e-audit')!.key!.coach!.holds)
   })
