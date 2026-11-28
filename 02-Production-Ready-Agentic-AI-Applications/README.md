@@ -10,6 +10,15 @@
 
 > Dates and times may change. Please check the official RSNA 2026 Annual Meeting program for the latest schedule.
 
+## Play the game
+
+**The game runs at [radagents.tech](https://radagents.tech).** You only need a phone or a laptop with a browser. There is nothing to install and no account to create.
+
+- **During the session,** scan the QR code on the screen, or open [radagents.tech](https://radagents.tech) and type the code that the facilitators show. You name your practice and you are in.
+- **After the session,** the game stays open for one month. Open the same address, choose "Play on your own" and enter the passcode that the facilitators gave out in the room. A game on your own runs at your pace, and you can play it as often as you like.
+
+A game cannot be started without that code or passcode, so please ask a facilitator if you did not get one.
+
 ## Faculty
 
 - **Moderator:** Pouria Rouzrokh, MD MPH MHPE — Yale University
