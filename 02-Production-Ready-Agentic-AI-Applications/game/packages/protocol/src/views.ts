@@ -221,7 +221,7 @@ export type PhaseContent = z.infer<typeof PhaseContent>
 // ------------------------------------------------------------------------------------------
 // Slides (one deck per session). A slide reaches a browser only while it is shown.
 // ------------------------------------------------------------------------------------------
-export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings'] as const
+export const SLIDE_LAYOUTS = ['bullets', 'title', 'cards', 'figures', 'closing', 'standings', 'phase', 'shot'] as const
 export const SlideLayout = z.enum(SLIDE_LAYOUTS)
 export type SlideLayout = z.infer<typeof SlideLayout>
 export const SlideTone = z.enum(['go', 'sky', 'sun', 'lav', 'rose'])
@@ -233,18 +233,21 @@ export const SlideView = S({
   section: Text,
   layout: SlideLayout,
   title: Text,
+  kicker: Text.nullable(),          // a short line over the title
   subtitle: Text.nullable(),
   bullets: z.array(Text),
   // `system`: the index of a health system of the session, when the box belongs to one. It then
   // takes that system's color and shape in place of its tone.
   cards: z.array(S({ title: Text, text: Text.nullable(), points: z.array(Text), tag: Text.nullable(), tone: SlideTone, system: Int.nullable() })),
   people: z.array(S({ name: Text, role: Text.nullable(), photo: z.string().nullable() })),   // photo: URL under the pack's art
-  figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), tone: SlideTone })),
+  // `mark`: the words in the box that stands in for a picture.
+  figures: z.array(S({ image: z.string().nullable(), title: Text, caption: Text.nullable(), mark: Text.nullable(), tone: SlideTone })),
   // A QR code. `join` is the join link of the session, which every client already holds.
   // `link` carries its own URL, or null for a frame that waits for one.
   qr: S({ show: z.enum(['join', 'link']), url: z.string().nullable(), label: Text.nullable() }).nullable(),
   references: z.array(Text),
   image: z.string().nullable(),     // URL under the pack's art
+  images: z.array(z.string()),      // more pictures beside it, in one row
   stat: S({ label: Text, value: Text }).nullable(),   // a room statistic that is one number. "–" until the room has it
   // Room statistics drawn as bars, each a share in percent. A bar has no value until the phase
   // behind it is scored: the frame of the chart shows before the numbers do.

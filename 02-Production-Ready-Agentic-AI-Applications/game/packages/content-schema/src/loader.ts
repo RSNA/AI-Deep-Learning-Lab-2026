@@ -387,11 +387,15 @@ function checkPack(
         else if (!artFiles.includes(path)) err('teaching/deck.yaml', where, `art/${path} does not exist`)
       }
       picture(sl.image, `${at}.image`)
+      sl.images?.forEach((x, k) => picture(x, `${at}.images[${k}]`))
+      if (sl.images?.length && sl.image === undefined) err('teaching/deck.yaml', `${at}.images`, 'more pictures stand beside `image`, which is missing')
       sl.people?.forEach((p, k) => picture(p.photo, `${at}.people[${k}].photo`))
       sl.figures?.forEach((f, k) => picture(f.image, `${at}.figures[${k}].image`))
       const layout = sl.layout ?? 'bullets'
       if (layout === 'cards' && !sl.cards?.length) err('teaching/deck.yaml', `${at}.cards`, 'a slide with the layout "cards" needs cards')
       if (layout === 'figures' && !sl.figures?.length) err('teaching/deck.yaml', `${at}.figures`, 'a slide with the layout "figures" needs figures')
+      if (layout === 'shot' && sl.image === undefined) err('teaching/deck.yaml', `${at}.image`, 'a slide with the layout "shot" needs an image')
+      if (sl.kicker !== undefined) words(sl.kicker, 'slide_title', 'teaching/deck.yaml', `${at}.kicker`)
       if (sl.qr?.show === 'join' && sl.qr.url !== undefined) err('teaching/deck.yaml', `${at}.qr.url`, 'the join code takes its link from the session')
       words(sl.title, 'slide_title', 'teaching/deck.yaml', `${at}.title`)
       if (sl.subtitle !== undefined) words(sl.subtitle, 'slide_bullet', 'teaching/deck.yaml', `${at}.subtitle`)
@@ -402,7 +406,10 @@ function checkPack(
         c.points?.forEach((x, n) => words(x, 'slide_bullet', 'teaching/deck.yaml', `${at}.cards[${k}].points[${n}]`))
         if (c.system !== undefined && !allSystems.includes(c.system)) err('teaching/deck.yaml', `${at}.cards[${k}].system`, `unknown health system "${c.system}"`)
       })
-      sl.figures?.forEach((f, k) => { if (f.caption !== undefined) words(f.caption, 'slide_card', 'teaching/deck.yaml', `${at}.figures[${k}].caption`) })
+      sl.figures?.forEach((f, k) => {
+        if (f.caption !== undefined) words(f.caption, 'slide_card', 'teaching/deck.yaml', `${at}.figures[${k}].caption`)
+        if (f.mark !== undefined) words(f.mark, 'slide_title', 'teaching/deck.yaml', `${at}.figures[${k}].mark`)
+      })
     })
   })
   reportCard?.sections.forEach((s, i) => unique(s.id, 'teaching/report-card.yaml', `sections[${i}].id`))
