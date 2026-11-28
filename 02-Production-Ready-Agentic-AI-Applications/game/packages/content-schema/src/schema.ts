@@ -343,8 +343,16 @@ const MapTile = S({
   model: Id.nullable().optional(), runs_on: Id.nullable().optional(), prompt: Id.nullable().optional(),
 })
 const MapSide = z.enum(['top', 'right', 'bottom', 'left'])
-/** A line of a map in a pack file. `from_side` and `to_side` are optional and only change how it is drawn. */
-export const PackMap = S({ tiles: z.array(MapTile), lines: z.array(S({ from: z.string(), to: z.string(), from_side: MapSide.optional(), to_side: MapSide.optional() })) })
+/**
+ * A map of a pack file. `from_side` and `to_side` of a line and `source_order` of the map are
+ * optional and only change how it is drawn: `source_order` is the order of the sources in their
+ * column, so that a proposed system can be drawn with short lines.
+ */
+export const PackMap = S({
+  tiles: z.array(MapTile),
+  lines: z.array(S({ from: z.string(), to: z.string(), from_side: MapSide.optional(), to_side: MapSide.optional() })),
+  source_order: z.array(Id).optional(),
+})
 export type PackMap = z.infer<typeof PackMap>
 
 export const NOTE_IDS = ['rushed', 'private_data', 'overloaded', 'distracting', 'prompt', 'stray'] as const

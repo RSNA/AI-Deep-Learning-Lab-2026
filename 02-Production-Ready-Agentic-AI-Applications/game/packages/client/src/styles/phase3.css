@@ -160,7 +160,8 @@
 .p3ref-h .p3map-acc .num { font-size: 40px; }
 .p3ref-t h3 { font-family: var(--face); font-weight: 400; font-size: 26px; line-height: 1.05; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .p3ref-t p { font-size: 15px; line-height: 1.45; margin: 2px 0 0; }
-.p3ref-map .cgrid { height: 330px; min-width: 620px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
+/* Six rows of 56 px with their gaps and the heading: at 330 px the sixth row and the last sources were cut off. */
+.p3ref-map .cgrid { height: 394px; min-width: 620px; column-gap: 16px; grid-template-columns: minmax(84px, 17%) repeat(var(--cols), minmax(0, 1fr)) minmax(64px, 12%); }
 /* In the small map of the dialog a tile has room for its name and three short lines: each part stays on one line. */
 .p3ref-map .cgrid.compact .ct-mini { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; line-height: 1; font-size: 8.6px; }
 .p3ref-map .cgrid.compact .ctile { padding-bottom: 0; }
@@ -205,7 +206,6 @@
 }
 @media (max-width: 1023px) {
   .p3n-v .num { font-size: 38px; }
-  .p3ref-map .cgrid { height: 300px; }
 }
 @media (max-width: 560px) {
   .p3two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

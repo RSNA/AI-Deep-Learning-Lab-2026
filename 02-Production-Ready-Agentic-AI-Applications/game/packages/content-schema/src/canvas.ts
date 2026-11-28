@@ -130,10 +130,11 @@ export function defaultPrompt(t: CanvasTables): string | null {
 }
 
 /** A map of a pack file (`runs_on`) in the form of the engine (`runsOn`). */
-export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string; from_side?: Side; to_side?: Side }[] }): CanvasMap {
+export function fromPackMap(m: { tiles: readonly { id: string; kind: string; col: number; row: number; model?: string | null; runs_on?: string | null; prompt?: string | null }[]; lines: readonly { from: string; to: string; from_side?: Side; to_side?: Side }[]; source_order?: readonly string[] }): CanvasMap {
   return {
     tiles: m.tiles.map((t) => ({ id: t.id, kind: t.kind, col: t.col, row: t.row, model: t.model ?? null, runsOn: t.runs_on ?? null, prompt: t.prompt ?? null })),
     lines: m.lines.map((l) => copyLine({ from: l.from, to: l.to, fromSide: l.from_side, toSide: l.to_side })),
+    ...(m.source_order ? { sourceOrder: [...m.source_order] } : {}),
   }
 }
 
